@@ -1,35 +1,40 @@
-FROM rust:1-bookworm AS base
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY ui/package.json ui/yarn.lock ./
+RUN --mount=type=cache,target=/root/.yarn \
+    yarn install --frozen-lockfile
 
-RUN apt-get update && apt-get -y upgrade && apt-get install -y libclang-dev pkg-config libsasl2-dev libssl-dev
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY ./ui .
 
-RUN cargo install cargo-chef --locked
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN --mount=type=cache,target=/app/.next/cache \
+    yarn build
+
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-FROM base AS planner
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-FROM base AS builder
-COPY --from=planner /app/recipe.json recipe.json
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/app/target \
-    cargo chef cook --recipe-path recipe.json
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
 
-COPY . .
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/app/target \
-    cargo build -p tips-ingress-rpc -p tips-audit && \
-    cp target/debug/tips-ingress-rpc /tmp/tips-ingress-rpc && \
-    cp target/debug/tips-audit /tmp/tips-audit
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-FROM debian:bookworm
+USER nextjs
 
-RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+EXPOSE 3000
 
-WORKDIR /app
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-COPY --from=builder /tmp/tips-audit /app/tips-audit
-COPY --from=builder /tmp/tips-ingress-rpc /app/tips-ingress-rpc
+CMD ["node", "server.js"]

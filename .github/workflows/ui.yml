@@ -5,9 +5,7 @@ permissions:
 on:
   push:
     branches: [ master ]
-    paths: ['ui/**']
   pull_request:
-    paths: ['ui/**']
 
 jobs:
   lint:
@@ -24,10 +22,9 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
-          cache-dependency-path: ui/yarn.lock
-      - run: cp .env.example ui/.env
-      - run: cd ui && yarn install
-      - run: cd ui && yarn lint
+      - run: cp .env.example .env
+      - run: yarn install
+      - run: yarn lint
 
   type-check:
     name: Type Check
@@ -43,10 +40,9 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
-          cache-dependency-path: ui/yarn.lock
-      - run: cp .env.example ui/.env
-      - run: cd ui && yarn install
-      - run: cd ui && npx tsc --noEmit
+      - run: cp .env.example .env
+      - run: yarn install
+      - run: npx tsc --noEmit
 
   build:
     name: Build
@@ -62,7 +58,6 @@ jobs:
         with:
           node-version: '20'
           cache: 'yarn'
-          cache-dependency-path: ui/yarn.lock
-      - run: cp .env.example ui/.env
-      - run: cd ui && yarn install
-      - run: cd ui && yarn build
+      - run: cp .env.example .env
+      - run: yarn install
+      - run: yarn build
