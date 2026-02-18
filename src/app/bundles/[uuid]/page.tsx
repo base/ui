@@ -299,6 +299,8 @@ function TransactionDetails({
 }
 
 function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
+  const totalTimeUs = meter.totalExecutionTimeUs + meter.stateRootTimeUs;
+
   return (
     <Card>
       <div className="p-5">
@@ -310,9 +312,13 @@ function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 mb-1">Execution Time</div>
+            <div className="text-xs text-gray-500 mb-1">Total Time</div>
             <div className="text-xl font-semibold text-gray-900">
-              {meter.results.reduce((sum, r) => sum + r.executionTimeUs, 0)}μs
+              {totalTimeUs.toLocaleString()}μs
+            </div>
+            <div className="text-xs text-gray-500 mt-1 space-x-3">
+              <span>Execution {meter.totalExecutionTimeUs.toLocaleString()}μs</span>
+              <span>State Root {meter.stateRootTimeUs.toLocaleString()}μs</span>
             </div>
           </div>
           <div>
