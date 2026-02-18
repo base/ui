@@ -317,7 +317,9 @@ function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
               {totalTimeUs.toLocaleString()}μs
             </div>
             <div className="text-xs text-gray-500 mt-1 space-x-3">
-              <span>Execution {meter.totalExecutionTimeUs.toLocaleString()}μs</span>
+              <span>
+                Execution {meter.totalExecutionTimeUs.toLocaleString()}μs
+              </span>
               <span>State Root {meter.stateRootTimeUs.toLocaleString()}μs</span>
             </div>
           </div>
