@@ -299,41 +299,43 @@ function TransactionDetails({
 }
 
 function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
+  const totalTimeUs = meter.totalExecutionTimeUs + meter.stateRootTimeUs;
+
   return (
     <Card>
       <div className="p-5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-3 gap-6">
           <div>
-            <div className="text-xs text-gray-500 mb-1">Total Gas</div>
+            <div className="text-xs text-gray-500 mb-1">Execution</div>
             <div className="text-xl font-semibold text-gray-900">
-              {meter.totalGasUsed.toLocaleString()}
+              {meter.totalExecutionTimeUs.toLocaleString()}μs
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 mb-1">Execution Time</div>
+            <div className="text-xs text-gray-500 mb-1">State Root</div>
             <div className="text-xl font-semibold text-gray-900">
-              {meter.results.reduce((sum, r) => sum + r.executionTimeUs, 0)}μs
+              {meter.stateRootTimeUs.toLocaleString()}μs
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-500 mb-1">Gas Price</div>
+            <div className="text-xs text-gray-500 mb-1">Total Time</div>
             <div className="text-xl font-semibold text-gray-900">
-              {formatGasPrice(meter.bundleGasPrice)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 mb-1">Coinbase Diff</div>
-            <div className="text-xl font-semibold text-gray-900">
-              {formatHexValue(meter.coinbaseDiff)}
+              {totalTimeUs.toLocaleString()}μs
             </div>
           </div>
         </div>
       </div>
-      <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50 grid grid-cols-3 gap-4 text-xs">
+      <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50 grid grid-cols-5 gap-4 text-xs">
         <div>
-          <span className="text-gray-500">State Block</span>
+          <span className="text-gray-500">Total Gas</span>
           <span className="ml-2 font-medium text-gray-900">
-            #{meter.stateBlockNumber}
+            {meter.totalGasUsed.toLocaleString()}
+          </span>
+        </div>
+        <div>
+          <span className="text-gray-500">Gas Price</span>
+          <span className="ml-2 font-medium text-gray-900">
+            {formatGasPrice(meter.bundleGasPrice)}
           </span>
         </div>
         <div>
@@ -343,9 +345,15 @@ function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
           </span>
         </div>
         <div>
-          <span className="text-gray-500">ETH to Coinbase</span>
+          <span className="text-gray-500">Coinbase Diff</span>
           <span className="ml-2 font-medium text-gray-900">
-            {formatHexValue(meter.ethSentToCoinbase)}
+            {formatHexValue(meter.coinbaseDiff)}
+          </span>
+        </div>
+        <div>
+          <span className="text-gray-500">State Block</span>
+          <span className="ml-2 font-medium text-gray-900">
+            #{meter.stateBlockNumber}
           </span>
         </div>
       </div>

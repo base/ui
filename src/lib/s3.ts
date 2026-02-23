@@ -127,6 +127,7 @@ export interface MeterBundleResponse {
   stateBlockNumber: number;
   totalGasUsed: number;
   totalExecutionTimeUs: number;
+  stateRootTimeUs: number;
 }
 
 export interface BundleData {
