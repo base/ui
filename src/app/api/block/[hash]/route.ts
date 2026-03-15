@@ -47,6 +47,61 @@ async function fetchBlockFromRpc(
   }
 }
 
+function isBlockNumber(identifier: string): boolean {
+  return /^\d+$/.test(identifier);
+}
+
+async function fetchBlockFromRpcByNumber(
+  blockNumber: string,
+): Promise<Block<bigint, true> | null> {
+  try {
+    const block = await client.getBlock({
+      blockNumber: BigInt(blockNumber),
+      includeTransactions: true,
+    });
+    return block;
+  } catch (error) {
+    console.error("Failed to fetch block from RPC by number:", error);
+    return null;
+  }
+}
+
+async function buildAndCacheBlockData(
+  rpcBlock: Block<bigint, true>,
+  hash: Hash,
+  number: bigint,
+): Promise<BlockData> {
+  const transactions: BlockTransaction[] = await Promise.all(
+    rpcBlock.transactions.map(async (tx, index) => {
+      const { bundleId, executionTimeUs } =
+        await enrichTransactionWithBundleData(tx.hash);
+      return {
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to,
+        gasUsed: tx.gas,
+        executionTimeUs,
+        bundleId,
+        index,
+      };
+    }),
+  );
+
+  const blockData: BlockData = {
+    hash,
+    number,
+    timestamp: rpcBlock.timestamp,
+    transactions,
+    gasUsed: rpcBlock.gasUsed,
+    gasLimit: rpcBlock.gasLimit,
+    cachedAt: Date.now(),
+  };
+
+  await cacheBlockData(blockData);
+
+  return blockData;
+}
+
 // On OP Stack, the first transaction (index 0) is the L1 attributes deposit transaction.
 // This is not a perfect check (ideally we'd check tx.type === 'deposit' or type 0x7e),
 // but sufficient for filtering out system transactions that don't need simulation data.
@@ -133,9 +188,35 @@ export async function GET(
   { params }: { params: Promise<{ hash: string }> },
 ) {
   try {
-    const { hash } = await params;
+    const { hash: identifier } = await params;
 
-    const cachedBlock = await getBlockFromCache(hash);
+    // If the identifier is a block number, resolve it to a hash first
+    if (isBlockNumber(identifier)) {
+      const rpcBlock = await fetchBlockFromRpcByNumber(identifier);
+      if (!rpcBlock || !rpcBlock.hash || !rpcBlock.number) {
+        return NextResponse.json({ error: "Block not found" }, { status: 404 });
+      }
+
+      // Check cache by resolved hash
+      const cachedBlock = await getBlockFromCache(rpcBlock.hash);
+      if (cachedBlock) {
+        const { updatedBlock, hasUpdates } =
+          await refetchMissingTransactionSimulations(cachedBlock);
+        if (hasUpdates) {
+          await cacheBlockData(updatedBlock);
+        }
+        return NextResponse.json(serializeBlockData(updatedBlock));
+      }
+
+      const blockData = await buildAndCacheBlockData(
+        rpcBlock,
+        rpcBlock.hash,
+        rpcBlock.number,
+      );
+      return NextResponse.json(serializeBlockData(blockData));
+    }
+
+    const cachedBlock = await getBlockFromCache(identifier);
     if (cachedBlock) {
       const { updatedBlock, hasUpdates } =
         await refetchMissingTransactionSimulations(cachedBlock);
@@ -147,39 +228,16 @@ export async function GET(
       return NextResponse.json(serializeBlockData(updatedBlock));
     }
 
-    const rpcBlock = await fetchBlockFromRpc(hash);
+    const rpcBlock = await fetchBlockFromRpc(identifier);
     if (!rpcBlock || !rpcBlock.hash || !rpcBlock.number) {
       return NextResponse.json({ error: "Block not found" }, { status: 404 });
     }
 
-    const transactions: BlockTransaction[] = await Promise.all(
-      rpcBlock.transactions.map(async (tx, index) => {
-        const { bundleId, executionTimeUs } =
-          await enrichTransactionWithBundleData(tx.hash);
-        return {
-          hash: tx.hash,
-          from: tx.from,
-          to: tx.to,
-          gasUsed: tx.gas,
-          executionTimeUs,
-          bundleId,
-          index,
-        };
-      }),
+    const blockData = await buildAndCacheBlockData(
+      rpcBlock,
+      rpcBlock.hash,
+      rpcBlock.number,
     );
-
-    const blockData: BlockData = {
-      hash: rpcBlock.hash,
-      number: rpcBlock.number,
-      timestamp: rpcBlock.timestamp,
-      transactions,
-      gasUsed: rpcBlock.gasUsed,
-      gasLimit: rpcBlock.gasLimit,
-      cachedAt: Date.now(),
-    };
-
-    await cacheBlockData(blockData);
-
     return NextResponse.json(serializeBlockData(blockData));
   } catch (error) {
     console.error("Error fetching block data:", error);

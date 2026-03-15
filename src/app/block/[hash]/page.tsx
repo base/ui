@@ -244,6 +244,10 @@ export default function BlockPage({ params }: PageProps) {
   useEffect(() => {
     if (!hash) return;
 
+    setData(null);
+    setLoading(true);
+    setError(null);
+
     const fetchData = async () => {
       try {
         const response = await fetch(`/api/block/${hash}`);
@@ -321,15 +325,82 @@ export default function BlockPage({ params }: PageProps) {
             >
               TIPS
             </Link>
+            {data && (
+              <>
+                <div className="h-6 w-px bg-gray-200" />
+                <div className="flex items-center gap-1">
+                  {Number(data.number) > 0 ? (
+                    <Link
+                      href={`/block/${Number(data.number) - 1}`}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-900"
+                      title="Previous block"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <title>Previous block</title>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-300 cursor-not-allowed">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <title>Previous block</title>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </span>
+                  )}
+                  <Link
+                    href={`/block/${Number(data.number) + 1}`}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-900"
+                    title="Next block"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <title>Next block</title>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2 text-sm">
             <code className="font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded text-xs">
-              {hash.slice(0, 10)}...{hash.slice(-8)}
+              {(data?.hash ?? hash).slice(0, 10)}...
+              {(data?.hash ?? hash).slice(-8)}
             </code>
-            <CopyButton text={hash} />
+            <CopyButton text={data?.hash ?? hash} />
             {BLOCK_EXPLORER_URL && (
               <a
-                href={`${BLOCK_EXPLORER_URL}/block/${hash}`}
+                href={`${BLOCK_EXPLORER_URL}/block/${data?.hash ?? hash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
