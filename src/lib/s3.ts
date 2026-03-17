@@ -93,7 +93,7 @@ export interface BundleTransaction {
   gas: string;
   maxFeePerGas: string;
   maxPriorityFeePerGas: string;
-  to: string;
+  to: string | null;
   value: string;
   accessList: unknown[];
   input: string;
