@@ -183,7 +183,9 @@ function TransactionDetails({
             </div>
             <div className="text-xs text-gray-500 mt-0.5">
               {tx.signer.slice(0, 6)}...{tx.signer.slice(-4)} →{" "}
-              {tx.to.slice(0, 6)}...{tx.to.slice(-4)}
+              {tx.to
+                ? `${tx.to.slice(0, 6)}...${tx.to.slice(-4)}`
+                : "Contract Creation"}
             </div>
           </div>
         </div>
@@ -251,16 +253,22 @@ function TransactionDetails({
                 <tr>
                   <td className="text-gray-500 py-2">To</td>
                   <td className="py-2 text-right">
-                    <span className="inline-flex items-center gap-1">
-                      <ExplorerLink
-                        type="address"
-                        value={tx.to}
-                        className="font-mono text-gray-900"
-                      >
-                        {tx.to}
-                      </ExplorerLink>
-                      <CopyButton text={tx.to} />
-                    </span>
+                    {tx.to ? (
+                      <span className="inline-flex items-center gap-1">
+                        <ExplorerLink
+                          type="address"
+                          value={tx.to}
+                          className="font-mono text-gray-900"
+                        >
+                          {tx.to}
+                        </ExplorerLink>
+                        <CopyButton text={tx.to} />
+                      </span>
+                    ) : (
+                      <span className="font-mono text-gray-500">
+                        Contract Creation
+                      </span>
+                    )}
                   </td>
                 </tr>
               </tbody>
