@@ -92,16 +92,18 @@ function getHeatmapStyle(
 
 function TransactionRow({
   tx,
-  maxExecutionTime,
+  maxTotalTime,
 }: {
   tx: BlockTransaction;
-  maxExecutionTime: number;
+  maxTotalTime: number;
 }) {
   const hasBundle = tx.bundleId !== null;
   const hasExecutionTime = tx.executionTimeUs !== null;
   const executionTime = tx.executionTimeUs ?? 0;
+  const stateRootTime = tx.stateRootTimeUs ?? 0;
+  const totalTime = executionTime + stateRootTime;
   const heatmapStyle = hasExecutionTime
-    ? getHeatmapStyle(executionTime, maxExecutionTime)
+    ? getHeatmapStyle(totalTime, maxTotalTime)
     : null;
 
   const content = (
@@ -144,7 +146,7 @@ function TransactionRow({
           <span
             className={`inline-block px-2 py-0.5 rounded text-sm font-medium ${heatmapStyle.bg} ${heatmapStyle.text}`}
           >
-            {executionTime.toLocaleString()}μs
+            {totalTime.toLocaleString()}μs
           </span>
         ) : (
           <div className="text-sm font-medium text-gray-400">—</div>
@@ -171,6 +173,10 @@ function BlockStats({ block }: { block: BlockData }) {
     (sum, tx) => sum + (tx.executionTimeUs ?? 0),
     0,
   );
+  const totalStateRootTime = txsWithTime.reduce(
+    (sum, tx) => sum + (tx.stateRootTimeUs ?? 0),
+    0,
+  );
   const bundleCount = block.transactions.filter(
     (tx) => tx.bundleId !== null,
   ).length;
@@ -178,7 +184,7 @@ function BlockStats({ block }: { block: BlockData }) {
   return (
     <Card>
       <div className="p-5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
           <div>
             <div className="text-xs text-gray-500 mb-1">Block Number</div>
             <div className="text-xl font-semibold text-gray-900">
@@ -202,6 +208,14 @@ function BlockStats({ block }: { block: BlockData }) {
             <div className="text-xl font-semibold text-gray-900">
               {totalExecutionTime > 0
                 ? `${totalExecutionTime.toLocaleString()}μs`
+                : "—"}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 mb-1">Total State Root</div>
+            <div className="text-xl font-semibold text-gray-900">
+              {totalStateRootTime > 0
+                ? `${totalStateRootTime.toLocaleString()}μs`
                 : "—"}
             </div>
           </div>
@@ -284,11 +298,11 @@ export default function BlockPage({ params }: PageProps) {
     );
   }
 
-  const maxExecutionTime = data
+  const maxTotalTime = data
     ? Math.max(
         ...data.transactions
           .filter((tx) => tx.executionTimeUs !== null)
-          .map((tx) => tx.executionTimeUs ?? 0),
+          .map((tx) => (tx.executionTimeUs ?? 0) + (tx.stateRootTimeUs ?? 0)),
         0,
       )
     : 0;
@@ -478,7 +492,7 @@ export default function BlockPage({ params }: PageProps) {
                     <TransactionRow
                       key={tx.hash}
                       tx={tx}
-                      maxExecutionTime={maxExecutionTime}
+                      maxTotalTime={maxTotalTime}
                     />
                   ))}
                 </div>

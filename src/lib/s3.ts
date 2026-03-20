@@ -186,6 +186,7 @@ export interface BlockTransaction {
   to: string | null;
   gasUsed: bigint;
   executionTimeUs: number | null;
+  stateRootTimeUs: number | null;
   bundleId: string | null;
   index: number;
 }
