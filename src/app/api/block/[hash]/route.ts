@@ -73,7 +73,7 @@ async function buildAndCacheBlockData(
 ): Promise<BlockData> {
   const transactions: BlockTransaction[] = await Promise.all(
     rpcBlock.transactions.map(async (tx, index) => {
-      const { bundleId, executionTimeUs } =
+      const { bundleId, executionTimeUs, stateRootTimeUs } =
         await enrichTransactionWithBundleData(tx.hash);
       return {
         hash: tx.hash,
@@ -81,6 +81,7 @@ async function buildAndCacheBlockData(
         to: tx.to,
         gasUsed: tx.gas,
         executionTimeUs,
+        stateRootTimeUs,
         bundleId,
         index,
       };
@@ -109,34 +110,43 @@ function isSystemTransaction(tx: BlockTransaction): boolean {
   return tx.index === 0;
 }
 
-async function enrichTransactionWithBundleData(
-  txHash: string,
-): Promise<{ bundleId: string | null; executionTimeUs: number | null }> {
+async function enrichTransactionWithBundleData(txHash: string): Promise<{
+  bundleId: string | null;
+  executionTimeUs: number | null;
+  stateRootTimeUs: number | null;
+}> {
   const metadata = await getTransactionMetadataByHash(txHash);
   if (!metadata || metadata.bundle_ids.length === 0) {
-    return { bundleId: null, executionTimeUs: null };
+    return { bundleId: null, executionTimeUs: null, stateRootTimeUs: null };
   }
 
   const bundleId = metadata.bundle_ids[0];
   const bundleHistory = await getBundleHistory(bundleId);
   if (!bundleHistory) {
-    return { bundleId, executionTimeUs: null };
+    return { bundleId, executionTimeUs: null, stateRootTimeUs: null };
   }
 
   const receivedEvent = bundleHistory.history.find(
     (e) => e.event === "Received",
   );
   if (!receivedEvent?.data?.bundle?.meter_bundle_response?.results) {
-    return { bundleId, executionTimeUs: null };
+    return { bundleId, executionTimeUs: null, stateRootTimeUs: null };
   }
 
-  const txResult = receivedEvent.data.bundle.meter_bundle_response.results.find(
+  const meterResponse = receivedEvent.data.bundle.meter_bundle_response;
+
+  // TODO: Switch to meterResponse.totalExecutionTimeUs once 0.7 is deployed.
+  // On 0.6, totalExecutionTimeUs is the wall-clock total_time_us which includes
+  // setup, teardown, and state root (double-counting stateRootTimeUs). PR #1111
+  // fixes this on main to be the sum of per-tx execution times.
+  const txResult = meterResponse.results.find(
     (r: MeterBundleResult) => r.txHash.toLowerCase() === txHash.toLowerCase(),
   );
 
   return {
     bundleId,
     executionTimeUs: txResult?.executionTimeUs ?? null,
+    stateRootTimeUs: meterResponse.stateRootTimeUs ?? null,
   };
 }
 
@@ -153,9 +163,9 @@ async function refetchMissingTransactionSimulations(
 
   const refetchResults = await Promise.all(
     transactionsToRefetch.map(async (tx) => {
-      const { bundleId, executionTimeUs } =
+      const { bundleId, executionTimeUs, stateRootTimeUs } =
         await enrichTransactionWithBundleData(tx.hash);
-      return { hash: tx.hash, bundleId, executionTimeUs };
+      return { hash: tx.hash, bundleId, executionTimeUs, stateRootTimeUs };
     }),
   );
 
@@ -168,6 +178,7 @@ async function refetchMissingTransactionSimulations(
         ...tx,
         bundleId: refetchResult.bundleId,
         executionTimeUs: refetchResult.executionTimeUs,
+        stateRootTimeUs: refetchResult.stateRootTimeUs,
       };
     }
     return tx;
