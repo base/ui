@@ -110,9 +110,7 @@ function isSystemTransaction(tx: BlockTransaction): boolean {
   return tx.index === 0;
 }
 
-async function enrichTransactionWithBundleData(
-  txHash: string,
-): Promise<{
+async function enrichTransactionWithBundleData(txHash: string): Promise<{
   bundleId: string | null;
   executionTimeUs: number | null;
   stateRootTimeUs: number | null;
