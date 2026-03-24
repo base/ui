@@ -307,7 +307,15 @@ function TransactionDetails({
 }
 
 function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
-  const totalTimeUs = meter.totalExecutionTimeUs + meter.stateRootTimeUs;
+  // TODO: Switch to meter.totalExecutionTimeUs once 0.7 is deployed.
+  // On 0.6, totalExecutionTimeUs is the wall-clock total_time_us which includes
+  // setup, teardown, and state root (double-counting stateRootTimeUs). PR #1111
+  // fixes this on main to be the sum of per-tx execution times.
+  const executionTimeUs = meter.results.reduce(
+    (sum, r) => sum + r.executionTimeUs,
+    0,
+  );
+  const totalTimeUs = executionTimeUs + meter.stateRootTimeUs;
 
   return (
     <Card>
@@ -316,7 +324,7 @@ function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
           <div>
             <div className="text-xs text-gray-500 mb-1">Execution</div>
             <div className="text-xl font-semibold text-gray-900">
-              {meter.totalExecutionTimeUs.toLocaleString()}μs
+              {executionTimeUs.toLocaleString()}μs
             </div>
           </div>
           <div>
