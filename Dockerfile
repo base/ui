@@ -1,18 +1,16 @@
-FROM node:20-alpine AS deps
+FROM oven/bun:1 AS deps
 WORKDIR /app
-COPY ui/package.json ui/yarn.lock ./
-RUN --mount=type=cache,target=/root/.yarn \
-    yarn install --frozen-lockfile
+COPY ui/package.json ui/bun.lock ./
+RUN bun install --frozen-lockfile
 
-FROM node:20-alpine AS builder
+FROM oven/bun:1 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY ./ui .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN --mount=type=cache,target=/app/.next/cache \
-    yarn build
+RUN bun run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
