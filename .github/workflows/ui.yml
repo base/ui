@@ -18,13 +18,12 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f3041c293e6c0e56a2a7af # v2.0.2
         with:
-          node-version: '20'
-          cache: 'yarn'
+          bun-version: latest
       - run: cp .env.example .env
-      - run: yarn install
-      - run: yarn lint
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
 
   type-check:
     name: Type Check
@@ -36,13 +35,12 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f3041c293e6c0e56a2a7af # v2.0.2
         with:
-          node-version: '20'
-          cache: 'yarn'
+          bun-version: latest
       - run: cp .env.example .env
-      - run: yarn install
-      - run: npx tsc --noEmit
+      - run: bun install --frozen-lockfile
+      - run: bun run tsc --noEmit
 
   build:
     name: Build
@@ -54,10 +52,9 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f3041c293e6c0e56a2a7af # v2.0.2
         with:
-          node-version: '20'
-          cache: 'yarn'
+          bun-version: latest
       - run: cp .env.example .env
-      - run: yarn install
-      - run: yarn build
+      - run: bun install --frozen-lockfile
+      - run: bun run build
