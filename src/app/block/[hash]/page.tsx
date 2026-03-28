@@ -152,7 +152,9 @@ function TransactionRow({
           <div className="text-sm font-medium text-gray-400">—</div>
         )}
         <div className="text-xs text-gray-500 mt-0.5">
-          {tx.gasUsed.toLocaleString()} gas
+          {tx.gasUsed != null
+            ? `${tx.gasUsed.toLocaleString()} / ${tx.gasLimit.toLocaleString()} gas`
+            : `${tx.gasLimit.toLocaleString()} gas limit`}
         </div>
       </div>
     </div>

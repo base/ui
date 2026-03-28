@@ -20,7 +20,8 @@ function serializeBlockData(block: BlockData) {
     gasLimit: block.gasLimit.toString(),
     transactions: block.transactions.map((tx) => ({
       ...tx,
-      gasUsed: tx.gasUsed.toString(),
+      gasLimit: tx.gasLimit.toString(),
+      gasUsed: tx.gasUsed?.toString() ?? null,
     })),
   };
 }
@@ -73,16 +74,16 @@ async function buildAndCacheBlockData(
 ): Promise<BlockData> {
   const transactions: BlockTransaction[] = await Promise.all(
     rpcBlock.transactions.map(async (tx, index) => {
-      const { bundleId, executionTimeUs, stateRootTimeUs } =
-        await enrichTransactionWithBundleData(tx.hash);
+      const enriched = await enrichTransactionWithBundleData(tx.hash);
       return {
         hash: tx.hash,
         from: tx.from,
         to: tx.to,
-        gasUsed: tx.gas,
-        executionTimeUs,
-        stateRootTimeUs,
-        bundleId,
+        gasLimit: tx.gas,
+        gasUsed: enriched.gasUsed != null ? BigInt(enriched.gasUsed) : null,
+        executionTimeUs: enriched.executionTimeUs,
+        stateRootTimeUs: enriched.stateRootTimeUs,
+        bundleId: enriched.bundleId,
         index,
       };
     }),
@@ -114,23 +115,24 @@ async function enrichTransactionWithBundleData(txHash: string): Promise<{
   bundleId: string | null;
   executionTimeUs: number | null;
   stateRootTimeUs: number | null;
+  gasUsed: number | null;
 }> {
   const metadata = await getTransactionMetadataByHash(txHash);
   if (!metadata || metadata.bundle_ids.length === 0) {
-    return { bundleId: null, executionTimeUs: null, stateRootTimeUs: null };
+    return { bundleId: null, executionTimeUs: null, stateRootTimeUs: null, gasUsed: null };
   }
 
   const bundleId = metadata.bundle_ids[0];
   const bundleHistory = await getBundleHistory(bundleId);
   if (!bundleHistory) {
-    return { bundleId, executionTimeUs: null, stateRootTimeUs: null };
+    return { bundleId, executionTimeUs: null, stateRootTimeUs: null, gasUsed: null };
   }
 
   const receivedEvent = bundleHistory.history.find(
     (e) => e.event === "Received",
   );
   if (!receivedEvent?.data?.bundle?.meter_bundle_response?.results) {
-    return { bundleId, executionTimeUs: null, stateRootTimeUs: null };
+    return { bundleId, executionTimeUs: null, stateRootTimeUs: null, gasUsed: null };
   }
 
   const meterResponse = receivedEvent.data.bundle.meter_bundle_response;
@@ -147,6 +149,7 @@ async function enrichTransactionWithBundleData(txHash: string): Promise<{
     bundleId,
     executionTimeUs: txResult?.executionTimeUs ?? null,
     stateRootTimeUs: meterResponse.stateRootTimeUs ?? null,
+    gasUsed: txResult?.gasUsed ?? null,
   };
 }
 
@@ -163,9 +166,8 @@ async function refetchMissingTransactionSimulations(
 
   const refetchResults = await Promise.all(
     transactionsToRefetch.map(async (tx) => {
-      const { bundleId, executionTimeUs, stateRootTimeUs } =
-        await enrichTransactionWithBundleData(tx.hash);
-      return { hash: tx.hash, bundleId, executionTimeUs, stateRootTimeUs };
+      const enriched = await enrichTransactionWithBundleData(tx.hash);
+      return { hash: tx.hash, ...enriched };
     }),
   );
 
@@ -179,6 +181,9 @@ async function refetchMissingTransactionSimulations(
         bundleId: refetchResult.bundleId,
         executionTimeUs: refetchResult.executionTimeUs,
         stateRootTimeUs: refetchResult.stateRootTimeUs,
+        ...(refetchResult.gasUsed != null && {
+          gasUsed: BigInt(refetchResult.gasUsed),
+        }),
       };
     }
     return tx;
