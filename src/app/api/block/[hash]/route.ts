@@ -119,20 +119,35 @@ async function enrichTransactionWithBundleData(txHash: string): Promise<{
 }> {
   const metadata = await getTransactionMetadataByHash(txHash);
   if (!metadata || metadata.bundle_ids.length === 0) {
-    return { bundleId: null, executionTimeUs: null, stateRootTimeUs: null, gasUsed: null };
+    return {
+      bundleId: null,
+      executionTimeUs: null,
+      stateRootTimeUs: null,
+      gasUsed: null,
+    };
   }
 
   const bundleId = metadata.bundle_ids[0];
   const bundleHistory = await getBundleHistory(bundleId);
   if (!bundleHistory) {
-    return { bundleId, executionTimeUs: null, stateRootTimeUs: null, gasUsed: null };
+    return {
+      bundleId,
+      executionTimeUs: null,
+      stateRootTimeUs: null,
+      gasUsed: null,
+    };
   }
 
   const receivedEvent = bundleHistory.history.find(
     (e) => e.event === "Received",
   );
   if (!receivedEvent?.data?.bundle?.meter_bundle_response?.results) {
-    return { bundleId, executionTimeUs: null, stateRootTimeUs: null, gasUsed: null };
+    return {
+      bundleId,
+      executionTimeUs: null,
+      stateRootTimeUs: null,
+      gasUsed: null,
+    };
   }
 
   const meterResponse = receivedEvent.data.bundle.meter_bundle_response;

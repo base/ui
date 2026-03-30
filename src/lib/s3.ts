@@ -221,7 +221,11 @@ export async function getBlockFromCache(
       gasUsed: BigInt(parsed.gasUsed),
       gasLimit: BigInt(parsed.gasLimit),
       transactions: parsed.transactions.map(
-        (tx: { gasLimit?: string; gasUsed?: string | null; [key: string]: unknown }) => ({
+        (tx: {
+          gasLimit?: string;
+          gasUsed?: string | null;
+          [key: string]: unknown;
+        }) => ({
           ...tx,
           gasLimit: BigInt(tx.gasLimit ?? tx.gasUsed ?? "0"),
           gasUsed: tx.gasUsed != null ? BigInt(tx.gasUsed) : null,
