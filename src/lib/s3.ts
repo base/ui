@@ -184,7 +184,8 @@ export interface BlockTransaction {
   hash: string;
   from: string;
   to: string | null;
-  gasUsed: bigint;
+  gasLimit: bigint;
+  gasUsed: bigint | null;
   executionTimeUs: number | null;
   stateRootTimeUs: number | null;
   bundleId: string | null;
@@ -220,9 +221,14 @@ export async function getBlockFromCache(
       gasUsed: BigInt(parsed.gasUsed),
       gasLimit: BigInt(parsed.gasLimit),
       transactions: parsed.transactions.map(
-        (tx: BlockTransaction & { gasUsed: string }) => ({
+        (tx: {
+          gasLimit?: string;
+          gasUsed?: string | null;
+          [key: string]: unknown;
+        }) => ({
           ...tx,
-          gasUsed: BigInt(tx.gasUsed),
+          gasLimit: BigInt(tx.gasLimit ?? tx.gasUsed ?? "0"),
+          gasUsed: tx.gasUsed != null ? BigInt(tx.gasUsed) : null,
         }),
       ),
     } as BlockData;
