@@ -340,6 +340,27 @@ function SimulationCard({ meter }: { meter: MeterBundleResponse }) {
             </div>
           </div>
         </div>
+        {(meter.stateRootAccountNodeCount > 0 ||
+          meter.stateRootStorageNodeCount > 0) && (
+          <div className="grid grid-cols-2 gap-6 mt-4 pt-4 border-t border-gray-100">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">
+                Account Trie Nodes
+              </div>
+              <div className="text-xl font-semibold text-gray-900">
+                {meter.stateRootAccountNodeCount.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">
+                Storage Trie Nodes
+              </div>
+              <div className="text-xl font-semibold text-gray-900">
+                {meter.stateRootStorageNodeCount.toLocaleString()}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50 grid grid-cols-5 gap-4 text-xs">
         <div>
