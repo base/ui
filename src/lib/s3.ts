@@ -128,6 +128,8 @@ export interface MeterBundleResponse {
   totalGasUsed: number;
   totalExecutionTimeUs: number;
   stateRootTimeUs: number;
+  stateRootAccountNodeCount: number;
+  stateRootStorageNodeCount: number;
 }
 
 export interface BundleData {
