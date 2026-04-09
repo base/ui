@@ -310,8 +310,8 @@ function RejectedTxRow({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm text-gray-900">
-              {tx.txHash.slice(0, 10)}...{tx.txHash.slice(-8)}
+            <span className="font-mono text-sm text-gray-900 break-all">
+              {tx.txHash}
             </span>
             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20">
               Rejected
@@ -445,6 +445,8 @@ function RejectedTransactionsTab() {
   const [transactions, setTransactions] = useState<RejectedTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [txHashFilter, setTxHashFilter] = useState("");
+  const [blockNumberFilter, setBlockNumberFilter] = useState("");
 
   useEffect(() => {
     const fetchRejected = async () => {
@@ -465,6 +467,18 @@ function RejectedTransactionsTab() {
     const interval = setInterval(fetchRejected, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const filteredTransactions = transactions.filter((tx) => {
+    if (txHashFilter) {
+      const query = txHashFilter.toLowerCase();
+      if (!tx.txHash.toLowerCase().includes(query)) return false;
+    }
+    if (blockNumberFilter) {
+      const blockNum = parseInt(blockNumberFilter, 10);
+      if (!Number.isNaN(blockNum) && tx.blockNumber !== blockNum) return false;
+    }
+    return true;
+  });
 
   return (
     <section>
@@ -495,9 +509,46 @@ function RejectedTransactionsTab() {
         </div>
       </Card>
 
-      <h2 className="text-base font-semibold text-gray-900 mb-4">
-        Rejected Transactions
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-900">
+          Rejected Transactions
+        </h2>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Filter by tx hash..."
+            value={txHashFilter}
+            onChange={(e) => {
+              setTxHashFilter(e.target.value);
+              setExpandedIdx(null);
+            }}
+            className="w-52 lg:w-64 px-3 py-1.5 text-sm border rounded-lg bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-400"
+          />
+          <input
+            type="text"
+            placeholder="Block number..."
+            value={blockNumberFilter}
+            onChange={(e) => {
+              setBlockNumberFilter(e.target.value);
+              setExpandedIdx(null);
+            }}
+            className="w-32 px-3 py-1.5 text-sm border rounded-lg bg-white border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-400"
+          />
+          {(txHashFilter || blockNumberFilter) && (
+            <button
+              type="button"
+              onClick={() => {
+                setTxHashFilter("");
+                setBlockNumberFilter("");
+                setExpandedIdx(null);
+              }}
+              className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
 
       <Card className="overflow-hidden">
         {loading ? (
@@ -509,9 +560,9 @@ function RejectedTransactionsTab() {
               </span>
             </div>
           </div>
-        ) : transactions.length > 0 ? (
+        ) : filteredTransactions.length > 0 ? (
           <div>
-            {transactions.map((tx, index) => (
+            {filteredTransactions.map((tx, index) => (
               <RejectedTxRow
                 key={`${tx.blockNumber}-${tx.txHash}`}
                 tx={tx}
@@ -539,10 +590,14 @@ function RejectedTransactionsTab() {
               />
             </svg>
             <p className="text-gray-500 text-sm">
-              No rejected transactions found
+              {transactions.length > 0
+                ? "No transactions match the current filters"
+                : "No rejected transactions found"}
             </p>
             <p className="text-gray-400 text-xs mt-1">
-              Transactions that violate metering budgets will appear here
+              {transactions.length > 0
+                ? "Try adjusting your search criteria"
+                : "Transactions that violate metering budgets will appear here"}
             </p>
           </div>
         )}
@@ -551,11 +606,22 @@ function RejectedTransactionsTab() {
   );
 }
 
+function getInitialTab(): Tab {
+  if (typeof window === "undefined") return "blocks";
+  const hash = window.location.hash.replace("#", "");
+  return hash === "rejected" ? "rejected" : "blocks";
+}
+
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>("blocks");
+  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
   const [error, setError] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const switchTab = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    window.location.hash = tab === "blocks" ? "" : tab;
+  }, []);
 
   const fetchBlocks = useCallback(async () => {
     try {
@@ -584,7 +650,7 @@ export default function Home() {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setActiveTab("blocks")}
+              onClick={() => switchTab("blocks")}
               className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
                 activeTab === "blocks"
                   ? "text-gray-900 bg-gray-100"
@@ -595,7 +661,7 @@ export default function Home() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("rejected")}
+              onClick={() => switchTab("rejected")}
               className={`px-3 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
                 activeTab === "rejected"
                   ? "text-red-700 bg-red-50"
