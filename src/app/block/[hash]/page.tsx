@@ -6,6 +6,25 @@ import type { BlockData, BlockTransaction } from "@/lib/s3";
 
 const BLOCK_EXPLORER_URL = process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL;
 
+// The API serializes metering as { transaction, bundle } from the raw
+// meterBundleResponse.  The page receives this shape via JSON.
+// biome-ignore lint/suspicious/noExplicitAny: opaque metering JSON
+function metering(tx: BlockTransaction): any {
+  return (tx as any).metering;
+}
+
+function executionTimeUs(tx: BlockTransaction): number | null {
+  return metering(tx)?.transaction?.executionTimeUs ?? null;
+}
+
+function stateRootTimeUs(tx: BlockTransaction): number | null {
+  return metering(tx)?.bundle?.stateRootTimeUs ?? null;
+}
+
+function gasUsed(tx: BlockTransaction): number | null {
+  return metering(tx)?.transaction?.gasUsed ?? null;
+}
+
 interface PageProps {
   params: Promise<{ hash: string }>;
 }
@@ -78,11 +97,11 @@ function Card({
 }
 
 function getHeatmapStyle(
-  executionTimeUs: number,
+  timeUs: number,
   maxTime: number,
 ): { bg: string; text: string } {
   if (maxTime === 0) return { bg: "bg-amber-50", text: "text-amber-700" };
-  const ratio = Math.min(executionTimeUs / maxTime, 1);
+  const ratio = Math.min(timeUs / maxTime, 1);
   if (ratio < 0.2) return { bg: "bg-amber-100", text: "text-amber-800" };
   if (ratio < 0.4) return { bg: "bg-amber-200", text: "text-amber-900" };
   if (ratio < 0.6) return { bg: "bg-orange-200", text: "text-orange-900" };
@@ -98,13 +117,14 @@ function TransactionRow({
   maxTotalTime: number;
 }) {
   const hasBundle = tx.bundleId !== null;
-  const hasExecutionTime = tx.executionTimeUs !== null;
-  const executionTime = tx.executionTimeUs ?? 0;
-  const stateRootTime = tx.stateRootTimeUs ?? 0;
-  const totalTime = executionTime + stateRootTime;
-  const heatmapStyle = hasExecutionTime
+  const execTime = executionTimeUs(tx);
+  const srTime = stateRootTimeUs(tx);
+  const hasMetering = execTime !== null;
+  const totalTime = (execTime ?? 0) + (srTime ?? 0);
+  const heatmapStyle = hasMetering
     ? getHeatmapStyle(totalTime, maxTotalTime)
     : null;
+  const txGasUsed = gasUsed(tx);
 
   const content = (
     <div
@@ -142,7 +162,7 @@ function TransactionRow({
         </div>
       </div>
       <div className="text-right">
-        {hasExecutionTime && heatmapStyle ? (
+        {hasMetering && heatmapStyle ? (
           <span
             className={`inline-block px-2 py-0.5 rounded text-sm font-medium ${heatmapStyle.bg} ${heatmapStyle.text}`}
           >
@@ -152,8 +172,8 @@ function TransactionRow({
           <div className="text-sm font-medium text-gray-400">—</div>
         )}
         <div className="text-xs text-gray-500 mt-0.5">
-          {tx.gasUsed != null
-            ? `${tx.gasUsed.toLocaleString()} / ${tx.gasLimit.toLocaleString()} gas`
+          {txGasUsed != null
+            ? `${txGasUsed.toLocaleString()} / ${tx.gasLimit.toLocaleString()} gas`
             : `${tx.gasLimit.toLocaleString()} gas limit`}
         </div>
       </div>
@@ -168,15 +188,15 @@ function TransactionRow({
 }
 
 function BlockStats({ block }: { block: BlockData }) {
-  const txsWithTime = block.transactions.filter(
-    (tx) => tx.executionTimeUs !== null,
+  const meteredTxs = block.transactions.filter(
+    (tx) => executionTimeUs(tx) !== null,
   );
-  const totalExecutionTime = txsWithTime.reduce(
-    (sum, tx) => sum + (tx.executionTimeUs ?? 0),
+  const totalExecTime = meteredTxs.reduce(
+    (sum, tx) => sum + (executionTimeUs(tx) ?? 0),
     0,
   );
-  const totalStateRootTime = txsWithTime.reduce(
-    (sum, tx) => sum + (tx.stateRootTimeUs ?? 0),
+  const totalSrTime = meteredTxs.reduce(
+    (sum, tx) => sum + (stateRootTimeUs(tx) ?? 0),
     0,
   );
   const bundleCount = block.transactions.filter(
@@ -208,17 +228,13 @@ function BlockStats({ block }: { block: BlockData }) {
           <div>
             <div className="text-xs text-gray-500 mb-1">Total Exec Time</div>
             <div className="text-xl font-semibold text-gray-900">
-              {totalExecutionTime > 0
-                ? `${totalExecutionTime.toLocaleString()}μs`
-                : "—"}
+              {totalExecTime > 0 ? `${totalExecTime.toLocaleString()}μs` : "—"}
             </div>
           </div>
           <div>
             <div className="text-xs text-gray-500 mb-1">Total State Root</div>
             <div className="text-xl font-semibold text-gray-900">
-              {totalStateRootTime > 0
-                ? `${totalStateRootTime.toLocaleString()}μs`
-                : "—"}
+              {totalSrTime > 0 ? `${totalSrTime.toLocaleString()}μs` : "—"}
             </div>
           </div>
         </div>
@@ -303,8 +319,8 @@ export default function BlockPage({ params }: PageProps) {
   const maxTotalTime = data
     ? Math.max(
         ...data.transactions
-          .filter((tx) => tx.executionTimeUs !== null)
-          .map((tx) => (tx.executionTimeUs ?? 0) + (tx.stateRootTimeUs ?? 0)),
+          .filter((tx) => executionTimeUs(tx) !== null)
+          .map((tx) => (executionTimeUs(tx) ?? 0) + (stateRootTimeUs(tx) ?? 0)),
         0,
       )
     : 0;
