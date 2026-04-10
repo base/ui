@@ -1,5 +1,6 @@
 import {
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   type S3ClientConfig,
@@ -230,6 +231,74 @@ export async function getBlockFromCache(
     } as BlockData;
   } catch (error) {
     console.error(`Failed to parse block data for hash ${blockHash}:`, error);
+    return null;
+  }
+}
+
+export interface RejectedTransaction {
+  blockNumber: number;
+  txHash: string;
+  reason: string;
+  timestamp: number;
+  metering: MeterBundleResponse;
+}
+
+export interface RejectedTransactionSummary {
+  blockNumber: number;
+  txHash: string;
+}
+
+export async function listRejectedTransactions(
+  limit = 100,
+): Promise<RejectedTransactionSummary[]> {
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: BUCKET_NAME,
+      Prefix: "rejected/",
+      MaxKeys: limit,
+    });
+
+    const response = await s3Client.send(command);
+    const contents = response.Contents || [];
+
+    const summaries: RejectedTransactionSummary[] = [];
+    for (const obj of contents) {
+      if (!obj.Key) continue;
+      // S3 key format matches Rust S3Key::Rejected: rejected/{block_number}/{tx_hash}
+      const parts = obj.Key.split("/");
+      if (parts.length !== 3) continue;
+      const blockNumber = parseInt(parts[1], 10);
+      const txHash = parts[2];
+      if (Number.isNaN(blockNumber) || !txHash) continue;
+      summaries.push({ blockNumber, txHash });
+    }
+
+    summaries.sort((a, b) => b.blockNumber - a.blockNumber);
+    return summaries;
+  } catch (error) {
+    console.error("Failed to list rejected transactions:", error);
+    return [];
+  }
+}
+
+export async function getRejectedTransaction(
+  blockNumber: number,
+  txHash: string,
+): Promise<RejectedTransaction | null> {
+  const key = `rejected/${blockNumber}/${txHash}`;
+  const content = await getObjectContent(key);
+
+  if (!content) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(content) as RejectedTransaction;
+  } catch (error) {
+    console.error(
+      `Failed to parse rejected transaction ${blockNumber}/${txHash}:`,
+      error,
+    );
     return null;
   }
 }
