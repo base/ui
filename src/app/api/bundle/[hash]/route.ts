@@ -2,18 +2,18 @@ import { type NextRequest, NextResponse } from "next/server";
 import { type BundleEvent, getBundleHistory } from "@/lib/s3";
 
 export interface BundleHistoryResponse {
-  uuid: string;
+  hash: string;
   history: BundleEvent[];
 }
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ uuid: string }> },
+  { params }: { params: Promise<{ hash: string }> },
 ) {
   try {
-    const { uuid } = await params;
+    const { hash } = await params;
 
-    const bundle = await getBundleHistory(uuid);
+    const bundle = await getBundleHistory(hash);
     if (!bundle) {
       return NextResponse.json({ error: "Bundle not found" }, { status: 404 });
     }
@@ -24,7 +24,7 @@ export async function GET(
     );
 
     const response: BundleHistoryResponse = {
-      uuid,
+      hash,
       history: bundle.history,
     };
 

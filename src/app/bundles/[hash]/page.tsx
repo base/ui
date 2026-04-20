@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { BundleHistoryResponse } from "@/app/api/bundle/[uuid]/route";
+import type { BundleHistoryResponse } from "@/app/api/bundle/[hash]/route";
 import type { BundleTransaction, MeterBundleResponse } from "@/lib/s3";
 
 const WEI_PER_GWEI = 10n ** 9n;
@@ -10,7 +10,7 @@ const WEI_PER_ETH = 10n ** 18n;
 const BLOCK_EXPLORER_URL = process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL;
 
 interface PageProps {
-  params: Promise<{ uuid: string }>;
+  params: Promise<{ hash: string }>;
 }
 
 function formatBigInt(value: bigint, decimals: number, scale: bigint): string {
@@ -474,21 +474,21 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 export default function BundlePage({ params }: PageProps) {
-  const [uuid, setUuid] = useState<string>("");
+  const [hash, setHash] = useState<string>("");
   const [data, setData] = useState<BundleHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    params.then((p) => setUuid(p.uuid));
+    params.then((p) => setHash(p.hash));
   }, [params]);
 
   useEffect(() => {
-    if (!uuid) return;
+    if (!hash) return;
 
     const fetchData = async () => {
       try {
-        const response = await fetch(`/api/bundle/${uuid}`);
+        const response = await fetch(`/api/bundle/${hash}`);
         if (!response.ok) {
           setError(
             response.status === 404
@@ -511,9 +511,9 @@ export default function BundlePage({ params }: PageProps) {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [uuid]);
+  }, [hash]);
 
-  if (!uuid || (loading && !data)) {
+  if (!hash || (loading && !data)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center gap-3">
@@ -564,9 +564,9 @@ export default function BundlePage({ params }: PageProps) {
           </div>
           <div className="flex items-center gap-2 text-sm">
             <code className="font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded text-xs">
-              {uuid}
+              {hash}
             </code>
-            <CopyButton text={uuid} />
+            <CopyButton text={hash} />
           </div>
         </div>
       </header>
