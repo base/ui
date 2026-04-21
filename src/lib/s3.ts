@@ -163,24 +163,36 @@ export interface BundleHistory {
 }
 
 export async function getBundleHistory(
-  bundleId: string,
+  bundleKey: string,
 ): Promise<BundleHistory | null> {
-  const key = `bundles/${bundleId}`;
-  const content = await getObjectContent(key);
+  const prefix = `bundles/${bundleKey}/`;
+  const listCommand = new ListObjectsV2Command({
+    Bucket: BUCKET_NAME,
+    Prefix: prefix,
+  });
 
-  if (!content) {
+  const listResponse = await s3Client.send(listCommand);
+  const keys = listResponse.Contents?.map((obj) => obj.Key).filter(
+    Boolean,
+  ) as string[];
+
+  if (!keys || keys.length === 0) {
     return null;
   }
 
-  try {
-    return JSON.parse(content) as BundleHistory;
-  } catch (error) {
-    console.error(
-      `Failed to parse bundle history for bundle ${bundleId}:`,
-      error,
-    );
-    return null;
+  const history: BundleEvent[] = [];
+  for (const key of keys) {
+    const content = await getObjectContent(key);
+    if (content) {
+      try {
+        history.push(JSON.parse(content) as BundleEvent);
+      } catch (error) {
+        console.error(`Failed to parse event at ${key}:`, error);
+      }
+    }
   }
+
+  return { history };
 }
 
 export interface BlockTransaction {
