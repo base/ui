@@ -247,12 +247,27 @@ export async function getBlockFromCache(
   }
 }
 
+export interface RejectionReason {
+  executionTimeExceeded?: {
+    txTimeUs: number;
+    limitUs: number;
+  };
+}
+
 export interface RejectedTransaction {
   blockNumber: number;
   txHash: string;
-  reason: string;
+  reason: RejectionReason;
   timestamp: number;
   metering: MeterBundleResponse;
+}
+
+export function formatRejectionReason(reason: RejectionReason): string {
+  if (reason.executionTimeExceeded) {
+    const { txTimeUs, limitUs } = reason.executionTimeExceeded;
+    return `Execution time exceeded: ${txTimeUs.toLocaleString()}μs > ${limitUs.toLocaleString()}μs limit`;
+  }
+  return "Unknown reason";
 }
 
 export interface RejectedTransactionSummary {

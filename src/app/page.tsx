@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import type { MeterBundleResponse, RejectedTransaction } from "@/lib/s3";
+import {
+  formatRejectionReason,
+  type MeterBundleResponse,
+  type RejectedTransaction,
+} from "@/lib/s3";
 import type { BlockSummary, BlocksResponse } from "./api/blocks/route";
 import type { RejectedTransactionsResponse } from "./api/rejected/route";
 
@@ -319,7 +323,8 @@ function RejectedTxRow({
             <span className="text-xs text-gray-400">{timeAgo}</span>
           </div>
           <div className="text-xs text-gray-500 mt-0.5 truncate">
-            Block #{tx.blockNumber.toLocaleString()} — {tx.reason}
+            Block #{tx.blockNumber.toLocaleString()} —{" "}
+            {formatRejectionReason(tx.reason)}
           </div>
         </div>
         <svg
@@ -357,7 +362,9 @@ function RejectedTxRow({
                 </tr>
                 <tr className="border-b border-gray-200/60">
                   <td className="text-gray-500 py-2">Reason</td>
-                  <td className="py-2 text-red-700 font-medium">{tx.reason}</td>
+                  <td className="py-2 text-red-700 font-medium">
+                    {formatRejectionReason(tx.reason)}
+                  </td>
                 </tr>
                 <tr>
                   <td className="text-gray-500 py-2">Rejected At</td>
