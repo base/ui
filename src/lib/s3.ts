@@ -129,8 +129,10 @@ export interface MeterBundleResponse {
   totalGasUsed: number;
   totalExecutionTimeUs: number;
   stateRootTimeUs: number;
-  stateRootAccountNodeCount: number;
-  stateRootStorageNodeCount: number;
+  stateRootAccountLeafCount: number;
+  stateRootAccountBranchCount: number;
+  stateRootStorageLeafCount: number;
+  stateRootStorageBranchCount: number;
 }
 
 export interface BundleData {
@@ -249,8 +251,8 @@ export async function getBlockFromCache(
 
 export interface RejectionReason {
   executionTimeExceeded?: {
-    txTimeUs: number;
-    limitUs: number;
+    tx_time_us: number;
+    limit_us: number;
   };
 }
 
@@ -262,10 +264,13 @@ export interface RejectedTransaction {
   metering: MeterBundleResponse;
 }
 
-export function formatRejectionReason(reason: RejectionReason): string {
-  if (reason.executionTimeExceeded) {
-    const { txTimeUs, limitUs } = reason.executionTimeExceeded;
-    return `Execution time exceeded: ${txTimeUs.toLocaleString()}μs > ${limitUs.toLocaleString()}μs limit`;
+export function formatRejectionReason(
+  reason: RejectionReason | string,
+): string {
+  if (typeof reason === "string") return reason;
+  if (reason?.executionTimeExceeded) {
+    const { tx_time_us, limit_us } = reason.executionTimeExceeded;
+    return `Execution time exceeded: ${tx_time_us.toLocaleString()}μs > ${limit_us.toLocaleString()}μs limit`;
   }
   return "Unknown reason";
 }

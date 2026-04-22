@@ -188,7 +188,8 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
     (sum, r) => sum + r.executionTimeUs,
     0,
   );
-  const totalTimeUs = executionTimeUs + meter.stateRootTimeUs;
+  const stateRootTimeUs = meter.stateRootTimeUs ?? 0;
+  const totalTimeUs = executionTimeUs + stateRootTimeUs;
 
   return (
     <Card>
@@ -203,7 +204,7 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
           <div>
             <div className="text-xs text-gray-500 mb-1">State Root</div>
             <div className="text-xl font-semibold text-gray-900">
-              {meter.stateRootTimeUs.toLocaleString()}μs
+              {stateRootTimeUs.toLocaleString()}μs
             </div>
           </div>
           <div>
@@ -213,15 +214,18 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
             </div>
           </div>
         </div>
-        {(meter.stateRootAccountNodeCount > 0 ||
-          meter.stateRootStorageNodeCount > 0) && (
+        {((meter.stateRootAccountLeafCount ?? 0) > 0 ||
+          (meter.stateRootStorageLeafCount ?? 0) > 0) && (
           <div className="grid grid-cols-2 gap-6 mt-4 pt-4 border-t border-gray-100">
             <div>
               <div className="text-xs text-gray-500 mb-1">
                 Account Trie Nodes
               </div>
               <div className="text-xl font-semibold text-gray-900">
-                {meter.stateRootAccountNodeCount.toLocaleString()}
+                {(
+                  (meter.stateRootAccountLeafCount ?? 0) +
+                  (meter.stateRootAccountBranchCount ?? 0)
+                ).toLocaleString()}
               </div>
             </div>
             <div>
@@ -229,7 +233,10 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
                 Storage Trie Nodes
               </div>
               <div className="text-xl font-semibold text-gray-900">
-                {meter.stateRootStorageNodeCount.toLocaleString()}
+                {(
+                  (meter.stateRootStorageLeafCount ?? 0) +
+                  (meter.stateRootStorageBranchCount ?? 0)
+                ).toLocaleString()}
               </div>
             </div>
           </div>
@@ -239,7 +246,7 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
         <div>
           <span className="text-gray-500">Total Gas</span>
           <span className="ml-2 font-medium text-gray-900">
-            {meter.totalGasUsed.toLocaleString()}
+            {(meter.totalGasUsed ?? 0).toLocaleString()}
           </span>
         </div>
         <div>
@@ -613,14 +620,16 @@ function RejectedTransactionsTab() {
   );
 }
 
-function getInitialTab(): Tab {
-  if (typeof window === "undefined") return "blocks";
-  const hash = window.location.hash.replace("#", "");
-  return hash === "rejected" ? "rejected" : "blocks";
-}
-
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
+  const [activeTab, setActiveTab] = useState<Tab>("blocks");
+
+  // Read hash on client only after hydration
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "rejected") {
+      setActiveTab("rejected");
+    }
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
