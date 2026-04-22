@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import type { MeterBundleResponse, RejectedTransaction } from "@/lib/s3";
+import {
+  formatRejectionReason,
+  type MeterBundleResponse,
+  type RejectedTransaction,
+} from "@/lib/s3";
 import type { BlockSummary, BlocksResponse } from "./api/blocks/route";
 import type { RejectedTransactionsResponse } from "./api/rejected/route";
 
@@ -184,7 +188,8 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
     (sum, r) => sum + r.executionTimeUs,
     0,
   );
-  const totalTimeUs = executionTimeUs + meter.stateRootTimeUs;
+  const stateRootTimeUs = meter.stateRootTimeUs ?? 0;
+  const totalTimeUs = executionTimeUs + stateRootTimeUs;
 
   return (
     <Card>
@@ -199,7 +204,7 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
           <div>
             <div className="text-xs text-gray-500 mb-1">State Root</div>
             <div className="text-xl font-semibold text-gray-900">
-              {meter.stateRootTimeUs.toLocaleString()}μs
+              {stateRootTimeUs.toLocaleString()}μs
             </div>
           </div>
           <div>
@@ -209,15 +214,18 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
             </div>
           </div>
         </div>
-        {(meter.stateRootAccountNodeCount > 0 ||
-          meter.stateRootStorageNodeCount > 0) && (
+        {((meter.stateRootAccountLeafCount ?? 0) > 0 ||
+          (meter.stateRootStorageLeafCount ?? 0) > 0) && (
           <div className="grid grid-cols-2 gap-6 mt-4 pt-4 border-t border-gray-100">
             <div>
               <div className="text-xs text-gray-500 mb-1">
                 Account Trie Nodes
               </div>
               <div className="text-xl font-semibold text-gray-900">
-                {meter.stateRootAccountNodeCount.toLocaleString()}
+                {(
+                  (meter.stateRootAccountLeafCount ?? 0) +
+                  (meter.stateRootAccountBranchCount ?? 0)
+                ).toLocaleString()}
               </div>
             </div>
             <div>
@@ -225,7 +233,10 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
                 Storage Trie Nodes
               </div>
               <div className="text-xl font-semibold text-gray-900">
-                {meter.stateRootStorageNodeCount.toLocaleString()}
+                {(
+                  (meter.stateRootStorageLeafCount ?? 0) +
+                  (meter.stateRootStorageBranchCount ?? 0)
+                ).toLocaleString()}
               </div>
             </div>
           </div>
@@ -235,7 +246,7 @@ function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
         <div>
           <span className="text-gray-500">Total Gas</span>
           <span className="ml-2 font-medium text-gray-900">
-            {meter.totalGasUsed.toLocaleString()}
+            {(meter.totalGasUsed ?? 0).toLocaleString()}
           </span>
         </div>
         <div>
@@ -319,7 +330,8 @@ function RejectedTxRow({
             <span className="text-xs text-gray-400">{timeAgo}</span>
           </div>
           <div className="text-xs text-gray-500 mt-0.5 truncate">
-            Block #{tx.blockNumber.toLocaleString()} — {tx.reason}
+            Block #{tx.blockNumber.toLocaleString()} —{" "}
+            {formatRejectionReason(tx.reason)}
           </div>
         </div>
         <svg
@@ -357,7 +369,9 @@ function RejectedTxRow({
                 </tr>
                 <tr className="border-b border-gray-200/60">
                   <td className="text-gray-500 py-2">Reason</td>
-                  <td className="py-2 text-red-700 font-medium">{tx.reason}</td>
+                  <td className="py-2 text-red-700 font-medium">
+                    {formatRejectionReason(tx.reason)}
+                  </td>
                 </tr>
                 <tr>
                   <td className="text-gray-500 py-2">Rejected At</td>
@@ -606,14 +620,16 @@ function RejectedTransactionsTab() {
   );
 }
 
-function getInitialTab(): Tab {
-  if (typeof window === "undefined") return "blocks";
-  const hash = window.location.hash.replace("#", "");
-  return hash === "rejected" ? "rejected" : "blocks";
-}
-
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>(getInitialTab);
+  const [activeTab, setActiveTab] = useState<Tab>("blocks");
+
+  // Read hash on client only after hydration
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "rejected") {
+      setActiveTab("rejected");
+    }
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
