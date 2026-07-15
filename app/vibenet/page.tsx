@@ -125,7 +125,7 @@ export default function VibenetHomePage() {
             Test New Features
           </Text>
           <Text variant="body" tone="muted" className="mt-5 max-w-2xl">
-            {config.subtitle ?? 'An ephemeral Base devnet for testing out in-flight features.'}
+            {config.subtitle ?? 'An ephemeral Base devnet for trying out in-flight features.'}
           </Text>
         </div>
       </header>

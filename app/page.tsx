@@ -30,7 +30,7 @@ const SURFACES: Surface[] = [
     label: 'Vibenet',
     href: '/vibenet',
     description: 'Ephemeral Base devnet explorer and faucet for trying out in-flight features.',
-    enabled: false,
+    enabled: true,
   },
   {
     label: 'TIPS',
