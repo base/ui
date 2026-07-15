@@ -22,6 +22,9 @@ export type Snapshot = {
   size: number; // total bytes
   isModular: true;
   components: SnapshotComponent[];
+  archiveUrl?: string;
+  archiveFile?: string;
+  metadataUrl?: string;
   manifestUrl: string;
 };
 
