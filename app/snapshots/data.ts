@@ -49,8 +49,8 @@ export const PRESETS: Preset[] = [
   {
     name: 'full',
     displayName: 'Full',
-    description: 'Adds transactions and senders. Suitable for dApp backends and general RPC.',
-    components: ['state', 'headers', 'transactions', 'transaction_senders'],
+    description: 'Adds transactions, receipts, and state history. Suitable for dApp backends and general RPC.',
+    components: ['state', 'headers', 'transactions', 'receipts', 'account_changesets', 'storage_changesets'],
     capabilities: ['Sync', 'Validate', 'Query', 'Trace'],
   },
   {
@@ -72,7 +72,7 @@ export const PRESETS: Preset[] = [
 ];
 
 export const CHAIN_NAME_BY_NETWORK: Record<string, string> = {
-  mainnet: 'base-mainnet',
+  mainnet: 'base',
   sepolia: 'base-sepolia',
   zeronet: 'base-zeronet',
 };

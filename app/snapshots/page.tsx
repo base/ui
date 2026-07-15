@@ -48,6 +48,46 @@ function SectionHeading({ label, trailing }: SectionHeadingProps) {
   );
 }
 
+// Builds the `base-reth-node download` command from the current selection,
+// mirroring the CLI's component flags and preset/archive shortcuts.
+function buildDownloadCommand(
+  chainName: string,
+  preset: PresetName | null,
+  selectedComponents: string[],
+): string {
+  const matchingPreset = PRESETS.find(
+    (p) =>
+      p.components.length === selectedComponents.length &&
+      p.components.every((c) => selectedComponents.includes(c)),
+  )?.name;
+  const archiveWithoutRocksDb =
+    PRESETS.find((p) => p.name === 'archive')?.components.filter((c) => c !== 'rocksdb_indices') ??
+    [];
+  const isArchiveWithoutRocksDb =
+    archiveWithoutRocksDb.length === selectedComponents.length &&
+    archiveWithoutRocksDb.every((c) => selectedComponents.includes(c));
+  const effectivePreset = preset ?? matchingPreset;
+  const args: string[] = [];
+
+  if (effectivePreset) {
+    args.push(`--${effectivePreset}`, '--resumable');
+  } else if (isArchiveWithoutRocksDb) {
+    args.push('--archive', '--without-rocksdb');
+  } else {
+    if (selectedComponents.includes('transactions')) args.push('--with-txs');
+    if (selectedComponents.includes('transaction_senders')) args.push('--with-senders');
+    if (selectedComponents.includes('receipts')) args.push('--with-receipts');
+    if (
+      selectedComponents.includes('account_changesets') ||
+      selectedComponents.includes('storage_changesets')
+    ) {
+      args.push('--with-state-history');
+    }
+  }
+
+  return `base-reth-node download --chain ${chainName}${args.length ? ` ${args.join(' ')}` : ''}`;
+}
+
 export default function SnapshotsPage() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,9 +161,31 @@ export default function SnapshotsPage() {
   }
 
   function toggleComponent(name: string) {
-    const next = selectedComponents.includes(name)
-      ? selectedComponents.filter((c) => c !== name)
-      : [...selectedComponents, name];
+    let next = [...selectedComponents];
+
+    if (name === 'state_history') {
+      const stateHistory = ['account_changesets', 'storage_changesets'];
+      const enabled = stateHistory.every((c) => next.includes(c));
+      next = enabled
+        ? next.filter((c) => !stateHistory.includes(c))
+        : [...new Set([...next, ...stateHistory])];
+    } else if (next.includes(name)) {
+      next = next.filter((c) => c !== name);
+    } else {
+      next.push(name);
+    }
+
+    // Enforce component dependencies: senders need transactions; the rocksdb
+    // indices need transactions, receipts, and state history.
+    const withTransactions = next.includes('transactions');
+    const withReceipts = next.includes('receipts');
+    const withStateHistory =
+      next.includes('account_changesets') && next.includes('storage_changesets');
+    if (!withTransactions) next = next.filter((c) => c !== 'transaction_senders');
+    if (!withTransactions || !withReceipts || !withStateHistory) {
+      next = next.filter((c) => c !== 'rocksdb_indices');
+    }
+
     if (activeSnapshot) {
       const order = activeSnapshot.components.map((c) => c.name);
       next.sort((a, b) => order.indexOf(a) - order.indexOf(b));
@@ -163,9 +225,42 @@ export default function SnapshotsPage() {
   const capabilities = preset ? (activePreset?.capabilities ?? []) : [];
 
   const chainName = CHAIN_NAME_BY_NETWORK[network] ?? network;
-  const command = preset
-    ? `reth import-snapshot --chain ${chainName} --preset ${preset}`
-    : `reth import-snapshot --chain ${chainName} --components ${selectedComponents.join(',')}`;
+  const command = buildDownloadCommand(chainName, preset, selectedComponents);
+
+  // Group the two changesets into a single "State History" row for display.
+  const stateHistoryComponents = activeSnapshot.components.filter(
+    (c) => c.name === 'account_changesets' || c.name === 'storage_changesets',
+  );
+  const firstStateHistoryIndex = activeSnapshot.components.findIndex(
+    (c) => c.name === 'account_changesets' || c.name === 'storage_changesets',
+  );
+  const displayComponents = activeSnapshot.components.flatMap((c, i) => {
+    const isStateHistory = c.name === 'account_changesets' || c.name === 'storage_changesets';
+    if (!isStateHistory) return [c];
+    if (i !== firstStateHistoryIndex) return [];
+    return [
+      {
+        name: 'state_history',
+        displayName: 'State History',
+        description: 'Historical account and storage state changes',
+        size: stateHistoryComponents.reduce((sum, item) => sum + item.size, 0),
+      },
+    ];
+  });
+
+  const withTransactions = selectedComponents.includes('transactions');
+  const withReceipts = selectedComponents.includes('receipts');
+  const withStateHistory =
+    stateHistoryComponents.length > 0 &&
+    stateHistoryComponents.every((c) => selectedComponents.includes(c.name));
+
+  const componentCount =
+    activeSnapshot.components.length -
+    stateHistoryComponents.length +
+    (stateHistoryComponents.length ? 1 : 0);
+  const selectedComponentCount =
+    selectedComponents.filter((c) => c !== 'account_changesets' && c !== 'storage_changesets')
+      .length + (withStateHistory ? 1 : 0);
 
   return (
     <div className="flex flex-col gap-10">
@@ -299,13 +394,18 @@ export default function SnapshotsPage() {
           label="Components"
           trailing={
             <span className="font-mono text-[12px] text-bds-gray-60">
-              {selectedComponents.length}/{activeSnapshot.components.length}
+              {selectedComponentCount}/{componentCount}
             </span>
           }
         />
         <Card className="overflow-hidden rounded-[10px]">
-          {activeSnapshot.components.map((c, i, arr) => {
-            const checked = selectedComponents.includes(c.name);
+          {displayComponents.map((c, i, arr) => {
+            const checked =
+              c.name === 'state_history' ? withStateHistory : selectedComponents.includes(c.name);
+            const isDisabled =
+              (c.name === 'transaction_senders' && !withTransactions) ||
+              (c.name === 'rocksdb_indices' &&
+                (!withTransactions || !withReceipts || !withStateHistory));
             const isLast = i === arr.length - 1;
             return (
               <button
@@ -313,10 +413,12 @@ export default function SnapshotsPage() {
                 type="button"
                 data-name={c.name}
                 onClick={handleComponentClick}
+                disabled={isDisabled}
                 aria-label={c.displayName}
                 className={cn(
                   'flex w-full items-center gap-3 bg-white p-4 text-left',
                   !isLast && 'border-b border-bds-gray-10',
+                  isDisabled && 'cursor-not-allowed opacity-50',
                 )}
               >
                 <Checkbox checked={checked} />
