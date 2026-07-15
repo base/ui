@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BDS Spectrum CSS variables — full palette available as var(--bds-*).
+ * Semantic tokens live in theme.ts; these vars are here for future use
+ * in CSS modules, animations, or any non-TS context.
+ * Generated from the BDS Spectrum (base-web). Light theme only. */
+:root {
+  color-scheme: light;
+
+  --base-blue-p3: color(display-p3 0 0 1 / 1);
+  --bds-brand: var(--base-blue-p3);
+
+  /* blue */
+  --bds-blue-0: #f5f8ff;
+  --bds-blue-5: #d3e1ff;
+  --bds-blue-10: #b0caff;
+  --bds-blue-15: #92b6ff;
+  --bds-blue-20: #73a2ff;
+  --bds-blue-30: #4684ff;
+  --bds-blue-40: #266eff;
+  --bds-blue-50: #105eff;
+  --bds-blue-60: #0052ff;
+  --bds-blue-70: #004beb;
+  --bds-blue-80: #003ec1;
+  --bds-blue-90: #002982;
+  --bds-blue-100: #00184d;
+
+  /* teal */
+  --bds-teal-0: #f0feff;
+  --bds-teal-5: #bcf6fd;
+  --bds-teal-10: #88edfb;
+  --bds-teal-15: #5de2f8;
+  --bds-teal-20: #33d5f4;
+  --bds-teal-30: #00bceb;
+  --bds-teal-40: #00a9dd;
+  --bds-teal-50: #0093cb;
+  --bds-teal-60: #007bb3;
+  --bds-teal-70: #006195;
+  --bds-teal-80: #004774;
+  --bds-teal-90: #002f53;
+  --bds-teal-100: #001b33;
+
+  /* green */
+  --bds-green-0: #f5fffb;
+  --bds-green-5: #cbf5e3;
+  --bds-green-10: #a3ebcd;
+  --bds-green-15: #83e0ba;
+  --bds-green-20: #65d6a7;
+  --bds-green-30: #3cc28a;
+  --bds-green-40: #22ad73;
+  --bds-green-50: #129961;
+  --bds-green-60: #098551;
+  --bds-green-70: #047043;
+  --bds-green-80: #025332;
+  --bds-green-90: #003923;
+  --bds-green-100: #001f12;
+
+  /* chartreuse */
+  --bds-chartreuse-0: #f5fffa;
+  --bds-chartreuse-5: #ddfbe8;
+  --bds-chartreuse-10: #c6f7d1;
+  --bds-chartreuse-15: #b0f2b6;
+  --bds-chartreuse-20: #9fee9b;
+  --bds-chartreuse-30: #89df75;
+  --bds-chartreuse-40: #7fd057;
+  --bds-chartreuse-50: #56b340;
+  --bds-chartreuse-60: #359730;
+  --bds-chartreuse-70: #237a2b;
+  --bds-chartreuse-80: #195d29;
+  --bds-chartreuse-90: #114023;
+  --bds-chartreuse-100: #071a11;
+
+  /* yellow */
+  --bds-yellow-0: #fffcf1;
+  --bds-yellow-5: #fff4c0;
+  --bds-yellow-10: #fff091;
+  --bds-yellow-15: #ffea64;
+  --bds-yellow-20: #ffe436;
+  --bds-yellow-30: #f7d21a;
+  --bds-yellow-40: #ebba00;
+  --bds-yellow-50: #cf9700;
+  --bds-yellow-60: #ae7100;
+  --bds-yellow-70: #884c00;
+  --bds-yellow-80: #603000;
+  --bds-yellow-90: #3a1400;
+  --bds-yellow-100: #1b0600;
+
+  /* orange */
+  --bds-orange-0: #fffaf5;
+  --bds-orange-5: #fee8d2;
+  --bds-orange-10: #fdd5b0;
+  --bds-orange-15: #fbc293;
+  --bds-orange-20: #f9ae76;
+  --bds-orange-30: #f48c4c;
+  --bds-orange-40: #ed702f;
+  --bds-orange-50: #e1591b;
+  --bds-orange-60: #cf470e;
+  --bds-orange-70: #b53606;
+  --bds-orange-80: #912702;
+  --bds-orange-90: #641a00;
+  --bds-orange-100: #330d00;
+
+  /* red */
+  --bds-red-0: #fff5f6;
+  --bds-red-5: #fee1e4;
+  --bds-red-10: #fdced2;
+  --bds-red-15: #fbbabf;
+  --bds-red-20: #f9a6ad;
+  --bds-red-30: #f47f88;
+  --bds-red-40: #ed5966;
+  --bds-red-50: #e13947;
+  --bds-red-60: #cf202f;
+  --bds-red-70: #b50f1d;
+  --bds-red-80: #910510;
+  --bds-red-90: #640109;
+  --bds-red-100: #330004;
+
+  /* pink */
+  --bds-pink-0: #fff5ff;
+  --bds-pink-5: #fde4fd;
+  --bds-pink-10: #fbd4fa;
+  --bds-pink-15: #f8c3f5;
+  --bds-pink-20: #f4b2f0;
+  --bds-pink-30: #eb8fe3;
+  --bds-pink-40: #dd6ed1;
+  --bds-pink-50: #cb51bb;
+  --bds-pink-60: #b33aa2;
+  --bds-pink-70: #952785;
+  --bds-pink-80: #741a66;
+  --bds-pink-90: #531148;
+  --bds-pink-100: #330a2c;
+
+  /* purple */
+  --bds-purple-0: #fbf7ff;
+  --bds-purple-5: #f4e8ff;
+  --bds-purple-10: #edd9ff;
+  --bds-purple-15: #e6c9ff;
+  --bds-purple-20: #deb8ff;
+  --bds-purple-30: #cd99fd;
+  --bds-purple-40: #bc7bfb;
+  --bds-purple-50: #9d6bf2;
+  --bds-purple-60: #8a55e9;
+  --bds-purple-70: #7743d7;
+  --bds-purple-80: #5a30ad;
+  --bds-purple-90: #361b6b;
+  --bds-purple-100: #190d33;
+
+  /* indigo */
+  --bds-indigo-0: #f6f7ff;
+  --bds-indigo-5: #e6e8ff;
+  --bds-indigo-10: #d6dafe;
+  --bds-indigo-15: #c6ccfd;
+  --bds-indigo-20: #b5bdfd;
+  --bds-indigo-30: #94a1fb;
+  --bds-indigo-40: #7487f7;
+  --bds-indigo-50: #596ff2;
+  --bds-indigo-60: #425be9;
+  --bds-indigo-70: #2f4ad7;
+  --bds-indigo-80: #1f36ad;
+  --bds-indigo-90: #11206b;
+  --bds-indigo-100: #080f33;
+
+  /* gray */
+  --bds-gray-0: #ffffff;
+  --bds-gray-5: #f8f8f8;
+  --bds-gray-10: #efefef;
+  --bds-gray-15: #dadada;
+  --bds-gray-20: #c4c4c4;
+  --bds-gray-30: #b8b8b8;
+  --bds-gray-40: #9a9a9a;
+  --bds-gray-50: #6f6f6f;
+  --bds-gray-60: #5e5e5e;
+  --bds-gray-70: #525252;
+  --bds-gray-80: #3a3a3a;
+  --bds-gray-90: #262626;
+  --bds-gray-100: #111111;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    var(--font-base-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  color: var(--bds-gray-100);
+  background: var(--bds-gray-0);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
