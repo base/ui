@@ -7,6 +7,7 @@
 // credentials, so plain `fetch` works from both the browser and server components.
 
 import type {
+  AccountBalancesResponse,
   ConfigResponse,
   ContractsResponse,
   ExplorerAddressResponse,
@@ -93,8 +94,12 @@ async function post<T>(path: string, body?: unknown, signal?: AbortSignal): Prom
 
 const enc = encodeURIComponent;
 
-// Typed endpoint helpers. Account endpoints (balances + rpc/payer/bundler) are
-// intentionally omitted until the Account page is migrated in a later phase.
+/** Networks the account balances endpoint accepts. */
+export type AccountNetwork = 'vibenet' | 'base-sepolia';
+
+// Typed endpoint helpers. The account rpc/payer/bundler JSON-RPC passthroughs
+// are consumed directly by viem transports (see demos/account), not through
+// this client; only the balances read is surfaced here.
 export const vibenetApi = {
   health: async (signal?: AbortSignal) => get<HealthResponse>('/api/vibenet/health', signal),
   config: async (signal?: AbortSignal) => get<ConfigResponse>('/api/vibenet/config', signal),
@@ -123,6 +128,14 @@ export const vibenetApi = {
       post<FaucetDripUsdvResponse>('/api/vibenet/faucet/drip-usdv', body, signal),
     dripNfv: async (body: FaucetDripRequest, signal?: AbortSignal) =>
       post<FaucetDripNfvResponse>('/api/vibenet/faucet/drip-nfv', body, signal),
+  },
+
+  account: {
+    balances: async (address: string, network: AccountNetwork, signal?: AbortSignal) =>
+      get<AccountBalancesResponse>(
+        `/api/vibenet/account/balances?address=${enc(address)}&network=${enc(network)}`,
+        signal,
+      ),
   },
 
   vibes: {
