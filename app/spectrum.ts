@@ -32,7 +32,7 @@ export const spectrum: {
   indigo: ColorScale;
   gray: ColorScale;
 } = {
-  brand: 'color(display-p3 0 0 1 / 1)',
+  brand: 'var(--base-blue-p3)',
   blue: {
     0: '#f5f8ff',
     5: '#d3e1ff',
