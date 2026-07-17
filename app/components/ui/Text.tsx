@@ -32,7 +32,7 @@ type TextProps = ComponentPropsWithoutRef<'p'> & {
 
 export const textVariantClasses: Record<TextVariant, string> = {
   display:
-    'text-[32px] sm:text-[36px] md:text-[42px] leading-[40px] sm:leading-[38px] md:leading-[50px] font-base font-[400] tracking-[-0.04em]',
+    'text-[36px] sm:text-[40px] md:text-[56px] leading-[40px] sm:leading-[48px] md:leading-[64px] font-base font-[400] tracking-[-0.04em]',
   stats:
     'text-[24px] sm:text-[32px] md:text-[40px] leading-[28px] sm:leading-[36px] md:leading-[48px] font-base font-[400] tracking-[0px]',
   title1:
@@ -55,7 +55,7 @@ export const textVariantClasses: Record<TextVariant, string> = {
   caption:
     'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[500] tracking-[0px] uppercase',
   button: 'text-[15px] md:text-[16px] leading-[140%] font-base font-[400] tracking-[-0.01em]',
-  footnote: 'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[500] tracking-[0px]',
+  footnote: 'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[400] tracking-[0px]',
 };
 
 const textToneClasses: Record<TextTone, string> = {

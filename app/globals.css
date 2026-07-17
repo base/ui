@@ -213,3 +213,119 @@ a {
 button {
   font-family: inherit;
 }
+
+.nav-home-icon {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: left center;
+}
+
+a:hover .nav-home-icon {
+  transform: perspective(400px) rotateY(-15deg);
+}
+
+.nav-upgrades-arrow {
+  transition: transform 0.2s ease-out;
+}
+
+a:hover .nav-upgrades-arrow {
+  transform: translateY(-1px);
+}
+
+.nav-snapshots-icon {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+a:hover .nav-snapshots-icon {
+  transform: rotate(180deg);
+}
+
+.nav-vibenet-icon {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+a:hover .nav-vibenet-icon {
+  transform: rotate(60deg);
+}
+
+/* Responsive: hamburger menu + drawer */
+.mobile-header {
+  display: none;
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: inherit;
+  line-height: 0;
+}
+
+.hamburger-line {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-box: view-box;
+  transform-origin: center;
+}
+
+.hamburger-top {
+  transform: translateY(-3px);
+}
+
+.hamburger-bottom {
+  transform: translateY(3px);
+}
+
+.hamburger-top.open {
+  transform: rotate(45deg);
+}
+
+.hamburger-bottom.open {
+  transform: rotate(-45deg);
+}
+
+.drawer {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .sidebar-desktop {
+    display: none !important;
+  }
+
+  .topbar-desktop {
+    display: none !important;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 56px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 110;
+    background: var(--bds-gray-0);
+    border-bottom: 1px solid var(--bds-gray-10);
+  }
+
+  .drawer {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    background: var(--bds-gray-0);
+    padding: 12px 8px 20px;
+    overflow-y: auto;
+  }
+
+  .mobile-content-offset {
+    padding-top: 56px;
+  }
+}
