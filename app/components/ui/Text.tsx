@@ -42,14 +42,14 @@ export const textVariantClasses: Record<TextVariant, string> = {
   title3:
     'text-[18px] md:text-[20px] leading-[26px] md:leading-[28px] font-base font-[400] tracking-tight',
   headline:
-    'text-[16px] md:text-[18px] leading-[24px] md:leading-[28px] font-base font-[400] tracking-tight',
+    'text-[16px] leading-[24px] font-base font-[400] tracking-tight',
   body: 'text-[15px] md:text-[16px] leading-[140%] font-base-text font-[400] tracking-[0px]',
   label:
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-base font-[400] tracking-[-0.01em]',
   'label.medium':
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-base font-[400] tracking-[0px]',
   'label.regular':
-    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-base-text font-[400] tracking-[0px]',
+    'text-[13px] md:text-[14px] leading-[16px] font-base-text font-[400] tracking-[0px]',
   'label.mono':
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-mono font-[400] tracking-[0px]',
   caption:

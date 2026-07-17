@@ -19,6 +19,7 @@ import { spectrum } from './spectrum';
 export { spectrum };
 
 // --- Accent ---
+export const BRAND_BLUE = 'var(--bds-brand)';
 export const BLUE = spectrum.blue[60];
 
 // --- Text ---

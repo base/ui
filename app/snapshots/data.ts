@@ -101,23 +101,23 @@ export function formatDate(dateStr: string): string {
 const GB = 1e9;
 
 export const COMPONENT_META: Record<string, { displayName: string; description: string }> = {
-  state: { displayName: 'State (mdbx)', description: 'Account and storage trie state database' },
-  headers: { displayName: 'Headers', description: 'Block headers for chain history' },
-  transactions: { displayName: 'Transactions', description: 'Full transaction data' },
+  state: { displayName: 'State (mdbx)', description: 'Account and storage trie state database.' },
+  headers: { displayName: 'Headers', description: 'Block headers for chain history.' },
+  transactions: { displayName: 'Transactions', description: 'Full transaction data.' },
   transaction_senders: {
     displayName: 'Senders',
-    description: 'Recovered transaction sender addresses',
+    description: 'Recovered transaction sender addresses.',
   },
-  receipts: { displayName: 'Receipts', description: 'Transaction receipts with logs and status' },
+  receipts: { displayName: 'Receipts', description: 'Transaction receipts with logs and status.' },
   account_changesets: {
     displayName: 'Account Changesets',
-    description: 'Historical account state changes',
+    description: 'Historical account state changes.',
   },
   storage_changesets: {
     displayName: 'Storage Changesets',
-    description: 'Historical storage slot changes',
+    description: 'Historical storage slot changes.',
   },
-  rocksdb_indices: { displayName: 'Indices', description: 'Database indices for fast lookups' },
+  rocksdb_indices: { displayName: 'Indices', description: 'Database indices for fast lookups.' },
 };
 
 export const COMPONENT_ORDER = Object.keys(COMPONENT_META);

@@ -12,25 +12,27 @@ export function Checkbox({ checked, className }: CheckboxProps) {
   return (
     <span
       className={cn(
-        'inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]',
-        checked ? 'border-bds-blue-60 bg-bds-blue-60' : 'border-bds-gray-40 bg-white',
+        'inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-[background-color,border-color] duration-150 ease-out',
+        checked ? 'border-black bg-black' : 'border-bds-gray-20 bg-white',
         className,
       )}
     >
-      {checked && (
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      )}
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="white"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={cn(
+          'transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none',
+          checked ? 'scale-100 opacity-100' : 'scale-75 opacity-0',
+        )}
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
     </span>
   );
 }

@@ -10,7 +10,7 @@
   color-scheme: light;
 
   --base-blue-p3: color(display-p3 0 0 1 / 1);
-  --bds-brand: var(--base-blue-p3);
+  --bds-brand: #0000FF;
 
   /* blue */
   --bds-blue-0: #f5f8ff;
@@ -232,11 +232,15 @@ a:hover .nav-upgrades-arrow {
 }
 
 .nav-snapshots-icon {
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 a:hover .nav-snapshots-icon {
-  transform: rotate(180deg);
+  transform: scale(0.82);
+}
+
+a:not(:hover) .nav-snapshots-icon {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .nav-vibenet-icon {
