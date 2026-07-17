@@ -11,12 +11,6 @@ import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
 import {
-  trackSnapshotCommandCopy,
-  trackSnapshotNetworkSelect,
-  trackSnapshotPresetSelect,
-} from '../analytics/events';
-
-import {
   CHAIN_NAME_BY_NETWORK,
   formatBytes,
   formatDate,
@@ -263,14 +257,12 @@ export default function SnapshotsPage() {
 
   function handleNetworkChange(next: string) {
     setNetwork(next);
-    trackSnapshotNetworkSelect(next);
   }
 
   function selectPreset(name: PresetName) {
     setPreset(name);
     const def = PRESETS.find((p) => p.name === name);
     if (def) setSelectedComponents([...def.components]);
-    trackSnapshotPresetSelect(name);
   }
 
   function toggleComponent(name: string) {
@@ -418,8 +410,6 @@ export default function SnapshotsPage() {
                         <span>block {formatNumber(snap.block)}</span>
                         <span className="text-bds-gray-40">·</span>
                         <span>{formatDate(snap.date)}</span>
-                        <span className="text-bds-gray-40">·</span>
-                        <span>{snap.rethVersion}</span>
                       </Text>
                     )}
                   </button>

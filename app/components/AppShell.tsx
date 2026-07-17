@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { trackNavClick } from '../analytics/events';
 import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { spectrum } from '../spectrum';
@@ -231,10 +230,7 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
     <Link
       href={href}
       style={styles.navLink}
-      onClick={() => {
-        trackNavClick(label);
-        onNavigate?.();
-      }}
+      onClick={onNavigate}
     >
       {row}
     </Link>
