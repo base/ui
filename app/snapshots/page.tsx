@@ -13,6 +13,12 @@ import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
 import {
+  trackSnapshotCommandCopy,
+  trackSnapshotNetworkSelect,
+  trackSnapshotPresetSelect,
+} from '../analytics/events';
+
+import {
   CHAIN_NAME_BY_NETWORK,
   formatBytes,
   formatDate,
@@ -154,10 +160,16 @@ export default function SnapshotsPage() {
     [snapshots],
   );
 
+  function handleNetworkChange(next: string) {
+    setNetwork(next);
+    trackSnapshotNetworkSelect(next);
+  }
+
   function selectPreset(name: PresetName) {
     setPreset(name);
     const def = PRESETS.find((p) => p.name === name);
     if (def) setSelectedComponents([...def.components]);
+    trackSnapshotPresetSelect(name);
   }
 
   function toggleComponent(name: string) {
@@ -295,7 +307,7 @@ export default function SnapshotsPage() {
             layoutId="network-pill"
             items={networkTabs}
             value={network}
-            onChange={setNetwork}
+            onChange={handleNetworkChange}
           />
           <div className="flex items-center gap-2 font-mono text-[12px] text-bds-gray-60">
             <span>block {formatNumber(activeSnapshot.block)}</span>
@@ -307,7 +319,11 @@ export default function SnapshotsPage() {
         </div>
       </div>
 
-      <CommandBox command={command} label="Download command" />
+      <CommandBox
+        command={command}
+        label="Download command"
+        onCopy={() => trackSnapshotCommandCopy(network, preset)}
+      />
 
       <div className="flex flex-col gap-4">
         <section>
