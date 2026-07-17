@@ -314,43 +314,19 @@ export default function SnapshotsPage() {
     if (value) toggleComponent(value);
   }
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 py-32">
-        <motion.svg
-          width="24"
-          height="24"
-          viewBox="0 0 450 450"
-          fill="none"
-          animate={{ rotate: [0, 90, 90, 180, 180, 270, 270, 360] }}
-          transition={{ duration: 4.8, ease: 'easeInOut', times: [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875], repeat: Infinity }}
-        >
-          <path d="M0 35.55C0 23.3732 0 17.2848 2.29438 12.6014C4.49116 8.11719 8.11719 4.49116 12.6014 2.29438C17.2848 0 23.3732 0 35.55 0H414.45C426.627 0 432.715 0 437.399 2.29438C441.883 4.49116 445.509 8.11719 447.706 12.6014C450 17.2848 450 23.3732 450 35.55V414.45C450 426.627 450 432.715 447.706 437.399C445.509 441.883 441.883 445.509 437.399 447.706C432.715 450 426.627 450 414.45 450H35.55C23.3732 450 17.2848 450 12.6014 447.706C8.11719 445.509 4.49116 441.883 2.29438 437.399C0 432.715 0 426.627 0 414.45V35.55Z" fill="#dadada"/>
-        </motion.svg>
-        <Text as="span" variant="label.regular" tone="muted">Loading Snapshots...</Text>
-      </div>
-    );
-  }
-  if (!activeSnapshot) {
-    return (
-      <EmptyState
-        bordered={false}
-        description={error ?? 'No snapshot found for the selected network.'}
-      />
-    );
-  }
+  const reducedMotion = useReducedMotion();
 
-  const chainName = CHAIN_NAME_BY_NETWORK[network] ?? network;
-  const command = buildDownloadCommand(chainName, preset, selectedComponents);
+  const chainName = activeSnapshot ? (CHAIN_NAME_BY_NETWORK[network] ?? network) : '';
+  const command = activeSnapshot ? buildDownloadCommand(chainName, preset, selectedComponents) : '';
 
   // Group the two changesets into a single "State History" row for display.
-  const stateHistoryComponents = activeSnapshot.components.filter(
+  const stateHistoryComponents = activeSnapshot?.components.filter(
     (c) => c.name === 'account_changesets' || c.name === 'storage_changesets',
-  );
-  const firstStateHistoryIndex = activeSnapshot.components.findIndex(
+  ) ?? [];
+  const firstStateHistoryIndex = activeSnapshot?.components.findIndex(
     (c) => c.name === 'account_changesets' || c.name === 'storage_changesets',
-  );
-  const displayComponents = activeSnapshot.components.flatMap((c, i) => {
+  ) ?? -1;
+  const displayComponents = activeSnapshot?.components.flatMap((c, i) => {
     const isStateHistory = c.name === 'account_changesets' || c.name === 'storage_changesets';
     if (!isStateHistory) return [c];
     if (i !== firstStateHistoryIndex) return [];
@@ -362,7 +338,7 @@ export default function SnapshotsPage() {
         size: stateHistoryComponents.reduce((sum, item) => sum + item.size, 0),
       },
     ];
-  });
+  }) ?? [];
 
   const withTransactions = selectedComponents.includes('transactions');
   const withReceipts = selectedComponents.includes('receipts');
@@ -371,13 +347,63 @@ export default function SnapshotsPage() {
     stateHistoryComponents.every((c) => selectedComponents.includes(c.name));
 
   return (
-    <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-3 rounded-xl border border-bds-gray-10 bg-bds-gray-5 px-0 pb-0 pt-5">
+    <AnimatePresence mode="wait">
+      {loading ? (
+        <motion.div
+          key="loading"
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.1, ease: [0.23, 1, 0.32, 1] }}
+          className="flex flex-col items-center justify-center gap-4 py-32"
+        >
+          <motion.svg
+            width="24"
+            height="24"
+            viewBox="0 0 450 450"
+            fill="none"
+            animate={reducedMotion ? undefined : { rotate: [0, 90, 90, 180, 180, 270, 270, 360] }}
+            transition={{ duration: 4.8, ease: 'linear', times: [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875], repeat: Infinity }}
+          >
+            <path d="M0 35.55C0 23.3732 0 17.2848 2.29438 12.6014C4.49116 8.11719 8.11719 4.49116 12.6014 2.29438C17.2848 0 23.3732 0 35.55 0H414.45C426.627 0 432.715 0 437.399 2.29438C441.883 4.49116 445.509 8.11719 447.706 12.6014C450 17.2848 450 23.3732 450 35.55V414.45C450 426.627 450 432.715 447.706 437.399C445.509 441.883 441.883 445.509 437.399 447.706C432.715 450 426.627 450 414.45 450H35.55C23.3732 450 17.2848 450 12.6014 447.706C8.11719 445.509 4.49116 441.883 2.29438 437.399C0 432.715 0 426.627 0 414.45V35.55Z" fill="#dadada"/>
+          </motion.svg>
+          <Text as="span" variant="label.regular" tone="muted">Loading Snapshots...</Text>
+        </motion.div>
+      ) : !activeSnapshot ? (
+        <motion.div
+          key="empty"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+        >
+          <EmptyState
+            bordered={false}
+            description={error ?? 'No snapshot found for the selected network.'}
+          />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="loaded"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+          className="flex flex-col gap-10"
+        >
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1], delay: 0 }}
+        className="flex flex-col gap-3 rounded-xl border border-bds-gray-10 bg-bds-gray-5 px-0 pb-0 pt-5"
+      >
         <div className="px-4 pb-2 md:px-6">
           <InlineCommand command={command} />
         </div>
 
-        <div className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 md:p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1], delay: 0.06 }}
+          className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 md:p-6"
+        >
           <Text as="h2" variant="headline" className="mb-6">Configuration</Text>
           <section>
             <div className="mb-4">
@@ -547,8 +573,10 @@ export default function SnapshotsPage() {
               )}
             </AnimatePresence>
           </section>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
