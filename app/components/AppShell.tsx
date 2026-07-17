@@ -67,6 +67,7 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 14,
   },
   navIcon: { display: 'inline-flex', width: 20, height: 20 },
+  externalArrow: { marginLeft: 'auto', display: 'inline-flex', width: 14, height: 14, position: 'relative' as const },
   soon: {
     marginLeft: 'auto',
     fontSize: 11,
@@ -231,6 +232,24 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
   );
 }
 
+function ExternalNavRow({ label, href, icon, showArrow = true }: { label: string; href: string; icon?: React.ReactNode; showArrow?: boolean }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="external-nav-row" style={{ ...styles.navLink, display: 'block' }}>
+      <div style={{ ...styles.navRow, color: spectrum.gray[50] }}>
+        {icon && <span style={{ ...styles.navIcon, position: 'relative' }}>{icon}</span>}
+        <Text as="span" variant="label.medium" tone="inherit" style={{ position: 'relative' }}>{label}</Text>
+        {showArrow && (
+          <span className="external-nav-arrow" style={styles.externalArrow}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25" />
+            </svg>
+          </span>
+        )}
+      </div>
+    </a>
+  );
+}
+
 function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { onNavigate?: () => void; hideBrand?: boolean; layoutScope?: string }) {
   const pathname = usePathname() || '/';
   return (
@@ -244,8 +263,59 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
       )}
 
       <nav style={styles.nav}>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => item.icon !== 'tips').map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+          return (
+            <NavRow
+              key={item.href}
+              icon={item.icon}
+              label={item.label}
+              href={item.href}
+              active={active}
+              enabled={item.enabled}
+              onNavigate={onNavigate}
+              layoutScope={layoutScope}
+            />
+          );
+        })}
+        <Link href="/faucet" style={styles.navLink} onClick={onNavigate}>
+          <div
+            style={{
+              ...styles.navRow,
+              position: 'relative',
+              color: pathname === '/faucet' ? spectrum.gray[80] : spectrum.gray[50],
+              fontWeight: pathname === '/faucet' ? 500 : 400,
+              cursor: 'pointer',
+            }}
+          >
+            {pathname === '/faucet' && (
+              <motion.div
+                layoutId={`nav-active-bg-${layoutScope}`}
+                style={{ position: 'absolute', inset: 0, borderRadius: 8, background: spectrum.gray[5] }}
+                transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+              />
+            )}
+            <span style={{ ...styles.navIcon, position: 'relative' }}>
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-faucet-icon">
+                <path d="M12 2v6m0 0a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0v-4a3 3 0 0 1 3-3Z" />
+                <path d="M6 11h12" />
+                <path d="M9 18v4M15 18v4" />
+              </svg>
+            </span>
+            <Text as="span" variant="label.medium" tone="inherit" style={{ position: 'relative' }}>Faucet</Text>
+          </div>
+        </Link>
+        <ExternalNavRow
+          label="Explorer"
+          href="https://basescan.org"
+          icon={
+            <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className="nav-explorer-icon">
+              <path d="M30 30.3125L23.0674 23.3799M23.0674 23.3799C24.5189 21.9284 25.4167 19.9232 25.4167 17.7083C25.4167 13.2785 21.8256 9.6875 17.3958 9.6875C12.966 9.6875 9.375 13.2785 9.375 17.7083C9.375 22.1381 12.966 25.7292 17.3958 25.7292C19.6107 25.7292 21.6159 24.8314 23.0674 23.3799Z" />
+            </svg>
+          }
+        />
+        {NAV_ITEMS.filter((item) => item.icon === 'tips').map((item) => {
+          const active = pathname.startsWith(item.href);
           return (
             <NavRow
               key={item.href}
