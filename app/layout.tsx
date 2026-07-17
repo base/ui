@@ -3,6 +3,8 @@ import './globals.css';
 import { PropsWithChildren } from 'react';
 import localFont from 'next/font/local';
 
+import { Analytics } from '@vercel/analytics/next';
+
 import { AppShell } from './components/AppShell';
 
 const baseSansMono = localFont({
@@ -62,6 +64,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
     >
       <body>
         <AppShell>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );

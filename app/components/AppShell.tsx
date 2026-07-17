@@ -4,6 +4,7 @@ import { CSSProperties, PropsWithChildren } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { trackNavClick } from '../analytics/events';
 import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED, SURFACE } from '../theme';
 
@@ -232,7 +233,7 @@ function NavRow({ icon, label, href, active, enabled }: NavRowProps) {
 
   if (!enabled) return row;
   return (
-    <Link href={href} style={styles.navLink}>
+    <Link href={href} style={styles.navLink} onClick={() => trackNavClick(label)}>
       {row}
     </Link>
   );

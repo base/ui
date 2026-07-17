@@ -10,11 +10,13 @@ type CommandBoxProps = {
   /** Uppercase label shown in the header. */
   label?: string;
   className?: string;
+  /** Called after the command is successfully copied (e.g. for analytics). */
+  onCopy?: () => void;
 };
 
 // Labeled, monospaced code block with a copy-to-clipboard button. Extracted
 // from the snapshots download command so any CLI/command display can reuse it.
-export function CommandBox({ command, label = 'Command', className }: CommandBoxProps) {
+export function CommandBox({ command, label = 'Command', className, onCopy }: CommandBoxProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -22,13 +24,14 @@ export function CommandBox({ command, label = 'Command', className }: CommandBox
       try {
         await navigator.clipboard.writeText(command);
         setCopied(true);
+        onCopy?.();
         setTimeout(() => setCopied(false), 2000);
       } catch {
         // ignore clipboard failures
       }
     }
     void copy();
-  }, [command]);
+  }, [command, onCopy]);
 
   return (
     <div className={cn('overflow-hidden rounded-[10px] border border-bds-gray-10', className)}>
