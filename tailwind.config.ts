@@ -53,6 +53,9 @@ const config: Config = {
         base: {
           blue: 'var(--base-blue-p3)',
         },
+        brand: {
+          blue: 'var(--bds-brand)',
+        },
         bds: bdsColors,
       },
       maxWidth: {

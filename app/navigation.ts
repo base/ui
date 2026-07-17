@@ -50,8 +50,7 @@ const SECTION_TABS: { prefix: string; tabs: SectionTab[] }[] = [
     // Account is staged for a later phase.
     tabs: [
       { label: 'Overview', href: '/vibenet', exact: true },
-      { label: 'Faucet', href: '/vibenet/faucet' },
-      { label: 'Explorer', href: '/vibenet/explorer' },
+{ label: 'Explorer', href: '/vibenet/explorer' },
     ],
   },
 ];

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { trackNavClick } from '../analytics/events';
 import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { spectrum } from '../spectrum';
@@ -68,7 +67,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 14,
   },
   navIcon: { display: 'inline-flex', width: 20, height: 20 },
-  externalArrow: { marginLeft: 'auto', display: 'inline-flex', width: 14, height: 14, position: 'relative' as const },
   soon: {
     marginLeft: 'auto',
     fontSize: 11,
@@ -125,7 +123,7 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: -1,
   },
   content: { flex: 1, overflowY: 'auto' },
-  contentInner: { maxWidth: 1280, margin: '0 auto', padding: '40px 28px 80px' },
+  contentInner: { maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px' },
 };
 
 function topbarTabStyle(active: boolean): CSSProperties {
@@ -134,6 +132,7 @@ function topbarTabStyle(active: boolean): CSSProperties {
     color: active ? INK : MUTED,
     fontWeight: active ? 500 : 400,
     borderBottomColor: active ? BLUE : 'transparent',
+    transition: 'border-color 150ms ease-out',
   };
 }
 
@@ -157,9 +156,9 @@ function NavGlyph({ name }: NavGlyphProps) {
       );
     case 'snapshots':
       return (
-        <svg width={common.width} height={common.height} viewBox="5 5 30 30" fill="currentColor" stroke="none" className="nav-snapshots-icon">
-          <path d="M19.5 9.97606C18.8096 9.97606 18.25 10.5357 18.25 11.2261C18.25 11.9164 18.8096 12.4761 19.5 12.4761L19.5 11.2261L19.5 9.97606ZM25.5 28.75C24.8096 28.75 24.25 29.3096 24.25 30C24.25 30.6904 24.8096 31.25 25.5 31.25L25.5 30L25.5 28.75ZM20.1214 15.3758C20.6125 15.861 21.4039 15.8562 21.8892 15.3652C22.3744 14.8741 22.3697 14.0827 21.8786 13.5974L21 14.4866L20.1214 15.3758ZM17.7177 11.2433L16.8391 10.3541C16.6014 10.589 16.4677 10.9092 16.4677 11.2433C16.4677 11.5774 16.6014 11.8976 16.8391 12.1325L17.7177 11.2433ZM21.8786 8.88916C22.3697 8.40393 22.3744 7.61249 21.8892 7.12142C21.4039 6.63036 20.6125 6.62562 20.1214 7.11084L21 8L21.8786 8.88916ZM19.5 11.2261L19.5 12.4761L25.5 12.4761L25.5 11.2261L25.5 9.97606L19.5 9.97606L19.5 11.2261ZM30 15.6725L28.75 15.6725L28.75 25.5535L30 25.5535L31.25 25.5535L31.25 15.6725L30 15.6725ZM25.5 11.2261L25.5 12.4761C27.3091 12.4761 28.75 13.9212 28.75 15.6725L30 15.6725L31.25 15.6725C31.25 12.5124 28.6615 9.97606 25.5 9.97606L25.5 11.2261ZM30 25.5535L28.75 25.5535C28.75 27.3048 27.3091 28.75 25.5 28.75L25.5 30L25.5 31.25C28.6615 31.25 31.25 28.7137 31.25 25.5535L30 25.5535ZM21 14.4866L21.8786 13.5974L18.5962 10.3541L17.7177 11.2433L16.8391 12.1325L20.1214 15.3758L21 14.4866ZM17.7177 11.2433L18.5962 12.1325L21.8786 8.88916L21 8L20.1214 7.11084L16.8391 10.3541L17.7177 11.2433ZM25.5 30L25.5 28.75L25.5 28.75L25.5 30L25.5 31.25L25.5 31.25L25.5 30Z" />
-          <path d="M20.5 31.0239C21.1904 31.0239 21.75 30.4643 21.75 29.7739C21.75 29.0836 21.1904 28.5239 20.5 28.5239L20.5 29.7739L20.5 31.0239ZM14.5 12.25C15.1904 12.25 15.75 11.6904 15.75 11C15.75 10.3096 15.1904 9.75 14.5 9.75L14.5 11L14.5 12.25ZM19.8786 25.6242C19.3875 25.139 18.5961 25.1438 18.1108 25.6348C17.6256 26.1259 17.6304 26.9173 18.1214 27.4026L19 26.5134L19.8786 25.6242ZM22.2823 29.7567L23.1609 30.6459C23.3986 30.411 23.5323 30.0908 23.5323 29.7567C23.5323 29.4226 23.3986 29.1024 23.1609 28.8675L22.2823 29.7567ZM18.1214 32.1108C17.6303 32.5961 17.6256 33.3875 18.1108 33.8786C18.5961 34.3696 19.3875 34.3744 19.8786 33.8892L19 33L18.1214 32.1108ZM20.5 29.7739L20.5 28.5239L14.5 28.5239L14.5 29.7739L14.5 31.0239L20.5 31.0239L20.5 29.7739ZM10 25.3275L11.25 25.3275L11.25 15.4465L10 15.4465L8.75 15.4465L8.75 25.3275L10 25.3275ZM14.5 29.7739L14.5 28.5239C12.6909 28.5239 11.25 27.0788 11.25 25.3275L10 25.3275L8.75 25.3275C8.75 28.4876 11.3385 31.0239 14.5 31.0239L14.5 29.7739ZM10 15.4465L11.25 15.4465C11.25 13.6952 12.6909 12.25 14.5 12.25L14.5 11L14.5 9.75C11.3385 9.75 8.75 12.2863 8.75 15.4465L10 15.4465ZM19 26.5134L18.1214 27.4026L21.4038 30.6459L22.2823 29.7567L23.1609 28.8675L19.8786 25.6242L19 26.5134ZM22.2823 29.7567L21.4038 28.8675L18.1214 32.1108L19 33L19.8786 33.8892L23.1609 30.6459L22.2823 29.7567Z" />
+        <svg width={common.width} height={common.height} viewBox="5 6.5 30 27" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="nav-snapshots-icon">
+          <path d="M23.5 21C23.5 22.933 21.933 24.5 20 24.5C18.067 24.5 16.5 22.933 16.5 21C16.5 19.067 18.067 17.5 20 17.5C21.933 17.5 23.5 19.067 23.5 21Z" />
+          <path d="M9 16.5826C9 14.604 10.604 13 12.5826 13H12.6972C13.8235 13 14.8753 12.4371 15.5 11.5C16.1247 10.5629 17.1765 10 18.3028 10H21.6972C22.8235 10 23.8753 10.5629 24.5 11.5C25.1247 12.4371 26.1765 13 27.3028 13H27.4174C29.396 13 31 14.604 31 16.5826V26C31 28.2091 29.2091 30 27 30H13C10.7909 30 9 28.2091 9 26V16.5826Z" />
         </svg>
       );
     case 'upgrades':
@@ -230,31 +229,10 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
     <Link
       href={href}
       style={styles.navLink}
-      onClick={() => {
-        trackNavClick(label);
-        onNavigate?.();
-      }}
+      onClick={onNavigate}
     >
       {row}
     </Link>
-  );
-}
-
-function ExternalNavRow({ label, href, icon, showArrow = true }: { label: string; href: string; icon?: React.ReactNode; showArrow?: boolean }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer" className="external-nav-row" style={{ ...styles.navLink, display: 'block' }}>
-      <div style={{ ...styles.navRow, color: spectrum.gray[50] }}>
-        {icon && <span style={{ ...styles.navIcon, position: 'relative' }}>{icon}</span>}
-        <Text as="span" variant="label.medium" tone="inherit" style={{ position: 'relative' }}>{label}</Text>
-        {showArrow && (
-          <span className="external-nav-arrow" style={styles.externalArrow}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25" />
-            </svg>
-          </span>
-        )}
-      </div>
-    </a>
   );
 }
 
@@ -286,42 +264,6 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
             />
           );
         })}
-        <Link href="/faucet" style={styles.navLink} onClick={onNavigate}>
-          <div
-            style={{
-              ...styles.navRow,
-              position: 'relative',
-              color: pathname === '/faucet' ? spectrum.gray[80] : spectrum.gray[50],
-              fontWeight: pathname === '/faucet' ? 500 : 400,
-              cursor: 'pointer',
-            }}
-          >
-            {pathname === '/faucet' && (
-              <motion.div
-                layoutId={`nav-active-bg-${layoutScope}`}
-                style={{ position: 'absolute', inset: 0, borderRadius: 8, background: spectrum.gray[5] }}
-                transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-              />
-            )}
-            <span style={{ ...styles.navIcon, position: 'relative' }}>
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-faucet-icon">
-                <path d="M12 2v6m0 0a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0v-4a3 3 0 0 1 3-3Z" />
-                <path d="M6 11h12" />
-                <path d="M9 18v4M15 18v4" />
-              </svg>
-            </span>
-            <Text as="span" variant="label.medium" tone="inherit" style={{ position: 'relative' }}>Faucet</Text>
-          </div>
-        </Link>
-        <ExternalNavRow
-          label="Explorer"
-          href="https://basescan.org"
-          icon={
-            <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className="nav-explorer-icon">
-              <path d="M30 30.3125L23.0674 23.3799M23.0674 23.3799C24.5189 21.9284 25.4167 19.9232 25.4167 17.7083C25.4167 13.2785 21.8256 9.6875 17.3958 9.6875C12.966 9.6875 9.375 13.2785 9.375 17.7083C9.375 22.1381 12.966 25.7292 17.3958 25.7292C19.6107 25.7292 21.6159 24.8314 23.0674 23.3799Z" />
-            </svg>
-          }
-        />
         {NAV_ITEMS.filter((item) => item.icon === 'tips').map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -424,7 +366,7 @@ export function AppShell({ children }: PropsWithChildren) {
       </AnimatePresence>
 
       <div className="mobile-content-offset" style={styles.main}>
-        <header className="topbar-desktop" style={styles.topbar}>
+        <header className="topbar-desktop" style={{ ...styles.topbar, justifyContent: tabs.length > 0 ? undefined : 'center' }}>
           <Text as="span" variant="headline">{title}</Text>
           {tabs.length > 0 && (
             <nav style={styles.topbarNav}>
