@@ -25,7 +25,7 @@ export function Badge({ children, tone }: { children: ReactNode; tone?: 'ok' | '
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px]',
+        'inline-flex shrink-0 items-center rounded-full border px-2 py-1 text-[11px] font-medium uppercase leading-none tracking-[0px]',
         tones[tone ?? 'default'],
       )}
     >
@@ -46,7 +46,7 @@ export function KindBadge({ kind }: { kind: SignerKind }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.4px]',
+        'inline-flex shrink-0 items-center rounded-full border px-2 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px]',
         KIND_BADGE[kind],
       )}
     >

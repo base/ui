@@ -564,7 +564,7 @@ export function AccountDemo() {
     setAssetsLoading(true);
     setAssetBals({});
     Promise.all(
-      (['base-sepolia', 'vibenet'] as const).map((net) =>
+      DEMO_CHAINS.map((c) => c.shortName as 'vibenet' | 'base-sepolia').map((net) =>
         vibenetApi.account
           .balances(acct.address, net)
           .then((b) => [net, b] as const)
@@ -2115,7 +2115,7 @@ export function AccountDemo() {
       {error ? (
         <p
           role="alert"
-          className="rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
+          className="rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 [line-break:anywhere] dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
         >
           {error}
         </p>

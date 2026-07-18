@@ -28,7 +28,7 @@ export function DemoTabs({ items, value, onChange, ariaLabel, layoutId = 'demo-t
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex rounded-full bg-bds-gray-10 p-1 dark:bg-white/10"
+      className="inline-flex self-start rounded-full bg-bds-gray-10 p-1 dark:bg-white/10"
     >
       {items.map((item) => {
         const active = item.value === value;

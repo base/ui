@@ -209,10 +209,14 @@ export function ConfigView(p: ConfigViewProps) {
 
 function AssetsTab({ p }: { p: ConfigViewProps }) {
   const cleanName = (s: string) => s.replace(/\s*devnet\s*$/i, '').trim();
-  const rows = [
-    { net: 'vibenet', name: cleanName(getDemoChain('vibenet').name), faucet: true },
-    { net: 'base-sepolia', name: cleanName(getDemoChain('base-sepolia').name), faucet: false },
-  ] as const;
+  // One row per supported chain. Sourced from DEMO_CHAINS so scoping the demo to
+  // a single network (currently vibenet) can't leave a stale hardcoded row that
+  // falls back to VIBENET and renders as a duplicate.
+  const rows = DEMO_CHAINS.map((c) => ({
+    net: c.shortName,
+    name: cleanName(c.name),
+    faucet: c.shortName === 'vibenet',
+  }));
   return (
     <ul className="flex flex-col divide-y divide-bds-gray-10 dark:divide-white/10">
       {rows.map((r) => {
@@ -408,7 +412,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
                 {p.pendingRevoke.map((o) => (
                   <span
                     key={`r-${o.signerId}`}
-                    className="inline-flex items-center rounded-full border border-bds-red-20 bg-bds-red-0 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.4px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
+                    className="inline-flex items-center rounded-full border border-bds-red-20 bg-bds-red-0 px-2 py-1 text-[11px] font-medium uppercase leading-none tracking-[0px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
                   >
                     − {o.label}
                   </span>
