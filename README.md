@@ -1,4 +1,4 @@
-# Omni UI
+# Base Chain Dashboard
 
 One UI for Base network dashboards and stats: snapshots, network upgrades, and
 the Vibenet devnet explorer/faucet, under a single shell.
