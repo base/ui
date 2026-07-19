@@ -50,7 +50,7 @@ function gateHtml(): string {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" />
-<title>Base Labs</title>
+<title>Base Chain</title>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -70,8 +70,8 @@ function gateHtml(): string {
 </head>
 <body>
   <form class="card" id="gate">
-    <h1>Base Labs</h1>
-    <p>This site is password protected.</p>
+    <h1>Base Chain</h1>
+    <p>Coming soon: tools and dashboards for Base Chain</p>
     <input id="pw" type="password" placeholder="Password" autocomplete="current-password" autofocus />
     <button type="submit">Enter</button>
     <div class="err" id="err"></div>
