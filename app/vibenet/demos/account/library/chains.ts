@@ -1,8 +1,93 @@
 import {
+  type Address,
   baseSepoliaDeployment,
   type Eip8130Deployment,
   vibenetDevnetDeployment,
 } from "@aa";
+
+import { isAddress } from "../../../library/format";
+
+/**
+ * Last-known-good vibenet EIP-8130 system contracts — a STATIC FALLBACK only.
+ *
+ * vibenet is ephemeral: a reset redeploys the enshrined system contracts, and
+ * several land at NEW addresses (accountConfiguration, DefaultAccount, high-rate
+ * payer, DelegateAuthenticator, PolicyManager, SessionPolicy). The account
+ * address is a CREATE2 of `keccak(0xff ‖ accountConfiguration ‖ salt ‖
+ * keccak(proxyCode→DefaultAccount))`, so with stale addresses the client derives
+ * a `from` the node can't reproduce → "EIP-8130 validation failed: create
+ * address does not match the sender".
+ *
+ * Rather than re-hardcode after every reset, the demo resolves these at runtime
+ * from https://vibes.base.org/api/vibenet/contracts via {@link deploymentFromContracts}.
+ * This constant is used only until that fetch lands (or if it fails). The K1
+ * authenticator (ecrecover precompile) and p256/webAuthn/alwaysValid
+ * authenticators are deterministic across resets; `accounts.upgradeable`/
+ * `accounts.erc4337` are not deployed on the native vibenet path (unused here).
+ */
+const VIBENET_DEPLOYMENT = {
+  ...vibenetDevnetDeployment,
+  accountConfiguration: "0x53648Cf00356fbAA1F2B531715c6B64AaBDE1555",
+  accounts: {
+    ...vibenetDevnetDeployment.accounts,
+    default: "0x58da469ef71Dd4B092B010CdA37DE124C926EebD",
+    defaultHighRate: "0x23Fe6949d6370330Ae32e7c17E1265D65955C92a",
+  },
+  authenticators: {
+    ...vibenetDevnetDeployment.authenticators,
+    delegate: "0xbb73E3871FBaC8aef1a7Ee8A24E21139916f14C2",
+  },
+  policies: {
+    manager: "0x6e9E627770C1c90371A2E4CB9474A7Af577a4306",
+    sessionPolicy: "0x58ef2d572a1bC528f0B9121d686B2618809604Dc",
+  },
+} satisfies Eip8130Deployment;
+
+/**
+ * Build an {@link Eip8130Deployment} from the live `/api/vibenet/contracts`
+ * `eip8130` block so a devnet reset never requires a code change — the demo just
+ * refetches. Falls back to {@link VIBENET_DEPLOYMENT} per field for anything the
+ * API omits (K1 precompile; `upgradeable`/`erc4337`, unused on the native path),
+ * and returns `null` when the payload lacks the core address-derivation
+ * contracts (AccountConfiguration + DefaultAccount) so callers keep the static set.
+ */
+export function deploymentFromContracts(
+  contracts: Record<string, unknown> | null | undefined,
+): Eip8130Deployment | null {
+  const eip8130 = (contracts as { eip8130?: Record<string, unknown> } | null)
+    ?.eip8130;
+  if (!eip8130 || typeof eip8130 !== "object") return null;
+
+  // Core derivation inputs — without both, the live payload is unusable.
+  if (!isAddress(eip8130.AccountConfiguration) || !isAddress(eip8130.DefaultAccount))
+    return null;
+
+  // Valid address by API key, else the static fallback.
+  const addr = (key: string, fallback: Address): Address =>
+    isAddress(eip8130[key]) ? (eip8130[key] as Address) : fallback;
+
+  const fb = VIBENET_DEPLOYMENT;
+  return {
+    accountConfiguration: eip8130.AccountConfiguration as Address,
+    accounts: {
+      upgradeable: fb.accounts.upgradeable, // not deployed on native vibenet
+      default: eip8130.DefaultAccount as Address,
+      defaultHighRate: addr("CanonicalHighRatePayerAccount", fb.accounts.defaultHighRate),
+      erc4337: fb.accounts.erc4337, // ERC-4337 path is Base Sepolia only
+    },
+    authenticators: {
+      k1: fb.authenticators.k1, // ecrecover precompile — constant across resets
+      p256: addr("P256Authenticator", fb.authenticators.p256),
+      webAuthn: addr("WebAuthnAuthenticator", fb.authenticators.webAuthn),
+      delegate: addr("DelegateAuthenticator", fb.authenticators.delegate),
+      alwaysValid: addr("AlwaysValidAuthenticator", fb.authenticators.alwaysValid),
+    },
+    policies: {
+      manager: addr("PolicyManager", fb.policies.manager),
+      sessionPolicy: addr("SessionPolicy", fb.policies.sessionPolicy),
+    },
+  };
+}
 
 // omni-ui has no account backend of its own; these resolve to vibenet's
 // cross-origin routes (see library/config.ts). Ported from same-origin paths.
@@ -54,7 +139,8 @@ export const VIBENET: DemoChain = {
   mode: "eip8130-native",
   status: "preview",
   // Enshrined 8130 system contracts as derived by the devnet execution client.
-  deployment: vibenetDevnetDeployment,
+  // vibenet is ephemeral — see VIBENET_DEPLOYMENT for the post-reset addresses.
+  deployment: VIBENET_DEPLOYMENT,
   tagline: "Native AA_TX_TYPE. First-class account abstraction transactions.",
 };
 

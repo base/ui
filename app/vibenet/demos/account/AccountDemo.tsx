@@ -24,6 +24,7 @@ import {
   defineSessionPolicy,
   delegateAuthSize,
   ecrecoverAuthenticator,
+  type Eip8130Deployment,
   encodeSessionPolicyConfig,
   encodeTokenTransfer,
   encodeWalletCalls,
@@ -78,6 +79,7 @@ import {
   BASE_SEPOLIA_USDC,
   DEMO_CHAINS,
   type DemoChain,
+  deploymentFromContracts,
   estimateTxGas,
   getDemoChain,
   PAYER_URL,
@@ -433,7 +435,29 @@ export function AccountDemo() {
   // Apps directory.
   const [appBusy, setAppBusy] = useState<string | null>(null);
 
-  const chain = useMemo(() => getDemoChain(networkShort), [networkShort]);
+  // EIP-8130 system-contract addresses, resolved live from the dataplane so a
+  // devnet reset (which redeploys them to new addresses) never needs a code
+  // change. `null` until the first fetch lands → the static fallback in
+  // chains.ts is used. See the fetch effect below.
+  const [liveDeployment, setLiveDeployment] = useState<Eip8130Deployment | null>(
+    null,
+  );
+  // Overlay the live deployment onto a demo chain (vibenet only — Base Sepolia
+  // is a persistent testnet whose canonical addresses don't move).
+  const resolveChain = useCallback(
+    (short: string): DemoChain => {
+      const base = getDemoChain(short);
+      return liveDeployment && base.shortName === 'vibenet'
+        ? { ...base, deployment: liveDeployment }
+        : base;
+    },
+    [liveDeployment],
+  );
+
+  const chain = useMemo(
+    () => resolveChain(networkShort),
+    [resolveChain, networkShort],
+  );
   // Proxy code for a smart account. MUST target a DEPLOYED implementation: with a
   // codeless impl, policy-gated session-key sends route PolicyManager.execute ->
   // account.executeBatch into empty code — the tx "succeeds", the policy consumes
@@ -540,6 +564,29 @@ export function AccountDemo() {
       clearInterval(t);
     };
   }, [makeRpcClient]);
+
+  // --- live EIP-8130 deployment resolution ------------------------------
+  // Fetch the system-contract addresses from the dataplane on mount and again
+  // whenever a reset is detected (`genesisHash` changes). This is what makes the
+  // demo survive an arbitrary devnet reset with no code change. Keeps the same
+  // object identity when addresses are unchanged so `chain`/`code`/rpc-client
+  // memos don't churn.
+  useEffect(() => {
+    const controller = new AbortController();
+    vibenetApi
+      .contracts(controller.signal)
+      .then((contracts) => {
+        const next = deploymentFromContracts(contracts);
+        if (!next) return; // malformed payload → keep static fallback
+        setLiveDeployment((prev) =>
+          prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
+        );
+      })
+      .catch(() => {
+        /* offline / aborted → keep last-known-good deployment */
+      });
+    return () => controller.abort();
+  }, [genesisHash]);
 
   const acct = useMemo(
     () => accounts.find((a) => a.id === activeAccountId) ?? null,
@@ -1966,7 +2013,7 @@ export function AccountDemo() {
   ): Promise<AppSessionKey | null> => {
     const defer = opts.defer ?? true;
     if (!acct || !activeSigner) return null;
-    const skChain = getDemoChain(opts.chainShort);
+    const skChain = resolveChain(opts.chainShort);
     const ownerSigner = await buildSigner(activeSigner);
     const account = nativeAccountFor(acct, ownerSigner, activeSigner.authenticator);
     // Every session key in this demo is policy-gated (an owner-signed authorize
