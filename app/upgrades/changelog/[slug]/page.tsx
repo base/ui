@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import { Button } from '../../../components/ui/Button';
 import { Text } from '../../../components/ui/Text';
 import { CategoryBadge, KindBadge, StatusPill } from '../../components/Badges';
-import { Breadcrumb } from '../../components/Breadcrumb';
 import { getChangeBySlug } from '../../data/changes';
 import { getVibenetChangeById } from '../../data/vibenet';
 import { LIFECYCLE_LABELS } from '../../library/display';
@@ -14,14 +13,6 @@ import { ChangeDetailClient } from './ChangeDetailClient';
 type ChangePageProps = {
   params: Promise<{ slug: string }>;
 };
-
-function buildBreadcrumbItems(changeTitle: string) {
-  return [
-    { href: '/upgrades', label: 'Upgrades' },
-    { href: '/upgrades/changelog', label: 'Changelog' },
-    { label: changeTitle },
-  ];
-}
 
 export async function generateMetadata(props: ChangePageProps): Promise<Metadata> {
   const { slug } = await props.params;
@@ -48,11 +39,8 @@ export default async function ChangePage(props: ChangePageProps) {
 
   const vibenetChange = getVibenetChangeById(change.id);
 
-  const breadcrumbItems = buildBreadcrumbItems(change.title);
-
   return (
     <div className="pb-4 text-black">
-      <Breadcrumb items={breadcrumbItems} />
       <header className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-start">
         <div className="max-w-3xl">
           <div className="mb-4 flex flex-wrap items-center gap-2">

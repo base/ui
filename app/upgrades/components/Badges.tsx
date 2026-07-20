@@ -39,16 +39,55 @@ type StatusPillProps = {
   className?: string;
 };
 
+function StatusIcon({ variant }: { variant: StatusVariant }) {
+  const cls = "h-3 w-3 shrink-0";
+  switch (variant) {
+    case 'live':
+      return (
+        <span className="relative flex h-1.5 w-1.5 shrink-0">
+          <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-75', dotClassName[variant])} />
+          <span className={cn('relative inline-flex h-1.5 w-1.5 rounded-full', dotClassName[variant])} />
+        </span>
+      );
+    case 'scheduled':
+      return (
+        <svg className={cls} viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <circle cx="6" cy="6" r="4.25" stroke="currentColor" strokeWidth="1.25" />
+          <path d="M6 3.5V6L7.5 7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'planning':
+      return (
+        <svg className="h-3 w-3 -mr-0.5 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M8.14 5.43L4.29 9.28H2.5V7.46L6.35 3.61L7.33 2.63C7.33 2.63 8.05 2.34 8.7 3C9.36 3.65 9.07 4.37 9.07 4.37L8.14 5.43ZM6.35 3.61L8.14 5.43" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'draft':
+      return (
+        <svg className={cls} viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <circle cx="6" cy="6" r="4.25" stroke="currentColor" strokeWidth="1.25" />
+          <circle cx="6" cy="6" r="1.5" fill="currentColor" />
+        </svg>
+      );
+    case 'accepted':
+      return (
+        <svg className={cls} viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M2.5 6.5L5 9L9.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+  }
+}
+
 export function StatusPill({ variant, children, className }: StatusPillProps) {
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] leading-none',
+        'inline-flex max-w-full items-center gap-1.5 rounded-full px-1.5 py-1 font-sans text-[12px] leading-none',
         statusClassName[variant],
         className,
       )}
     >
-      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotClassName[variant])} />
+      <StatusIcon variant={variant} />
       <span className="min-w-0 truncate">{children}</span>
     </span>
   );

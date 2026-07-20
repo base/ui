@@ -56,7 +56,7 @@ function ChangeLifecycleStatus({ change }: ChangeLifecycleStatusProps) {
 
 export function ChangelogClient() {
   const [query, setQuery] = useState('');
-  const [upgradeFilter, setUpgradeFilter] = useState('all');
+  const [upgradeFilter, setUpgradeFilter] = useState(() => getUpgradesReversed()[0]?.id ?? 'all');
   const [kindFilter, setKindFilter] = useState<ChangeKind | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<ChangeCategory | 'all'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleState | 'all'>('all');
@@ -147,14 +147,7 @@ export function ChangelogClient() {
 
   return (
     <>
-      <Card className="mb-6 grid gap-3 bg-bds-gray-0 p-4 dark:bg-white/5 md:grid-cols-[1fr_auto_auto_auto_auto]">
-        <input
-          value={query}
-          onChange={handleQueryChange}
-          placeholder="Search by title, EIP, or summary keyword"
-          aria-label="Search changes"
-          className="h-11 rounded-full border border-bds-gray-10 bg-white px-4 text-[14px] text-black outline-none placeholder:text-bds-gray-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-bds-gray-40"
-        />
+      <Card className="mb-6 grid gap-3 bg-bds-gray-0 p-4 dark:bg-white/5 md:grid-cols-[auto_1fr_auto_auto_auto]">
         <FilterSelect
           value={upgradeFilter}
           onChange={setUpgradeFilter}
@@ -167,6 +160,13 @@ export function ChangelogClient() {
             </option>
           ))}
         </FilterSelect>
+        <input
+          value={query}
+          onChange={handleQueryChange}
+          placeholder="Search by title, EIP, or summary keyword"
+          aria-label="Search changes"
+          className="h-11 rounded-full border border-bds-gray-10 bg-white px-4 text-[14px] text-black outline-none placeholder:text-bds-gray-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-bds-gray-40"
+        />
         <FilterSelect
           value={kindFilter}
           onChange={handleKindChange}

@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { spectrum } from '../spectrum';
+import { getChangeBySlug } from '../upgrades/data/changes';
 
 import { Text } from './ui/Text';
 
@@ -171,6 +172,15 @@ function NavGlyph({ name }: NavGlyphProps) {
           />
         </svg>
       );
+    case 'changelog':
+      return (
+        <svg {...common}>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+          <path d="M14 2v6h6" />
+          <line x1="8" y1="13" x2="16" y2="13" />
+          <line x1="8" y1="17" x2="16" y2="17" />
+        </svg>
+      );
     case 'vibenet':
       return (
         <svg {...common} viewBox="5 5 30 30" strokeWidth={2.5} className="nav-vibenet-icon">
@@ -250,7 +260,16 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
 
       <nav style={styles.nav}>
         {NAV_ITEMS.filter((item) => item.icon !== 'tips').map((item) => {
-          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+          let active: boolean;
+          if (item.href === '/') {
+            active = pathname === '/';
+          } else {
+            const isMatch = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const hasMoreSpecific = NAV_ITEMS.some(
+              (other) => other.href !== item.href && other.href.startsWith(item.href) && (pathname === other.href || pathname.startsWith(`${other.href}/`)),
+            );
+            active = isMatch && !hasMoreSpecific;
+          }
           return (
             <NavRow
               key={item.href}
@@ -367,7 +386,22 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <div className="mobile-content-offset" style={styles.main}>
         <header className="topbar-desktop" style={{ ...styles.topbar, justifyContent: tabs.length > 0 ? undefined : 'center' }}>
-          <Text as="span" variant="headline">{title}</Text>
+          {(() => {
+            const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
+            if (slugMatch) {
+              const change = getChangeBySlug(slugMatch[1]);
+              return (
+                <span className="flex items-center gap-2">
+                  <Link href="/upgrades/changelog" className="no-underline">
+                    <Text as="span" variant="headline" className="text-bds-gray-40">Changelog</Text>
+                  </Link>
+                  <Text as="span" variant="headline" className="text-bds-gray-30">/</Text>
+                  <Text as="span" variant="headline">{change?.title ?? slugMatch[1]}</Text>
+                </span>
+              );
+            }
+            return <Text as="span" variant="headline">{title}</Text>;
+          })()}
           {tabs.length > 0 && (
             <nav style={styles.topbarNav}>
               {tabs.map((tab) => {
