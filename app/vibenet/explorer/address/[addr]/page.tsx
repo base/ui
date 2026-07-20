@@ -20,9 +20,9 @@ import {
 import { shortAddress } from '../../../library/format';
 
 const CHIP =
-  'inline-flex items-center rounded-full border border-bds-gray-10 px-2.5 py-0.5 text-[11px] text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40';
+  'inline-flex items-center rounded-full border border-bds-gray-10 px-2.5 py-1 text-[11px] leading-none text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40';
 const BADGE =
-  'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-0.5 text-[11px] text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
+  'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
 const TH =
   'px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40';
 const TD = 'px-3 py-2.5 text-[13px]';

@@ -158,8 +158,8 @@ export default function UpgradesPage() {
               ['Schedule', '/upgrades/schedule', 'View activation dates by month and network.'],
               ['Vibenet', '/vibenet', 'Test new features on our ephemeral testing network.'],
             ].map(([title, href, body]) => (
-              <LinkCard key={href} href={href} className="bg-bds-gray-0 p-4">
-                <Text variant="headline">{title}</Text>
+              <LinkCard key={href} href={href} className="group bg-bds-gray-0 p-4">
+                <Text variant="headline" className="transition-colors group-hover:text-base-blue">{title}</Text>
                 <Text variant="label.regular" tone="muted" className="mt-1">
                   {body}
                 </Text>
