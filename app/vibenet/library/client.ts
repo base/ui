@@ -8,6 +8,7 @@
 
 import type {
   AccountBalancesResponse,
+  ChainHealthResponse,
   ConfigResponse,
   ContractsResponse,
   ExplorerAddressResponse,
@@ -102,6 +103,10 @@ export type AccountNetwork = 'vibenet' | 'base-sepolia';
 // this client; only the balances read is surfaced here.
 export const vibenetApi = {
   health: async (signal?: AbortSignal) => get<HealthResponse>('/api/vibenet/health', signal),
+  // L2 chain health for the in-app maintenance banner (distinct from `health`,
+  // which is the LB liveness probe). Always returns 200; branch on `healthy`.
+  chainHealth: async (signal?: AbortSignal) =>
+    get<ChainHealthResponse>('/api/vibenet/chain-health', signal),
   config: async (signal?: AbortSignal) => get<ConfigResponse>('/api/vibenet/config', signal),
   contracts: async (signal?: AbortSignal) =>
     get<ContractsResponse>('/api/vibenet/contracts', signal),

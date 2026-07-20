@@ -42,7 +42,7 @@ export const BASE_SEPOLIA: DemoChain = {
   rpcUrl: "https://sepolia.base.org",
   blockExplorer: "https://sepolia.basescan.org",
   deployment: baseSepoliaDeployment,
-  tagline: "ERC-4337 today — live system contracts deployed.",
+  tagline: "ERC-4337 today. Live system contracts deployed.",
 };
 
 export const VIBENET: DemoChain = {
@@ -55,7 +55,7 @@ export const VIBENET: DemoChain = {
   status: "preview",
   // Enshrined 8130 system contracts as derived by the devnet execution client.
   deployment: vibenetDevnetDeployment,
-  tagline: "Native AA_TX_TYPE — first-class account abstraction transactions.",
+  tagline: "Native AA_TX_TYPE. First-class account abstraction transactions.",
 };
 
 export const DEMO_CHAINS: readonly DemoChain[] = [VIBENET];
@@ -131,8 +131,16 @@ export function estimateTxGas(params: {
   // adds the PolicyManager.execute frame, policy validation, spend-tracking
   // SSTOREs, and the callback into executeBatch on top of the inner call.
   policyCalls?: number;
+  // When true, this value is the SOLE gas source (the node's `eth_estimateGas`
+  // is unavailable, reverted, or the user chose "Send anyway"), so it is scaled
+  // up by {@link FALLBACK_SAFETY} to over-provision on purpose — unused gas is
+  // refunded, whereas an under-estimate causes an on-chain OOG revert. When
+  // false (the default) it is used only as a *floor* beneath a successful node
+  // estimate, so it must stay realistic-with-headroom or it would swamp the
+  // node's accurate estimate and permanently over-price every transaction.
+  fallback?: boolean;
 }): number {
-  const { mode, deploy, calls, keyChanges, policyCalls = 0 } = params;
+  const { mode, deploy, calls, keyChanges, policyCalls = 0, fallback = false } = params;
   // ERC-4337: EntryPoint overhead (unchanged — different execution path).
   // EIP-8130 native: base covers intrinsic gas for authenticator dispatch,
   // AccountConfiguration lookup, and RLP calldata.
@@ -153,13 +161,23 @@ export function estimateTxGas(params: {
   // node's estimate can be low when the simulated inner call reverts (an 8130
   // reverting phase is still a valid inclusion), so the floor is the backstop.
   const perPolicyCall = 55_000;
+  // 2x safety multiplier, applied ONLY in fallback mode (see `fallback` above):
+  // when the node's `eth_estimateGas` is unavailable or reverts (staged config +
+  // policy bundles, cold-account creation on a value transfer to a fresh
+  // recipient, etc.) this structural value is the sole gas source, so over-budget
+  // on purpose — unused gas is refunded, and an underestimate causes an on-chain
+  // OOG revert (far worse than a temporarily higher limit). As a *floor* beneath
+  // a successful node estimate we must NOT double it, or it would always exceed
+  // the (buffered) real estimate and permanently over-price every transaction.
+  const FALLBACK_SAFETY = fallback ? 2 : 1;
   return (
-    base +
-    deployCost +
-    calls * perCall +
-    keyChanges * perKeyChange +
-    policyCalls * perPolicyCall +
-    wrap
+    FALLBACK_SAFETY *
+    (base +
+      deployCost +
+      calls * perCall +
+      keyChanges * perKeyChange +
+      policyCalls * perPolicyCall +
+      wrap)
   );
 }
 

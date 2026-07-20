@@ -22,6 +22,7 @@ import {
   createPublicClient,
   createWebAuthnCredential,
   defineSessionPolicy,
+  delegateAuthSize,
   ecrecoverAuthenticator,
   encodeSessionPolicyConfig,
   encodeTokenTransfer,
@@ -43,6 +44,7 @@ import {
   sessionPolicyAbi,
   type Signer,
   to8130Account,
+  toDelegate8130Signer,
   toEoa8130Account,
   toHex,
   toP256Signer,
@@ -135,6 +137,113 @@ const STORAGE_KEY = 'vibenet.account.v2';
 const SPEC_URL = 'https://eip.tools/eip/8130';
 const CONTRACTS_URL = 'https://github.com/base/eip-8130';
 
+// `createAccount`/`importAccount` bootstrap an account with its LOCAL config
+// sequence set to 1 (it doubles as the "initialized" flag). So the first
+// local-channel actor change (a session-key authorize) is sequence 1, not 0. The
+// MULTICHAIN counter (owner changes) is untouched by create and starts at 0.
+const POST_CREATE_LOCAL_SEQ = 1;
+
+/** Fold a landed batch of session-key config changes into the key list:
+ *  - a key whose staged REVOKE landed is removed entirely, and
+ *  - a key whose staged AUTHORIZE landed has its `pendingAuth` cleared.
+ *  `landedIds` are the session ids whose changes rode the confirmed tx. */
+function commitLandedSessions(a: StoredAccount, landedIds: Set<string>): AppSessionKey[] {
+  return a.sessionKeys
+    .filter((sk) => !(landedIds.has(sk.id) && sk.pendingRevoke))
+    .map((sk) => (landedIds.has(sk.id) && sk.pendingAuth ? { ...sk, pendingAuth: undefined } : sk));
+}
+
+/** Add a PolicyManager address to the trusted-executor set (dedup, case-insensitive). */
+function mergeManagerAddr(existing: readonly Address[] | undefined, add: Address): Address[] {
+  const list = existing ? [...existing] : [];
+  return list.some((m) => m.toLowerCase() === add.toLowerCase()) ? list : [...list, add];
+}
+
+/** After deferred session keys land, fold any managers they registered
+ *  (`pendingAuth.registeredManager`) into `trustedManagers`, so a later authorize
+ *  won't try to re-register an already-present manager (which reverts). The manager
+ *  is intentionally never removed on revoke — other keys may share it. */
+function mergeLandedManagers(a: StoredAccount, landedIds: Set<string>): Address[] | undefined {
+  let out = a.trustedManagers;
+  for (const sk of a.sessionKeys)
+    if (landedIds.has(sk.id) && sk.pendingAuth?.registeredManager && sk.policy?.manager)
+      out = mergeManagerAddr(out, sk.policy.manager);
+  return out;
+}
+
+/** Best-effort human reason from a viem/RPC error (unwraps the "Missing or invalid
+ *  parameters" boilerplate to the underlying details). */
+function estimateFailureReason(err: unknown): string {
+  const e = err as {
+    shortMessage?: string;
+    details?: string;
+    message?: string;
+    cause?: { shortMessage?: string; message?: string };
+  };
+  if (e && typeof e === 'object') {
+    const short = e.shortMessage?.trim();
+    const generic = short && /^Missing or invalid parameters/i.test(short);
+    return (
+      (generic ? e.details : short) ??
+      e.details ??
+      short ??
+      e.cause?.shortMessage ??
+      e.cause?.message ??
+      e.message ??
+      String(err)
+    );
+  }
+  return String(err);
+}
+
+/** True when an error is an EIP-8130 config-change sequence mismatch: a staged
+ *  change's sequence went stale (the on-chain counter advanced since it was signed)
+ *  so it can never land as-is and must be re-signed at the current sequence — or
+ *  dropped. */
+function isSeqMismatch(err: unknown): boolean {
+  const s = `${estimateFailureReason(err)} ${err instanceof Error ? err.message : String(err)}`;
+  return /config change sequence mismatch/i.test(s);
+}
+
+/** Collapse a giant viem error dump to its `Details:` line (or first line) for display. */
+function conciseError(message: string): string {
+  const detail = message.match(/Details:\s*([\s\S]*?)(?:\s*Version:\s|$)/);
+  if (detail?.[1]?.trim()) return detail[1].trim();
+  const firstLine = message
+    .split('\n')
+    .map((l) => l.trim())
+    .find(Boolean);
+  return firstLine ?? message;
+}
+
+/** True when a gas-estimate error means the node simply lacks the EIP-8130
+ *  `eth_estimateGas` extension — the ONE case where silently falling back to the
+ *  structural floor is still correct. Any OTHER estimate revert now indicates the
+ *  tx would actually fail (the node can simulate session-key + policy bundles once
+ *  `senderActorId` is supplied), so it must be surfaced rather than swallowed. */
+function isUnsupportedRpcError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as {
+    code?: number;
+    message?: string;
+    shortMessage?: string;
+    details?: string;
+    cause?: { code?: number; message?: string };
+  };
+  if (e.code === -32601 || e.cause?.code === -32601) return true;
+  const text = [e.message, e.shortMessage, e.details, e.cause?.message]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return (
+    text.includes('method not found') ||
+    text.includes('not whitelisted') ||
+    text.includes('does not exist') ||
+    text.includes('unsupported method') ||
+    text.includes('method not supported')
+  );
+}
+
 type View = 'account' | 'transact' | 'apps';
 
 // ---------------------------------------------------------------------------
@@ -160,7 +269,16 @@ function actorPairs(actors: { actorId: Hex; authenticator: Address }[]) {
 }
 
 function sortActors<T extends { actorId: Hex }>(actors: T[]): T[] {
-  return [...actors].sort((a, b) => (a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0));
+  // Must match the vendor's exact ordering: `createAccount`/`computeAddress`
+  // require initialActors sorted by `actorId` as a BIGINT in strictly ascending
+  // order (no duplicates). A lexicographic string sort diverges from numeric
+  // ordering whenever actorIds differ in hex width or case (e.g. an unpadded or
+  // upper-cased id), which surfaces as "initialActors are not sorted".
+  return [...actors].sort((a, b) => {
+    const av = BigInt(a.actorId);
+    const bv = BigInt(b.actorId);
+    return av < bv ? -1 : av > bv ? 1 : 0;
+  });
 }
 
 function toStoredActor(s: WalletSigner): StoredActor {
@@ -276,6 +394,28 @@ export function AccountDemo() {
   const [skExpiryId, setSkExpiryId] = useState('7d');
   const [skChainShort, setSkChainShort] = useState('vibenet');
   const [skApplyingId, setSkApplyingId] = useState<string | null>(null);
+  const [skRevokingId, setSkRevokingId] = useState<string | null>(null);
+  // A reverting gas estimate (with `senderActorId` the node can simulate, so a
+  // revert means the tx would actually fail). Surfaces a "Send anyway" escape
+  // hatch rather than silently broadcasting a doomed tx on a heuristic floor.
+  const [estimateBlocked, setEstimateBlocked] = useState<string | null>(null);
+  // One-shot: when true, the next estimate that would block instead prices the tx
+  // at a high ceiling and broadcasts (the user chose "Send anyway").
+  const overrideEstimateRef = useRef(false);
+  // True only while a Transact send is composing — the "Send anyway" escape hatch
+  // retries the transact flow, so only transact sends surface `estimateBlocked`.
+  // Config apply flows (owner/session) keep the over-provisioned floor fallback.
+  const blockOnRevertRef = useRef(false);
+  // Transient success/info line (e.g. after a re-sign or drop recovery).
+  const [infoMsg, setInfoMsg] = useState('');
+  // Recovery prompt shown when a staged config change reverts "config change
+  // sequence mismatch": offer to re-sign it at the current sequence, or drop it.
+  const [seqRecovery, setSeqRecovery] = useState<{
+    what: string;
+    resign: () => Promise<void> | void;
+    drop: () => void;
+    busy?: boolean;
+  } | null>(null);
   const [skLimits, setSkLimits] = useState<LimitDraft[]>(() => [newLimitDraft()]);
   const [skScopes, setSkScopes] = useState<ScopeDraft[]>([]);
   const [skBusy, setSkBusy] = useState(false);
@@ -294,8 +434,16 @@ export function AccountDemo() {
   const [appBusy, setAppBusy] = useState<string | null>(null);
 
   const chain = useMemo(() => getDemoChain(networkShort), [networkShort]);
+  // Proxy code for a smart account. MUST target a DEPLOYED implementation: with a
+  // codeless impl, policy-gated session-key sends route PolicyManager.execute ->
+  // account.executeBatch into empty code — the tx "succeeds", the policy consumes
+  // its spend counter, `PolicyExecuted` fires, yet no funds move.
+  //
+  // `accounts.upgradeable` (UpgradeableAccount) was removed from the canonical
+  // eip-8130 deploy and is NOT deployed on the devnet, which caused exactly that
+  // failure. Use `accounts.default` (deployed DefaultAccount).
   const code = useMemo(
-    () => upgradeableProxyBytecode(chain.deployment.accounts.upgradeable),
+    () => upgradeableProxyBytecode(chain.deployment.accounts.default),
     [chain],
   );
 
@@ -316,7 +464,17 @@ export function AccountDemo() {
   );
 
   // --- persistence -------------------------------------------------------
+  // `loaded` (ref) is read synchronously inside async callbacks (regenesis).
+  // `hydrated` (state) gates the SAVE effect: it must be state, not a ref, so the
+  // save effect's first run (on mount, before the load's setState commits) sees
+  // `false` via its render closure and skips — otherwise it would clobber
+  // localStorage with the empty initial state before the loaded data lands. This
+  // matters under React StrictMode (dev), which double-invokes effects: a ref
+  // guard is already `true` on the save effect's mount run and overwrites storage
+  // with `[]`, which the second load pass then reads back as empty — losing the
+  // account on refresh.
   const loaded = useRef(false);
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -333,10 +491,11 @@ export function AccountDemo() {
       /* ignore corrupt state */
     }
     loaded.current = true;
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!loaded.current) return;
+    if (!hydrated) return;
     try {
       localStorage.setItem(
         STORAGE_KEY,
@@ -352,7 +511,7 @@ export function AccountDemo() {
     } catch {
       /* quota / unavailable */
     }
-  }, [signers, accounts, activeAccountId, activity, networkShort, genesisHash]);
+  }, [hydrated, signers, accounts, activeAccountId, activity, networkShort, genesisHash]);
 
   // --- regenesis detection ----------------------------------------------
   useEffect(() => {
@@ -387,11 +546,17 @@ export function AccountDemo() {
     [accounts, activeAccountId],
   );
 
-  // Owner signers for the active account.
-  const ownerSigners = useMemo(
-    () => (acct ? signers.filter((s) => acct.owners.some((o) => o.signerId === s.id)) : []),
-    [acct, signers],
-  );
+  // Owner signers for the active account. A sub-account is controlled by its
+  // parent (via key.delegate), so key selection resolves to the parent's owner
+  // signers — plus any direct owners the sub holds itself (e.g. a minted spare key).
+  const ownerSigners = useMemo(() => {
+    if (!acct) return [] as WalletSigner[];
+    const parent = acct.parentId ? (accounts.find((a) => a.id === acct.parentId) ?? null) : null;
+    const ownerIds = new Set<string>();
+    for (const o of acct.owners) if (o.signerId) ownerIds.add(o.signerId);
+    if (parent) for (const o of parent.owners) if (o.signerId) ownerIds.add(o.signerId);
+    return signers.filter((s) => ownerIds.has(s.id));
+  }, [acct, accounts, signers]);
   const activeSigner =
     ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? null;
 
@@ -475,7 +640,7 @@ export function AccountDemo() {
         sequence: signedChange.sequence,
         resultingOwners: signedChange.resultingOwners,
       });
-    for (const sk of acct.sessionKeys)
+    for (const sk of acct.sessionKeys) {
       if (sk.pendingAuth)
         items.push({
           change: sk.pendingAuth.change,
@@ -483,6 +648,15 @@ export function AccountDemo() {
           installCall: sk.pendingAuth.installCall,
           sessionId: sk.id,
         });
+      // A staged revoke is a local-counter change too — carry it like an
+      // authorization (no install) so it rides a session send / apply-all.
+      if (sk.pendingRevoke)
+        items.push({
+          change: sk.pendingRevoke.change,
+          sequence: sk.pendingRevoke.sequence,
+          sessionId: sk.id,
+        });
+    }
     return items.sort((a, b) => a.sequence - b.sequence);
   }, [acct, signedChange]);
 
@@ -508,7 +682,7 @@ export function AccountDemo() {
   // get consecutive sequences.
   const pendingChangeCount = (opts?: { includeOwner?: boolean }) => {
     const includeOwner = opts?.includeOwner ?? true;
-    const sessions = (acct?.sessionKeys ?? []).filter((sk) => sk.pendingAuth).length;
+    const sessions = (acct?.sessionKeys ?? []).filter((sk) => sk.pendingAuth || sk.pendingRevoke).length;
     const owner =
       includeOwner && !!acct && !!signedChange && signedChange.accountId === acct.id ? 1 : 0;
     return sessions + owner;
@@ -944,6 +1118,37 @@ export function AccountDemo() {
     if (a.type === 'eoa') {
       return to8130Account({ signer, address: a.address as Address, authenticator });
     }
+    // Sub-account controlled by a parent via `key.delegate(parent)`. When the
+    // selected signer is NOT one of the sub's own direct owners (e.g. a minted
+    // spare key), it must be a PARENT admin owner vouching through the
+    // DelegateAuthenticator. Wrap it so the senderAuth is the delegate blob
+    // (DELEGATE || parent || nestedAuthenticator || nestedSignature) instead of a
+    // plain [ecrecover||sig], which the node rejects with "actor is not bound"
+    // (the parent's k1 actorId is not an actor on the sub — only the delegate is).
+    if (a.parentId) {
+      const parent = accounts.find((p) => p.id === a.parentId) ?? null;
+      const selfActorId = key.k1(signer.address as Address).actorId.toLowerCase();
+      const isDirectOwner = a.initialActors.some(
+        (o) =>
+          o.actorId.toLowerCase() === selfActorId &&
+          (o.authenticator ?? ecrecoverAuthenticator).toLowerCase() === ecrecoverAuthenticator.toLowerCase(),
+      );
+      if (parent && !isDirectOwner) {
+        const delegateSigner = toDelegate8130Signer({
+          delegateAccount: parent.address as Address,
+          nestedSigner: signer,
+          nestedAuthenticator: authenticator,
+        });
+        return to8130Account({
+          signer: delegateSigner,
+          authenticator: delegateSigner.authenticator,
+          userSalt: a.salt,
+          code,
+          initialActors: sortActors(actorPairs(a.initialActors)),
+          accountConfigAddress: chain.deployment.accountConfiguration,
+        });
+      }
+    }
     return to8130Account({
       signer,
       userSalt: a.salt,
@@ -995,15 +1200,28 @@ export function AccountDemo() {
 
   // Live on-chain config sequence for a deployed account (null on any error, so
   // callers fall back to the stored value).
-  const fetchOnChainConfigSeq = async (address: Address): Promise<number | null> => {
+  // Reads the account's two config-change counters:
+  //   - `multichain` (configChainId 0) — carries OWNER (actor) changes, so they
+  //     sequence independently of session-key authorizes.
+  //   - `local` (per-chain) — carries session-key authorizes.
+  // Keeping them on separate counters means a pending session key can't shift an
+  // owner change's sequence (or vice versa) — the classic "config change sequence
+  // mismatch". Never guess a live sequence (a wrong value reverts on-chain): on a
+  // read failure we THROW so the caller aborts signing instead of using a guess.
+  const fetchOnChainConfigSeq = async (
+    address: Address,
+  ): Promise<{ local: number; multichain: number }> => {
     try {
-      const { local } = await getConfigSequence8130(makeRpcClient(), {
+      const { local, multichain } = await getConfigSequence8130(makeRpcClient(), {
         accountConfiguration: chain.deployment.accountConfiguration as Address,
         account: address,
       });
-      return Number(local);
-    } catch {
-      return null;
+      return { local: Number(local), multichain: Number(multichain) };
+    } catch (err) {
+      const reason = (err as { message?: string })?.message ?? String(err);
+      throw new Error(
+        `Couldn't read the on-chain config sequence for ${address}: ${reason}. Not signing, to avoid a sequence mismatch.`,
+      );
     }
   };
 
@@ -1029,22 +1247,34 @@ export function AccountDemo() {
     const accountChanges: AaAccountChange[] = [];
     let nextSeq = a.configSeq;
 
-    // Auto-detect a stale "deployed" flag (e.g. after a devnet reset): if there's
-    // no code onchain, treat as undeployed and include the create/delegate change.
+    // Sub-account signed via the parent's delegate actor? Then the acting actor
+    // (for estimation) is the delegate, not the parent owner's own k1 actor — and
+    // its senderAuth is the longer delegate blob. Detect it the same way
+    // nativeAccountFor does (parent owner, not a direct sub owner).
+    const parentAcct = a.parentId ? (accounts.find((p) => p.id === a.parentId) ?? null) : null;
+    const isDirectSubOwner =
+      !!a.parentId &&
+      a.initialActors.some(
+        (o) =>
+          o.actorId.toLowerCase() === signerWS.actorId.toLowerCase() &&
+          (o.authenticator ?? ecrecoverAuthenticator).toLowerCase() === ecrecoverAuthenticator.toLowerCase(),
+      );
+    const isDelegateSub = !!parentAcct && !isDirectSubOwner;
+
+    // Reconcile the stored "deployed" flag against on-chain code in BOTH directions
+    // before composing (also repairs localStorage when the browser missed a receipt):
+    //   - code gone (e.g. devnet reset) → treat as undeployed, include create/delegate
+    //   - code exists after a timed-out/reverted later phase → do NOT recreate
     let effectivelyDeployed = a.deployed;
-    if (a.deployed) {
-      try {
-        const codeAt = await makeRpcClient().request({
-          method: 'eth_getCode',
-          params: [account.address as `0x${string}`, 'latest'],
-        });
-        if (!codeAt || codeAt === '0x') {
-          effectivelyDeployed = false;
-          updateAccount(a.id, { deployed: false });
-        }
-      } catch {
-        /* RPC unavailable — keep the stored flag */
-      }
+    try {
+      const codeAt = await makeRpcClient().request({
+        method: 'eth_getCode',
+        params: [account.address as `0x${string}`, 'latest'],
+      });
+      effectivelyDeployed = !!codeAt && codeAt !== '0x';
+      if (effectivelyDeployed !== a.deployed) updateAccount(a.id, { deployed: effectivelyDeployed });
+    } catch {
+      /* RPC unavailable — keep the stored flag */
     }
     if (!effectivelyDeployed) accountChanges.push(firstDeployChange(a, account));
     const installs = installCalls ?? [];
@@ -1097,37 +1327,91 @@ export function AccountDemo() {
       nonceSequence = effectivelyDeployed ? 1n : 0n;
     }
 
-    const senderAuthVerifier: Address =
-      signerWS.kind === 'p256'
+    // Verifier hint so estimateGas8130 shapes the senderAuth stub for the actual
+    // signer. A delegate-signed sub-account acts via the parent's delegate actor,
+    // whose senderAuth is the longer delegate blob — hint the delegate verifier.
+    const senderAuthVerifier: Address = isDelegateSub
+      ? canonicalAuthenticators.delegate
+      : signerWS.kind === 'p256'
         ? canonicalAuthenticators.p256
         : signerWS.kind === 'passkey'
           ? canonicalAuthenticators.passkey
           : canonicalAuthenticators.k1;
+    const senderActorId: Hex =
+      isDelegateSub && parentAcct
+        ? key.delegate(parentAcct.address as Address).actorId
+        : signerWS.actorId;
 
-    const floor = estimateTxGas({
-      mode: chain.mode,
-      deploy: !effectivelyDeployed,
-      calls: plainCallCount,
-      keyChanges: accountChanges.filter((c) => c.type === 'config').length,
-      policyCalls: heavyCallCount,
-    });
+    // Structural gas floor. `false` = realistic-with-headroom (a floor UNDER a
+    // successful node estimate). `true` = 2x over-provision (used when no node
+    // estimate is available, so a heavy policy/payer send can't under-provision
+    // and OOG-revert — unused gas is refunded).
+    const floorGas = (fallback = false) =>
+      estimateTxGas({
+        mode: chain.mode,
+        deploy: !effectivelyDeployed,
+        calls: plainCallCount,
+        keyChanges: accountChanges.filter((c) => c.type === 'config').length,
+        policyCalls: heavyCallCount,
+        fallback,
+      });
     let gasLimit: bigint;
     if (chain.mode === 'eip8130-native') {
       try {
         const estimated = await estimateGas8130(makeRpcClient(), {
           sender: account.address as Address,
+          // Name the acting actor so the node can fully simulate the tx —
+          // policy-gated session keys (resolving the actor's scope + PolicyManager
+          // binding) and payer (ERC-8168) bundles. Without it the node falls back
+          // to the account's self actor and mis-prices or reverts those shapes,
+          // which under-provisions a session send and OOG-reverts on-chain.
+          senderActorId,
           accountChanges,
           calls: phases,
           nonceSequence: Number(nonceSequence),
           senderAuthVerifier,
+          // The delegate authenticator has no fixed default auth-payload length,
+          // so hand the estimator the exact senderAuth size (delegate blob).
+          ...(isDelegateSub ? { senderAuthSize: delegateAuthSize() } : {}),
           ...(payerOpt ? { payer: payerOpt.address } : {}),
         });
-        gasLimit = safeGasLimit(estimated, floor);
-      } catch {
-        gasLimit = BigInt(floor || 200_000);
+        gasLimit = safeGasLimit(estimated, floorGas(false));
+      } catch (err) {
+        // With `senderActorId` supplied the node CAN simulate session-key/policy/
+        // payer bundles, so a failed estimate now generally means the tx would
+        // actually revert. Only a few shapes are benign and fall back to the floor:
+        if (isUnsupportedRpcError(err)) {
+          // Node lacks the 8130 `eth_estimateGas` extension — floor is still correct.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        } else if (!effectivelyDeployed) {
+          // A tx carrying `create` can't be simulated (account doesn't exist yet;
+          // the node rejects with -32602) — but the create binds actors and lands.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        } else if (isDelegateSub) {
+          // Delegate sub-account: the nested (parent) vouch through the
+          // DelegateAuthenticator is a shape the node's estimator may not simulate,
+          // but a broadcast still lands — fall back to the generous floor.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        } else if (overrideEstimateRef.current) {
+          // User chose "Send anyway": price at a high ceiling so an under-estimate
+          // isn't the cause of a revert. If it still reverts, it's a genuine logic
+          // failure and the gas is spent (self-pay) / rejected (payer).
+          gasLimit = BigInt(Math.max(floorGas(true) * 2, 2_000_000));
+        } else if (blockOnRevertRef.current) {
+          // Genuine reverting estimate on a Transact send — surface it instead of
+          // broadcasting a doomed tx. The Transact view shows a "Send anyway" hatch.
+          setEstimateBlocked(estimateFailureReason(err));
+          throw new Error(
+            `Gas estimate failed — this transaction would revert: ${estimateFailureReason(err)}`,
+          );
+        } else {
+          // Non-transact caller (config apply flows) — keep the over-provisioned
+          // floor so a genuine revert surfaces via the normal on-chain error path.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        }
       }
     } else {
-      gasLimit = BigInt(floor || 200_000);
+      gasLimit = BigInt(floorGas(true) || 200_000);
     }
 
     const serialized = await account.signTransaction({
@@ -1184,8 +1468,8 @@ export function AccountDemo() {
   };
 
   // Apply the on-chain effects a landed tx carried: mark deployed, advance the
-  // config sequence, apply a bundled owner change, and clear bundled session
-  // keys' pendingAuth.
+  // config sequence, apply a bundled owner change, clear bundled keys' pendingAuth,
+  // remove keys whose staged revoke landed, and record any newly-trusted managers.
   const applyLandedBundle = (a: StoredAccount, nextSeq: number, bundle: PendingChangeItem[]) => {
     const ownerItem = bundle.find((i) => i.resultingOwners);
     const bundledSessionIds = new Set(bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])));
@@ -1195,9 +1479,8 @@ export function AccountDemo() {
       deployed: true,
       configSeq: nextSeq,
       owners: ownerItem?.resultingOwners ?? acc.owners,
-      sessionKeys: acc.sessionKeys.map((sk) =>
-        bundledSessionIds.has(sk.id) ? { ...sk, pendingAuth: undefined } : sk,
-      ),
+      sessionKeys: commitLandedSessions(acc, bundledSessionIds),
+      trustedManagers: mergeLandedManagers(acc, bundledSessionIds),
     }));
     if (ownerItem) {
       setSignedChange(null);
@@ -1226,10 +1509,21 @@ export function AccountDemo() {
     }
     setSigning(true);
     setError('');
+    setInfoMsg('');
+    setSeqRecovery(null);
+    // Clear any prior "would revert" block; a fresh estimate re-sets it if needed.
+    setEstimateBlocked(null);
+    blockOnRevertRef.current = true; // transact send: surface a reverting estimate
+    // Captured for sequence-mismatch recovery in the catch (what this tx carried).
+    let seqCtx: { sessionIds: string[]; hasOwner: boolean } = { sessionIds: [], hasOwner: false };
     try {
       const bundle = pendingBundleFor(
         txIsSession ? { mode: 'session-send', sessionId: activeSessionKey?.id } : { mode: 'owner-send' },
       );
+      seqCtx = {
+        sessionIds: bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])),
+        hasOwner: bundle.some((i) => i.resultingOwners),
+      };
       const presigned = bundle.map((i) => i.change);
       const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
       const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
@@ -1258,11 +1552,14 @@ export function AccountDemo() {
       if (!pending) applyLandedBundle(acct, nextSeq, bundle);
       recordResult(acct, serialized, txHash, pending, txSigner, undefined, extra);
     } catch (err) {
+      if (handleSeqMismatch(err, seqCtx)) return;
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
       setSigning(false);
       setSubmitStatus('');
+      overrideEstimateRef.current = false; // one-shot "Send anyway"
+      blockOnRevertRef.current = false;
     }
   };
 
@@ -1278,6 +1575,13 @@ export function AccountDemo() {
     }
     setSigning(true);
     setError('');
+    setInfoMsg('');
+    setSeqRecovery(null);
+    // Clear any prior "would revert" block; a fresh estimate re-sets it if needed.
+    setEstimateBlocked(null);
+    blockOnRevertRef.current = true; // transact send: surface a reverting estimate
+    // Captured for sequence-mismatch recovery in the catch (what this tx carried).
+    let seqCtx: { sessionIds: string[]; hasOwner: boolean } = { sessionIds: [], hasOwner: false };
     try {
       const payerClient = createPayerClient({ url: PAYER_URL });
       const rpcCalls = buildCalls(calls, acct.address).map((c) => ({
@@ -1324,6 +1628,10 @@ export function AccountDemo() {
       const bundle = pendingBundleFor(
         txIsSession ? { mode: 'session-send', sessionId: activeSessionKey?.id } : { mode: 'owner-send' },
       );
+      seqCtx = {
+        sessionIds: bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])),
+        hasOwner: bundle.some((i) => i.resultingOwners),
+      };
       const presigned = bundle.map((i) => i.change);
       const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
       const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
@@ -1358,6 +1666,7 @@ export function AccountDemo() {
       if (!pending) applyLandedBundle(acct, nextSeq, bundle);
       recordResult(acct, finalTx, txHash, pending, txSigner, gasNote, extra);
     } catch (err) {
+      if (handleSeqMismatch(err, seqCtx)) return;
       const e = err as { message?: string; name?: string };
       const msg = e.message ?? String(err);
       setError(
@@ -1370,6 +1679,8 @@ export function AccountDemo() {
     } finally {
       setSigning(false);
       setSubmitStatus('');
+      overrideEstimateRef.current = false; // one-shot "Send anyway"
+      blockOnRevertRef.current = false;
     }
   };
 
@@ -1491,13 +1802,23 @@ export function AccountDemo() {
     try {
       const changeSigner = await buildSigner(changeWS);
       const changeAccount = nativeAccountFor(acct, changeSigner, changeWS.authenticator);
-      const chainId = chain.id || 84532;
-      let liveSeq: number | null = null;
-      if (acct.deployed) liveSeq = await fetchOnChainConfigSeq(changeAccount.address as Address);
-      const seqOffset = pendingChangeCount({ includeOwner: false });
-      const nextSeq =
-        (!acct.deployed && acct.type === 'eoa' ? 0 : liveSeq != null ? liveSeq : acct.configSeq + 1) +
-        seqOffset;
+      // Owner (actor) changes live on the GLOBAL multichain config counter
+      // (configChainId 0) so they sequence independently of session-key
+      // authorizes (per-chain local counter) — a pending session key can't shift
+      // this sequence, and vice versa.
+      const chainId = 0;
+      let nextSeq: number;
+      if (acct.deployed) {
+        // Read the live multichain sequence — never guess (fetch throws on failure).
+        const { multichain } = await fetchOnChainConfigSeq(changeAccount.address as Address);
+        nextSeq = multichain;
+      } else {
+        // Undeployed: the first-tx `create`/`delegation` change rides the SAME tx
+        // and does NOT consume the multichain counter, so the bundled owner change
+        // is sequence 0. `configSeq` is always 0 while undeployed, so it's the
+        // correct base here (no `+ 1`, which caused a sequence mismatch).
+        nextSeq = acct.configSeq;
+      }
       const change = await changeAccount.change(
         [
           ...buildAuthorizeActions().map((s) =>
@@ -1577,6 +1898,7 @@ export function AccountDemo() {
         account: acct.address,
       });
     } catch (err) {
+      if (handleSeqMismatch(err, { sessionIds: [], hasOwner: true })) return;
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
@@ -1647,7 +1969,13 @@ export function AccountDemo() {
     const skChain = getDemoChain(opts.chainShort);
     const ownerSigner = await buildSigner(activeSigner);
     const account = nativeAccountFor(acct, ownerSigner, activeSigner.authenticator);
-    const scope = SCOPE.sender;
+    // Every session key in this demo is policy-gated (an owner-signed authorize
+    // always binds a SessionPolicy via the PolicyManager — see below), so grant
+    // SCOPE.policy (key is constrained to its bound PolicyManager) plus SCOPE.nonce
+    // (the send path signs with the account's sequenced nonce key; without the
+    // nonce bit the node rejects the send with "actor scope insufficient"). This
+    // does NOT grant config-change rights (that's the admin scope 0, for owners).
+    const scope = SCOPE.policy | SCOPE.nonce;
     const expiry = opts.expirySecs ? BigInt(Math.floor(Date.now() / 1000) + opts.expirySecs) : 0n;
 
     if (!skChain.deployment.policies)
@@ -1675,13 +2003,25 @@ export function AccountDemo() {
       limits,
     };
 
+    // Session-key authorizes live on the per-chain LOCAL config counter,
+    // independent of owner changes (multichain counter). Offset only by OTHER
+    // pending session-key authorizes (same counter) so stacked keys get
+    // consecutive local sequences; a pending owner change is on a different
+    // counter and must NOT shift this one.
     const chainId = skChain.id || 84532;
-    let liveSeqSk: number | null = null;
-    if (acct.deployed) liveSeqSk = await fetchOnChainConfigSeq(account.address as Address);
-    const seqOffset = pendingChangeCount();
-    const nextSeq =
-      (!acct.deployed && acct.type === 'eoa' ? 0 : liveSeqSk != null ? liveSeqSk : acct.configSeq + 1) +
-      seqOffset;
+    const seqOffset = pendingChangeCount({ includeOwner: false });
+    let nextSeq: number;
+    if (acct.deployed) {
+      // Read the live local sequence — never guess (fetch throws on failure).
+      const { local } = await fetchOnChainConfigSeq(account.address as Address);
+      nextSeq = local + seqOffset;
+    } else {
+      // Undeployed: the first-tx deploy change (`createAccount`/`importAccount`)
+      // sets the LOCAL sequence to 1 (doubles as the "initialized" flag), so the
+      // FIRST local-channel authorize is sequence 1 (POST_CREATE_LOCAL_SEQ), NOT 0
+      // — whether it rides the deploy tx or a later tx after a separate deploy.
+      nextSeq = POST_CREATE_LOCAL_SEQ + seqOffset;
+    }
 
     // Register the manager as a trusted-executor actor on first use so its
     // executeBatch callback into the account succeeds (skip if already trusted).
@@ -1692,9 +2032,15 @@ export function AccountDemo() {
       ),
     ];
     let registeredManager = false;
-    const managerTrusted = acct.sessionKeys.some(
-      (sk) => sk.policy?.manager?.toLowerCase() === policy.manager.toLowerCase(),
-    );
+    // The manager is a one-time, account-level registration that outlives any
+    // single session key (it is never revoked — see revokeSessionKey). Re-adding
+    // an already-registered actor reverts, so skip if it's already trusted: tracked
+    // explicitly in `trustedManagers`, or (legacy records / pre-landing) inferred
+    // from a live session key sharing the same manager.
+    const managerLc = policy.manager.toLowerCase();
+    const managerTrusted =
+      (acct.trustedManagers ?? []).some((m) => m.toLowerCase() === managerLc) ||
+      acct.sessionKeys.some((sk) => sk.policy?.manager?.toLowerCase() === managerLc);
     if (!managerTrusted) {
       configChanges.unshift(authorizeActor(key.trustedExecutor(policy.manager), { scope: SCOPE.sender }));
       registeredManager = true;
@@ -1763,6 +2109,9 @@ export function AccountDemo() {
       try {
         const estimated = await estimateGas8130(makeRpcClient(), {
           sender: account.address as Address,
+          // Owner signs this authorize+install tx, so name the owner's actor for
+          // full node simulation (resolves the new actor's scope + policy install).
+          senderActorId: activeSigner.actorId,
           accountChanges,
           calls: [[installCall]],
           nonceSequence: Number(nonceSeqSk),
@@ -1872,10 +2221,13 @@ export function AccountDemo() {
 
   // Apply a staged session key now: an owner signs a no-op tx carrying its
   // authorize + install (plus lower-sequence prerequisites).
+  // Apply a staged session-key change now: an owner signs a no-op tx carrying its
+  // authorize + install (plus lower-sequence prerequisites) — or its staged revoke.
   const applySessionKeyNow = async (skId: string) => {
     if (!acct || !activeSigner) return;
     const sk = acct.sessionKeys.find((x) => x.id === skId);
-    if (!sk || !sk.pendingAuth) return;
+    if (!sk || (!sk.pendingAuth && !sk.pendingRevoke)) return;
+    const isRevoke = !!sk.pendingRevoke && !sk.pendingAuth;
     const txWS =
       postChangeOwnerSigners.find((s) => s.id === activeSignerId) ??
       postChangeOwnerSigners[0] ??
@@ -1883,9 +2235,13 @@ export function AccountDemo() {
     const bundle = pendingBundleFor({ mode: 'session-send', sessionId: sk.id });
     const presigned = bundle.map((i) => i.change);
     const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
-    const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : sk.pendingAuth.sequence;
+    const changeSeq = bundle.length
+      ? bundle[bundle.length - 1].sequence
+      : (sk.pendingAuth?.sequence ?? sk.pendingRevoke?.sequence ?? null);
     setSkApplyingId(sk.id);
     setError('');
+    setInfoMsg('');
+    setSeqRecovery(null);
     try {
       const { serialized, nextSeq } = await signComposed(
         acct,
@@ -1902,10 +2258,12 @@ export function AccountDemo() {
       applyLandedBundle(acct, nextSeq, bundle);
       setConfigTx({ hash: txHash, label: `Session key: ${sk.label}` });
       pushActivity({
-        kind: 'session',
-        title: `Session key installed · ${sk.label}`,
+        kind: isRevoke ? 'revoke' : 'session',
+        title: isRevoke ? `Session key revoked · ${sk.label}` : `Session key installed · ${sk.label}`,
         detail: scopeChips(sk.scope).join(' · '),
-        changes: [`authorize ${sk.label}`, ...(sk.policy ? [`policy: ${sk.policy.label}`, 'install'] : [])],
+        changes: isRevoke
+          ? [`revoke ${sk.label}`, 'manager kept']
+          : [`authorize ${sk.label}`, ...(sk.policy ? [`policy: ${sk.policy.label}`, 'install'] : [])],
         network: chain.name,
         mode: chain.mode,
         txHash,
@@ -1913,6 +2271,13 @@ export function AccountDemo() {
         account: acct.address,
       });
     } catch (err) {
+      if (
+        handleSeqMismatch(err, {
+          sessionIds: bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])),
+          hasOwner: bundle.some((i) => i.resultingOwners),
+        })
+      )
+        return;
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
@@ -1921,17 +2286,223 @@ export function AccountDemo() {
     }
   };
 
-  const revokeSessionKey = (id: string) => {
+  // Revoke a session key. A never-landed key (still staged for first use) or an
+  // undeployed account has no on-chain actor, so it's just discarded locally. An
+  // on-chain key is revoked by an owner-signed `revokeActor` config change on the
+  // per-chain LOCAL counter, STAGED (not broadcast): it rides the next session-key
+  // tx or an explicit "Apply now", and the key record is removed only once it
+  // lands. The PolicyManager is intentionally never revoked (other keys share it).
+  const revokeSessionKey = async (id: string) => {
     if (!acct) return;
     const sk = acct.sessionKeys.find((x) => x.id === id);
-    updateAccount(acct.id, (a) => ({ ...a, sessionKeys: a.sessionKeys.filter((x) => x.id !== id) }));
-    if (sk)
+    if (!sk) return;
+
+    // Never-landed or undeployed → nothing on-chain to revoke; discard locally.
+    if (sk.pendingAuth || !acct.deployed) {
+      updateAccount(acct.id, (a) => ({ ...a, sessionKeys: a.sessionKeys.filter((x) => x.id !== id) }));
       pushActivity({
         kind: 'revoke',
-        title: sk.pendingAuth ? `Session key discarded · ${sk.label}` : `Session key revoked · ${sk.label}`,
+        title: `Session key discarded · ${sk.label}`,
         detail: scopeChips(sk.scope).join(' · '),
         account: acct.address,
       });
+      return;
+    }
+
+    // Already staged — no-op (use "Apply now" to land it, or "Undo" to discard).
+    if (sk.pendingRevoke) return;
+
+    const changeWS =
+      ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
+    if (!changeWS) {
+      setError('Select an owner key to sign the revoke.');
+      return;
+    }
+    setSkRevokingId(id);
+    setError('');
+    try {
+      const changeSigner = await buildSigner(changeWS);
+      const changeAccount = nativeAccountFor(acct, changeSigner, changeWS.authenticator);
+      // Session-key changes are on the per-chain LOCAL counter. Read it live (throws
+      // on failure — never guess) and offset by other pending local changes.
+      const chainId = chain.id || 84532;
+      const seqOffset = pendingChangeCount({ includeOwner: false });
+      const { local } = await fetchOnChainConfigSeq(changeAccount.address as Address);
+      const nextSeq = local + seqOffset;
+      const change = await changeAccount.change([revokeActor(sk.actorId)], {
+        chainId,
+        sequence: nextSeq,
+      });
+      updateAccount(acct.id, (a) => ({
+        ...a,
+        sessionKeys: a.sessionKeys.map((x) =>
+          x.id === id ? { ...x, pendingRevoke: { change, sequence: nextSeq } } : x,
+        ),
+      }));
+      pushActivity({
+        kind: 'revoke',
+        title: `Session key revoke staged · ${sk.label}`,
+        detail: scopeChips(sk.scope).join(' · '),
+        changes: [`revoke ${sk.label}`, 'manager kept', 'applies on next tx'],
+        account: acct.address,
+      });
+    } catch (err) {
+      const e = err as { message?: string; name?: string };
+      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+    } finally {
+      setSkRevokingId(null);
+    }
+  };
+
+  // Discard a staged (signed-but-not-landed) revoke — the key stays active.
+  const undoStagedRevoke = (id: string) => {
+    if (!acct) return;
+    updateAccount(acct.id, (a) => ({
+      ...a,
+      sessionKeys: a.sessionKeys.map((x) => (x.id === id ? { ...x, pendingRevoke: undefined } : x)),
+    }));
+  };
+
+  // --- config-sequence recovery -----------------------------------------
+  // Re-sign every staged (not-yet-landed) session-key authorization at the current
+  // local sequence. Recovers from "config change sequence mismatch": the baked
+  // sequence went stale (the local counter advanced — e.g. another change landed).
+  // All pending keys share the per-chain local counter, so they re-sequence
+  // together (consecutive). Returns false if it couldn't run (no owner selected).
+  const resignPendingSessionKeys = async (): Promise<boolean> => {
+    if (!acct) return false;
+    const pending = acct.sessionKeys.filter((sk) => sk.pendingAuth && sk.policy);
+    if (pending.length === 0) return true;
+    const signerWS = ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
+    if (!signerWS) {
+      setError('Select an owner key to re-sign the session-key authorization.');
+      return false;
+    }
+    const ownerSigner = await buildSigner(signerWS);
+    const account = nativeAccountFor(acct, ownerSigner, signerWS.authenticator);
+    // Fresh base: live local counter when deployed, else the post-create local seq.
+    let base: number;
+    if (acct.deployed) {
+      const { local } = await fetchOnChainConfigSeq(account.address as Address);
+      base = local;
+    } else {
+      base = POST_CREATE_LOCAL_SEQ;
+    }
+    // Re-sign in current-sequence order so relative ordering is preserved.
+    const ordered = [...pending].sort(
+      (a, b) => (a.pendingAuth?.sequence ?? 0) - (b.pendingAuth?.sequence ?? 0),
+    );
+    const updates = new Map<string, NonNullable<AppSessionKey['pendingAuth']>>();
+    // Managers registered within THIS batch — so two keys sharing one manager don't
+    // both try to register it (the second would revert).
+    const registeredInBatch = new Set<string>();
+    let offset = 0;
+    for (const sk of ordered) {
+      if (!sk.policy || !sk.pendingAuth) continue;
+      const skChainId = sk.chainId ?? (chain.id || 84532);
+      const seq = base + offset;
+      const managerLc = sk.policy.manager.toLowerCase();
+      const managerTrusted =
+        (acct.trustedManagers ?? []).some((m) => m.toLowerCase() === managerLc) ||
+        acct.sessionKeys.some((k) => !k.pendingAuth && k.policy?.manager?.toLowerCase() === managerLc) ||
+        registeredInBatch.has(managerLc);
+      const session = defineSessionPolicy({
+        account: account.address,
+        policy: sk.policy.policy,
+        policyConfig: sk.policy.policyConfig,
+        manager: sk.policy.manager,
+        validUntil: sk.expiry,
+      });
+      const configChanges = [
+        authorizeActor(
+          { actorId: sk.actorId, authenticator: sk.authenticator },
+          { scope: sk.scope, expiry: sk.expiry, policy: session.actorPolicy },
+        ),
+      ];
+      let registeredManager = false;
+      if (!managerTrusted) {
+        configChanges.unshift(authorizeActor(key.trustedExecutor(sk.policy.manager), { scope: SCOPE.sender }));
+        registeredManager = true;
+        registeredInBatch.add(managerLc);
+      }
+      const change = await account.change(configChanges, { chainId: skChainId, sequence: seq });
+      updates.set(sk.id, { change, sequence: seq, registeredManager, installCall: sk.pendingAuth.installCall });
+      offset++;
+    }
+    updateAccount(acct.id, (a) => ({
+      ...a,
+      sessionKeys: a.sessionKeys.map((sk) => {
+        const u = updates.get(sk.id);
+        return u ? { ...sk, pendingAuth: u } : sk;
+      }),
+    }));
+    return true;
+  };
+
+  // Drop staged (never-landed) session keys by id — they were never registered
+  // on-chain, so discarding them locally is all that's needed.
+  const dropPendingSessionKeys = (ids: string[]) => {
+    if (!acct || ids.length === 0) return;
+    const idSet = new Set(ids);
+    const dropped = acct.sessionKeys.filter((sk) => idSet.has(sk.id) && sk.pendingAuth);
+    if (dropped.length === 0) return;
+    updateAccount(acct.id, (a) => ({
+      ...a,
+      sessionKeys: a.sessionKeys.filter((sk) => !(idSet.has(sk.id) && sk.pendingAuth)),
+    }));
+    for (const sk of dropped)
+      pushActivity({
+        kind: 'revoke',
+        title: `Staged session key dropped · ${sk.label}`,
+        detail: scopeChips(sk.scope).join(' · '),
+        account: acct.address,
+      });
+  };
+
+  // Catch a "config change sequence mismatch" from a config-carrying broadcast and
+  // surface a recovery prompt (re-sign at current sequence / drop), scoped to what
+  // the failed tx carried. Returns true when it handled the error (caller should
+  // skip its own generic error handling).
+  const handleSeqMismatch = (err: unknown, ctx: { sessionIds: string[]; hasOwner: boolean }): boolean => {
+    if (!isSeqMismatch(err)) return false;
+    if (!ctx.hasOwner && ctx.sessionIds.length === 0) return false;
+    const parts: string[] = [];
+    if (ctx.hasOwner) parts.push('owner change');
+    if (ctx.sessionIds.length)
+      parts.push(`${ctx.sessionIds.length} session-key authorization${ctx.sessionIds.length === 1 ? '' : 's'}`);
+    const what = parts.join(' + ') || 'staged config change';
+    setError('');
+    setInfoMsg('');
+    setSeqRecovery({
+      what,
+      resign: async () => {
+        setSeqRecovery((r) => (r ? { ...r, busy: true } : r));
+        setError('');
+        try {
+          if (ctx.hasOwner) await signOwnerChange();
+          if (ctx.sessionIds.length) {
+            const ok = await resignPendingSessionKeys();
+            if (!ok) {
+              setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
+              return;
+            }
+          }
+          setSeqRecovery(null);
+          setInfoMsg('Re-signed at the current sequence — send again to apply it.');
+        } catch (e) {
+          const m = e as { message?: string; name?: string };
+          setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
+          setError(m.name === 'NotAllowedError' ? 'Signature was dismissed.' : (m.message ?? String(e)));
+        }
+      },
+      drop: () => {
+        if (ctx.hasOwner) discardOwnerChanges();
+        if (ctx.sessionIds.length) dropPendingSessionKeys(ctx.sessionIds);
+        setSeqRecovery(null);
+        setInfoMsg('Dropped the out-of-sequence config change.');
+      },
+    });
+    return true;
   };
 
   // --- sub-accounts ------------------------------------------------------
@@ -1986,7 +2557,39 @@ export function AccountDemo() {
       delegateTo: acct.address,
       createdAt: Date.now(),
     };
+    // Selectable account record for the sub. The on-chain owner is the parent (via
+    // key.delegate) — captured as a StoredActor with no wallet signerId so it never
+    // resolves to a local key; `ownerSigners` instead pulls the parent's owner
+    // signers for a record with `parentId` set. A minted spare key is a real direct
+    // owner and stays selectable on its own.
+    const delegateActor: StoredActor = {
+      signerId: '',
+      actorId: key.delegate(acct.address).actorId,
+      authenticator: canonicalAuthenticators.delegate,
+      kind: 'k1',
+      label: `${acct.label} (delegate)`,
+      identity: acct.address,
+      scope: 0,
+    };
+    const subStoredActors = sortActors([delegateActor, ...(spare ? [toStoredActor(spare)] : [])]);
+    const subRecord: StoredAccount = {
+      id: crypto.randomUUID(),
+      label: sub.label,
+      type: 'smart',
+      parentId: acct.id,
+      saltField: '',
+      salt: subSalt,
+      address: subAddress,
+      initialActors: subStoredActors,
+      owners: [...subStoredActors],
+      deployed: false,
+      configSeq: 0,
+      sessionKeys: [],
+      subAccounts: [],
+      createdAt: Date.now(),
+    };
     updateAccount(acct.id, (a) => ({ ...a, subAccounts: [...a.subAccounts, sub] }));
+    setAccounts((prev) => [...prev, subRecord]);
     pushActivity({
       kind: 'subaccount',
       title: `Sub-account created · ${sub.label}`,
@@ -2112,12 +2715,83 @@ export function AccountDemo() {
         />
       </div>
 
-      {error ? (
-        <p
+      {error && !estimateBlocked ? (
+        <div
           role="alert"
-          className="rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 [line-break:anywhere] dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
+          className="flex items-start justify-between gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
         >
-          {error}
+          <span className="[line-break:anywhere]">{error}</span>
+          <button
+            type="button"
+            onClick={() => setError('')}
+            aria-label="Dismiss error"
+            className="shrink-0 text-[12px] text-bds-red-60 hover:text-bds-red-70 dark:text-bds-red-30"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {estimateBlocked ? (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
+        >
+          <span className="[line-break:anywhere]">{conciseError(estimateBlocked)}</span>
+          <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+            Estimation reverted, so this will likely fail on-chain.
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => copy(estimateBlocked, 'estimate-error')}>
+              {copied === 'estimate-error' ? 'Copied' : 'Copy error'}
+            </Button>
+            <Button
+              size="sm"
+              disabled={signing}
+              onClick={() => {
+                overrideEstimateRef.current = true;
+                void confirmSend();
+              }}
+            >
+              Send anyway
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {seqRecovery ? (
+        <div
+          role="alert"
+          className="flex flex-col gap-2 rounded-lg border border-bds-yellow-20 bg-bds-yellow-0 px-4 py-3 text-[13px] text-bds-yellow-70 dark:border-bds-yellow-80 dark:bg-bds-yellow-100/30"
+        >
+          <span>
+            This {seqRecovery.what} is out of sequence — the account&apos;s config changed since it was
+            signed, so it can&apos;t land as-is. Re-sign it at the current sequence, or drop it.
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => seqRecovery.resign()} disabled={seqRecovery.busy}>
+              {seqRecovery.busy ? 'Re-signing…' : 'Re-sign'}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => seqRecovery.drop()} disabled={seqRecovery.busy}>
+              Drop it
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {infoMsg ? (
+        <p
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-4 py-3 text-[13px] text-bds-gray-70 dark:border-white/10 dark:bg-white/5 dark:text-bds-gray-20"
+        >
+          <span>{infoMsg}</span>
+          <button
+            type="button"
+            onClick={() => setInfoMsg('')}
+            className="shrink-0 text-[12px] text-bds-gray-60 hover:text-bds-gray-70 dark:text-bds-gray-40"
+          >
+            Dismiss
+          </button>
         </p>
       ) : null}
 
@@ -2219,6 +2893,30 @@ export function AccountDemo() {
   // -------------------------------------------------------------------------
 
   function renderAccount() {
+    // One selectable account card. Reused for top-level accounts and, indented,
+    // for their delegated sub-accounts (grouped below their parent).
+    const acctButton = (a: StoredAccount) => (
+      <button
+        key={a.id}
+        type="button"
+        onClick={() => setActiveAccountId(a.id)}
+        className={cn(
+          'flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors',
+          a.id === activeAccountId
+            ? 'border-base-blue bg-bds-blue-0 dark:border-bds-blue-60 dark:bg-bds-blue-100/30'
+            : 'border-bds-gray-10 bg-white hover:border-bds-blue-30 dark:border-white/10 dark:bg-white/5 dark:hover:border-bds-blue-60',
+        )}
+      >
+        <AccountDot />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[14px] font-medium">{a.label}</span>
+          <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(a.address)}</code>
+        </span>
+        {a.parentId ? <Badge tone="default">sub</Badge> : null}
+        {a.deployed ? <Badge tone="ok">deployed</Badge> : null}
+      </button>
+    );
+    const topLevel = accounts.filter((a) => !a.parentId);
     return (
       <>
         <div className="flex items-center justify-between gap-4">
@@ -2248,29 +2946,20 @@ export function AccountDemo() {
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {accounts.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => setActiveAccountId(a.id)}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg border p-4 text-left transition-colors',
-                    a.id === activeAccountId
-                      ? 'border-base-blue bg-bds-blue-0 dark:border-bds-blue-60 dark:bg-bds-blue-100/30'
-                      : 'border-bds-gray-10 bg-white hover:border-bds-blue-30 dark:border-white/10 dark:bg-white/5 dark:hover:border-bds-blue-60',
-                  )}
-                >
-                  <AccountDot />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[14px] font-medium">{a.label}</span>
-                    <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                      {short(a.address)}
-                    </code>
-                  </span>
-                  {a.deployed ? <Badge tone="ok">deployed</Badge> : null}
-                </button>
-              ))}
+            <div className="flex flex-col gap-3">
+              {topLevel.map((parent) => {
+                const subs = accounts.filter((s) => s.parentId === parent.id);
+                return (
+                  <div key={parent.id} className="flex flex-col gap-2">
+                    {acctButton(parent)}
+                    {subs.length > 0 ? (
+                      <div className="ml-4 flex flex-col gap-2 border-l border-bds-gray-10 pl-3 dark:border-white/10">
+                        {subs.map((sub) => acctButton(sub))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
               <button
                 type="button"
                 onClick={openCreate}
@@ -2339,6 +3028,8 @@ export function AccountDemo() {
                 registerSessionKey={registerSessionKey}
                 applySessionKeyNow={applySessionKeyNow}
                 revokeSessionKey={revokeSessionKey}
+                undoStagedRevoke={undoStagedRevoke}
+                skRevokingId={skRevokingId}
                 saLabel={saLabel}
                 setSaLabel={setSaLabel}
                 saBusy={saBusy}
@@ -2386,21 +3077,52 @@ export function AccountDemo() {
         {/* Account + network + balances */}
         <Card className="flex flex-col gap-4 bg-white p-5 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => copy(acct.address, 'txaddr')}
-              title="Copy address"
-              className="flex items-center gap-2"
-            >
-              <AccountDot />
-              <span className="text-[14px] font-medium">{acct.label}</span>
-              <code className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-                {short(acct.address)}
-              </code>
-              <span className="text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
-                {copied === 'txaddr' ? 'Copied' : ''}
-              </span>
-            </button>
+            {/* From-account picker: choose which account (incl. sub-accounts) to
+                transact from. Switching resets the signer (see the activeAccountId
+                effect). Falls back to a static label when there's only one account. */}
+            {accounts.length > 1 ? (
+              <label className="flex min-w-0 items-center gap-2 text-[13px]">
+                <span className="text-bds-gray-60 dark:text-bds-gray-40">From</span>
+                <AccountDot />
+                <div className="w-52">
+                  <Select
+                    ariaLabel="From account"
+                    value={acct.id}
+                    onValueChange={(id) => setActiveAccountId(id)}
+                    options={accounts.map((account) => ({
+                      value: account.id,
+                      label: `${account.parentId ? '↳ ' : ''}${account.label}`,
+                    }))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copy(acct.address, 'txaddr')}
+                  title="Copy address"
+                  className="shrink-0"
+                >
+                  <code className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
+                    {copied === 'txaddr' ? 'Copied' : short(acct.address)}
+                  </code>
+                </button>
+              </label>
+            ) : (
+              <button
+                type="button"
+                onClick={() => copy(acct.address, 'txaddr')}
+                title="Copy address"
+                className="flex items-center gap-2"
+              >
+                <AccountDot />
+                <span className="text-[14px] font-medium">{acct.label}</span>
+                <code className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
+                  {short(acct.address)}
+                </code>
+                <span className="text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
+                  {copied === 'txaddr' ? 'Copied' : ''}
+                </span>
+              </button>
+            )}
             <div className="w-44">
               <Select
                 ariaLabel="Network"
@@ -2536,8 +3258,8 @@ export function AccountDemo() {
                   onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
                   options={[
                     { value: 'eth', label: 'Pay in ETH' },
-                    { value: 'free', label: 'Free · sponsored (ERC-8168)' },
-                    { value: 'usdv', label: 'USDV · ERC-8168' },
+                    { value: 'free', label: 'Sponsored — free (ERC-8168)' },
+                    { value: 'usdv', label: 'Pay in USDV (ERC-8168)' },
                   ]}
                 />
               </div>

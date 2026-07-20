@@ -110,12 +110,14 @@ export type ConfigViewProps = {
   setScopeAll: (id: string) => void;
   skBusy: boolean;
   skApplyingId: string | null;
+  skRevokingId: string | null;
   policyRemaining: PolicyRemaining;
   formPolicyEmpty: boolean;
   submitStatus: '' | 'submitting' | 'confirming';
   registerSessionKey: () => void;
   applySessionKeyNow: (skId: string) => void;
   revokeSessionKey: (id: string) => void;
+  undoStagedRevoke: (id: string) => void;
 
   // Sub-accounts
   saLabel: string;
@@ -504,13 +506,16 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                 <div className="flex items-center gap-2">
                   <KindBadge kind={sk.kind} />
                   <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{sk.label}</span>
-                  <button
-                    type="button"
-                    onClick={() => p.revokeSessionKey(sk.id)}
-                    className="text-[12px] text-bds-red-60 hover:text-bds-red-70"
-                  >
-                    revoke
-                  </button>
+                  {!sk.pendingAuth && !sk.pendingRevoke ? (
+                    <button
+                      type="button"
+                      onClick={() => p.revokeSessionKey(sk.id)}
+                      disabled={p.skRevokingId === sk.id}
+                      className="text-[12px] text-bds-red-60 hover:text-bds-red-70 disabled:opacity-50"
+                    >
+                      {p.skRevokingId === sk.id ? 'signing…' : 'revoke'}
+                    </button>
+                  ) : null}
                 </div>
                 <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(sk.actorId)}</code>
                 <div className="flex flex-wrap gap-1.5">
@@ -567,6 +572,28 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => p.revokeSessionKey(sk.id)}>
                         Discard
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                {sk.pendingRevoke ? (
+                  <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-2 dark:border-white/10">
+                    <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                      <b className="text-bds-red-60 dark:text-bds-red-40">Revoke signed</b> — applies on this account&apos;s
+                      next session-key transaction, or apply it now. The policy manager is kept.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => p.applySessionKeyNow(sk.id)} disabled={p.skApplyingId === sk.id}>
+                        {p.skApplyingId === sk.id
+                          ? p.submitStatus === 'submitting'
+                            ? 'Submitting…'
+                            : p.submitStatus === 'confirming'
+                              ? 'Waiting…'
+                              : 'Applying…'
+                          : 'Apply now'}
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => p.undoStagedRevoke(sk.id)}>
+                        Undo
                       </Button>
                     </div>
                   </div>

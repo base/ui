@@ -106,13 +106,25 @@ export function txTypeLabel(
 
 // --- EIP-8130 actors / scope ---------------------------------------------
 
-// secp256k1 self key authenticator. Other authenticator addresses (P-256,
-// WebAuthn, delegate) come from the AA deployment; until the Account/@aa module
-// is migrated we label those "custom".
+// secp256k1 self key authenticator.
 export const K1_AUTHENTICATOR = '0x0000000000000000000000000000000000000001';
 
+// Canonical EIP-8130 authenticator addresses → human labels. These deterministic
+// authenticator contracts are identical across devnet and Base Sepolia. Mirrors
+// vibenet's `AUTHENTICATOR_LABELS` (src/lib/vibenet/accountConfigEvents.ts) so the
+// explorer address-page actor list matches the server-decoded tx-log labels.
+const AUTHENTICATOR_LABELS: Record<string, string> = {
+  [K1_AUTHENTICATOR]: 'k1 (secp256k1)',
+  '0xf8847a74f8067cabae5fe56b70b372a7d670f0f8': 'p256 (secp256r1)',
+  '0x871c72d3950308a028e9c4917591bcfd3d6a1ef7': 'webAuthn (passkey)',
+  '0x1b0195ba5e3fcdb387dd619816eef8b510ed0855': 'delegate',
+  '0xa550545da91720c23483c5b3493412a02d1cf9f9': 'alwaysValid',
+  '0xbe114b191a3ac7519670cac0c5e74aac1d819a13': 'trusted executor (policy manager)',
+};
+
+/** Human label for an authenticator address (case-insensitive); `custom` if unknown. */
 export function authLabel(addr: string): string {
-  return addr.toLowerCase() === K1_AUTHENTICATOR ? 'secp256k1 (k1)' : 'custom';
+  return AUTHENTICATOR_LABELS[addr.toLowerCase()] ?? 'custom';
 }
 
 // EIP-8130 actor scope is a bitmask; test bits without bitwise operators.

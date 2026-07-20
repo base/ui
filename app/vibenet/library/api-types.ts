@@ -90,6 +90,29 @@ export type HealthResponse = {
 };
 
 // ---------------------------------------------------------------------------
+// GET /api/vibenet/chain-health
+//
+// L2 *chain* health for the in-app maintenance banner. Deliberately distinct
+// from /api/vibenet/health above (which is the load-balancer liveness probe).
+// Source of truth: vibenet `src/app/api/vibenet/chain-health/route.ts`.
+// NOTE: this endpoint always responds HTTP 200 — branch on `healthy`, never the
+// status code. `healthy === (reason === null)`.
+// ---------------------------------------------------------------------------
+export type ChainHealthResponse = {
+  healthy: boolean;
+  reason: 'maintenance' | 'halted' | 'tx_not_landing' | 'rpc_unreachable' | null;
+  detail: string | null;
+  /** Latest block number (`0` when unknown). */
+  head: number;
+  /** Seconds since the head block's timestamp. */
+  headAgeSecs: number;
+  /** Faucet pending − mined nonce. */
+  faucetBacklog: number;
+  /** How long the faucet's mined nonce has been frozen, in seconds. */
+  stuckSecs: number;
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/vibenet/config     (contents of config.json, rendered from content.yaml)
 // ---------------------------------------------------------------------------
 export type ConfigResponse = {

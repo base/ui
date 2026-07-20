@@ -10,22 +10,24 @@ import type { AaAccountChangeConfig, Address, Hex } from "@aa";
 // ---------------------------------------------------------------------------
 
 export const SCOPE = {
-  signature: 0x01,
-  sender: 0x02,
-  payer: 0x04,
-  config: 0x08,
+  sender: 0x01,
+  policy: 0x02,
+  nonce: 0x04,
+  selfPayer: 0x08,
+  sponsorPayer: 0x10,
 } as const;
 
 const SCOPE_LABEL: Array<[number, string]> = [
-  [SCOPE.signature, "sign"],
   [SCOPE.sender, "send"],
-  [SCOPE.payer, "pay gas"],
-  [SCOPE.config, "config"],
+  [SCOPE.policy, "policy"],
+  [SCOPE.nonce, "nonce"],
+  [SCOPE.selfPayer, "pay gas"],
+  [SCOPE.sponsorPayer, "sponsor"],
 ];
 
-/** Human-readable chips for a scope bitmask. `0` = unrestricted (full owner). */
+/** Human-readable chips for a scope bitmask. `0` = unrestricted admin (full owner). */
 export function scopeChips(scope: number): string[] {
-  if (!scope) return ["full control"];
+  if (!scope) return ["Full control"];
   return SCOPE_LABEL.filter(([bit]) => (scope & bit) !== 0).map(([, l]) => l);
 }
 
@@ -45,19 +47,19 @@ export const SESSION_SCOPE_PRESETS: ScopePreset[] = [
     id: "spend",
     label: "Spend",
     scope: SCOPE.sender,
-    hint: "Originate calls / move funds — cannot change account config.",
+    hint: "Originate calls and move funds. Cannot change account config.",
   },
   {
-    id: "sign",
-    label: "Co-sign",
-    scope: SCOPE.signature,
-    hint: "Contribute a signature only.",
+    id: "self-pay",
+    label: "Pay gas",
+    scope: SCOPE.selfPayer,
+    hint: "Pay for the account's own transactions (payer == sender).",
   },
   {
     id: "sponsor",
-    label: "Pay gas",
-    scope: SCOPE.payer,
-    hint: "Act as a gas payer for the account.",
+    label: "Sponsor",
+    scope: SCOPE.sponsorPayer,
+    hint: "Sponsor gas on behalf of another sender (payer != sender).",
   },
 ];
 
@@ -84,13 +86,13 @@ export const POLICY_PRESETS: PolicyPreset[] = [
     id: "none",
     type: 0,
     label: "No policy",
-    hint: "Scope only — no extra gate.",
+    hint: "Scope only. No extra gate.",
   },
   {
     id: "limit",
-    // All policy-gated actors use a non-zero `policyType`; the protocol does not
-    // interpret the value (the example `PolicyManager` uses `0x01`). Both presets
-    // resolve to the same SessionPolicy contract — they differ only in config.
+    // Policy presence is the `SCOPE.policy` bit on the actor's scope; `type` is a
+    // non-zero off-chain marker only (the protocol does not interpret it). Both
+    // presets resolve to the same SessionPolicy contract — they differ only in config.
     type: 1,
     label: "Spending limit",
     hint: "Cap how much the key can move per period (recurring or one-time).",
@@ -108,7 +110,7 @@ export const POLICY_PRESETS: PolicyPreset[] = [
 // ---------------------------------------------------------------------------
 
 export type AppPolicy = {
-  /** Non-zero `policyType` stored on the actor. */
+  /** Non-zero off-chain policy marker. Policy presence is the `SCOPE.policy` scope bit. */
   type: number;
   label: string;
   /** PolicyManager the gated actor is forced to call. */
@@ -179,6 +181,21 @@ export type AppSessionKey = {
     /** `PolicyManager.install(actorId, binding)` call for phase 0, call 0. */
     installCall: { to: Address; value: bigint; data: Hex };
   };
+  /**
+   * Owner-signed `revokeActor(actorId)` captured but NOT yet broadcast. Mirrors
+   * the owner-change "sign then apply / ride the next tx" flow: pressing Revoke
+   * on a landed key signs the revoke (a config change on the per-chain LOCAL
+   * counter) and stages it here. It lands via "Apply now" (a no-op tx) or by
+   * riding the account's next session-key transaction; the key record is then
+   * removed. The PolicyManager is intentionally NOT revoked (other keys may
+   * share it). Only ever set on an on-chain key (never together with pendingAuth).
+   */
+  pendingRevoke?: {
+    /** Owner-signed `revokeActor` change for this session key's actor. */
+    change: AaAccountChangeConfig;
+    /** Local config sequence the change consumes. */
+    sequence: number;
+  };
 };
 
 export type AppSubAccount = {
@@ -222,9 +239,9 @@ export type ActivityEntry = {
 
 /** Relative expiry label from an absolute unix-seconds expiry. */
 export function formatExpiry(expiry: bigint): string {
-  if (!expiry) return "no expiry";
+  if (!expiry) return "No expiry";
   const secs = Number(expiry) - Math.floor(Date.now() / 1000);
-  if (secs <= 0) return "expired";
+  if (secs <= 0) return "Expired";
   const d = Math.floor(secs / 86_400);
   if (d >= 1) return `${d}d left`;
   const h = Math.floor(secs / 3600);
@@ -281,6 +298,12 @@ export type StoredAccount = {
   label: string;
   /** Account model. Absent on legacy records → treat as "smart". */
   type?: AccountType;
+  /**
+   * Set on sub-account records: the id of the parent account that controls this
+   * one via `key.delegate(parent)`. Key selection for a sub-account resolves to
+   * the parent's owner signers (the parent is the on-chain delegate owner).
+   */
+  parentId?: string;
   saltField: string;
   salt: Hex;
   address: Address;
@@ -294,6 +317,16 @@ export type StoredAccount = {
   deployed: boolean;
   configSeq: number;
   sessionKeys: AppSessionKey[];
+  /**
+   * PolicyManager addresses already registered on-chain as trusted-executor
+   * actors. A policy-gated session key needs its manager registered once so
+   * `PolicyManager.execute -> account.executeBatch` is accepted; the manager is
+   * NEVER revoked when a session key is removed (other keys may share it, and
+   * re-registering an existing actor reverts). Tracked here so a subsequent
+   * authorize doesn't re-add a manager that's already present. Absent on legacy
+   * records → fall back to inferring from `sessionKeys`.
+   */
+  trustedManagers?: Address[];
   subAccounts: AppSubAccount[];
   createdAt: number;
 };
@@ -326,7 +359,7 @@ export function deserializeState<T>(raw: string): T {
 
 /** Compact ETH from wei (string|bigint), trimmed to 4 sig decimals. */
 export function formatEthWei(wei: string | bigint | null | undefined): string {
-  if (wei === null || wei === undefined) return "—";
+  if (wei === null || wei === undefined) return "N/A";
   const v = typeof wei === "bigint" ? wei : BigInt(wei);
   const whole = v / 10n ** 18n;
   const frac = (v % 10n ** 18n).toString().padStart(18, "0").slice(0, 4);
@@ -344,7 +377,7 @@ export function formatUnits(
     decimals === null ||
     decimals === undefined
   )
-    return "—";
+    return "N/A";
   const v = typeof amount === "bigint" ? amount : BigInt(amount);
   const base = 10n ** BigInt(decimals);
   const whole = v / base;

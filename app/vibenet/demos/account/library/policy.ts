@@ -56,10 +56,10 @@ export const SELECTOR_PRESETS: { id: string; label: string; selector: Hex }[] = 
 export const OWNER_SCOPE_PRESETS: { id: string; scope: number; label: string }[] = [
   { id: 'full', scope: 0, label: 'Full control' },
   { id: 'send', scope: SCOPE.sender, label: 'Send only' },
-  { id: 'send_pay', scope: SCOPE.sender | SCOPE.payer, label: 'Send + pay gas' },
-  { id: 'pay', scope: SCOPE.payer, label: 'Pay gas only' },
-  { id: 'sign', scope: SCOPE.signature, label: 'Sign only' },
-  { id: 'config', scope: SCOPE.config, label: 'Config only' },
+  { id: 'send_pay', scope: SCOPE.sender | SCOPE.selfPayer, label: 'Send + pay gas' },
+  { id: 'pay', scope: SCOPE.selfPayer, label: 'Pay gas only' },
+  { id: 'sponsor', scope: SCOPE.sponsorPayer, label: 'Sponsor only' },
+  { id: 'send_nonce', scope: SCOPE.sender | SCOPE.nonce, label: 'Send + sequenced nonce' },
 ];
 
 export function periodLabel(secs: number): string {

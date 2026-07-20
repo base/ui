@@ -88,14 +88,18 @@ export const entryPoint07Abi: readonly any[]
 // EIP-8130
 // ---------------------------------------------------------------------------
 
-export type AaActor = { actorId: Hex; authenticator: Address }
+export type AaActor = {
+  actorId: Hex
+  authenticator: Address
+  scope?: number
+  policyData?: Hex
+}
 export type AaAuthorizeActor = {
   changeType: 0x01
   actorId: Hex
   authenticator: Address
   scope?: number
   expiry?: bigint
-  policyType?: number
   policyData?: Hex
 }
 export type AaRevokeActor = { changeType: 0x02; actorId: Hex }
@@ -146,11 +150,30 @@ export function toScope(...flags: number[]): number
 export function encodePolicyData(policy: Policy): Hex
 
 export const actorScope: {
-  signature: number
   sender: number
-  payer: number
-  config: number
+  policy: number
+  nonce: number
+  selfPayer: number
+  sponsorPayer: number
 }
+export const scopeUnrestricted: number
+export const accountStateFlags: {
+  revokeDefaultEoa: number
+  locked: number
+  unlockInitiated: number
+}
+export const lockOp: number
+export const unlockOp: number
+export const policyDataLength: number
+export const replayIdType: Hex
+export const nonceFreeExpiryWindow: bigint
+export const nonceFreeMaxExpiryWindow: bigint
+/** Nonce-free mode selector: `nonceKey === nonceKeyMax` (2**256 - 1). */
+export const nonceKeyMax: bigint
+export const replayBufferCapacity: bigint
+export const nonceFreeCost: bigint
+export const nonceKeyFirstUseCost: bigint
+export const nonceKeyExistingCost: bigint
 export const ecrecoverAuthenticator: Address
 export const trustedExecutorAuthenticator: Address
 export const canonicalAuthenticators: {
@@ -229,6 +252,12 @@ export function estimateGas8130(
     senderAuthVerifier?: Address
     /** Overrides the verifier's default auth-payload length, or (alone) prices a bare filler blob of this length. */
     senderAuthSize?: number
+    /**
+     * Acting actor id. Names the actor the node resolves for simulation so
+     * policy-gated session keys (and owner bundles that install a policy) price
+     * correctly instead of falling back to the account's self actor.
+     */
+    senderActorId?: Hex
     // Common
     payer?: Address
     /** Raw `payerAuth` blob, priced verbatim. Takes priority over `payerAuthVerifier`. */
@@ -426,6 +455,30 @@ export function newSmartAccount8130(parameters: {
   extraActors?: readonly AaActor[]
   accountConfigAddress?: Address
 }): NewSmartAccount8130ReturnType
+
+/**
+ * Wraps a parent ADMIN signer into a `Signer` that authenticates a sub-account
+ * through the DelegateAuthenticator (one hop). Its `sign` returns the delegate
+ * `data` payload (`delegate(20) || nestedAuthenticator(20) || nestedSignature`),
+ * so `to8130Account`'s configured-actor path serializes the full delegate
+ * `senderAuth` (`DELEGATE_AUTHENTICATOR || data`) automatically. Pass the result
+ * as `signer` (and its `authenticator`) to `to8130Account` for an account whose
+ * only owner is `key.delegate(parent)`. The parent must be deployed.
+ */
+export function toDelegate8130Signer(parameters: {
+  delegateAccount: Address
+  nestedSigner: Signer
+  nestedAuthenticator?: Address
+  authenticator?: Address
+}): Signer & { authenticator: Address }
+
+/**
+ * Byte length of a delegate `senderAuth`/`auth` blob for a given nested-auth
+ * payload length (default 65-byte K1 sig). Use as `senderAuthSize` when
+ * estimating gas for a delegate-signed tx (the delegate authenticator has no
+ * fixed default length). Layout: DELEGATE(20) || delegate(20) || nested(20) || data.
+ */
+export function delegateAuthSize(nestedDataLength?: number): number
 
 /**
  * Wraps a secp256k1 EOA for EIP-8130 transactions using the implicit self-actor

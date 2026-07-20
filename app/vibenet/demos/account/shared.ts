@@ -35,7 +35,7 @@ export type Persisted = {
 export const KIND_LABEL: Record<SignerKind, string> = {
   k1: 'K1',
   p256: 'P-256',
-  passkey: 'passkey',
+  passkey: 'Passkey',
 };
 
 /** Abbreviate a hash/address as `0x1234...abcd`. */

@@ -20938,12 +20938,12 @@ var entryPoint07Address = "0x0000000071727De22E5E9d8BAf0edAc6f37da032";
 // ../viem/src/_esm/experimental/eip8130/abis.js
 init_exports();
 var accountConfigurationAbi = parseAbi([
-  "struct InitialActor { bytes32 actorId; address authenticator; }",
-  "struct ActorConfig { address authenticator; uint8 scope; uint48 expiry; uint8 policyType; }",
+  "struct InitialActor { bytes32 actorId; address authenticator; uint8 scope; bytes policyData; }",
+  "struct ActorConfig { address authenticator; uint8 scope; uint48 expiry; }",
   "struct Actor { bytes32 actorId; ActorConfig config; bytes policyData; }",
   "struct ActorChange { uint8 changeType; bytes32 actorId; bytes data; }",
   "struct ChangeSequences { uint64 multichain; uint64 local; }",
-  "event ActorAuthorized(address indexed account, bytes32 indexed actorId, ActorConfig config, address policyManager, bytes32 policyCommitment)",
+  "event ActorAuthorized(address indexed account, bytes32 indexed actorId, bytes actorData)",
   "event ActorRevoked(address indexed account, bytes32 indexed actorId)",
   "event AccountCreated(address indexed account, bytes32 userSalt, bytes32 codeHash)",
   "event AccountImported(address indexed account)",
@@ -20952,15 +20952,14 @@ var accountConfigurationAbi = parseAbi([
   "event AccountUnlockInitiated(address indexed account, uint40 unlocksAt)",
   "function createAccount(bytes32 userSalt, bytes bytecode, InitialActor[] initialActors) returns (address)",
   "function computeAddress(bytes32 userSalt, bytes bytecode, InitialActor[] initialActors) view returns (address)",
-  "function importAccount(address account, InitialActor[] initialActors, bytes signature)",
-  "function applySignedActorChanges(address account, uint64 chainId, ActorChange[] actorChanges, bytes auth)",
-  "function lock(uint16 unlockDelay)",
-  "function initiateUnlock()",
+  "function importAccount(address account, uint256 chainId, InitialActor[] initialActors, bytes signature)",
+  "function applySignedActorChanges(address account, uint256 chainId, ActorChange[] actorChanges, bytes auth)",
+  "function applySignedLockChanges(address account, uint8 op, uint16 unlockDelay, bytes auth)",
   "function verifySignature(address account, bytes32 hash, bytes signature) view returns (bool verified)",
-  "function authenticateActor(address account, bytes32 hash, bytes auth) view returns (uint8 scope, uint8 policyType, address policyTarget)",
+  "function authenticateActor(address account, bytes32 hash, bytes auth) view returns (uint8 scope, address policyTarget)",
   "function isActor(address account, bytes32 actorId) view returns (bool)",
   "function getActorConfig(address account, bytes32 actorId) view returns (ActorConfig)",
-  "function getPolicy(address account, bytes32 actorId) view returns (uint8 policyType, address target, bytes32 commitment)",
+  "function getPolicy(address account, bytes32 actorId) view returns (address target, bytes32 commitment)",
   "function getPolicyCommitment(address account, bytes32 actorId) view returns (bytes32)",
   "function getPolicyManager(address account, bytes32 actorId) view returns (address)",
   "function getChangeSequences(address account) view returns (ChangeSequences)",
@@ -20999,8 +20998,15 @@ init_fromHex();
 var aaTransactionType = "0x79";
 var aaPayerType = "0x7a";
 var aaBaseCost = 15000n;
+var nonceFreeCost = 13000n;
+var nonceKeyFirstUseCost = 22100n;
+var nonceKeyExistingCost = 5000n;
+var replayIdType = "0x7901";
+var nonceFreeExpiryWindow = 30n;
+var nonceFreeMaxExpiryWindow = 10n;
+var replayBufferCapacity = 300000n;
 var accountChangeType = {
-  create: "0x00",
+  create: "0x",
   config: "0x01",
   delegation: "0x02"
 };
@@ -21009,20 +21015,30 @@ var actorChangeType = {
   revokeActor: 2
 };
 var actorScope = {
-  signature: 1,
-  sender: 2,
-  payer: 4,
-  config: 8
+  sender: 1,
+  policy: 2,
+  nonce: 4,
+  selfPayer: 8,
+  sponsorPayer: 16
 };
+var scopeUnrestricted = 0;
+var accountStateFlags = {
+  revokeDefaultEoa: 1,
+  locked: 2,
+  unlockInitiated: 4
+};
+var lockOp = 1;
+var unlockOp = 2;
+var policyDataLength = 52;
 var nonceKeyMax = 2n ** 256n - 1n;
 var ecrecoverAuthenticator = "0x0000000000000000000000000000000000000001";
 var revokedAuthenticator = "0xffffffffffffffffffffffffffffffffffffffff";
 var trustedExecutorAuthenticator = "0xbe114b191a3ac7519670cac0c5e74aac1d819a13";
 var canonicalAuthenticators = {
   k1: "0x0000000000000000000000000000000000000001",
-  p256: "0x28096E6f98996799A08fBbCFF0B7c0D512D1f503",
-  passkey: "0xD9B8d163a34FBaD781057F7B68889F0bbd70D7ed",
-  delegate: "0xb1f064A99919E4199b45F1b553b6ecb8d5d62a11"
+  p256: "0xf8847a74F8067CabaE5fe56B70b372A7D670f0f8",
+  passkey: "0x871c72d3950308A028E9c4917591bcfd3D6a1EF7",
+  delegate: "0x1B0195ba5E3FCdB387DD619816eeF8b510Ed0855"
 };
 var canonicalAuthDataLength = {
   [canonicalAuthenticators.k1.toLowerCase()]: 65,
@@ -21031,30 +21047,30 @@ var canonicalAuthDataLength = {
 };
 var nonceManagerAddress = "0x813000000000000000000000000000000000aa01";
 var txContextAddress = "0x813000000000000000000000000000000000aa02";
-var accountConfigAddress = "0x2403408177dB7F8512a9593343a7C80371D8f2dF";
-var defaultAccountAddress = "0xD67D6ae50521A0ea9Aa1e174C536F346E87a1903";
+var accountConfigAddress = "0xe7Bb8eF3728ea9f0A8be6D7e9585FeAb12dE086A";
+var defaultAccountAddress = "0xDd802113C9FF6964cD2A61A16e075D5271cC82c9";
 var deploymentHeaderSize = 14;
 var maxCodeSize = 24576;
 
 // ../viem/src/_esm/experimental/eip8130/deployments.js
 var canonicalEip8130Deployment = {
-  accountConfiguration: "0x2403408177dB7F8512a9593343a7C80371D8f2dF",
+  accountConfiguration: "0xe7Bb8eF3728ea9f0A8be6D7e9585FeAb12dE086A",
   accounts: {
     upgradeable: "0xF8dafa4DA35F664cf2CF842f00482ebb68a982b3",
-    default: "0xaF0973bbebe12BDaE6B61c96019dc0DcA554b67c",
-    defaultHighRate: "0x6c4230a4101849a3CB6438C40D3d47EdE9aca096",
+    default: "0xDd802113C9FF6964cD2A61A16e075D5271cC82c9",
+    defaultHighRate: "0xe5edfB7E7365893d685c2FbFBAC3e022f51d942F",
     erc4337: "0x8812ee1c9BA2395b5f113412769f22C6e7b89B11"
   },
   authenticators: {
     k1: "0x0000000000000000000000000000000000000001",
-    p256: "0x28096E6f98996799A08fBbCFF0B7c0D512D1f503",
-    webAuthn: "0xD9B8d163a34FBaD781057F7B68889F0bbd70D7ed",
-    delegate: "0xb1f064A99919E4199b45F1b553b6ecb8d5d62a11",
-    alwaysValid: "0x4299a796C1D3ffCe7885ce13d9815C1b4DB2Ea94"
+    p256: "0xf8847a74F8067CabaE5fe56B70b372A7D670f0f8",
+    webAuthn: "0x871c72d3950308A028E9c4917591bcfd3D6a1EF7",
+    delegate: "0x1B0195ba5E3FCdB387DD619816eeF8b510Ed0855",
+    alwaysValid: "0xA550545Da91720c23483c5B3493412A02D1cF9F9"
   },
   policies: {
-    manager: "0x5E5c3D54078d1000309233fEc116A83Df5a07E67",
-    sessionPolicy: "0xbd26BdA18Ee35F767ef03fD72356ae598ed6f793"
+    manager: "0x18B545EfC321644eE2dB9644c8f94f3f3d5e8624",
+    sessionPolicy: "0x6Ef50425716c134162C5c289E02162dde75b23Ea"
   }
 };
 var baseSepoliaDeployment = canonicalEip8130Deployment;
@@ -21147,16 +21163,17 @@ function authorizeActor(actor, options = {}) {
     actorId: actor.actorId,
     authenticator: actor.authenticator
   };
-  if (options.scope)
-    change.scope = options.scope;
+  let scope = options.scope ?? 0;
   if (options.expiry)
     change.expiry = options.expiry;
   if (options.policy) {
-    if (options.scope === undefined || options.scope === 0 || (options.scope & actorScope.config) !== 0)
-      throw new BaseError2("A policy-bearing actor MUST have a restricted scope that excludes CONFIG (e.g. `actorScope.sender`).");
-    change.policyType = options.policy.type;
+    if (scope === 0)
+      throw new BaseError2("A policy-bearing actor MUST have a restricted (non-admin) scope (e.g. `actorScope.sender`).");
+    scope |= actorScope.policy;
     change.policyData = encodePolicyData(options.policy);
   }
+  if (scope)
+    change.scope = scope;
   return change;
 }
 function revokeActor(actor) {
@@ -21237,7 +21254,12 @@ function computeAddress8130(parameters) {
     if (hexToBigInt(initialActors[i].actorId) <= hexToBigInt(initialActors[i - 1].actorId))
       throw new BaseError2("`initialActors` must be sorted by `actorId` in strictly ascending order (no duplicates).");
   }
-  const actorsCommitment = keccak256(concatHex(initialActors.flatMap((actor) => [actor.actorId, actor.authenticator])));
+  const actorsCommitment = keccak256(concatHex(initialActors.flatMap((actor) => [
+    actor.actorId,
+    actor.authenticator,
+    toHex(actor.scope ?? 0, { size: 1 }),
+    actor.policyData ?? "0x"
+  ])));
   const effectiveSalt = keccak256(concatHex([userSalt, actorsCommitment]));
   const deploymentCode = concatHex([deploymentHeader(codeSize), code]);
   return getCreate2Address3({
@@ -21285,8 +21307,7 @@ var authorizeDataParameters = [
     components: [
       { name: "authenticator", type: "address" },
       { name: "scope", type: "uint8" },
-      { name: "expiry", type: "uint48" },
-      { name: "policyType", type: "uint8" }
+      { name: "expiry", type: "uint48" }
     ]
   },
   { type: "bytes" }
@@ -21297,8 +21318,7 @@ function encodeActorChangeData(change) {
       {
         authenticator: change.authenticator,
         scope: change.scope ?? 0,
-        expiry: Number(change.expiry ?? 0n),
-        policyType: change.policyType ?? 0
+        expiry: Number(change.expiry ?? 0n)
       },
       change.policyData ?? "0x"
     ]);
@@ -21310,14 +21330,13 @@ function decodeAuthorizeActorData(data) {
     authenticator: config.authenticator,
     scope: config.scope,
     expiry: BigInt(config.expiry),
-    policyType: config.policyType,
     policyData
   };
 }
 
 // ../viem/src/_esm/experimental/eip8130/utils/hashActorChanges.js
 var actorChangeTypehash = keccak256(stringToHex("ActorChange(uint8 changeType,bytes32 actorId,bytes data)"));
-var signedActorChangesTypehash = keccak256(stringToHex("SignedActorChanges(address account,uint64 chainId,uint64 sequence,ActorChange[] actorChanges)ActorChange(uint8 changeType,bytes32 actorId,bytes data)"));
+var signedActorChangesTypehash = keccak256(stringToHex("SignedActorChanges(address account,uint256 chainId,uint64 sequence,ActorChange[] actorChanges)ActorChange(uint8 changeType,bytes32 actorId,bytes data)"));
 function hashActorChanges8130(parameters) {
   const { account, chainId, sequence, actorChanges } = parameters;
   const actorChangeHashes = actorChanges.map((change) => keccak256(encodeAbiParameters([
@@ -21335,7 +21354,7 @@ function hashActorChanges8130(parameters) {
   return keccak256(encodeAbiParameters([
     { type: "bytes32" },
     { type: "address" },
-    { type: "uint64" },
+    { type: "uint256" },
     { type: "uint64" },
     { type: "bytes32" }
   ], [
@@ -21410,30 +21429,28 @@ function toActorChange(change) {
   ];
 }
 function toAccountChangesList(accountChanges) {
-  return (accountChanges ?? []).flatMap((entry) => {
+  return (accountChanges ?? []).map((entry) => {
     if (entry.type === "create")
       return [
         accountChangeType.create,
-        [
-          entry.userSalt,
-          entry.code,
-          entry.initialActors.map((actor) => [
-            actor.actorId,
-            actor.authenticator
-          ])
-        ]
+        entry.userSalt,
+        entry.code,
+        entry.initialActors.map((actor) => [
+          actor.actorId,
+          actor.authenticator,
+          actor.scope ? numberToHex(actor.scope) : "0x",
+          actor.policyData ?? "0x"
+        ])
       ];
     if (entry.type === "config")
       return [
         accountChangeType.config,
-        [
-          entry.chainId ? numberToHex(entry.chainId) : "0x",
-          entry.sequence ? numberToHex(entry.sequence) : "0x",
-          entry.actorChanges.map(toActorChange),
-          entry.auth
-        ]
+        entry.chainId ? numberToHex(entry.chainId) : "0x",
+        entry.sequence ? numberToHex(entry.sequence) : "0x",
+        entry.actorChanges.map(toActorChange),
+        entry.auth
       ];
-    return [accountChangeType.delegation, [entry.target]];
+    return [accountChangeType.delegation, entry.target];
   });
 }
 function toTransactionBody(transaction) {
@@ -21621,6 +21638,22 @@ function toEoa8130Account(signer) {
       });
     }
   };
+}
+function toDelegate8130Signer(parameters) {
+  const { delegateAccount, nestedSigner, nestedAuthenticator = ecrecoverAuthenticator, authenticator = canonicalAuthenticators.delegate } = parameters;
+  if (!nestedSigner.sign)
+    throw new BaseError2("`nestedSigner` must support raw signing.");
+  return {
+    address: nestedSigner.address,
+    authenticator,
+    async sign({ hash: hash3 }) {
+      const nestedSignature = await nestedSigner.sign({ hash: hash3 });
+      return concatHex([delegateAccount, nestedAuthenticator, nestedSignature]);
+    }
+  };
+}
+function delegateAuthSize(nestedDataLength = 65) {
+  return 20 + 20 + 20 + nestedDataLength;
 }
 function randomBytes32() {
   const buf = new Uint8Array(32);
@@ -21985,7 +22018,9 @@ init_encodeFunctionData();
 function toInitialActors(actors) {
   return actors.map((actor) => ({
     actorId: actor.actorId,
-    authenticator: actor.authenticator
+    authenticator: actor.authenticator,
+    scope: actor.scope ?? 0,
+    policyData: actor.policyData ?? "0x"
   }));
 }
 function toAbiActorChanges(changes) {
@@ -22120,7 +22155,7 @@ init_fromHex();
 init_toHex();
 var maxAuthSize = 8192;
 async function estimateGas8130(client, parameters) {
-  const { from: from14, sender, to, data, value, senderAuth: senderAuthExplicit, senderAuthVerifier, senderAuthSize, accountChanges, calls, nonceKey = 0n, nonceSequence = 0, payer, payerAuth: payerAuthExplicit, payerAuthVerifier, payerAuthSize, blockNumber, blockTag = "pending" } = parameters;
+  const { from: from14, sender, to, data, value, senderAuth: senderAuthExplicit, senderAuthAuthenticator, senderAuthSize, senderActorId, accountChanges, calls, nonceKey = 0n, nonceSequence = 0, payer, payerAuth: payerAuthExplicit, payerAuthAuthenticator, payerAuthSize, blockNumber, blockTag = "pending" } = parameters;
   const account_ = sender ?? from14;
   if (!account_)
     throw new BaseError2("`sender` (or `from`) is required for an EIP-8130 gas estimate: the sender drives actor/policy resolution.");
@@ -22129,8 +22164,8 @@ async function estimateGas8130(client, parameters) {
   for (const size7 of [senderAuthSize, payerAuthSize])
     if (size7 !== undefined && (size7 < 0 || size7 > maxAuthSize))
       throw new BaseError2(`auth size ${size7} out of range (0..=${maxAuthSize}).`);
-  const senderAuth = buildAuthBlob(senderAuthExplicit, senderAuthVerifier, senderAuthSize);
-  const payerAuth = buildAuthBlob(payerAuthExplicit, payerAuthVerifier, payerAuthSize);
+  const senderAuth = buildAuthBlob(senderAuthExplicit, senderAuthAuthenticator, senderAuthSize);
+  const payerAuth = buildAuthBlob(payerAuthExplicit, payerAuthAuthenticator, payerAuthSize);
   const useFullBody = accountChanges !== undefined || calls !== undefined;
   let request;
   if (useFullBody) {
@@ -22156,6 +22191,8 @@ async function estimateGas8130(client, parameters) {
       request.senderAuth = senderAuth;
     if (payerAuth !== undefined)
       request.payerAuth = payerAuth;
+    if (senderActorId !== undefined)
+      request.senderActorId = senderActorId;
   } else {
     request = {
       type: aaTransactionType,
@@ -22173,23 +22210,25 @@ async function estimateGas8130(client, parameters) {
       request.senderAuth = senderAuth;
     if (payerAuth !== undefined)
       request.payerAuth = payerAuth;
+    if (senderActorId !== undefined)
+      request.senderActorId = senderActorId;
   }
   const block = blockNumber !== undefined ? numberToHex(blockNumber) : blockTag;
   const gas = await client.request({ method: "eth_estimateGas", params: [request, block] });
   return hexToBigInt(gas);
 }
-function buildAuthBlob(explicit, verifier, size7) {
+function buildAuthBlob(explicit, authenticator, size7) {
   if (explicit !== undefined)
     return explicit;
-  if (verifier === undefined) {
+  if (authenticator === undefined) {
     if (size7 === undefined)
       return;
     return filler(size7);
   }
-  const dataLength = size7 ?? canonicalAuthDataLength[verifier.toLowerCase()];
+  const dataLength = size7 ?? canonicalAuthDataLength[authenticator.toLowerCase()];
   if (dataLength === undefined)
-    throw new BaseError2(`No default auth-payload length is known for verifier ${verifier}. Pass an explicit auth size.`);
-  return concatHex([verifier, filler(dataLength)]);
+    throw new BaseError2(`No default auth-payload length is known for authenticator ${authenticator}. Pass an explicit auth size.`);
+  return concatHex([authenticator, filler(dataLength)]);
 }
 function filler(length) {
   return `0x${"ff".repeat(length)}`;
@@ -22202,7 +22241,9 @@ function serializeAccountChange(change) {
       code: change.code,
       initialActors: change.initialActors.map((a) => ({
         actorId: a.actorId,
-        authenticator: a.authenticator
+        authenticator: a.authenticator,
+        scope: a.scope ?? 0,
+        policyData: a.policyData ?? "0x"
       }))
     };
   }
@@ -22210,11 +22251,31 @@ function serializeAccountChange(change) {
     return { type: "delegation", target: change.target };
   }
   return {
-    type: "config",
+    type: "configChange",
     chainId: change.chainId,
     sequence: change.sequence,
-    actorChanges: change.actorChanges,
+    actorChanges: change.actorChanges.map((ac) => ({
+      changeType: ac.changeType === actorChangeType.revokeActor ? "Revoke" : "Authorize",
+      actorId: ac.actorId,
+      data: encodeActorChangeData(ac)
+    })),
     auth: change.auth
+  };
+}
+// ../viem/src/_esm/experimental/eip8130/actions/getActorConfig8130.js
+async function getActorConfig8130(client, parameters) {
+  const { account, actorId, accountConfiguration = accountConfigAddress } = parameters;
+  const config = await readContract(client, {
+    address: accountConfiguration,
+    abi: accountConfigurationAbi,
+    functionName: "getActorConfig",
+    args: [account, actorId]
+  });
+  return {
+    authenticator: config.authenticator,
+    scope: config.scope,
+    expiry: config.expiry,
+    hasPolicy: (config.scope & actorScope.policy) !== 0
   };
 }
 // ../viem/src/_esm/experimental/eip8130/actions/getConfigSequence8130.js
@@ -22231,184 +22292,27 @@ async function getConfigSequence8130(client, parameters) {
     multichain: result.multichain
   };
 }
-// ../viem/src/_esm/experimental/eip8130/actions/getTransactionCount8130.js
-init_fromHex();
-init_toHex();
-async function getTransactionCount8130(client, parameters) {
-  const { address, nonceKey = 0n, blockNumber, blockTag = "pending" } = parameters;
-  if (nonceKey === nonceKeyMax)
-    throw new Error("nonceKey NONCE_KEY_MAX selects the expiring-nonce channel, which has no per-channel counter. Use an `expiry` instead of reading a sequence number.");
-  const block = blockNumber !== undefined ? numberToHex(blockNumber) : blockTag;
-  const params = nonceKey === 0n ? [address, block] : [address, block, numberToHex(nonceKey)];
-  const count = await client.request({ method: "eth_getTransactionCount", params });
-  return hexToBigInt(count);
-}
-// ../viem/src/_esm/experimental/eip8130/actions/getTransactionReceipt8130.js
-function parseEip8130ReceiptFields(receipt) {
-  if (!receipt)
-    return {};
-  return {
-    payer: receipt.payer,
-    phaseStatuses: receipt.phaseStatuses,
-    metadata: receipt.metadata
-  };
-}
-function allPhasesSucceeded(fields) {
-  const phases = fields.phaseStatuses;
-  if (!phases)
-    return true;
-  return phases.every((s) => s === "0x1" || s === "0x01");
-}
-async function getTransactionReceipt8130(client, parameters) {
-  const { hash: hash3 } = parameters;
-  const receipt = await client.request({ method: "eth_getTransactionReceipt", params: [hash3] });
-  if (!receipt)
-    return null;
-  return { ...receipt, eip8130: parseEip8130ReceiptFields(receipt) };
-}
-// ../viem/src/_esm/experimental/eip8130/actions/getTransaction8130.js
-async function getTransaction8130(client, parameters) {
-  const { hash: hash3 } = parameters;
-  const raw = await client.request({ method: "eth_getTransactionByHash", params: [hash3] });
-  if (!raw || raw.type !== aaTransactionType)
-    throw new Error(`getTransaction8130: expected type ${aaTransactionType} but got type ${raw?.type ?? "null"} for hash ${hash3}`);
-  const body = raw.tx;
-  return {
-    type: aaTransactionType,
-    hash: hash3,
-    from: raw.from ?? body.sender,
-    chainId: body.chainId,
-    nonceKey: body.nonceKey,
-    nonceSequence: body.nonceSequence,
-    expiry: body.expiry,
-    maxFeePerGas: BigInt(body.maxFeePerGas),
-    maxPriorityFeePerGas: BigInt(body.maxPriorityFeePerGas),
-    gas: BigInt(body.gasLimit),
-    calls: body.calls,
-    accountChanges: body.accountChanges,
-    metadata: body.metadata,
-    payer: body.payer,
-    senderAuth: raw.senderAuth,
-    payerAuth: raw.payerAuth,
-    gasPrice: raw.gasPrice ? BigInt(raw.gasPrice) : null,
-    blockHash: raw.blockHash ?? null,
-    blockNumber: raw.blockNumber ? BigInt(raw.blockNumber) : null,
-    transactionIndex: raw.transactionIndex ? Number(raw.transactionIndex) : null
-  };
-}
-// ../viem/src/_esm/experimental/eip8130/actions/waitForTransactionReceipt8130.js
-async function waitForTransactionReceipt8130(client, parameters) {
-  const { hash: hash3, pollingInterval = 500, timeout = 60000 } = parameters;
-  const deadline = Date.now() + timeout;
-  while (Date.now() < deadline) {
-    const receipt = await getTransactionReceipt8130(client, { hash: hash3 });
-    if (receipt !== null)
-      return receipt;
-    await new Promise((resolve) => setTimeout(resolve, pollingInterval));
-  }
-  throw new Error(`waitForTransactionReceipt8130: timed out after ${timeout}ms waiting for ${hash3}`);
-}
-// ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
-init_base();
-
-// ../viem/src/_esm/experimental/eip8130/utils/encodeWalletCalls.js
-init_encodeFunctionData();
-var defaultEncodeExecute = ({ account, calls }) => ({
-  to: account,
-  data: encodeFunctionData({
-    abi: erc4337AccountAbi,
-    functionName: "executeBatch",
-    args: [
-      calls.map((call3) => ({
-        target: call3.to,
-        value: call3.value,
-        data: call3.data
-      }))
-    ]
-  })
-});
-function encodeWalletCalls(parameters) {
-  const { account, calls, encodeExecute = defaultEncodeExecute } = parameters;
-  return calls.map((phase) => {
-    const hasValue = phase.some((call3) => call3.value && call3.value !== 0n);
-    if (!hasValue)
-      return phase.map((call3) => ({ to: call3.to, data: call3.data ?? "0x" }));
-    const normalized = phase.map((call3) => ({
-      to: call3.to,
-      value: call3.value ?? 0n,
-      data: call3.data ?? "0x"
-    }));
-    return [encodeExecute({ account, calls: normalized })];
+// ../viem/src/_esm/experimental/eip8130/actions/getLockStatus8130.js
+async function getLockStatus8130(client, parameters) {
+  const { account, accountConfiguration = accountConfigAddress } = parameters;
+  const [locked, hasInitiatedUnlock, unlocksAt, unlockDelay] = await readContract(client, {
+    address: accountConfiguration,
+    abi: accountConfigurationAbi,
+    functionName: "getLockStatus",
+    args: [account]
   });
+  return { locked, hasInitiatedUnlock, unlocksAt, unlockDelay };
 }
-
-// ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
-async function prepareTransaction8130(client, parameters) {
-  const { account, calls, accountChanges, payer, gas, expiry, nonceKey = 0n } = parameters;
-  const chainId = client.chain?.id;
-  if (!chainId)
-    throw new BaseError2("`client` must be configured with a `chain`.");
-  let { maxFeePerGas, maxPriorityFeePerGas } = parameters;
-  if (maxFeePerGas === undefined || maxPriorityFeePerGas === undefined) {
-    const fees = await getAction(client, estimateFeesPerGas, "estimateFeesPerGas")({ chain: client.chain });
-    maxFeePerGas ??= fees.maxFeePerGas;
-    maxPriorityFeePerGas ??= fees.maxPriorityFeePerGas;
-  }
-  let nonceSequence = parameters.nonceSequence;
-  if (nonceSequence === undefined)
-    nonceSequence = await getAction(client, getTransactionCount8130, "getTransactionCount8130")({ address: account.address, nonceKey });
-  return {
-    chainId,
-    from: account.address,
-    nonceKey,
-    nonceSequence,
-    maxFeePerGas,
-    maxPriorityFeePerGas,
-    gas,
-    expiry,
-    accountChanges,
-    calls,
-    payer: payer?.address ?? payer?.account.address
-  };
-}
-function toPhases(calls) {
-  if (calls.length === 0)
-    return [];
-  if (Array.isArray(calls[0]))
-    return calls;
-  return [calls];
-}
-async function sendCalls8130(client, parameters) {
-  const { account, calls, payer, encodeExecute, ...rest } = parameters;
-  const transaction = await prepareTransaction8130(client, {
-    ...rest,
-    account,
-    calls: encodeWalletCalls({
-      account: account.address,
-      calls: toPhases(calls),
-      encodeExecute
-    }),
-    payer
+// ../viem/src/_esm/experimental/eip8130/actions/getPolicy8130.js
+async function getPolicy8130(client, parameters) {
+  const { account, actorId, accountConfiguration = accountConfigAddress } = parameters;
+  const [target, commitment] = await readContract(client, {
+    address: accountConfiguration,
+    abi: accountConfigurationAbi,
+    functionName: "getPolicy",
+    args: [account, actorId]
   });
-  const serializedTransaction = await account.signTransaction(transaction, {
-    payer
-  });
-  return getAction(client, sendRawTransaction, "sendRawTransaction")({ serializedTransaction });
-}
-// ../viem/src/_esm/experimental/eip8130/chains.js
-var eip8130ChainIds = new Set;
-function register8130Chains(...chainIds) {
-  for (const id of chainIds)
-    eip8130ChainIds.add(id);
-}
-function unregister8130Chains(...chainIds) {
-  for (const id of chainIds)
-    eip8130ChainIds.delete(id);
-}
-function is8130Enabled(chain, parameters = {}) {
-  const id = typeof chain === "number" ? chain : chain.id;
-  const set = parameters.chainIds ? parameters.chainIds instanceof Set ? parameters.chainIds : new Set(parameters.chainIds) : eip8130ChainIds;
-  return set.has(id);
+  return { target, commitment };
 }
 // ../viem/src/_esm/experimental/eip8130/policies.js
 init_exports();
@@ -22579,6 +22483,323 @@ function encodeSessionPolicyAction(action) {
     }
   ]);
 }
+
+// ../viem/src/_esm/experimental/eip8130/actions/getSessionSpend8130.js
+async function getSessionSpend8130(client, parameters) {
+  const { commitment, token, sessionPolicy = sessionPolicyAddress } = parameters;
+  const read = getAction(client, readContract, "readContract");
+  const [[set, allowance, period], usage] = await Promise.all([
+    read({
+      address: sessionPolicy,
+      abi: sessionPolicyAbi,
+      functionName: "getTokenLimit",
+      args: [commitment, token]
+    }),
+    read({
+      address: sessionPolicy,
+      abi: sessionPolicyAbi,
+      functionName: "getCurrentSpend",
+      args: [commitment, token]
+    })
+  ]);
+  const spent = usage.spend;
+  const remaining = allowance > spent ? allowance - spent : 0n;
+  return {
+    set,
+    allowance,
+    period,
+    spent,
+    remaining,
+    periodStart: usage.start,
+    periodEnd: usage.end
+  };
+}
+// ../viem/src/_esm/experimental/eip8130/actions/isActor8130.js
+async function isActor8130(client, parameters) {
+  const { account, actorId, accountConfiguration = accountConfigAddress } = parameters;
+  return readContract(client, {
+    address: accountConfiguration,
+    abi: accountConfigurationAbi,
+    functionName: "isActor",
+    args: [account, actorId]
+  });
+}
+// ../viem/src/_esm/experimental/eip8130/actions/isLocked8130.js
+async function isLocked8130(client, parameters) {
+  const { account, accountConfiguration = accountConfigAddress } = parameters;
+  return readContract(client, {
+    address: accountConfiguration,
+    abi: accountConfigurationAbi,
+    functionName: "isLocked",
+    args: [account]
+  });
+}
+// ../viem/src/_esm/experimental/eip8130/actions/getTransactionCount8130.js
+init_fromHex();
+init_toHex();
+async function getTransactionCount8130(client, parameters) {
+  const { address, nonceKey = 0n, blockNumber, blockTag = "pending" } = parameters;
+  if (nonceKey === nonceKeyMax)
+    throw new Error("nonceKey NONCE_KEY_MAX selects the expiring-nonce channel, which has no per-channel counter. Use an `expiry` instead of reading a sequence number.");
+  const block = blockNumber !== undefined ? numberToHex(blockNumber) : blockTag;
+  const params = nonceKey === 0n ? [address, block] : [address, block, numberToHex(nonceKey)];
+  const count = await client.request({ method: "eth_getTransactionCount", params });
+  return hexToBigInt(count);
+}
+// ../viem/src/_esm/experimental/eip8130/actions/getTransactionReceipt8130.js
+function parseEip8130ReceiptFields(receipt) {
+  if (!receipt)
+    return {};
+  return {
+    payer: receipt.payer,
+    phaseStatuses: receipt.phaseStatuses,
+    metadata: receipt.metadata
+  };
+}
+function allPhasesSucceeded(fields) {
+  const phases = fields.phaseStatuses;
+  if (!phases)
+    return true;
+  return phases.every((s) => s === "0x1" || s === "0x01");
+}
+async function getTransactionReceipt8130(client, parameters) {
+  const { hash: hash3 } = parameters;
+  const receipt = await client.request({ method: "eth_getTransactionReceipt", params: [hash3] });
+  if (!receipt)
+    return null;
+  return { ...receipt, eip8130: parseEip8130ReceiptFields(receipt) };
+}
+// ../viem/src/_esm/experimental/eip8130/actions/getTransaction8130.js
+async function getTransaction8130(client, parameters) {
+  const { hash: hash3 } = parameters;
+  const raw = await client.request({ method: "eth_getTransactionByHash", params: [hash3] });
+  if (!raw || raw.type !== aaTransactionType)
+    throw new Error(`getTransaction8130: expected type ${aaTransactionType} but got type ${raw?.type ?? "null"} for hash ${hash3}`);
+  const body = raw.tx;
+  return {
+    type: aaTransactionType,
+    hash: hash3,
+    from: raw.from ?? body.sender,
+    chainId: body.chainId,
+    nonceKey: body.nonceKey,
+    nonceSequence: body.nonceSequence,
+    expiry: body.expiry,
+    maxFeePerGas: BigInt(body.maxFeePerGas),
+    maxPriorityFeePerGas: BigInt(body.maxPriorityFeePerGas),
+    gas: BigInt(body.gasLimit),
+    calls: body.calls,
+    accountChanges: body.accountChanges,
+    metadata: body.metadata,
+    payer: body.payer,
+    senderAuth: raw.senderAuth,
+    payerAuth: raw.payerAuth,
+    gasPrice: raw.gasPrice ? BigInt(raw.gasPrice) : null,
+    blockHash: raw.blockHash ?? null,
+    blockNumber: raw.blockNumber ? BigInt(raw.blockNumber) : null,
+    transactionIndex: raw.transactionIndex ? Number(raw.transactionIndex) : null
+  };
+}
+// ../viem/src/_esm/experimental/eip8130/actions/waitForTransactionReceipt8130.js
+async function waitForTransactionReceipt8130(client, parameters) {
+  const { hash: hash3, pollingInterval = 500, timeout = 60000 } = parameters;
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const receipt = await getTransactionReceipt8130(client, { hash: hash3 });
+    if (receipt !== null)
+      return receipt;
+    await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+  }
+  throw new Error(`waitForTransactionReceipt8130: timed out after ${timeout}ms waiting for ${hash3}`);
+}
+// ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
+init_base();
+
+// ../viem/src/_esm/experimental/eip8130/utils/encodeWalletCalls.js
+init_encodeFunctionData();
+var defaultEncodeExecute = ({ account, calls }) => ({
+  to: account,
+  data: encodeFunctionData({
+    abi: erc4337AccountAbi,
+    functionName: "executeBatch",
+    args: [
+      calls.map((call3) => ({
+        target: call3.to,
+        value: call3.value,
+        data: call3.data
+      }))
+    ]
+  })
+});
+function encodeWalletCalls(parameters) {
+  const { account, calls, encodeExecute = defaultEncodeExecute } = parameters;
+  return calls.map((phase) => {
+    const hasValue = phase.some((call3) => call3.value && call3.value !== 0n);
+    if (!hasValue)
+      return phase.map((call3) => ({ to: call3.to, data: call3.data ?? "0x" }));
+    const normalized = phase.map((call3) => ({
+      to: call3.to,
+      value: call3.value ?? 0n,
+      data: call3.data ?? "0x"
+    }));
+    return [encodeExecute({ account, calls: normalized })];
+  });
+}
+
+// ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
+async function prepareTransaction8130(client, parameters) {
+  const { account, calls, accountChanges, payer, gas, expiry, nonceKey = 0n } = parameters;
+  const chainId = client.chain?.id;
+  if (!chainId)
+    throw new BaseError2("`client` must be configured with a `chain`.");
+  let { maxFeePerGas, maxPriorityFeePerGas } = parameters;
+  if (maxFeePerGas === undefined || maxPriorityFeePerGas === undefined) {
+    const fees = await getAction(client, estimateFeesPerGas, "estimateFeesPerGas")({ chain: client.chain });
+    maxFeePerGas ??= fees.maxFeePerGas;
+    maxPriorityFeePerGas ??= fees.maxPriorityFeePerGas;
+  }
+  let nonceSequence = parameters.nonceSequence;
+  if (nonceKey === nonceKeyMax) {
+    if (!expiry || expiry === 0n)
+      throw new BaseError2("`expiry` is required for nonce-free transactions (`nonceKey` = `NONCE_KEY_MAX`). Build the nonce with `nonce.nonceless({ expiresIn })`.");
+    nonceSequence ??= 0n;
+  } else if (nonceSequence === undefined) {
+    nonceSequence = await getAction(client, getTransactionCount8130, "getTransactionCount8130")({ address: account.address, nonceKey });
+  }
+  return {
+    chainId,
+    from: account.address,
+    nonceKey,
+    nonceSequence,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    gas,
+    expiry,
+    accountChanges,
+    calls,
+    payer: payer?.address ?? payer?.account.address
+  };
+}
+function toPhases(calls) {
+  if (calls.length === 0)
+    return [];
+  if (Array.isArray(calls[0]))
+    return calls;
+  return [calls];
+}
+async function sendCalls8130(client, parameters) {
+  const { account, calls, payer, encodeExecute, ...rest } = parameters;
+  const transaction = await prepareTransaction8130(client, {
+    ...rest,
+    account,
+    calls: encodeWalletCalls({
+      account: account.address,
+      calls: toPhases(calls),
+      encodeExecute
+    }),
+    payer
+  });
+  const serializedTransaction = await account.signTransaction(transaction, {
+    payer
+  });
+  return getAction(client, sendRawTransaction, "sendRawTransaction")({ serializedTransaction });
+}
+// ../viem/src/_esm/experimental/eip8130/chains.js
+var eip8130ChainIds = new Set;
+function register8130Chains(...chainIds) {
+  for (const id of chainIds)
+    eip8130ChainIds.add(id);
+}
+function unregister8130Chains(...chainIds) {
+  for (const id of chainIds)
+    eip8130ChainIds.delete(id);
+}
+function is8130Enabled(chain, parameters = {}) {
+  const id = typeof chain === "number" ? chain : chain.id;
+  const set = parameters.chainIds ? parameters.chainIds instanceof Set ? parameters.chainIds : new Set(parameters.chainIds) : eip8130ChainIds;
+  return set.has(id);
+}
+// ../viem/src/_esm/experimental/eip8130/lock.js
+init_base();
+init_encodeAbiParameters();
+init_encodeFunctionData();
+init_toHex();
+init_keccak256();
+var maxUnlockDelay = 65535;
+var lockChangeTypehash = keccak256(stringToHex("SignedLockChange(address account,uint256 chainId,uint8 op,uint16 unlockDelay,uint64 sequence)"));
+function opByte(op) {
+  return op === "lock" ? lockOp : unlockOp;
+}
+function hashLockChange8130(parameters) {
+  const { account, chainId, op, unlockDelay, sequence } = parameters;
+  return keccak256(encodeAbiParameters([
+    { type: "bytes32" },
+    { type: "address" },
+    { type: "uint256" },
+    { type: "uint8" },
+    { type: "uint16" },
+    { type: "uint64" }
+  ], [
+    lockChangeTypehash,
+    account,
+    BigInt(chainId),
+    opByte(op),
+    unlockDelay,
+    BigInt(sequence)
+  ]));
+}
+function lockCall(parameters) {
+  const { account, unlockDelay, auth, accountConfiguration = accountConfigAddress } = parameters;
+  if (!Number.isInteger(unlockDelay) || unlockDelay < 1 || unlockDelay > maxUnlockDelay)
+    throw new BaseError2(`\`unlockDelay\` must be an integer in \`1 … ${maxUnlockDelay}\` (uint16 seconds). Received ${unlockDelay}.`);
+  return {
+    to: accountConfiguration,
+    data: encodeFunctionData({
+      abi: accountConfigurationAbi,
+      functionName: "applySignedLockChanges",
+      args: [account, lockOp, unlockDelay, auth]
+    })
+  };
+}
+function initiateUnlockCall(parameters) {
+  const { account, auth, accountConfiguration = accountConfigAddress } = parameters;
+  return {
+    to: accountConfiguration,
+    data: encodeFunctionData({
+      abi: accountConfigurationAbi,
+      functionName: "applySignedLockChanges",
+      args: [account, unlockOp, 0, auth]
+    })
+  };
+}
+// ../viem/src/_esm/experimental/eip8130/nonce.js
+init_base();
+init_fromHex();
+init_toHex();
+var nonce = {
+  sequential() {
+    return { nonceKey: 0n };
+  },
+  channel(key2) {
+    if (key2 < 0n || key2 > nonceKeyMax)
+      throw new BaseError2(`\`nonceKey\` must be in \`0 … NONCE_KEY_MAX\`. Received ${key2}.`);
+    if (key2 === nonceKeyMax)
+      throw new BaseError2("`NONCE_KEY_MAX` selects nonce-free mode, which has no counter. Use `nonce.nonceless({ expiry })` instead.");
+    return { nonceKey: key2 };
+  },
+  randomChannel() {
+    const buffer2 = new Uint8Array(32);
+    globalThis.crypto.getRandomValues(buffer2);
+    const key2 = hexToBigInt(bytesToHex(buffer2)) % (nonceKeyMax - 1n) + 1n;
+    return { nonceKey: key2 };
+  },
+  nonceless(parameters) {
+    const { expiry, expiresIn } = parameters;
+    const resolvedExpiry = expiry ?? (expiresIn !== undefined ? BigInt(Math.floor(Date.now() / 1000) + expiresIn) : undefined);
+    if (resolvedExpiry === undefined || resolvedExpiry <= 0n)
+      throw new BaseError2("Nonce-free mode requires a non-zero `expiry` (or `expiresIn`).");
+    return { nonceKey: nonceKeyMax, nonceSequence: 0n, expiry: resolvedExpiry };
+  }
+};
 // ../viem/src/_esm/experimental/eip8130/utils/parseTransaction.js
 init_base();
 init_slice();
@@ -22657,14 +22878,20 @@ function parseCalls(value) {
   }));
 }
 function parseActor(value) {
-  const [actorId, authenticator] = value;
-  return { actorId, authenticator };
+  const [actorId, authenticator, scope, policyData] = value;
+  const actor = { actorId, authenticator };
+  const scopeNum = !scope || scope === "0x" ? 0 : hexToNumber(scope);
+  if (scopeNum !== 0)
+    actor.scope = scopeNum;
+  if (policyData && policyData !== "0x")
+    actor.policyData = policyData;
+  return actor;
 }
 function parseActorChange(value) {
   const [changeType, actorId, data] = value;
   const type = changeType === "0x" ? 0 : hexToNumber(changeType);
   if (type === actorChangeType.authorizeActor) {
-    const { authenticator, scope, expiry, policyType, policyData } = decodeAuthorizeActorData(data);
+    const { authenticator, scope, expiry, policyData } = decodeAuthorizeActorData(data);
     const change = {
       changeType: actorChangeType.authorizeActor,
       actorId,
@@ -22674,8 +22901,6 @@ function parseActorChange(value) {
       change.scope = scope;
     if (expiry !== 0n)
       change.expiry = expiry;
-    if (policyType !== 0)
-      change.policyType = policyType;
     if (policyData !== "0x")
       change.policyData = policyData;
     return change;
@@ -22683,11 +22908,10 @@ function parseActorChange(value) {
   return { changeType: actorChangeType.revokeActor, actorId };
 }
 function parseAccountChanges(value) {
-  const flat = value;
+  const entries = value;
   const result = [];
-  for (let i = 0;i < flat.length; i += 2) {
-    const type = flat[i];
-    const body = flat[i + 1];
+  for (const entry of entries) {
+    const [type, ...body] = entry;
     if (type === accountChangeType.create) {
       const [userSalt, code, actors] = body;
       result.push({
@@ -23153,6 +23377,7 @@ export {
   vibenetDevnetDeployment,
   upgradeableProxyBytecode,
   unregister8130Chains,
+  unlockOp,
   txContextAddress,
   trustedExecutorAuthenticator,
   transactionContextAbi,
@@ -23165,6 +23390,7 @@ export {
   toHex,
   toFactoryArgs8130,
   toEoa8130Account,
+  toDelegate8130Signer,
   toCallsList,
   toAccountChangesList,
   to8130Account,
@@ -23180,13 +23406,17 @@ export {
   sendSponsoredCalls,
   sendCalls8130,
   selectPaymentOption,
+  scopeUnrestricted,
   revokedAuthenticator,
   revokeActor,
+  replayIdType,
+  replayBufferCapacity,
   register8130Chains,
   recoverSenderAddress8130,
   privateKeyToAccount,
   prepareTransaction8130,
   policyManagerAbi,
+  policyDataLength,
   payerRejectedCode,
   payerErrorCode,
   parseUnits2 as parseUnits,
@@ -23198,25 +23428,42 @@ export {
   nonceManagerAddress,
   nonceManagerAbi,
   nonceKeyMax,
+  nonceKeyFirstUseCost,
+  nonceKeyExistingCost,
+  nonceFreeMaxExpiryWindow,
+  nonceFreeExpiryWindow,
+  nonceFreeCost,
+  nonce,
   newSmartAccount8130,
   maxCodeSize,
+  lockOp,
+  lockChangeTypehash,
+  lockCall,
   key,
   keccak256,
   isTokenOffer,
   isSponsoredOffer,
   isSelectableOffer,
+  isLocked8130,
   isDeclinedOffer,
+  isActor8130,
   is8130Enabled,
+  initiateUnlockCall,
   http,
   hexToBigInt,
+  hashLockChange8130,
   hashActorChanges8130,
   getTransactionReceipt8130,
   getTransactionCount8130,
   getTransaction8130,
+  getSessionSpend8130,
   getSenderSignatureHash8130,
+  getPolicy8130,
   getPayerSignatureHash8130,
+  getLockStatus8130,
   getEip8130Deployment,
   getConfigSequence8130,
+  getActorConfig8130,
   generatePrivateKey,
   formatEther,
   estimateGas8130,
@@ -23240,6 +23487,7 @@ export {
   ecrecoverAuthenticator,
   deploymentHeaderSize,
   deploymentHeader,
+  delegateAuthSize,
   defineSessionPolicy,
   defaultEncodeExecute,
   defaultAccountAddress,
@@ -23268,6 +23516,7 @@ export {
   actorIdFromAddress,
   actorChangeTypehash,
   actorChangeType,
+  accountStateFlags,
   accountConfigurationAbi,
   accountConfigAddress,
   accountChangeType,
