@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { LinkCard } from '../../components/ui/Card';
-import { cn } from '../../components/ui/cn';
 import { FilterSelect } from '../../components/ui/FilterSelect';
 import { CloseIcon, VibenetIcon } from '../../components/ui/icons';
 import { Text } from '../../components/ui/Text';
@@ -266,106 +265,42 @@ export function ChangelogClient() {
                 </button>
               </div>
               <div className="space-y-5">
-                <div>
-                  <Text variant="label.medium" tone="muted" className="mb-2.5 text-[13px]">
-                    Upgrade
-                  </Text>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'all', label: 'All' },
-                      ...getUpgradesReversed().map((u) => ({ value: u.id, label: u.name })),
-                    ].map((o) => (
-                      <button
-                        key={o.value}
-                        type="button"
-                        onClick={() => setUpgradeFilter(o.value)}
-                        className={cn(
-                          'rounded-full px-3 py-1.5 text-[13px] transition-colors',
-                          upgradeFilter === o.value
-                            ? 'bg-black text-white'
-                            : 'bg-bds-gray-5 text-bds-gray-60',
-                        )}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Text variant="label.medium" tone="muted" className="mb-2.5 text-[13px]">
-                    Type
-                  </Text>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'all', label: 'All' },
-                      ...allKinds.map((k) => ({ value: k, label: kindLabel(k) })),
-                    ].map((o) => (
-                      <button
-                        key={o.value}
-                        type="button"
-                        onClick={() => handleKindChange(o.value)}
-                        className={cn(
-                          'rounded-full px-3 py-1.5 text-[13px] transition-colors',
-                          kindFilter === o.value
-                            ? 'bg-black text-white'
-                            : 'bg-bds-gray-5 text-bds-gray-60',
-                        )}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Text variant="label.medium" tone="muted" className="mb-2.5 text-[13px]">
-                    Category
-                  </Text>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'all', label: 'All' },
-                      ...CATEGORY_ORDER.map((c) => ({ value: c, label: CATEGORY_METADATA[c].label })),
-                    ].map((o) => (
-                      <button
-                        key={o.value}
-                        type="button"
-                        onClick={() => handleCategoryChange(o.value)}
-                        className={cn(
-                          'rounded-full px-3 py-1.5 text-[13px] transition-colors',
-                          categoryFilter === o.value
-                            ? 'bg-black text-white'
-                            : 'bg-bds-gray-5 text-bds-gray-60',
-                        )}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Text variant="label.medium" tone="muted" className="mb-2.5 text-[13px]">
-                    Lifecycle
-                  </Text>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'all', label: 'All' },
-                      ...allLifecycle.map((s) => ({ value: s, label: LIFECYCLE_LABELS[s] })),
-                    ].map((o) => (
-                      <button
-                        key={o.value}
-                        type="button"
-                        onClick={() => handleLifecycleChange(o.value)}
-                        className={cn(
-                          'rounded-full px-3 py-1.5 text-[13px] transition-colors',
-                          lifecycleFilter === o.value
-                            ? 'bg-black text-white'
-                            : 'bg-bds-gray-5 text-bds-gray-60',
-                        )}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <FilterGroup
+                  label="Upgrade"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...getUpgradesReversed().map((u) => ({ value: u.id, label: u.name })),
+                  ]}
+                  value={upgradeFilter}
+                  onChange={setUpgradeFilter}
+                />
+                <FilterGroup
+                  label="Type"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...allKinds.map((k) => ({ value: k, label: kindLabel(k) })),
+                  ]}
+                  value={kindFilter}
+                  onChange={handleKindChange}
+                />
+                <FilterGroup
+                  label="Category"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...CATEGORY_ORDER.map((c) => ({ value: c, label: CATEGORY_METADATA[c].label })),
+                  ]}
+                  value={categoryFilter}
+                  onChange={handleCategoryChange}
+                />
+                <FilterGroup
+                  label="Lifecycle"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...allLifecycle.map((s) => ({ value: s, label: LIFECYCLE_LABELS[s] })),
+                  ]}
+                  value={lifecycleFilter}
+                  onChange={handleLifecycleChange}
+                />
               </div>
               {activeFilterCount > 0 ? (
                 <div className="mt-6 border-t border-bds-gray-10 pt-4">
@@ -445,9 +380,7 @@ export function ChangelogClient() {
                         <UpgradeIllustration upgradeId={change.upgrade} />
                       </div>
                     ) : getVibenetChangeById(change.id) ? (
-                      <svg width="18" height="18" viewBox="5 5 30 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-bds-gray-40" aria-hidden="true">
-                        <path d="M30.2895 14.8575L20.0038 20.0002M20.0038 20.0002L10.2895 14.2861M20.0038 20.0002L20.0038 30.8571M30.8608 22.8275V17.1724C30.8608 15.3861 29.9078 13.7354 28.3608 12.8423L22.4737 9.44331C20.9267 8.55015 19.0207 8.55015 17.4737 9.44331L11.5865 12.8423C10.0395 13.7354 9.08649 15.3861 9.08649 17.1724V22.8275C9.08649 24.6138 10.0395 26.2644 11.5865 27.1576L17.4737 30.5566C19.0207 31.4497 20.9267 31.4497 22.4737 30.5566L28.3608 27.1576C29.9078 26.2644 30.8608 24.6138 30.8608 22.8275Z" />
-                      </svg>
+                      <VibenetIcon size={18} className="shrink-0 text-bds-gray-40" />
                     ) : null}
                     <Text variant="label.regular" tone="muted">
                       {scheduleLabel(change)}

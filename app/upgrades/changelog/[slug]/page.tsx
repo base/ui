@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { Button } from '../../../components/ui/Button';
+import { ExternalLinkIcon } from '../../../components/ui/icons';
 import { Text } from '../../../components/ui/Text';
 import { CategoryBadge, KindBadge, StatusPill } from '../../components/Badges';
 import { getChangeBySlug } from '../../data/changes';
@@ -60,19 +61,7 @@ export default async function ChangePage(props: ChangePageProps) {
           {change.specUrl ? (
             <Button href={change.specUrl} target="_blank" rel="noopener noreferrer" variant="outline" size="sm">
               Documentation
-              <svg
-                aria-hidden="true"
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M5 11L11 5M11 5H6M11 5V10" />
-              </svg>
+              <ExternalLinkIcon />
             </Button>
           ) : null}
           {change.kind === 'eip' ? (
@@ -84,19 +73,7 @@ export default async function ChangePage(props: ChangePageProps) {
               size="sm"
             >
               Upstream EIP
-              <svg
-                aria-hidden="true"
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M5 11L11 5M11 5H6M11 5V10" />
-              </svg>
+              <ExternalLinkIcon />
             </Button>
           ) : null}
         </div>

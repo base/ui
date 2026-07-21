@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { Button } from '../../../components/ui/Button';
+import { AnimatedArrowIcon, ExternalLinkIcon } from '../../../components/ui/icons';
 import { Text } from '../../../components/ui/Text';
 import { CategoryBadge, KindBadge, StatusPill } from '../../components/Badges';
 import { UpgradeIllustration } from '../../components/UpgradeIllustration';
@@ -85,19 +86,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
           <div className="mt-6 flex">
             <Button href={upgrade.specUrl} target="_blank" rel="noopener noreferrer" variant="outline" size="sm">
               Documentation
-              <svg
-                aria-hidden="true"
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M5 11L11 5M11 5H6M11 5V10" />
-              </svg>
+              <ExternalLinkIcon />
             </Button>
           </div>
         ) : null}
@@ -131,24 +120,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
                         {change.summary}
                       </Text>
                     </div>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      aria-hidden="true"
-                      className="shrink-0 text-bds-gray-40 transition-[transform,color] duration-200 ease-out group-hover:translate-x-[3px] group-hover:text-base-blue"
-                    >
-                      <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth="1.5" />
-                      <path
-                        d="M13.5 10H0"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeDasharray="13.5"
-                        strokeDashoffset="13.5"
-                        className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]"
-                      />
-                    </svg>
+                    <AnimatedArrowIcon className="shrink-0 text-bds-gray-40 transition-[transform,color] duration-200 ease-out group-hover:translate-x-[3px] group-hover:text-base-blue" />
                   </a>
                 );
               })

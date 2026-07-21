@@ -6,6 +6,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { Button } from '../../../components/ui/Button';
 import { cn } from '../../../components/ui/cn';
+import { ExternalLinkIcon } from '../../../components/ui/icons';
+import { LabeledCard } from '../../../components/ui/LabeledCard';
 import { Text } from '../../../components/ui/Text';
 import { StatusPill } from '../../components/Badges';
 import { getLifecycleForChange, getUpgradeForChange } from '../../data/upgrades';
@@ -127,19 +129,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                         size="sm"
                       >
                         {label}
-                        <svg
-                          aria-hidden="true"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 11L11 5M11 5H6M11 5V10" />
-                        </svg>
+                        <ExternalLinkIcon />
                       </Button>
                     );
                   })}
@@ -165,10 +155,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             ) : null}
           </div>
           <aside className="space-y-4">
-            <div className="rounded-xl border border-bds-gray-10 p-5">
-              <Text variant="label.medium" tone="muted" className={lifecycle ? 'mb-5' : 'mb-3'}>
-                Lifecycle
-              </Text>
+            <LabeledCard label="Lifecycle" labelSpacing={lifecycle ? 'mb-5' : 'mb-3'}>
               {lifecycle ? (
                 <div className="space-y-3">
                   {UPGRADE_NETWORKS.map((network) => {
@@ -204,13 +191,10 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
               ) : (
                 <Text variant="label.regular" tone="muted">Not scheduled.</Text>
               )}
-            </div>
+            </LabeledCard>
 
             {upgrade ? (
-              <div className="rounded-xl border border-bds-gray-10 p-5">
-                <Text variant="label.medium" tone="muted" className="mb-4">
-                  Upgrade
-                </Text>
+              <LabeledCard label="Upgrade">
                 <Text variant="headline">{upgrade.name}</Text>
                 <Text variant="label.regular" tone="muted" className="mt-2">
                   {upgrade.summary}
@@ -223,7 +207,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                 >
                   Learn More
                 </Button>
-              </div>
+              </LabeledCard>
             ) : null}
           </aside>
         </motion.div>
