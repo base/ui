@@ -10,7 +10,7 @@ type FadeInUpProps = PropsWithChildren<{
   className?: string;
 }>;
 
-const EASE = [0.23, 1, 0.32, 1];
+const EASE = [0.23, 1, 0.32, 1] as const;
 
 export function FadeInUp({
   index = 0,

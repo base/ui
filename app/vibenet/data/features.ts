@@ -11,7 +11,7 @@ export const FEATURES: VibenetFeature[] = [
     title: 'Native Account Abstraction',
     summary:
       'Built into the protocol. No bundler, no entrypoint. Powerful UX primitives in accounts that work on Base.',
-    status: 'coming-soon',
+    status: 'live',
     availability: 'Coming in Base Cobalt',
     highlights: [
       { title: 'Authorize how you want', detail: 'secp256k1, P-256, WebAuthn passkeys and more' },
@@ -27,9 +27,9 @@ export const FEATURES: VibenetFeature[] = [
       { title: 'Sponsored & ERC-20 gas', detail: 'native payer support via ERC-8168' },
       { title: 'Batch everything', detail: 'atomic multicall with top-level metadata' },
     ],
-    // No `cta` yet: the account demo is staged for a later phase, so the card
-    // surfaces the "coming-soon" status. Add `cta: { label: 'Open the demo',
-    // href: '/vibenet/account' }` (and flip `status`) when it lands.
+    // The account demo has shipped, so the card links straight to it and shows
+    // as `live` (which hides the "coming-soon" badge).
+    cta: { label: 'Open the demo', href: '/vibenet/demos/account' },
     links: [{ label: 'EIP-8130', href: 'https://eip.tools/eip/8130', external: true }],
   },
 ];

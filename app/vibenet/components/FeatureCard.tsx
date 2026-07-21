@@ -46,7 +46,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
     >
       <div className="flex-1">
         {feature.tag ? (
-          <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-[0.6px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
+          <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
             {feature.tag}
           </span>
         ) : null}

@@ -44,10 +44,11 @@ export type SectionTab = {
 const SECTION_TABS: { prefix: string; tabs: SectionTab[] }[] = [
   {
     prefix: '/vibenet',
-    // Account is staged for a later phase.
     tabs: [
       { label: 'Overview', href: '/vibenet', exact: true },
-{ label: 'Explorer', href: '/vibenet/explorer' },
+      { label: 'Faucet', href: '/vibenet/faucet' },
+      { label: 'Explorer', href: '/vibenet/explorer' },
+      { label: 'Demos', href: '/vibenet/demos' },
     ],
   },
 ];

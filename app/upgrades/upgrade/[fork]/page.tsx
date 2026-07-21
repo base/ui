@@ -9,7 +9,7 @@ import { UpgradeIllustration } from '../../components/UpgradeIllustration';
 import { changes } from '../../data/changes';
 import { getUpgradeById } from '../../data/upgrades';
 import { changeDisplayTitle, LIFECYCLE_LABELS, NETWORK_LABELS, UPGRADE_NETWORKS } from '../../library/display';
-import { formatShortDate } from '../../library/format';
+import { formatShortDate, toPlainText } from '../../library/format';
 import { getLifecycleState } from '../../library/lifecycle';
 
 // Time-based lifecycle states depend on Date.now(). Revalidate so the page
@@ -117,7 +117,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
                         <CategoryBadge category={change.category} />
                       </div>
                       <Text variant="label.regular" tone="muted" className="mt-1 line-clamp-2">
-                        {change.summary}
+                        {toPlainText(change.summary)}
                       </Text>
                     </div>
                     <AnimatedArrowIcon className="shrink-0 text-bds-gray-40 transition-[transform,color] duration-200 ease-out group-hover:translate-x-[3px] group-hover:text-base-blue" />

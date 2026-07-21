@@ -4,7 +4,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Text } from '../../components/ui/Text';
 import type { VibenetChange } from '../data/vibenet';
 import { CATEGORY_METADATA, LIFECYCLE_LABELS } from '../library/display';
-import { formatShortDate } from '../library/format';
+import { formatShortDate, toPlainText } from '../library/format';
 
 import { KindBadge, StatusPill } from './Badges';
 import { Carousel } from './Carousel';
@@ -53,7 +53,7 @@ export function FeaturedVibenetCarousel({ changes }: FeaturedVibenetCarouselProp
               {change.title}
             </Text>
             <Text variant="label.regular" tone="muted" className="line-clamp-3">
-              {change.summary}
+              {toPlainText(change.summary)}
             </Text>
             <div className="mt-auto flex items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
               <StatusPill variant={change.vibenet.status}>
