@@ -16,7 +16,7 @@ import {
   NETWORK_LABELS,
   UPGRADE_NETWORKS,
 } from '../../library/display';
-import { formatDate } from '../../library/format';
+import { formatDate, toPlainText } from '../../library/format';
 import { getLifecycleState } from '../../library/lifecycle';
 
 // Time-based lifecycle states depend on Date.now(). Revalidate so the page
@@ -159,7 +159,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
                             <KindBadge kind={change.kind} />
                           </div>
                           <Text variant="label.regular" tone="muted" className="mt-1 line-clamp-2">
-                            {change.summary}
+                            {toPlainText(change.summary)}
                           </Text>
                           {changeRefs(change).length > 0 ? (
                             <Text variant="footnote" tone="muted" className="mt-2 font-mono">

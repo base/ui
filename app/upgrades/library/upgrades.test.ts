@@ -58,18 +58,11 @@ describe('upgrades route helpers', () => {
       'eip-7939',
       'eip-7951',
     ]);
-    expect(networking?.changeIds).toEqual(['eip-7642', 'base-0006', 'base-0007']);
+    expect(networking?.changeIds).toEqual(['eip-7642', 'base-0002', 'base-0003']);
     expect(flashblocks?.changeIds).toEqual([]);
-    expect(rpc?.changeIds).toEqual(['eip-7910', 'base-0010']);
-    expect(proofs?.changeIds).toEqual([
-      'base-0001',
-      'base-0002',
-      'base-0003',
-      'base-0004',
-      'base-0005',
-      'base-0008',
-      'base-0009',
-    ]);
+    expect(rpc?.changeIds).toEqual(['eip-7910', 'base-0004']);
+    // The Azul proofs changes are consolidated into a single "Multiproofs" entry.
+    expect(proofs?.changeIds).toEqual(['base-0001']);
   });
 
   it('matches the Azul overview execution and proofs titles', () => {
@@ -91,8 +84,8 @@ describe('upgrades route helpers', () => {
       titlesById['eip-7951'],
       titlesById['eip-7642'],
       titlesById['eip-7910'],
-      titlesById['base-0006'],
-      titlesById['base-0007'],
+      titlesById['base-0002'],
+      titlesById['base-0003'],
     ]).toEqual([
       'Upper-Bound MODEXP',
       'Transaction Gas Limit Cap',
@@ -105,29 +98,13 @@ describe('upgrades route helpers', () => {
       'Use basev0 protocol ID for discv5',
     ]);
 
-    expect([
-      titlesById['base-0001'],
-      titlesById['base-0002'],
-      titlesById['base-0003'],
-      titlesById['base-0004'],
-      titlesById['base-0005'],
-      titlesById['base-0008'],
-      titlesById['base-0009'],
-    ]).toEqual([
-      'Proof System',
-      'New/Changed Onchain Components',
-      'Proposer',
-      'Challenger',
-      'TEE Provers',
-      'ZK Provers',
-      'Prover Registrar',
-    ]);
+    expect(titlesById['base-0001']).toBe('Multiproofs');
   });
 
   it('applies a per-change activation override without affecting other networks', () => {
-    const b20 = getChangeById('base-0011');
+    const b20 = getChangeById('base-0005');
     const beryl = getUpgradeById('beryl');
-    if (!b20) throw new Error('base-0011 not found');
+    if (!b20) throw new Error('base-0005 not found');
     if (!beryl) throw new Error('beryl not found');
     const lifecycle = getLifecycleForChange(b20);
     // Mainnet is turned on after Beryl; Sepolia inherits the upgrade date.
@@ -136,9 +113,9 @@ describe('upgrades route helpers', () => {
   });
 
   it('keeps upgrade-inherited lifecycle for changes without an override', () => {
-    const rethV2 = getChangeById('base-0013');
+    const rethV2 = getChangeById('base-0007');
     const beryl = getUpgradeById('beryl');
-    if (!rethV2) throw new Error('base-0013 not found');
+    if (!rethV2) throw new Error('base-0007 not found');
     if (!beryl) throw new Error('beryl not found');
     expect(getLifecycleForChange(rethV2)).toEqual(beryl.lifecycle);
   });

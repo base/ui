@@ -8,6 +8,7 @@ import { Breadcrumb } from '../../components/Breadcrumb';
 import { getChangeBySlug } from '../../data/changes';
 import { getVibenetChangeById } from '../../data/vibenet';
 import { LIFECYCLE_LABELS } from '../../library/display';
+import { toPlainText } from '../../library/format';
 
 import { ChangeDetailClient } from './ChangeDetailClient';
 
@@ -29,13 +30,13 @@ export async function generateMetadata(props: ChangePageProps): Promise<Metadata
   if (!change) return {};
   return {
     title: `${change.title} | Base Upgrades`,
-    description: change.summary,
+    description: toPlainText(change.summary),
     alternates: {
       canonical: `/upgrades/changelog/${change.slug}`,
     },
     openGraph: {
       title: `${change.title} | Base Upgrades`,
-      description: change.summary,
+      description: toPlainText(change.summary),
       url: `/upgrades/changelog/${change.slug}`,
     },
   };

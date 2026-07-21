@@ -21,7 +21,7 @@ import {
   kindLabel,
   LIFECYCLE_LABELS,
 } from '../library/display';
-import { formatShortDate } from '../library/format';
+import { formatShortDate, toPlainText } from '../library/format';
 import { getLifecycleState } from '../library/lifecycle';
 import type { Change, ChangeCategory, ChangeKind, LifecycleState } from '../library/types';
 
@@ -92,7 +92,7 @@ export function ChangelogClient() {
         if (!matches) return false;
       }
       if (matcher) {
-        const haystack = `${changeDisplayTitle(change)} ${change.summary} ${change.category} ${changeRefs(change).join(' ')}`;
+        const haystack = `${changeDisplayTitle(change)} ${toPlainText(change.summary)} ${change.category} ${changeRefs(change).join(' ')}`;
         if (!matcher(haystack)) return false;
       }
       return true;
@@ -287,7 +287,7 @@ export function ChangelogClient() {
               {change.title}
             </Text>
             <Text variant="label.regular" tone="muted" className="mt-1 line-clamp-2">
-              {change.summary}
+              {toPlainText(change.summary)}
             </Text>
             <div className="mt-4 flex items-center justify-between gap-2">
               <CategoryBadge category={change.category} />
