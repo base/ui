@@ -36,7 +36,7 @@ export const textVariantClasses: Record<TextVariant, string> = {
   stats:
     'text-[24px] sm:text-[32px] md:text-[40px] leading-[28px] sm:leading-[36px] md:leading-[48px] font-base font-[400] tracking-[0px]',
   title1:
-    'text-[24px] md:text-[28px] leading-[32px] md:leading-[36px] font-base font-[400] tracking-tight',
+    'text-[28px] md:text-[36px] leading-[34px] md:leading-[44px] font-base font-[400] tracking-tight',
   title2:
     'text-[20px] md:text-[24px] leading-[28px] md:leading-[32px] font-base font-[400] tracking-tight',
   title3:
@@ -49,7 +49,7 @@ export const textVariantClasses: Record<TextVariant, string> = {
   'label.medium':
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-base font-[400] tracking-[0px]',
   'label.regular':
-    'text-[13px] md:text-[14px] leading-[16px] font-base-text font-[400] tracking-[0px]',
+    'text-[13px] md:text-[14px] leading-[20px] font-base-text font-[400] tracking-[0px]',
   'label.mono':
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-mono font-[400] tracking-[0px]',
   caption:

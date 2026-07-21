@@ -10,6 +10,7 @@ import { cn } from '../../components/ui/cn';
 import { FilterSelect } from '../../components/ui/FilterSelect';
 import { Text } from '../../components/ui/Text';
 import { CategoryBadge, KindBadge, StatusPill } from '../components/Badges';
+import { UpgradeIllustration } from '../components/UpgradeIllustration';
 import { changes } from '../data/changes';
 import { getLifecycleForChange, getUpgradeById, getUpgradesReversed } from '../data/upgrades';
 import { getVibenetChangeById } from '../data/vibenet';
@@ -30,7 +31,7 @@ const allLifecycle: LifecycleState[] = ['live', 'scheduled', 'planning'];
 
 function scheduleLabel(change: Change): string {
   if (change.upgrade) return getUpgradeById(change.upgrade)?.name ?? change.upgrade;
-  return getVibenetChangeById(change.id) ? 'Vibenet only' : 'Not scheduled';
+  return getVibenetChangeById(change.id) ? 'Vibenet' : 'Not scheduled';
 }
 
 function NetworkStatus({ change, network }: { change: Change; network: 'sepolia' | 'mainnet' }) {
@@ -38,33 +39,25 @@ function NetworkStatus({ change, network }: { change: Change; network: 'sepolia'
   if (lifecycle) {
     const state = getLifecycleState(lifecycle[network]);
     const ts = lifecycle[network].timestamp;
+    if (state === 'live' && ts) {
+      return <Text variant="footnote" tone="muted">{formatShortDate(ts)}</Text>;
+    }
     return (
       <div className="flex items-center gap-1.5">
         <StatusPill variant={state}>{LIFECYCLE_LABELS[state]}</StatusPill>
         {ts ? (
-          <span className="text-[11px] text-bds-gray-40">{formatShortDate(ts)}</span>
+          <Text variant="footnote" tone="muted">{formatShortDate(ts)}</Text>
         ) : null}
       </div>
     );
   }
 
-  if (network === 'sepolia') {
-    const vibenetChange = getVibenetChangeById(change.id);
-    if (vibenetChange) {
-      return (
-        <StatusPill variant={vibenetChange.vibenet.status}>
-          {LIFECYCLE_LABELS[vibenetChange.vibenet.status]}
-        </StatusPill>
-      );
-    }
-  }
-
-  return <StatusPill variant="planning">—</StatusPill>;
+  return <Text variant="footnote" tone="muted">Coming Soon</Text>;
 }
 
 export function ChangelogClient() {
   const [query, setQuery] = useState('');
-  const [upgradeFilter, setUpgradeFilter] = useState(() => getUpgradesReversed()[0]?.id ?? 'all');
+  const [upgradeFilter, setUpgradeFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState<ChangeKind | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<ChangeCategory | 'all'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleState | 'all'>('all');
@@ -158,6 +151,7 @@ export function ChangelogClient() {
           value={upgradeFilter}
           onChange={setUpgradeFilter}
           ariaLabel="Filter by upgrade"
+          minDropdownWidth={160}
           options={[
             { value: 'all', label: 'All' },
             ...getUpgradesReversed().map((u) => ({ value: u.id, label: u.name })),
@@ -167,6 +161,7 @@ export function ChangelogClient() {
           value={kindFilter}
           onChange={handleKindChange}
           ariaLabel="Filter by change type"
+          minDropdownWidth={160}
           options={[
             { value: 'all', label: 'All Types' },
             ...allKinds.map((k) => ({ value: k, label: kindLabel(k) })),
@@ -176,6 +171,7 @@ export function ChangelogClient() {
           value={categoryFilter}
           onChange={handleCategoryChange}
           ariaLabel="Filter by category"
+          minDropdownWidth={160}
           options={[
             { value: 'all', label: 'All Categories' },
             ...CATEGORY_ORDER.map((c) => ({ value: c, label: CATEGORY_METADATA[c].label })),
@@ -185,9 +181,10 @@ export function ChangelogClient() {
           value={lifecycleFilter}
           onChange={handleLifecycleChange}
           ariaLabel="Filter by lifecycle status"
+          minDropdownWidth={160}
           options={[
             { value: 'all', label: 'Any Lifecycle' },
-            ...allLifecycle.map((s) => ({ value: s, label: `Has ${LIFECYCLE_LABELS[s]}` })),
+            ...allLifecycle.map((s) => ({ value: s, label: LIFECYCLE_LABELS[s] })),
           ]}
         />
         <input
@@ -248,9 +245,9 @@ export function ChangelogClient() {
               onClick={() => setFiltersOpen(false)}
             />
             <motion.div
-              initial={reducedMotion ? { opacity: 0 } : { y: '100%', opacity: 0 }}
-              animate={reducedMotion ? { opacity: 1 } : { y: 0, opacity: 1 }}
-              exit={reducedMotion ? { opacity: 0 } : { y: '100%', opacity: 0 }}
+              initial={reducedMotion ? { opacity: 0 } : { transform: 'translateY(100%)', opacity: 0 }}
+              animate={reducedMotion ? { opacity: 1 } : { transform: 'translateY(0%)', opacity: 1 }}
+              exit={reducedMotion ? { opacity: 0 } : { transform: 'translateY(100%)', opacity: 0 }}
               transition={reducedMotion
                 ? { duration: 0.15 }
                 : { type: 'spring', bounce: 0, duration: 0.3 }}
@@ -384,7 +381,7 @@ export function ChangelogClient() {
                   <button
                     type="button"
                     onClick={() => {
-                      setUpgradeFilter(getUpgradesReversed()[0]?.id ?? 'all');
+                      setUpgradeFilter('all');
                       setKindFilter('all');
                       setCategoryFilter('all');
                       setLifecycleFilter('all');
@@ -428,9 +425,12 @@ export function ChangelogClient() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((change) => (
-              <tr
+            {filtered.map((change, idx) => (
+              <motion.tr
                 key={change.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1], delay: Math.min(idx * 0.02, 0.15) }}
                 aria-label={changeDisplayTitle(change)}
                 className="border-b border-bds-gray-10 transition-colors hover:bg-bds-gray-5/50"
               >
@@ -448,9 +448,20 @@ export function ChangelogClient() {
                   <CategoryBadge category={change.category} />
                 </td>
                 <td aria-label="Upgrade" className="px-4 py-3.5">
-                  <Text variant="label.regular" tone="muted">
-                    {scheduleLabel(change)}
-                  </Text>
+                  <div className="flex items-center gap-1.5">
+                    {change.upgrade ? (
+                      <div className="h-[18px] w-[18px] shrink-0">
+                        <UpgradeIllustration upgradeId={change.upgrade} />
+                      </div>
+                    ) : getVibenetChangeById(change.id) ? (
+                      <svg width="18" height="18" viewBox="5 5 30 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-bds-gray-40" aria-hidden="true">
+                        <path d="M30.2895 14.8575L20.0038 20.0002M20.0038 20.0002L10.2895 14.2861M20.0038 20.0002L20.0038 30.8571M30.8608 22.8275V17.1724C30.8608 15.3861 29.9078 13.7354 28.3608 12.8423L22.4737 9.44331C20.9267 8.55015 19.0207 8.55015 17.4737 9.44331L11.5865 12.8423C10.0395 13.7354 9.08649 15.3861 9.08649 17.1724V22.8275C9.08649 24.6138 10.0395 26.2644 11.5865 27.1576L17.4737 30.5566C19.0207 31.4497 20.9267 31.4497 22.4737 30.5566L28.3608 27.1576C29.9078 26.2644 30.8608 24.6138 30.8608 22.8275Z" />
+                      </svg>
+                    ) : null}
+                    <Text variant="label.regular" tone="muted">
+                      {scheduleLabel(change)}
+                    </Text>
+                  </div>
                 </td>
                 <td className="px-4 py-3.5">
                   <NetworkStatus change={change} network="sepolia" />
@@ -463,7 +474,7 @@ export function ChangelogClient() {
                     {formatShortDate(change.lastUpdated)}
                   </Text>
                 </td>
-              </tr>
+              </motion.tr>
             ))}
             {filtered.length === 0 ? (
               <tr aria-label="No results">

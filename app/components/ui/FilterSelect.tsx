@@ -14,13 +14,25 @@ type FilterSelectProps = {
   onChange: (value: string) => void;
   ariaLabel: string;
   options: Option[];
+  minDropdownWidth?: number;
 };
 
-export function FilterSelect({ value, onChange, ariaLabel, options }: FilterSelectProps) {
+export function FilterSelect({ value, onChange, ariaLabel, options, minDropdownWidth }: FilterSelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
+  const sizerRef = useRef<HTMLSpanElement>(null);
+  const [dropdownW, setDropdownW] = useState<number | undefined>();
   const selected = options.find((o) => o.value === value);
+
+  useEffect(() => {
+    if (!sizerRef.current) return;
+    const spans = sizerRef.current.children;
+    let max = 0;
+    for (let i = 0; i < spans.length; i++) {
+      max = Math.max(max, (spans[i] as HTMLElement).offsetWidth);
+    }
+    setDropdownW(max + 24);
+  }, [options]);
 
   const toggle = useCallback(() => setOpen((o) => !o), []);
 
@@ -56,9 +68,11 @@ export function FilterSelect({ value, onChange, ariaLabel, options }: FilterSele
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex h-9 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-white pl-4 pr-3.5 text-[14px] text-black outline-none transition-colors hover:bg-bds-gray-5"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-white px-3 text-[14px] text-black outline-none transition-colors hover:bg-bds-gray-5"
       >
-        <span className="whitespace-nowrap">{selected?.label ?? value}</span>
+        <span className="whitespace-nowrap">
+          {selected?.label ?? value}
+        </span>
         <svg
           aria-hidden="true"
           width="16"
@@ -75,10 +89,17 @@ export function FilterSelect({ value, onChange, ariaLabel, options }: FilterSele
         </svg>
       </button>
 
+      <span ref={sizerRef} aria-hidden className="pointer-events-none invisible fixed left-0 top-0 flex flex-col whitespace-nowrap text-[14px]">
+        {options.map((o) => (
+          <span key={o.value}>{o.label}</span>
+        ))}
+      </span>
+
       {open && (
         <div
           role="listbox"
           aria-label={ariaLabel}
+          style={{ minWidth: Math.max(dropdownW ?? 0, minDropdownWidth ?? 0) || undefined }}
           className="absolute left-0 top-full z-50 mt-1 max-h-64 min-w-full overflow-y-auto rounded-xl border border-bds-gray-10 bg-white py-1 shadow-lg"
         >
           {options.map((option) => (

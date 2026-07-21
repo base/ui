@@ -42,9 +42,9 @@ function StatusIcon({ variant }: { variant: StatusVariant }) {
   switch (variant) {
     case 'live':
       return (
-        <span className="relative flex h-1.5 w-1.5 shrink-0">
+        <span className="relative flex h-2 w-2 shrink-0">
           <span className={cn('absolute inline-flex h-full w-full animate-ping rounded-full opacity-75', dotClassName[variant])} />
-          <span className={cn('relative inline-flex h-1.5 w-1.5 rounded-full', dotClassName[variant])} />
+          <span className={cn('relative inline-flex h-2 w-2 rounded-full', dotClassName[variant])} />
         </span>
       );
     case 'scheduled':
@@ -80,7 +80,7 @@ export function StatusPill({ variant, children, className }: StatusPillProps) {
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-1.5 rounded-full px-1.5 py-1 font-sans text-[12px] leading-none',
+        'inline-flex max-w-full items-center gap-2 rounded-full px-1.5 py-1 font-sans text-[12px] leading-none',
         statusClassName[variant],
         className,
       )}

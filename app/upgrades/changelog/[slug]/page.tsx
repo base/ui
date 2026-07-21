@@ -41,9 +41,9 @@ export default async function ChangePage(props: ChangePageProps) {
 
   return (
     <div className="mx-auto w-full max-w-5xl pb-4 text-black">
-      <header className="mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-start">
+      <header className="animate-in mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-start">
         <div className="max-w-3xl">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-5 flex flex-wrap items-center gap-2">
             <KindBadge kind={change.kind} />
             <CategoryBadge category={change.category} />
             {vibenetChange ? (
@@ -52,14 +52,14 @@ export default async function ChangePage(props: ChangePageProps) {
               </StatusPill>
             ) : null}
           </div>
-          <Text variant="display" className="text-balance">
+          <Text variant="title1" className="text-balance">
             {change.title}
           </Text>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
           {change.specUrl ? (
-            <Button href={change.specUrl} target="_blank" rel="noopener noreferrer" variant="secondary" size="sm">
-              View docs
+            <Button href={change.specUrl} target="_blank" rel="noopener noreferrer" variant="outline" size="sm">
+              Documentation
               <svg
                 aria-hidden="true"
                 width="14"

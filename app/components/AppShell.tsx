@@ -9,6 +9,7 @@ import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../n
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { spectrum } from '../spectrum';
 import { getChangeBySlug } from '../upgrades/data/changes';
+import { getUpgradeById } from '../upgrades/data/upgrades';
 
 import { Text } from './ui/Text';
 
@@ -37,7 +38,7 @@ type NavGlyphProps = {
 };
 
 const styles: Record<string, CSSProperties> = {
-  root: { display: 'flex', height: '100vh', overflow: 'hidden', color: INK },
+  root: { display: 'flex', flex: 1, overflow: 'hidden', color: INK },
   sidebar: {
     width: SIDEBAR_WIDTH,
     flexShrink: 0,
@@ -174,11 +175,22 @@ function NavGlyph({ name }: NavGlyphProps) {
       );
     case 'changelog':
       return (
-        <svg {...common}>
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-          <path d="M14 2v6h6" />
-          <line x1="8" y1="13" x2="16" y2="13" />
-          <line x1="8" y1="17" x2="16" y2="17" />
+        <svg width={common.width} height={common.height} viewBox="5 5 30 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <g className="changelog-row changelog-row-1">
+            <line x1="12" y1="13" x2="14.5" y2="13" />
+            <line x1="18.5" y1="13" x2="19" y2="13" />
+            <line x1="23" y1="13" x2="30.5" y2="13" />
+          </g>
+          <g className="changelog-row changelog-row-2">
+            <line x1="12" y1="20" x2="14.5" y2="20" />
+            <line x1="18.5" y1="20" x2="19" y2="20" />
+            <line x1="23" y1="20" x2="30.5" y2="20" />
+          </g>
+          <g className="changelog-row changelog-row-3">
+            <line x1="12" y1="27" x2="14.5" y2="27" />
+            <line x1="18.5" y1="27" x2="19" y2="27" />
+            <line x1="23" y1="27" x2="30.5" y2="27" />
+          </g>
         </svg>
       );
     case 'vibenet':
@@ -189,8 +201,8 @@ function NavGlyph({ name }: NavGlyphProps) {
       );
     case 'tips':
       return (
-        <svg width={common.width} height={common.height} viewBox="5 5 30 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M23 13H30.5M12 13H14.5M18.5 13H19M23 20H30.5M12 20H14.5M18.5 20H19M23 27H30.5M12 27H14.5M18.5 27H19" />
+        <svg {...common}>
+          <path d="M13 2L4.5 14H12L11 22L19.5 10H12L13 2Z" />
         </svg>
       );
     default:
@@ -322,6 +334,38 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
   );
 }
 
+function GlobalBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div className="relative flex items-center justify-center border-b border-bds-gray-10 bg-bds-gray-5 px-4 py-2 sm:px-10">
+      <span className="flex items-center gap-2">
+        <Text as="span" variant="label.medium">New!</Text>
+        <Text as="span" variant="label.medium" className="-ml-1">Account Abstraction by Account Configuration</Text>
+        <span className="inline-block h-3.5 w-px bg-bds-gray-20"></span>
+        <Link href="/upgrades/changelog/account-abstraction-by-account-configuration" className="group flex items-center gap-1 no-underline">
+          <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="text-base-blue transition-[transform] duration-200 ease-out group-hover:translate-x-[3px]" aria-hidden="true">
+            <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth="2" />
+            <path d="M13.5 10H0" stroke="currentColor" strokeWidth="2" strokeDasharray="13.5" strokeDashoffset="13.5" className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]" />
+          </svg>
+        </Link>
+      </span>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="absolute right-4 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
+        aria-label="Dismiss banner"
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <line x1="1" y1="1" x2="9" y2="9" />
+          <line x1="9" y1="1" x2="1" y2="9" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
@@ -345,8 +389,10 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [menuOpen]);
 
   return (
-    <div style={styles.root}>
-      {/* Desktop sidebar */}
+    <div className="flex h-screen flex-col overflow-hidden">
+      <GlobalBanner />
+      <div style={styles.root}>
+        {/* Desktop sidebar */}
       <aside className="sidebar-desktop" style={styles.sidebar}>
         <SidebarContent />
       </aside>
@@ -400,6 +446,19 @@ export function AppShell({ children }: PropsWithChildren) {
                 </span>
               );
             }
+            const upgradeMatch = pathname.match(/^\/upgrades\/upgrade\/(.+)$/);
+            if (upgradeMatch) {
+              const upgrade = getUpgradeById(upgradeMatch[1]);
+              return (
+                <span className="flex items-center gap-2">
+                  <Link href="/upgrades" className="no-underline">
+                    <Text as="span" variant="headline" className="text-bds-gray-40">Upgrades</Text>
+                  </Link>
+                  <Text as="span" variant="headline" className="text-bds-gray-30">/</Text>
+                  <Text as="span" variant="headline">{upgrade?.name ?? upgradeMatch[1]}</Text>
+                </span>
+              );
+            }
             return <Text as="span" variant="headline">{title}</Text>;
           })()}
           {tabs.length > 0 && (
@@ -423,6 +482,7 @@ export function AppShell({ children }: PropsWithChildren) {
         <main style={styles.content}>
           <div style={styles.contentInner}>{children}</div>
         </main>
+        </div>
       </div>
     </div>
   );

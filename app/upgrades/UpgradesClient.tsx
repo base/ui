@@ -1,28 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
-import { CategoryBadge, StatusPill } from './components/Badges';
+import { StatusPill } from './components/Badges';
+import { UpgradeIllustration } from './components/UpgradeIllustration';
 import { changes } from './data/changes';
 import { upgrades } from './data/upgrades';
 import {
-  CATEGORY_METADATA,
-  changeDisplayTitle,
   LIFECYCLE_LABELS,
   NETWORK_LABELS,
   UPGRADE_NETWORKS,
-  UPGRADE_STATUS_METADATA,
 } from './library/display';
 import { formatShortDate } from './library/format';
-import { getLifecycleState, getUpgradeStatus } from './library/lifecycle';
-import type { Lifecycle, LifecycleState, Upgrade } from './library/types';
+import { getLifecycleState } from './library/lifecycle';
+import type { Lifecycle, LifecycleState } from './library/types';
 
 type View = 'timeline' | 'upgrade';
 
@@ -118,23 +116,15 @@ function networkDotColor() {
 function TimelineView({ nowMs }: { nowMs: number }) {
   const entries = useMemo(() => buildTimelineEntries(nowMs), [nowMs]);
   const months = useMemo(() => groupByMonth(entries), [entries]);
-  const [selectedUpgrade, setSelectedUpgrade] = useState<Upgrade | null>(null);
-  const handleClose = useCallback(() => setSelectedUpgrade(null), []);
 
   const planningUpgrades = upgrades.filter(
     (u) => !u.lifecycle.sepolia.timestamp && !u.lifecycle.mainnet.timestamp,
   );
 
-  const openModal = useCallback((upgradeId: string) => {
-    const upgrade = upgrades.find((u) => u.id === upgradeId);
-    if (upgrade) setSelectedUpgrade(upgrade);
-  }, []);
-
   let entryIndex = 0;
 
   return (
-    <>
-      <div className="relative">
+    <div className="relative">
         <div className="absolute left-[95.5px] top-0 bottom-0 w-px -translate-x-1/2 bg-bds-gray-10" />
 
         {planningUpgrades.length > 0 && (
@@ -157,7 +147,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                     key={upgrade.id}
                     initial={{ opacity: 0, transform: 'translateY(8px)' }}
                     animate={{ opacity: 1, transform: 'translateY(0px)' }}
-                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: i * 0.04 }}
+                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: Math.min(i * 0.04, 0.2) }}
                     className="relative flex items-start gap-3"
                   >
                     <div className="w-[80px] shrink-0 pt-0.5 text-right">
@@ -168,9 +158,8 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                     <div className="relative z-10 flex shrink-0 items-start justify-center pt-[7px]">
                       <span className="h-[7px] w-[7px] rounded-full bg-bds-gray-20" />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openModal(upgrade.id)}
+                    <Link
+                      href={`/upgrades/upgrade/${upgrade.id}`}
                       className="group min-w-0 flex-1 text-left no-underline"
                     >
                       <Text variant="title3" className="text-black transition-colors group-hover:text-base-blue">
@@ -186,7 +175,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                           {count} changes
                         </Text>
                       </div>
-                    </button>
+                    </Link>
                   </motion.div>
                 );
               })}
@@ -199,7 +188,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
             <motion.div
               initial={{ opacity: 0, transform: 'translateY(6px)' }}
               animate={{ opacity: 1, transform: 'translateY(0px)' }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: entryIndex * 0.04 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: Math.min(entryIndex * 0.04, 0.2) }}
             >
               <Text variant="headline" tone="muted" className="mb-8 pl-[111px]">
                 {month.label}
@@ -214,7 +203,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                     key={`${entry.upgradeId}-${entry.network}`}
                     initial={{ opacity: 0, transform: 'translateY(8px)' }}
                     animate={{ opacity: 1, transform: 'translateY(0px)' }}
-                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: i * 0.04 }}
+                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: Math.min(i * 0.04, 0.2) }}
                     className="relative flex items-start gap-3"
                   >
                     <div className="w-[80px] shrink-0 pt-0.5 text-right">
@@ -227,9 +216,8 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                       <span className={`h-[7px] w-[7px] rounded-full ${networkDotColor()}`} />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => openModal(entry.upgradeId)}
+                    <Link
+                      href={`/upgrades/upgrade/${entry.upgradeId}`}
                       className="group min-w-0 flex-1 text-left no-underline"
                     >
                       <Text variant="title3" className="text-black transition-colors group-hover:text-base-blue">
@@ -251,7 +239,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                           {entry.changeCount} changes
                         </Text>
                       </div>
-                    </button>
+                    </Link>
                   </motion.div>
                 );
               })}
@@ -259,136 +247,33 @@ function TimelineView({ nowMs }: { nowMs: number }) {
           </div>
         ))}
       </div>
-      <AnimatePresence>
-        {selectedUpgrade && (
-          <UpgradeFeaturesModal upgrade={selectedUpgrade} onClose={handleClose} />
-        )}
-      </AnimatePresence>
-    </>
-  );
-}
-
-function UpgradeFeaturesModal({ upgrade, onClose }: { upgrade: Upgrade; onClose: () => void }) {
-  const upgradeChanges = changes.filter((c) => c.upgrade === upgrade.id);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <motion.div
-        initial={{ opacity: 0, transform: 'scale(0.97) translateY(8px)' }}
-        animate={{ opacity: 1, transform: 'scale(1) translateY(0px)' }}
-        exit={{ opacity: 0, transform: 'scale(0.97) translateY(8px)' }}
-        transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-        className="relative flex w-full max-w-lg max-h-[80vh] flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
-      >
-        <div className="flex-1 overflow-y-auto p-6 pb-0">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-bds-gray-5 text-bds-gray-50 transition-colors hover:bg-bds-gray-10 hover:text-black"
-          >
-            <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
-              <line x1="4" y1="4" x2="12" y2="12" />
-              <line x1="12" y1="4" x2="4" y2="12" />
-            </svg>
-          </button>
-
-          <Text variant="title2">{upgrade.name}</Text>
-          <Text variant="body" tone="muted" className="mt-2 text-[14px]">
-            {upgrade.summary}
-          </Text>
-
-          <div className="mt-6 border-t border-bds-gray-10" />
-
-          <div className="flex flex-col divide-y divide-bds-gray-10">
-            {upgradeChanges.map((change, idx) => (
-              <motion.div
-                key={change.id}
-                initial={{ opacity: 0, transform: 'translateY(4px)' }}
-                animate={{ opacity: 1, transform: 'translateY(0px)' }}
-                transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1], delay: 0.1 + idx * 0.03 }}
-              >
-              <Link
-                href={`/upgrades/changelog/${change.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center gap-3 py-3 no-underline transition-colors"
-              >
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="min-w-0 truncate text-[14px] text-black group-hover:text-base-blue">{changeDisplayTitle(change)}</span>
-                  <CategoryBadge category={change.category} />
-                </span>
-                <svg width={14} height={14} viewBox="0 0 14 14" fill="none" className="shrink-0 text-bds-gray-30 transition-colors group-hover:text-base-blue" aria-hidden="true">
-                  <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-150 ease-out group-hover:translate-x-[2px]" />
-                  <path d="M9 7H3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="6" strokeDashoffset="6" className="transition-all duration-150 ease-out group-hover:[stroke-dashoffset:0]" />
-                </svg>
-              </Link>
-              </motion.div>
-            ))}
-            {upgradeChanges.length === 0 && (
-              <div className="py-4 text-center">
-                <Text variant="body" tone="muted">Coming Soon</Text>
-                <Text variant="footnote" tone="muted" className="mt-1">Features will be displayed here.</Text>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="sticky bottom-0 border-t border-bds-gray-10 bg-white px-6 py-4 rounded-b-2xl">
-          <Button href="/vibenet" className="w-full justify-center">
-            Test on Vibenet
-          </Button>
-        </div>
-      </motion.div>
-    </motion.div>
   );
 }
 
 function UpgradeView({ nowMs }: { nowMs: number }) {
-  const [selectedUpgrade, setSelectedUpgrade] = useState<Upgrade | null>(null);
-  const handleClose = useCallback(() => setSelectedUpgrade(null), []);
-
   return (
-    <>
-      <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2">
         {upgrades.map((upgrade, idx) => {
-          const status = getUpgradeStatus(upgrade.lifecycle, nowMs);
-          const statusMeta = UPGRADE_STATUS_METADATA[status];
           return (
             <motion.div
               key={upgrade.id}
               initial={{ opacity: 0, transform: 'translateY(10px)' }}
               animate={{ opacity: 1, transform: 'translateY(0px)' }}
-              transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: idx * 0.04 }}
+              transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: Math.min(idx * 0.04, 0.2) }}
             >
             <Card
-              className="flex flex-col overflow-hidden rounded-2xl bg-white"
+              className="flex flex-col overflow-hidden rounded-2xl bg-white transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md"
             >
-              <div className="flex flex-1 flex-col p-5">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-1 flex-col px-5 pb-5 pt-3">
+              <div className="flex items-center justify-between gap-3">
                 <Text variant="title3">
                   {upgrade.name}
                 </Text>
-                <StatusPill variant={statusMeta.variant}>{statusMeta.label}</StatusPill>
+                <div className="-mr-1.5 -mt-1 h-12 w-12 shrink-0">
+                  <UpgradeIllustration upgradeId={upgrade.id} />
+                </div>
               </div>
-              <Text variant="body" tone="muted" className="mt-3 line-clamp-3 text-[14px]">
+              <Text variant="body" tone="muted" className="mt-0.5 max-w-[85%] line-clamp-3 text-[14px]">
                 {upgrade.summary}
               </Text>
               <div className="mt-auto pt-4" />
@@ -407,7 +292,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
                     </Text>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => setSelectedUpgrade(upgrade)}>
+                <Button variant="secondary" size="sm" href={`/upgrades/upgrade/${upgrade.id}`}>
                   View Features
                 </Button>
               </div>
@@ -417,17 +302,12 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
           );
         })}
       </div>
-      <AnimatePresence>
-        {selectedUpgrade && (
-          <UpgradeFeaturesModal upgrade={selectedUpgrade} onClose={handleClose} />
-        )}
-      </AnimatePresence>
-    </>
   );
 }
 
 export function UpgradesClient() {
   const [view, setView] = useState<View>('upgrade');
+  const reducedMotion = useReducedMotion();
   const nowMs = Date.now();
 
   return (
@@ -448,7 +328,7 @@ export function UpgradesClient() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: reducedMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
           >
             <TimelineView nowMs={nowMs} />
           </motion.div>
@@ -458,7 +338,7 @@ export function UpgradesClient() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: reducedMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
           >
             <UpgradeView nowMs={nowMs} />
           </motion.div>
