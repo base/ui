@@ -174,7 +174,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
                         </div>
                         <div className="flex items-start md:justify-end">
                           {changeLifecycle ? (
-                            <LifecycleBadge lifecycle={changeLifecycle} nowMs={nowMs} size="sm" />
+                            <LifecycleBadge lifecycle={changeLifecycle} nowMs={nowMs} />
                           ) : null}
                         </div>
                       </Link>

@@ -9,7 +9,7 @@ import { Card } from '../components/ui/Card';
 import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
-import { StatusPill } from './components/Badges';
+import { CategoryBadge, StatusPill } from './components/Badges';
 import { changes } from './data/changes';
 import { upgrades } from './data/upgrades';
 import {
@@ -295,59 +295,66 @@ function UpgradeFeaturesModal({ upgrade, onClose }: { upgrade: Upgrade; onClose:
         animate={{ opacity: 1, transform: 'scale(1) translateY(0px)' }}
         exit={{ opacity: 0, transform: 'scale(0.97) translateY(8px)' }}
         transition={{ type: 'spring', bounce: 0, duration: 0.25 }}
-        className="relative w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="relative flex w-full max-w-lg max-h-[80vh] flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-black"
-        >
-          <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
-            <line x1="4" y1="4" x2="12" y2="12" />
-            <line x1="12" y1="4" x2="4" y2="12" />
-          </svg>
-        </button>
+        <div className="flex-1 overflow-y-auto p-6 pb-0">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-bds-gray-5 text-bds-gray-50 transition-colors hover:bg-bds-gray-10 hover:text-black"
+          >
+            <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
+              <line x1="4" y1="4" x2="12" y2="12" />
+              <line x1="12" y1="4" x2="4" y2="12" />
+            </svg>
+          </button>
 
-        <Text variant="title2">{upgrade.name}</Text>
-        <Text variant="body" tone="muted" className="mt-2 text-[14px]">
-          {upgrade.summary}
-        </Text>
+          <Text variant="title2">{upgrade.name}</Text>
+          <Text variant="body" tone="muted" className="mt-2 text-[14px]">
+            {upgrade.summary}
+          </Text>
 
-        <div className="mt-6 border-t border-bds-gray-10" />
+          <div className="mt-6 border-t border-bds-gray-10" />
 
-        <div className="flex flex-col divide-y divide-bds-gray-10">
-          {upgradeChanges.map((change, idx) => (
-            <motion.div
-              key={change.id}
-              initial={{ opacity: 0, transform: 'translateY(4px)' }}
-              animate={{ opacity: 1, transform: 'translateY(0px)' }}
-              transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1], delay: 0.1 + idx * 0.03 }}
-            >
-            <Link
-              href={`/upgrades/changelog/${change.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-3 py-3 no-underline transition-colors"
-            >
-              <span className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="min-w-0 truncate text-[14px] text-black group-hover:text-base-blue">{changeDisplayTitle(change)}</span>
-                <span className="shrink-0 rounded-md bg-bds-gray-5 px-2 py-0.5 text-[11px] text-bds-gray-60">
-                  {CATEGORY_METADATA[change.category].label}
+          <div className="flex flex-col divide-y divide-bds-gray-10">
+            {upgradeChanges.map((change, idx) => (
+              <motion.div
+                key={change.id}
+                initial={{ opacity: 0, transform: 'translateY(4px)' }}
+                animate={{ opacity: 1, transform: 'translateY(0px)' }}
+                transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1], delay: 0.1 + idx * 0.03 }}
+              >
+              <Link
+                href={`/upgrades/changelog/${change.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-3 py-3 no-underline transition-colors"
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="min-w-0 truncate text-[14px] text-black group-hover:text-base-blue">{changeDisplayTitle(change)}</span>
+                  <CategoryBadge category={change.category} />
                 </span>
-              </span>
-              <svg width={14} height={14} viewBox="0 0 14 14" fill="none" className="shrink-0 text-bds-gray-30 transition-colors group-hover:text-base-blue" aria-hidden="true">
-                <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-150 ease-out group-hover:translate-x-[2px]" />
-                <path d="M9 7H3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="6" strokeDashoffset="6" className="transition-all duration-150 ease-out group-hover:[stroke-dashoffset:0]" />
-              </svg>
-            </Link>
-            </motion.div>
-          ))}
-          {upgradeChanges.length === 0 && (
-            <Text variant="body" tone="muted" className="py-4 text-center">
-              No features yet.
-            </Text>
-          )}
+                <svg width={14} height={14} viewBox="0 0 14 14" fill="none" className="shrink-0 text-bds-gray-30 transition-colors group-hover:text-base-blue" aria-hidden="true">
+                  <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-150 ease-out group-hover:translate-x-[2px]" />
+                  <path d="M9 7H3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="6" strokeDashoffset="6" className="transition-all duration-150 ease-out group-hover:[stroke-dashoffset:0]" />
+                </svg>
+              </Link>
+              </motion.div>
+            ))}
+            {upgradeChanges.length === 0 && (
+              <div className="py-4 text-center">
+                <Text variant="body" tone="muted">Coming Soon</Text>
+                <Text variant="footnote" tone="muted" className="mt-1">Features will be displayed here.</Text>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 border-t border-bds-gray-10 bg-white px-6 py-4 rounded-b-2xl">
+          <Button href="/vibenet" className="w-full justify-center">
+            Test on Vibenet
+          </Button>
         </div>
       </motion.div>
     </motion.div>

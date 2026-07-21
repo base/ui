@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
 
 import { Button } from '../../../components/ui/Button';
-import { Card, LinkCard } from '../../../components/ui/Card';
+import { LinkCard } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Text } from '../../../components/ui/Text';
@@ -49,7 +49,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
       <div
         role="tablist"
         aria-label="Change detail sections"
-        className="mb-6 flex gap-1 border-b border-bds-gray-10 dark:border-white/10"
+        className="mb-6 flex gap-1 border-b border-bds-gray-10"
       >
         {(['overview', 'activity'] as const).map((item) => (
           <button
@@ -62,13 +62,13 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             className={cn(
               '-mb-px border-b-2 px-4 py-3 text-[14px] capitalize transition-colors',
               tab === item
-                ? 'border-base-blue text-black dark:text-white'
-                : 'border-transparent text-bds-gray-50 hover:text-black dark:hover:text-white',
+                ? 'border-black text-black'
+                : 'border-transparent text-bds-gray-50 hover:text-black',
             )}
           >
             {item}
             {item !== 'overview' ? (
-              <span className="ml-2 rounded-full bg-bds-gray-5 px-2 py-1 font-mono text-[10px] uppercase text-bds-gray-50 dark:bg-white/10 dark:text-bds-gray-30">
+              <span className="ml-2 rounded-full bg-bds-gray-5 px-2 py-0.5 text-[10px] text-bds-gray-50">
                 Soon
               </span>
             ) : null}
@@ -77,17 +77,17 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
       </div>
 
       {tab === 'overview' ? (
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
           <div className="space-y-8">
             <div>
-              <Text variant="caption" tone="muted" className="mb-2">
+              <Text variant="label.medium" tone="muted" className="mb-2 text-[13px]">
                 Summary
               </Text>
               <Text as="div" variant="body" dangerouslySetInnerHTML={summaryHtml} />
             </div>
             {change.migrationNotes ? (
               <div>
-                <Text variant="caption" tone="muted" className="mb-2">
+                <Text variant="label.medium" tone="muted" className="mb-2 text-[13px]">
                   Migration Notes
                 </Text>
                 <Text as="div" variant="body" dangerouslySetInnerHTML={migrationNotesHtml} />
@@ -95,7 +95,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             ) : null}
             {change.relatedRepos && change.relatedRepos.length > 0 ? (
               <div>
-                <Text variant="caption" tone="muted" className="mb-2">
+                <Text variant="label.medium" tone="muted" className="mb-2 text-[13px]">
                   Related Repos
                 </Text>
                 <div className="flex flex-wrap gap-2">
@@ -114,8 +114,8 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                         {label}
                         <svg
                           aria-hidden="true"
-                          width="20"
-                          height="20"
+                          width="14"
+                          height="14"
                           viewBox="0 0 16 16"
                           fill="none"
                           stroke="currentColor"
@@ -133,14 +133,14 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             ) : null}
             {relatedEips.length > 0 ? (
               <div>
-                <Text variant="caption" tone="muted" className="mb-3">
+                <Text variant="label.medium" tone="muted" className="mb-2 text-[13px]">
                   Related EIPs
                 </Text>
                 <div className="flex flex-wrap gap-2">
                   {relatedEips.map((ref) => (
                     <span
                       key={ref}
-                      className="rounded-md border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 font-mono text-[12px] text-bds-gray-70 dark:border-white/10 dark:bg-white/10 dark:text-bds-gray-20"
+                      className="rounded-md bg-bds-gray-5 px-2.5 py-1.5 text-[12px] text-bds-gray-60"
                     >
                       {ref}
                     </span>
@@ -151,8 +151,8 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
           </div>
           <aside className="space-y-4">
             {lifecycle ? (
-              <Card className="bg-bds-gray-0 p-5 dark:bg-white/5">
-                <Text variant="caption" tone="muted" className="mb-3">
+              <div className="rounded-xl border border-bds-gray-10 p-5">
+                <Text variant="label.medium" tone="muted" className="mb-3 text-[13px]">
                   Lifecycle
                 </Text>
                 <div className="space-y-3">
@@ -161,13 +161,13 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                     return (
                       <div
                         key={network}
-                        className="flex items-start justify-between gap-4 border-b border-bds-gray-10 pb-3 last:border-b-0 last:pb-0 dark:border-white/10"
+                        className="flex items-start justify-between gap-4 border-b border-bds-gray-10 pb-3 last:border-b-0 last:pb-0"
                       >
                         <Text variant="label">{NETWORK_LABELS[network]}</Text>
                         <div className="text-right">
                           <StatusPill variant={state}>{LIFECYCLE_LABELS[state]}</StatusPill>
                           {lifecycle[network].timestamp ? (
-                            <Text variant="footnote" tone="muted" className="mt-2 font-mono">
+                            <Text variant="footnote" tone="muted" className="mt-2">
                               {formatDate(lifecycle[network].timestamp)}
                             </Text>
                           ) : null}
@@ -176,19 +176,19 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                     );
                   })}
                 </div>
-              </Card>
+              </div>
             ) : null}
 
             {vibenetChange ? (
-              <Card className="bg-bds-gray-0 p-5 dark:bg-white/5">
-                <Text variant="caption" tone="muted" className="mb-3">
+              <div className="rounded-xl border border-bds-gray-10 p-5">
+                <Text variant="label.medium" tone="muted" className="mb-3 text-[13px]">
                   Vibenet
                 </Text>
                 <div className="flex items-center justify-between gap-3">
                   <StatusPill variant={vibenetChange.vibenet.status}>
                     {LIFECYCLE_LABELS[vibenetChange.vibenet.status]}
                   </StatusPill>
-                  <Text variant="footnote" tone="muted" className="font-mono">
+                  <Text variant="footnote" tone="muted">
                     {formatShortDate(vibenetChange.vibenet.timestamp)}
                   </Text>
                 </div>
@@ -196,15 +196,15 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                   Available on Vibenet testing. This does not mean it is scheduled for Sepolia or
                   Mainnet.
                 </Text>
-              </Card>
+              </div>
             ) : null}
 
             {upgrade ? (
               <LinkCard
                 href={`/upgrades/upgrade/${upgrade.id}`}
-                className="block bg-bds-gray-0 p-5 dark:bg-white/5"
+                className="block rounded-xl p-5"
               >
-                <Text variant="caption" tone="muted" className="mb-2">
+                <Text variant="label.medium" tone="muted" className="mb-2 text-[13px]">
                   Part Of
                 </Text>
                 <Text variant="headline">{upgrade.name}</Text>
@@ -213,15 +213,15 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                 </Text>
               </LinkCard>
             ) : (
-              <Card className="bg-bds-gray-0 p-5 dark:bg-white/5">
-                <Text variant="caption" tone="muted" className="mb-2">
+              <div className="rounded-xl border border-bds-gray-10 p-5">
+                <Text variant="label.medium" tone="muted" className="mb-2 text-[13px]">
                   Scheduling
                 </Text>
                 <Text variant="headline">Not Scheduled</Text>
                 <Text variant="label.regular" tone="muted" className="mt-2">
                   This change is not assigned to a Base upgrade yet.
                 </Text>
-              </Card>
+              </div>
             )}
           </aside>
         </div>
@@ -231,7 +231,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
         <EmptyState
           title="Activity Feed Is Coming Soon"
           description="This is where you will be able to track Github issues and PRs for this change."
-          className="bg-bds-gray-0 p-8 text-center dark:bg-white/5"
+          className="p-8 text-center"
         />
       ) : null}
     </section>

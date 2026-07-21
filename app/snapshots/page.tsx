@@ -347,6 +347,7 @@ export default function SnapshotsPage() {
     stateHistoryComponents.every((c) => selectedComponents.includes(c.name));
 
   return (
+    <div className="mx-auto w-full max-w-5xl">
     <AnimatePresence mode="wait">
       {loading ? (
         <motion.div
@@ -578,5 +579,6 @@ export default function SnapshotsPage() {
     </motion.div>
       )}
     </AnimatePresence>
+    </div>
   );
 }
