@@ -345,9 +345,6 @@ export function ChangelogClient() {
               <th scope="col" className="w-[110px] px-4 py-3 text-[13px] font-normal">
                 Mainnet
               </th>
-              <th scope="col" className="w-[90px] px-4 py-3 text-[13px] font-normal">
-                Updated
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -393,16 +390,11 @@ export function ChangelogClient() {
                 <td className="px-4 py-3.5">
                   <NetworkStatus change={change} network="mainnet" />
                 </td>
-                <td className="px-4 py-3.5">
-                  <Text variant="footnote" tone="muted">
-                    {formatShortDate(change.lastUpdated)}
-                  </Text>
-                </td>
               </motion.tr>
             ))}
             {filtered.length === 0 ? (
               <tr aria-label="No results">
-                <td colSpan={7} className="px-4 py-10 text-center">
+                <td colSpan={6} className="px-4 py-10 text-center">
                   <Text variant="label.medium">No Changes</Text>
                   <Text variant="label.regular" tone="muted" className="mt-1">Try adjusting your search or filter criteria.</Text>
                 </td>

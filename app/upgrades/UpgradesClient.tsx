@@ -243,7 +243,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
 function UpgradeView({ nowMs }: { nowMs: number }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-        {upgrades.map((upgrade, idx) => {
+        {[...upgrades].reverse().map((upgrade, idx) => {
           return (
             <FadeInUp
               key={upgrade.id}
