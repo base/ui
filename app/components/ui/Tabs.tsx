@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 
 import { cn } from './cn';
 
 type TabItem = {
   value: string;
   label: string;
+  icon?: React.ReactNode;
 };
 
 type TabsProps = {
@@ -31,6 +32,10 @@ export function Tabs({
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [pill, setPill] = useState<{ x: number; width: number } | null>(null);
+  const reducedMotion = useReducedMotion();
+  const pillTransition = reducedMotion
+    ? { type: 'spring' as const, bounce: 0, duration: 0 }
+    : PILL_TRANSITION;
 
   const measure = useCallback(() => {
     const container = containerRef.current;
@@ -63,7 +68,7 @@ export function Tabs({
       {pill && (
         <motion.span
           animate={{ x: pill.x, width: pill.width }}
-          transition={PILL_TRANSITION}
+          transition={pillTransition}
           className="absolute top-1 bottom-1 left-0 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
         />
       )}
@@ -81,10 +86,11 @@ export function Tabs({
             data-value={item.value}
             onClick={handleClick}
             className={cn(
-              'relative z-[1] select-none rounded-full px-3 py-1.5 font-sans text-[14px] transition-colors',
+              'relative z-[1] flex select-none items-center gap-1.5 rounded-full px-3 py-1.5 font-sans text-[14px] transition-colors',
               active ? 'text-black' : 'text-bds-gray-60',
             )}
           >
+            {item.icon && <span className="flex shrink-0">{item.icon}</span>}
             {item.label}
           </button>
         );

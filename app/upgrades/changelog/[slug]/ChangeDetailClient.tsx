@@ -2,11 +2,12 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { Button } from '../../../components/ui/Button';
-import { Card, LinkCard } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
-import { EmptyState } from '../../../components/ui/EmptyState';
+import { ExternalLinkIcon } from '../../../components/ui/icons';
+import { LabeledCard } from '../../../components/ui/LabeledCard';
 import { Text } from '../../../components/ui/Text';
 import { StatusPill } from '../../components/Badges';
 import { getLifecycleForChange, getUpgradeForChange } from '../../data/upgrades';
@@ -17,7 +18,7 @@ import {
   NETWORK_LABELS,
   UPGRADE_NETWORKS,
 } from '../../library/display';
-import { formatDate, formatShortDate } from '../../library/format';
+import { formatShortDate } from '../../library/format';
 import { getLifecycleState } from '../../library/lifecycle';
 import type { Change } from '../../library/types';
 
@@ -29,6 +30,7 @@ type ChangeDetailClientProps = {
 
 export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
   const [tab, setTab] = useState<Tab>('overview');
+  const reducedMotion = useReducedMotion();
   const upgrade = getUpgradeForChange(change);
   const lifecycle = getLifecycleForChange(change);
   const vibenetChange = getVibenetChangeById(change.id);
@@ -49,7 +51,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
       <div
         role="tablist"
         aria-label="Change detail sections"
-        className="mb-6 flex gap-1 border-b border-bds-gray-10 dark:border-white/10"
+        className="relative mb-6 flex gap-3 border-b border-bds-gray-10"
       >
         {(['overview', 'activity'] as const).map((item) => (
           <button
@@ -60,34 +62,49 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             aria-selected={tab === item}
             onClick={handleTabClick}
             className={cn(
-              '-mb-px border-b-2 px-4 py-3 text-[14px] capitalize transition-colors',
+              'relative -mb-px px-1.5 py-2 text-[14px] capitalize transition-colors',
               tab === item
-                ? 'border-base-blue text-black dark:text-white'
-                : 'border-transparent text-bds-gray-50 hover:text-black dark:hover:text-white',
+                ? 'text-black'
+                : 'text-bds-gray-50 hover:text-black',
             )}
           >
             {item}
             {item !== 'overview' ? (
-              <span className="ml-2 rounded-full bg-bds-gray-5 px-2 py-1 font-mono text-[10px] uppercase text-bds-gray-50 dark:bg-white/10 dark:text-bds-gray-30">
+              <span className="ml-2 rounded-full border border-bds-gray-10 px-1.5 py-0.5 text-[11px] text-bds-gray-50">
                 Soon
               </span>
+            ) : null}
+            {tab === item ? (
+              <motion.div
+                layoutId="tab-underline"
+                className="absolute right-0 bottom-0 left-0 h-0.5 bg-black"
+                transition={reducedMotion ? { duration: 0 } : { type: 'spring', bounce: 0, duration: 0.3 }}
+              />
             ) : null}
           </button>
         ))}
       </div>
 
+      <AnimatePresence mode="wait">
       {tab === 'overview' ? (
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <motion.div
+          key="overview"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+          className="grid gap-8 lg:grid-cols-[1fr_260px]"
+        >
           <div className="space-y-8">
             <div>
-              <Text variant="caption" tone="muted" className="mb-2">
+              <Text variant="label.medium" tone="muted" className="mb-2">
                 Summary
               </Text>
               <Text as="div" variant="body" dangerouslySetInnerHTML={summaryHtml} />
             </div>
             {change.migrationNotes ? (
               <div>
-                <Text variant="caption" tone="muted" className="mb-2">
+                <Text variant="label.medium" tone="muted" className="mb-2">
                   Migration Notes
                 </Text>
                 <Text as="div" variant="body" dangerouslySetInnerHTML={migrationNotesHtml} />
@@ -95,7 +112,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             ) : null}
             {change.relatedRepos && change.relatedRepos.length > 0 ? (
               <div>
-                <Text variant="caption" tone="muted" className="mb-2">
+                <Text variant="label.medium" tone="muted" className="mb-2">
                   Related Repos
                 </Text>
                 <div className="flex flex-wrap gap-2">
@@ -112,19 +129,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                         size="sm"
                       >
                         {label}
-                        <svg
-                          aria-hidden="true"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 11L11 5M11 5H6M11 5V10" />
-                        </svg>
+                        <ExternalLinkIcon />
                       </Button>
                     );
                   })}
@@ -133,14 +138,14 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             ) : null}
             {relatedEips.length > 0 ? (
               <div>
-                <Text variant="caption" tone="muted" className="mb-3">
+                <Text variant="label.medium" tone="muted" className="mb-2">
                   Related EIPs
                 </Text>
                 <div className="flex flex-wrap gap-2">
                   {relatedEips.map((ref) => (
                     <span
                       key={ref}
-                      className="rounded-md border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 font-mono text-[12px] text-bds-gray-70 dark:border-white/10 dark:bg-white/10 dark:text-bds-gray-20"
+                      className="rounded-md bg-bds-gray-5 px-2.5 py-1.5 text-[12px] text-bds-gray-60"
                     >
                       {ref}
                     </span>
@@ -150,90 +155,81 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             ) : null}
           </div>
           <aside className="space-y-4">
-            {lifecycle ? (
-              <Card className="bg-bds-gray-0 p-5 dark:bg-white/5">
-                <Text variant="caption" tone="muted" className="mb-3">
-                  Lifecycle
-                </Text>
+            <LabeledCard label="Lifecycle" labelSpacing={lifecycle ? 'mb-5' : 'mb-3'}>
+              {lifecycle ? (
                 <div className="space-y-3">
                   {UPGRADE_NETWORKS.map((network) => {
                     const state = getLifecycleState(lifecycle[network]);
+                    const ts = lifecycle[network].timestamp;
                     return (
                       <div
                         key={network}
-                        className="flex items-start justify-between gap-4 border-b border-bds-gray-10 pb-3 last:border-b-0 last:pb-0 dark:border-white/10"
+                        className="flex items-center justify-between gap-4 border-b border-bds-gray-10 pb-3 last:border-b-0 last:pb-0"
                       >
                         <Text variant="label">{NETWORK_LABELS[network]}</Text>
-                        <div className="text-right">
-                          <StatusPill variant={state}>{LIFECYCLE_LABELS[state]}</StatusPill>
-                          {lifecycle[network].timestamp ? (
-                            <Text variant="footnote" tone="muted" className="mt-2 font-mono">
-                              {formatDate(lifecycle[network].timestamp)}
-                            </Text>
+                        <div className="flex items-center gap-1.5">
+                          {state === 'live' ? (
+                            <StatusPill variant="live">{LIFECYCLE_LABELS[state]}</StatusPill>
+                          ) : (
+                            <Text variant="label.regular" tone="muted">{LIFECYCLE_LABELS[state]}</Text>
+                          )}
+                          {ts ? (
+                            <Text variant="label.regular" tone="muted">· {formatShortDate(ts)}</Text>
                           ) : null}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </Card>
-            ) : null}
-
-            {vibenetChange ? (
-              <Card className="bg-bds-gray-0 p-5 dark:bg-white/5">
-                <Text variant="caption" tone="muted" className="mb-3">
-                  Vibenet
-                </Text>
-                <div className="flex items-center justify-between gap-3">
-                  <StatusPill variant={vibenetChange.vibenet.status}>
-                    {LIFECYCLE_LABELS[vibenetChange.vibenet.status]}
-                  </StatusPill>
-                  <Text variant="footnote" tone="muted" className="font-mono">
-                    {formatShortDate(vibenetChange.vibenet.timestamp)}
+              ) : vibenetChange ? (
+                <>
+                  <Text variant="label">Only available on Vibenet.</Text>
+                  <Text variant="label.regular" tone="muted" className="mt-1">
+                    Coming soon to Sepolia and Mainnet.
                   </Text>
-                </div>
-                <Text variant="label.regular" tone="muted" className="mt-3">
-                  Available on Vibenet testing. This does not mean it is scheduled for Sepolia or
-                  Mainnet.
-                </Text>
-              </Card>
-            ) : null}
+                </>
+              ) : (
+                <Text variant="label.regular" tone="muted">Not scheduled.</Text>
+              )}
+            </LabeledCard>
 
             {upgrade ? (
-              <LinkCard
-                href={`/upgrades/upgrade/${upgrade.id}`}
-                className="block bg-bds-gray-0 p-5 dark:bg-white/5"
-              >
-                <Text variant="caption" tone="muted" className="mb-2">
-                  Part Of
-                </Text>
+              <LabeledCard label="Upgrade">
                 <Text variant="headline">{upgrade.name}</Text>
-                <Text variant="label.regular" tone="muted" className="mt-2 line-clamp-3">
+                <Text variant="label.regular" tone="muted" className="mt-2">
                   {upgrade.summary}
                 </Text>
-              </LinkCard>
-            ) : (
-              <Card className="bg-bds-gray-0 p-5 dark:bg-white/5">
-                <Text variant="caption" tone="muted" className="mb-2">
-                  Scheduling
-                </Text>
-                <Text variant="headline">Not Scheduled</Text>
-                <Text variant="label.regular" tone="muted" className="mt-2">
-                  This change is not assigned to a Base upgrade yet.
-                </Text>
-              </Card>
-            )}
+                <Button
+                  href={`/upgrades/upgrade/${upgrade.id}`}
+                  variant="secondary"
+                  size="sm"
+                  className="mt-4"
+                >
+                  Learn More
+                </Button>
+              </LabeledCard>
+            ) : null}
           </aside>
-        </div>
+        </motion.div>
       ) : null}
 
       {tab === 'activity' ? (
-        <EmptyState
-          title="Activity Feed Is Coming Soon"
-          description="This is where you will be able to track Github issues and PRs for this change."
-          className="bg-bds-gray-0 p-8 text-center dark:bg-white/5"
-        />
+        <motion.div
+          key="activity"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+        >
+          <div className="p-8 text-center">
+            <Text variant="label.medium">Activity Feed Is Coming Soon</Text>
+            <Text variant="label.regular" tone="muted" className="mt-2">
+              This is where you will be able to track Github issues and PRs for this change.
+            </Text>
+          </div>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
     </section>
   );
 }

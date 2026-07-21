@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 
-import { SectionHeading } from '../../components/ui/SectionHeading';
-
 import { ChangelogClient } from './ChangelogClient';
 
 export const metadata: Metadata = {
@@ -14,13 +12,7 @@ export const metadata: Metadata = {
 
 export default function ChangelogPage() {
   return (
-    <div className="flex flex-col gap-8 pb-4 text-black">
-      <SectionHeading
-        eyebrow="Changelog"
-        title="Protocol Changes"
-        description="Search adopted EIPs and Base-specific protocol changes. Filter by type, category, upgrade, or lifecycle."
-        className="max-w-2xl"
-      />
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-4 text-black">
       <ChangelogClient />
     </div>
   );

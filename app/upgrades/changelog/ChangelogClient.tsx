@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, MouseEvent } from 'react';
+import type { ChangeEvent } from 'react';
 import Link from 'next/link';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
-import { Card, LinkCard } from '../../components/ui/Card';
-import { cn } from '../../components/ui/cn';
-import { EmptyState } from '../../components/ui/EmptyState';
+import { LinkCard } from '../../components/ui/Card';
 import { FilterSelect } from '../../components/ui/FilterSelect';
+import { CloseIcon, VibenetIcon } from '../../components/ui/icons';
 import { Text } from '../../components/ui/Text';
-import { CategoryBadge, KindBadge, LifecycleBadge, StatusPill } from '../components/Badges';
+import { CategoryBadge, KindBadge, StatusPill } from '../components/Badges';
+import { FilterGroup } from '../components/FilterGroup';
+import { UpgradeIllustration } from '../components/UpgradeIllustration';
 import { changes } from '../data/changes';
 import { getLifecycleForChange, getUpgradeById, getUpgradesReversed } from '../data/upgrades';
 import { getVibenetChangeById } from '../data/vibenet';
@@ -27,31 +29,31 @@ import type { Change, ChangeCategory, ChangeKind, LifecycleState } from '../libr
 
 const allKinds: ChangeKind[] = ['eip', 'base'];
 const allLifecycle: LifecycleState[] = ['live', 'scheduled', 'planning'];
-const PAGE_SIZE_OPTIONS = [25, 50] as const;
 
 function scheduleLabel(change: Change): string {
   if (change.upgrade) return getUpgradeById(change.upgrade)?.name ?? change.upgrade;
-  return getVibenetChangeById(change.id) ? 'Vibenet only' : 'Not scheduled';
+  return getVibenetChangeById(change.id) ? 'Vibenet' : 'Not scheduled';
 }
 
-type ChangeLifecycleStatusProps = {
-  change: Change;
-};
-
-function ChangeLifecycleStatus({ change }: ChangeLifecycleStatusProps) {
+function NetworkStatus({ change, network }: { change: Change; network: 'sepolia' | 'mainnet' }) {
   const lifecycle = getLifecycleForChange(change);
-  if (lifecycle) return <LifecycleBadge lifecycle={lifecycle} size="sm" />;
-
-  const vibenetChange = getVibenetChangeById(change.id);
-  if (vibenetChange) {
+  if (lifecycle) {
+    const state = getLifecycleState(lifecycle[network]);
+    const ts = lifecycle[network].timestamp;
+    if (state === 'live' && ts) {
+      return <Text variant="footnote" tone="muted">{formatShortDate(ts)}</Text>;
+    }
     return (
-      <StatusPill variant={vibenetChange.vibenet.status}>
-        Vibenet {LIFECYCLE_LABELS[vibenetChange.vibenet.status]}
-      </StatusPill>
+      <div className="flex items-center gap-1.5">
+        <StatusPill variant={state}>{LIFECYCLE_LABELS[state]}</StatusPill>
+        {ts ? (
+          <Text variant="footnote" tone="muted">{formatShortDate(ts)}</Text>
+        ) : null}
+      </div>
     );
   }
 
-  return <StatusPill variant="planning">Not Scheduled</StatusPill>;
+  return <Text variant="footnote" tone="muted">Coming Soon</Text>;
 }
 
 export function ChangelogClient() {
@@ -60,8 +62,6 @@ export function ChangelogClient() {
   const [kindFilter, setKindFilter] = useState<ChangeKind | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<ChangeCategory | 'all'>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleState | 'all'>('all');
-  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
-  const [page, setPage] = useState(0);
   const filtered = useMemo(() => {
     const rawQuery = query.trim();
 
@@ -105,21 +105,6 @@ export function ChangelogClient() {
     });
   }, [categoryFilter, kindFilter, lifecycleFilter, query, upgradeFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages - 1);
-  const paged = useMemo(
-    () => filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize),
-    [filtered, currentPage, pageSize],
-  );
-
-  // Reset to the first page whenever the filtered set or page size changes.
-  useEffect(() => {
-    setPage(0);
-  }, [categoryFilter, kindFilter, lifecycleFilter, query, upgradeFilter, pageSize]);
-
-  const rangeStart = filtered.length === 0 ? 0 : currentPage * pageSize + 1;
-  const rangeEnd = Math.min(filtered.length, currentPage * pageSize + pageSize);
-
   const handleQueryChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => setQuery(event.target.value),
     [],
@@ -136,143 +121,291 @@ export function ChangelogClient() {
     (value: string) => setLifecycleFilter(value as LifecycleState | 'all'),
     [],
   );
-  const handlePageSizeClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
-    setPageSize(Number(event.currentTarget.dataset.size));
-  }, []);
-  const handlePrevPage = useCallback(() => setPage((current) => Math.max(0, current - 1)), []);
-  const handleNextPage = useCallback(
-    () => setPage((current) => Math.min(totalPages - 1, current + 1)),
-    [totalPages],
-  );
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFiltersOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    document.body.style.overflow = filtersOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [filtersOpen]);
+
+  const activeFilterCount = [
+    upgradeFilter !== 'all',
+    kindFilter !== 'all',
+    categoryFilter !== 'all',
+    lifecycleFilter !== 'all',
+  ].filter(Boolean).length;
 
   return (
     <>
-      <Card className="mb-6 grid gap-3 bg-bds-gray-0 p-4 dark:bg-white/5 md:grid-cols-[1fr_auto_auto_auto_auto]">
+      {/* Desktop filter bar */}
+      <div className="mb-6 hidden flex-wrap gap-3 md:flex">
+        <FilterSelect
+          value={upgradeFilter}
+          onChange={setUpgradeFilter}
+          ariaLabel="Filter by upgrade"
+          minDropdownWidth={160}
+          options={[
+            { value: 'all', label: 'All' },
+            ...getUpgradesReversed().map((u) => ({ value: u.id, label: u.name })),
+          ]}
+        />
+        <FilterSelect
+          value={kindFilter}
+          onChange={handleKindChange}
+          ariaLabel="Filter by change type"
+          minDropdownWidth={160}
+          options={[
+            { value: 'all', label: 'All Types' },
+            ...allKinds.map((k) => ({ value: k, label: kindLabel(k) })),
+          ]}
+        />
+        <FilterSelect
+          value={categoryFilter}
+          onChange={handleCategoryChange}
+          ariaLabel="Filter by category"
+          minDropdownWidth={160}
+          options={[
+            { value: 'all', label: 'All Categories' },
+            ...CATEGORY_ORDER.map((c) => ({ value: c, label: CATEGORY_METADATA[c].label })),
+          ]}
+        />
+        <FilterSelect
+          value={lifecycleFilter}
+          onChange={handleLifecycleChange}
+          ariaLabel="Filter by lifecycle status"
+          minDropdownWidth={160}
+          options={[
+            { value: 'all', label: 'Any Lifecycle' },
+            ...allLifecycle.map((s) => ({ value: s, label: LIFECYCLE_LABELS[s] })),
+          ]}
+        />
         <input
           value={query}
           onChange={handleQueryChange}
           placeholder="Search by title, EIP, or summary keyword"
           aria-label="Search changes"
-          className="h-11 rounded-full border border-bds-gray-10 bg-white px-4 text-[14px] text-black outline-none placeholder:text-bds-gray-50 dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-bds-gray-40"
+          className="h-9 min-w-0 flex-1 rounded-full border border-bds-gray-10 bg-white px-4 text-[14px] text-black outline-none placeholder:text-bds-gray-50"
         />
-        <FilterSelect
-          value={upgradeFilter}
-          onChange={setUpgradeFilter}
-          ariaLabel="Filter by upgrade"
-        >
-          <option value="all">All Upgrades</option>
-          {getUpgradesReversed().map((upgrade) => (
-            <option key={upgrade.id} value={upgrade.id}>
-              {upgrade.name}
-            </option>
-          ))}
-        </FilterSelect>
-        <FilterSelect
-          value={kindFilter}
-          onChange={handleKindChange}
-          ariaLabel="Filter by change type"
-        >
-          <option value="all">All Types</option>
-          {allKinds.map((kind) => (
-            <option key={kind} value={kind}>
-              {kindLabel(kind)}
-            </option>
-          ))}
-        </FilterSelect>
-        <FilterSelect
-          value={categoryFilter}
-          onChange={handleCategoryChange}
-          ariaLabel="Filter by category"
-        >
-          <option value="all">All Categories</option>
-          {CATEGORY_ORDER.map((category) => (
-            <option key={category} value={category}>
-              {CATEGORY_METADATA[category].label}
-            </option>
-          ))}
-        </FilterSelect>
-        <FilterSelect
-          value={lifecycleFilter}
-          onChange={handleLifecycleChange}
-          ariaLabel="Filter by lifecycle status"
-        >
-          <option value="all">Any Lifecycle</option>
-          {allLifecycle.map((state) => (
-            <option key={state} value={state}>
-              Has {LIFECYCLE_LABELS[state]}
-            </option>
-          ))}
-        </FilterSelect>
-      </Card>
+      </div>
 
-      <Card className="hidden overflow-hidden bg-white dark:bg-white/5 md:block">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-bds-gray-5 text-bds-gray-60 dark:bg-white/5 dark:text-bds-gray-20">
+      {/* Mobile search + filter button */}
+      <div className="mb-4 flex gap-2 md:hidden">
+        <input
+          value={query}
+          onChange={handleQueryChange}
+          placeholder="Search changes…"
+          aria-label="Search changes"
+          className="h-9 min-w-0 flex-1 rounded-full border border-bds-gray-10 bg-white px-4 text-[14px] text-black outline-none placeholder:text-bds-gray-50"
+        />
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(true)}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-white px-3.5 text-[14px] text-black transition-colors hover:bg-bds-gray-5"
+        >
+          <svg
+            aria-hidden="true"
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M2 4h12M4 8h8M6 12h4" />
+          </svg>
+          Filters
+          {activeFilterCount > 0 ? (
+            <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-black px-1 text-[10px] font-medium text-white">
+              {activeFilterCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
+
+      {/* Mobile full-screen filter sheet */}
+      <AnimatePresence>
+        {filtersOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+              className="fixed inset-0 z-[200] bg-black/20 md:hidden"
+              onClick={() => setFiltersOpen(false)}
+            />
+            <motion.div
+              initial={reducedMotion ? { opacity: 0 } : { transform: 'translateY(100%)', opacity: 0 }}
+              animate={reducedMotion ? { opacity: 1 } : { transform: 'translateY(0%)', opacity: 1 }}
+              exit={reducedMotion ? { opacity: 0 } : { transform: 'translateY(100%)', opacity: 0 }}
+              transition={reducedMotion
+                ? { duration: 0.15 }
+                : { type: 'spring', bounce: 0, duration: 0.3 }}
+              className="fixed inset-x-0 bottom-0 z-[201] rounded-t-2xl bg-white px-5 pb-8 pt-5 md:hidden"
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <Text variant="headline">Filters</Text>
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  className="-mr-2 flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-bds-gray-5"
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+              <div className="space-y-5">
+                <FilterGroup
+                  label="Upgrade"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...getUpgradesReversed().map((u) => ({ value: u.id, label: u.name })),
+                  ]}
+                  value={upgradeFilter}
+                  onChange={setUpgradeFilter}
+                />
+                <FilterGroup
+                  label="Type"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...allKinds.map((k) => ({ value: k, label: kindLabel(k) })),
+                  ]}
+                  value={kindFilter}
+                  onChange={handleKindChange}
+                />
+                <FilterGroup
+                  label="Category"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...CATEGORY_ORDER.map((c) => ({ value: c, label: CATEGORY_METADATA[c].label })),
+                  ]}
+                  value={categoryFilter}
+                  onChange={handleCategoryChange}
+                />
+                <FilterGroup
+                  label="Lifecycle"
+                  options={[
+                    { value: 'all', label: 'All' },
+                    ...allLifecycle.map((s) => ({ value: s, label: LIFECYCLE_LABELS[s] })),
+                  ]}
+                  value={lifecycleFilter}
+                  onChange={handleLifecycleChange}
+                />
+              </div>
+              {activeFilterCount > 0 ? (
+                <div className="mt-6 border-t border-bds-gray-10 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUpgradeFilter('all');
+                      setKindFilter('all');
+                      setCategoryFilter('all');
+                      setLifecycleFilter('all');
+                    }}
+                    className="w-full text-center text-[13px] text-bds-gray-50 transition-colors hover:text-black"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              ) : null}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <div className="hidden md:block">
+        <table className="w-full table-fixed text-left text-sm">
+          <thead className="border-b border-bds-gray-10 text-bds-gray-50">
             <tr aria-label="Column headers">
-              <th scope="col" className="px-5 py-3 font-medium font-mono uppercase">
+              <th scope="col" className="px-4 py-3 text-[13px] font-normal">
                 Title
               </th>
-              <th scope="col" className="px-5 py-3 font-medium">
+              <th scope="col" className="w-[80px] px-4 py-3 text-[13px] font-normal">
                 Type
               </th>
-              <th scope="col" className="px-5 py-3 font-medium">
+              <th scope="col" className="w-[100px] px-4 py-3 text-[13px] font-normal">
                 Category
               </th>
-              <th scope="col" className="px-5 py-3 font-medium">
+              <th scope="col" className="w-[140px] px-4 py-3 text-[13px] font-normal">
                 Upgrade
               </th>
-              <th scope="col" className="px-5 py-3 font-medium">
-                Lifecycle
+              <th scope="col" className="w-[110px] px-4 py-3 text-[13px] font-normal">
+                Sepolia
+              </th>
+              <th scope="col" className="w-[110px] px-4 py-3 text-[13px] font-normal">
+                Mainnet
               </th>
             </tr>
           </thead>
           <tbody>
-            {paged.map((change) => (
-              <tr
+            {filtered.map((change, idx) => (
+              <motion.tr
                 key={change.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1], delay: Math.min(idx * 0.02, 0.15) }}
                 aria-label={changeDisplayTitle(change)}
-                className="border-t border-bds-gray-10 transition-colors hover:bg-bds-gray-5 dark:border-white/10 dark:hover:bg-white/10"
+                className="border-b border-bds-gray-10 transition-colors hover:bg-bds-gray-5/50"
               >
-                <td aria-label="Title" className="px-5 py-4">
+                <td aria-label="Title" className="px-4 py-3.5">
                   <Link href={`/upgrades/changelog/${change.slug}`}>
                     <Text variant="label" className="transition-colors hover:text-base-blue">
                       {changeDisplayTitle(change)}
                     </Text>
                   </Link>
                 </td>
-                <td className="px-5 py-4">
+                <td className="px-4 py-3.5">
                   <KindBadge kind={change.kind} />
                 </td>
-                <td className="px-5 py-4">
+                <td className="px-4 py-3.5">
                   <CategoryBadge category={change.category} />
                 </td>
-                <td aria-label="Upgrade" className="px-5 py-4">
-                  <Text variant="label.regular" tone="muted">
-                    {scheduleLabel(change)}
-                  </Text>
+                <td aria-label="Upgrade" className="px-4 py-3.5">
+                  <div className="flex items-center gap-1.5">
+                    {change.upgrade ? (
+                      <div className="h-[18px] w-[18px] shrink-0">
+                        <UpgradeIllustration upgradeId={change.upgrade} />
+                      </div>
+                    ) : getVibenetChangeById(change.id) ? (
+                      <VibenetIcon size={18} className="shrink-0 text-bds-gray-40" />
+                    ) : null}
+                    <Text variant="label.regular" tone="muted">
+                      {scheduleLabel(change)}
+                    </Text>
+                  </div>
                 </td>
-                <td className="px-5 py-4">
-                  <ChangeLifecycleStatus change={change} />
+                <td className="px-4 py-3.5">
+                  <NetworkStatus change={change} network="sepolia" />
                 </td>
-              </tr>
+                <td className="px-4 py-3.5">
+                  <NetworkStatus change={change} network="mainnet" />
+                </td>
+              </motion.tr>
             ))}
             {filtered.length === 0 ? (
               <tr aria-label="No results">
-                <td colSpan={5}>
-                  <EmptyState
-                    bordered={false}
-                    description="No changes match your filters."
-                    className="px-5 py-10 text-center"
-                  />
+                <td colSpan={6} className="px-4 py-10 text-center">
+                  <Text variant="label.medium">No Changes</Text>
+                  <Text variant="label.regular" tone="muted" className="mt-1">Try adjusting your search or filter criteria.</Text>
                 </td>
               </tr>
             ) : null}
           </tbody>
         </table>
-      </Card>
+      </div>
 
       <div className="grid gap-3 md:hidden">
-        {paged.map((change) => (
+        {filtered.map((change) => (
           <LinkCard
             key={change.id}
             href={`/upgrades/changelog/${change.slug}`}
@@ -281,7 +414,10 @@ export function ChangelogClient() {
           >
             <div className="flex items-center justify-between gap-3">
               <KindBadge kind={change.kind} />
-              <ChangeLifecycleStatus change={change} />
+              <div className="flex items-center gap-3">
+                <NetworkStatus change={change} network="sepolia" />
+                <NetworkStatus change={change} network="mainnet" />
+              </div>
             </div>
             <Text variant="headline" className="mt-3">
               {change.title}
@@ -291,74 +427,24 @@ export function ChangelogClient() {
             </Text>
             <div className="mt-4 flex items-center justify-between gap-2">
               <CategoryBadge category={change.category} />
-              <Text variant="footnote" tone="muted" className="font-mono">
+              <Text variant="footnote" tone="muted">
                 {formatShortDate(change.lastUpdated)}
               </Text>
             </div>
           </LinkCard>
         ))}
         {filtered.length === 0 ? (
-          <EmptyState description="No changes match your filters." className="p-6 text-center" />
+          <div className="p-6 text-center">
+            <Text variant="label.medium">No Changes</Text>
+            <Text variant="label.regular" tone="muted" className="mt-1">Try adjusting your search or filter criteria.</Text>
+          </div>
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Text variant="footnote" tone="muted" className={cn('font-mono')}>
-          {filtered.length === 0
-            ? `0 of ${changes.length} changes`
-            : `${rangeStart}–${rangeEnd} of ${filtered.length} changes`}
+      <div className="mt-4">
+        <Text variant="footnote" tone="muted">
+          {filtered.length} of {changes.length} changes
         </Text>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Text variant="footnote" tone="muted" className="font-mono uppercase">
-              Rows
-            </Text>
-            <div className="flex overflow-hidden rounded-full border border-bds-gray-10 dark:border-white/10">
-              {PAGE_SIZE_OPTIONS.map((size) => (
-                <button
-                  key={size}
-                  type="button"
-                  data-size={size}
-                  onClick={handlePageSizeClick}
-                  aria-pressed={pageSize === size}
-                  className={cn(
-                    'px-3 py-1.5 font-mono text-[13px] transition-colors',
-                    pageSize === size
-                      ? 'bg-base-blue text-white'
-                      : 'bg-white text-bds-gray-60 hover:bg-bds-gray-5 dark:bg-white/10 dark:text-bds-gray-20 dark:hover:bg-white/20',
-                  )}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handlePrevPage}
-              disabled={currentPage === 0}
-              aria-label="Previous page"
-              className="h-9 rounded-full border border-bds-gray-10 bg-white px-4 font-mono text-[13px] text-black transition-colors hover:bg-bds-gray-5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-            >
-              Prev
-            </button>
-            <Text variant="footnote" tone="muted" className="font-mono">
-              {currentPage + 1} / {totalPages}
-            </Text>
-            <button
-              type="button"
-              onClick={handleNextPage}
-              disabled={currentPage >= totalPages - 1}
-              aria-label="Next page"
-              className="h-9 rounded-full border border-bds-gray-10 bg-white px-4 font-mono text-[13px] text-black transition-colors hover:bg-bds-gray-5 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </div>
     </>
   );

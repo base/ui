@@ -87,7 +87,6 @@ export default function Home() {
 
       <section>
         <SectionHeading
-          eyebrow="Explore"
           title="Surfaces"
           description="Jump into the Base network dashboards and tools."
           className="mb-8"

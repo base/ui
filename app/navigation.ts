@@ -1,4 +1,4 @@
-export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'vibenet' | 'tips';
+export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'tips';
 
 export type NavItem = {
   label: string;
@@ -13,14 +13,19 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Home', href: '/', icon: 'home', enabled: true },
   { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
   { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
+  { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
   { label: 'Vibenet', href: '/vibenet', icon: 'vibenet', enabled: true },
   { label: 'TIPS', href: '/tips', icon: 'tips', enabled: false },
 ];
 
 export function titleForPath(pathname: string): string {
   if (pathname === '/') return 'Home';
-  const match = NAV_ITEMS.find((item) => item.href !== '/' && pathname.startsWith(item.href));
-  return match ? match.label : '';
+  const matches = NAV_ITEMS.filter(
+    (item) => item.href !== '/' && (pathname === item.href || pathname.startsWith(`${item.href}/`)),
+  );
+  if (matches.length === 0) return '';
+  matches.sort((a, b) => b.href.length - a.href.length);
+  return matches[0].label;
 }
 
 // A sub-page tab within a top-level section. These render in the topbar (the
@@ -37,14 +42,6 @@ export type SectionTab = {
 // entry simply shows no tabs. Detail routes (e.g. changelog/[slug]) inherit the
 // section's tabs but highlight none.
 const SECTION_TABS: { prefix: string; tabs: SectionTab[] }[] = [
-  {
-    prefix: '/upgrades',
-    tabs: [
-      { label: 'Overview', href: '/upgrades', exact: true },
-      { label: 'Changelog', href: '/upgrades/changelog' },
-      { label: 'Schedule', href: '/upgrades/schedule' },
-    ],
-  },
   {
     prefix: '/vibenet',
     tabs: [

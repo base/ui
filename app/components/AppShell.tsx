@@ -8,7 +8,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { spectrum } from '../spectrum';
+import { getChangeBySlug } from '../upgrades/data/changes';
+import { getUpgradeById } from '../upgrades/data/upgrades';
 
+import { Breadcrumb } from './ui/Breadcrumb';
+import { AnimatedArrowIcon, CloseIcon, VibenetIcon } from './ui/icons';
 import { Text } from './ui/Text';
 
 function BaseLogo() {
@@ -36,7 +40,7 @@ type NavGlyphProps = {
 };
 
 const styles: Record<string, CSSProperties> = {
-  root: { display: 'flex', height: '100vh', overflow: 'hidden', color: INK },
+  root: { display: 'flex', flex: 1, overflow: 'hidden', color: INK },
   sidebar: {
     width: SIDEBAR_WIDTH,
     flexShrink: 0,
@@ -171,16 +175,32 @@ function NavGlyph({ name }: NavGlyphProps) {
           />
         </svg>
       );
-    case 'vibenet':
-      return (
-        <svg {...common} viewBox="5 5 30 30" strokeWidth={2.5} className="nav-vibenet-icon">
-          <path d="M30.2895 14.8575L20.0038 20.0002M20.0038 20.0002L10.2895 14.2861M20.0038 20.0002L20.0038 30.8571M30.8608 22.8275V17.1724C30.8608 15.3861 29.9078 13.7354 28.3608 12.8423L22.4737 9.44331C20.9267 8.55015 19.0207 8.55015 17.4737 9.44331L11.5865 12.8423C10.0395 13.7354 9.08649 15.3861 9.08649 17.1724V22.8275C9.08649 24.6138 10.0395 26.2644 11.5865 27.1576L17.4737 30.5566C19.0207 31.4497 20.9267 31.4497 22.4737 30.5566L28.3608 27.1576C29.9078 26.2644 30.8608 24.6138 30.8608 22.8275Z" />
-        </svg>
-      );
-    case 'tips':
+    case 'changelog':
       return (
         <svg width={common.width} height={common.height} viewBox="5 5 30 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <path d="M23 13H30.5M12 13H14.5M18.5 13H19M23 20H30.5M12 20H14.5M18.5 20H19M23 27H30.5M12 27H14.5M18.5 27H19" />
+          <g className="changelog-row changelog-row-1">
+            <line x1="12" y1="13" x2="14.5" y2="13" />
+            <line x1="18.5" y1="13" x2="19" y2="13" />
+            <line x1="23" y1="13" x2="30.5" y2="13" />
+          </g>
+          <g className="changelog-row changelog-row-2">
+            <line x1="12" y1="20" x2="14.5" y2="20" />
+            <line x1="18.5" y1="20" x2="19" y2="20" />
+            <line x1="23" y1="20" x2="30.5" y2="20" />
+          </g>
+          <g className="changelog-row changelog-row-3">
+            <line x1="12" y1="27" x2="14.5" y2="27" />
+            <line x1="18.5" y1="27" x2="19" y2="27" />
+            <line x1="23" y1="27" x2="30.5" y2="27" />
+          </g>
+        </svg>
+      );
+    case 'vibenet':
+      return <VibenetIcon size={common.width} className="nav-vibenet-icon" />;
+    case 'tips':
+      return (
+        <svg {...common}>
+          <path d="M13 2L4.5 14H12L11 22L19.5 10H12L13 2Z" />
         </svg>
       );
     default:
@@ -250,7 +270,16 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
 
       <nav style={styles.nav}>
         {NAV_ITEMS.filter((item) => item.icon !== 'tips').map((item) => {
-          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+          let active: boolean;
+          if (item.href === '/') {
+            active = pathname === '/';
+          } else {
+            const isMatch = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const hasMoreSpecific = NAV_ITEMS.some(
+              (other) => other.href !== item.href && other.href.startsWith(item.href) && (pathname === other.href || pathname.startsWith(`${other.href}/`)),
+            );
+            active = isMatch && !hasMoreSpecific;
+          }
           return (
             <NavRow
               key={item.href}
@@ -303,6 +332,32 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
   );
 }
 
+function GlobalBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div className="relative flex items-center justify-center border-b border-bds-gray-10 bg-bds-gray-5 px-4 py-2 sm:px-10">
+      <span className="flex items-center gap-2">
+        <Text as="span" variant="label.medium">New!</Text>
+        <Text as="span" variant="label.medium" className="-ml-1">Account Abstraction by Account Configuration</Text>
+        <span className="inline-block h-3.5 w-px bg-bds-gray-20"></span>
+        <Link href="/upgrades/changelog/account-abstraction-by-account-configuration" className="group flex items-center gap-1 no-underline">
+          <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
+          <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
+        </Link>
+      </span>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="absolute right-4 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
+        aria-label="Dismiss banner"
+      >
+        <CloseIcon size={10} />
+      </button>
+    </div>
+  );
+}
+
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
@@ -326,8 +381,10 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [menuOpen]);
 
   return (
-    <div style={styles.root}>
-      {/* Desktop sidebar */}
+    <div className="flex h-screen flex-col overflow-hidden">
+      <GlobalBanner />
+      <div style={styles.root}>
+        {/* Desktop sidebar */}
       <aside className="sidebar-desktop" style={styles.sidebar}>
         <SidebarContent />
       </aside>
@@ -367,7 +424,31 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <div className="mobile-content-offset" style={styles.main}>
         <header className="topbar-desktop" style={{ ...styles.topbar, justifyContent: tabs.length > 0 ? undefined : 'center' }}>
-          <Text as="span" variant="headline">{title}</Text>
+          {(() => {
+            const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
+            if (slugMatch) {
+              const change = getChangeBySlug(slugMatch[1]);
+              return (
+                <Breadcrumb
+                  parentLabel="Changelog"
+                  parentHref="/upgrades/changelog"
+                  childLabel={change?.title ?? slugMatch[1]}
+                />
+              );
+            }
+            const upgradeMatch = pathname.match(/^\/upgrades\/upgrade\/(.+)$/);
+            if (upgradeMatch) {
+              const upgrade = getUpgradeById(upgradeMatch[1]);
+              return (
+                <Breadcrumb
+                  parentLabel="Upgrades"
+                  parentHref="/upgrades"
+                  childLabel={upgrade?.name ?? upgradeMatch[1]}
+                />
+              );
+            }
+            return <Text as="span" variant="headline">{title}</Text>;
+          })()}
           {tabs.length > 0 && (
             <nav style={styles.topbarNav}>
               {tabs.map((tab) => {
@@ -389,6 +470,7 @@ export function AppShell({ children }: PropsWithChildren) {
         <main style={styles.content}>
           <div style={styles.contentInner}>{children}</div>
         </main>
+        </div>
       </div>
     </div>
   );

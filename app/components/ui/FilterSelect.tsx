@@ -1,44 +1,124 @@
-import { useCallback } from 'react';
-import type { ChangeEvent, ReactNode } from 'react';
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { cn } from './cn';
+
+type Option = {
+  value: string;
+  label: string;
+};
 
 type FilterSelectProps = {
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
-  children: ReactNode;
+  options: Option[];
+  minDropdownWidth?: number;
 };
 
-// Pill-styled native select with a custom chevron. Extracted from the changelog
-// filter bar so any future filter UI can reuse the same control.
-export function FilterSelect({ value, onChange, ariaLabel, children }: FilterSelectProps) {
-  const handleChange = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value),
+export function FilterSelect({ value, onChange, ariaLabel, options, minDropdownWidth }: FilterSelectProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const sizerRef = useRef<HTMLSpanElement>(null);
+  const [dropdownW, setDropdownW] = useState<number | undefined>();
+  const selected = options.find((o) => o.value === value);
+
+  useEffect(() => {
+    if (!sizerRef.current) return;
+    const spans = sizerRef.current.children;
+    let max = 0;
+    for (let i = 0; i < spans.length; i++) {
+      max = Math.max(max, (spans[i] as HTMLElement).offsetWidth);
+    }
+    setDropdownW(max + 24);
+  }, [options]);
+
+  const toggle = useCallback(() => setOpen((o) => !o), []);
+
+  const handleSelect = useCallback(
+    (v: string) => {
+      onChange(v);
+      setOpen(false);
+    },
     [onChange],
   );
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="relative inline-flex">
-      <select
-        value={value}
-        onChange={handleChange}
+    <div ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={toggle}
         aria-label={ariaLabel}
-        className="h-11 w-full appearance-none rounded-full border border-bds-gray-10 bg-white pl-4 pr-9 text-[14px] text-black outline-none dark:border-white/10 dark:bg-white/10 dark:text-white"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-white px-3 text-[14px] text-black outline-none transition-colors hover:bg-bds-gray-5"
       >
-        {children}
-      </select>
-      <svg
-        aria-hidden="true"
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-bds-gray-60 dark:text-bds-gray-20"
-      >
-        <path d="M4 6L8 10L12 6" />
-      </svg>
+        <span className="whitespace-nowrap">
+          {selected?.label ?? value}
+        </span>
+        <svg
+          aria-hidden="true"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={cn('shrink-0 text-bds-gray-40 transition-transform duration-150', open && 'rotate-180')}
+        >
+          <path d="M4 6L8 10L12 6" />
+        </svg>
+      </button>
+
+      <span ref={sizerRef} aria-hidden className="pointer-events-none invisible fixed left-0 top-0 flex flex-col whitespace-nowrap text-[14px]">
+        {options.map((o) => (
+          <span key={o.value}>{o.label}</span>
+        ))}
+      </span>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label={ariaLabel}
+          style={{ minWidth: Math.max(dropdownW ?? 0, minDropdownWidth ?? 0) || undefined }}
+          className="absolute left-0 top-full z-50 mt-1 max-h-64 min-w-full overflow-y-auto rounded-xl border border-bds-gray-10 bg-white py-1 shadow-lg"
+        >
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onClick={() => handleSelect(option.value)}
+              className={cn(
+                'flex w-full items-center px-3 py-2 text-left text-[14px] transition-colors hover:bg-bds-gray-5',
+                option.value === value ? 'text-black' : 'text-bds-gray-60',
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

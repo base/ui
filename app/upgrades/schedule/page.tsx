@@ -14,9 +14,8 @@ export const metadata: Metadata = {
 
 export default function SchedulePage() {
   return (
-    <div className="flex flex-col gap-8 pb-4 text-black">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 pb-4 text-black">
       <SectionHeading
-        eyebrow="Schedule"
         title="Activation Calendar"
         description="Review Sepolia and Mainnet activation dates in one calendar."
         className="max-w-2xl"
