@@ -28,8 +28,10 @@ export const FEATURES: VibenetFeature[] = [
       { title: 'Batch everything', detail: 'atomic multicall with top-level metadata' },
     ],
     // The account demo has shipped, so the card links straight to it and shows
-    // as `live` (which hides the "coming-soon" badge).
+    // as `live` (which hides the "coming-soon" badge). "Build your own" points at
+    // the EIP-8130 build guide.
     cta: { label: 'Open the demo', href: '/vibenet/demos/account' },
+    secondaryCta: { label: 'Build your own', href: '/vibenet/demos/account/build' },
     links: [{ label: 'EIP-8130', href: 'https://eip.tools/eip/8130', external: true }],
   },
 ];

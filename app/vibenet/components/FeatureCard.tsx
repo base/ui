@@ -35,7 +35,8 @@ export function FeatureCard({ feature }: FeatureCardProps) {
   const hasHighlights = highlights.length > 0;
   const links = feature.links ?? [];
   const showStatus = feature.status !== 'live';
-  const hasActions = Boolean(feature.cta) || showStatus || links.length > 0;
+  const hasActions =
+    Boolean(feature.cta) || Boolean(feature.secondaryCta) || showStatus || links.length > 0;
 
   return (
     <Card
@@ -66,6 +67,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
         {hasActions ? (
           <div className="mt-5 flex flex-wrap items-center gap-3">
             {feature.cta ? <LinkButton link={feature.cta} primary /> : null}
+            {feature.secondaryCta ? <LinkButton link={feature.secondaryCta} /> : null}
             {showStatus ? (
               <span className="inline-flex items-center rounded-full border border-bds-gray-10 px-4 py-2 text-[14px] text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40">
                 {STATUS_LABEL[feature.status]}
