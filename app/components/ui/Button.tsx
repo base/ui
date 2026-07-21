@@ -2,6 +2,7 @@ import type { ComponentPropsWithoutRef } from 'react';
 import Link from 'next/link';
 
 import { cn } from './cn';
+import { AnimatedArrowIcon } from './icons';
 import { textVariantClasses } from './Text';
 
 type ButtonProps = ComponentPropsWithoutRef<'button'> & {
@@ -20,27 +21,6 @@ const variantClasses = {
   outline:
     'text-foreground bg-transparent border border-bds-gray-10 hover:bg-bds-gray-5 dark:border-white/[.12] dark:hover:bg-white/[.06]',
 } as const;
-
-const arrowSvg = (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 20 20"
-    fill="none"
-    aria-hidden="true"
-    className="transition-transform duration-300 ease-out group-hover:translate-x-[3px]"
-  >
-    <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth="1.5" />
-    <path
-      d="M13.5 10H0"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeDasharray="13.5"
-      strokeDashoffset="13.5"
-      className="transition-all duration-300 ease-out group-hover:[stroke-dashoffset:0]"
-    />
-  </svg>
-);
 
 export function Button({
   className = '',
@@ -76,7 +56,7 @@ export function Button({
     return (
       <Link href={href} target={target} rel={rel} className={classes}>
         {children}
-        {arrow && arrowSvg}
+        {arrow && <AnimatedArrowIcon className="transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />}
       </Link>
     );
   }
@@ -84,7 +64,7 @@ export function Button({
   return (
     <button type={type === 'submit' ? 'submit' : 'button'} className={classes} {...props}>
       {children}
-      {arrow && arrowSvg}
+      {arrow && <AnimatedArrowIcon className="transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />}
     </button>
   );
 }

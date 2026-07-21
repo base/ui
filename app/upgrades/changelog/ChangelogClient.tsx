@@ -8,8 +8,10 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { LinkCard } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { FilterSelect } from '../../components/ui/FilterSelect';
+import { CloseIcon, VibenetIcon } from '../../components/ui/icons';
 import { Text } from '../../components/ui/Text';
 import { CategoryBadge, KindBadge, StatusPill } from '../components/Badges';
+import { FilterGroup } from '../components/FilterGroup';
 import { UpgradeIllustration } from '../components/UpgradeIllustration';
 import { changes } from '../data/changes';
 import { getLifecycleForChange, getUpgradeById, getUpgradesReversed } from '../data/upgrades';
@@ -260,18 +262,7 @@ export function ChangelogClient() {
                   onClick={() => setFiltersOpen(false)}
                   className="-mr-2 flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-bds-gray-5"
                 >
-                  <svg
-                    aria-hidden="true"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M4 4l8 8M12 4l-8 8" />
-                  </svg>
+                  <CloseIcon size={16} />
                 </button>
               </div>
               <div className="space-y-5">
@@ -398,28 +389,28 @@ export function ChangelogClient() {
       </AnimatePresence>
 
       <div className="hidden md:block">
-        <table className="w-full text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
           <thead className="border-b border-bds-gray-10 text-bds-gray-50">
             <tr aria-label="Column headers">
               <th scope="col" className="px-4 py-3 text-[13px] font-normal">
                 Title
               </th>
-              <th scope="col" className="px-4 py-3 text-[13px] font-normal">
+              <th scope="col" className="w-[80px] px-4 py-3 text-[13px] font-normal">
                 Type
               </th>
-              <th scope="col" className="px-4 py-3 text-[13px] font-normal">
+              <th scope="col" className="w-[100px] px-4 py-3 text-[13px] font-normal">
                 Category
               </th>
-              <th scope="col" className="px-4 py-3 text-[13px] font-normal">
+              <th scope="col" className="w-[140px] px-4 py-3 text-[13px] font-normal">
                 Upgrade
               </th>
-              <th scope="col" className="px-4 py-3 text-[13px] font-normal">
+              <th scope="col" className="w-[110px] px-4 py-3 text-[13px] font-normal">
                 Sepolia
               </th>
-              <th scope="col" className="px-4 py-3 text-[13px] font-normal">
+              <th scope="col" className="w-[110px] px-4 py-3 text-[13px] font-normal">
                 Mainnet
               </th>
-              <th scope="col" className="px-4 py-3 text-[13px] font-normal">
+              <th scope="col" className="w-[90px] px-4 py-3 text-[13px] font-normal">
                 Updated
               </th>
             </tr>

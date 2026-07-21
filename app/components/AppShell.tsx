@@ -11,6 +11,8 @@ import { spectrum } from '../spectrum';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 
+import { Breadcrumb } from './ui/Breadcrumb';
+import { AnimatedArrowIcon, CloseIcon, VibenetIcon } from './ui/icons';
 import { Text } from './ui/Text';
 
 function BaseLogo() {
@@ -194,11 +196,7 @@ function NavGlyph({ name }: NavGlyphProps) {
         </svg>
       );
     case 'vibenet':
-      return (
-        <svg {...common} viewBox="5 5 30 30" strokeWidth={2.5} className="nav-vibenet-icon">
-          <path d="M30.2895 14.8575L20.0038 20.0002M20.0038 20.0002L10.2895 14.2861M20.0038 20.0002L20.0038 30.8571M30.8608 22.8275V17.1724C30.8608 15.3861 29.9078 13.7354 28.3608 12.8423L22.4737 9.44331C20.9267 8.55015 19.0207 8.55015 17.4737 9.44331L11.5865 12.8423C10.0395 13.7354 9.08649 15.3861 9.08649 17.1724V22.8275C9.08649 24.6138 10.0395 26.2644 11.5865 27.1576L17.4737 30.5566C19.0207 31.4497 20.9267 31.4497 22.4737 30.5566L28.3608 27.1576C29.9078 26.2644 30.8608 24.6138 30.8608 22.8275Z" />
-        </svg>
-      );
+      return <VibenetIcon size={common.width} className="nav-vibenet-icon" />;
     case 'tips':
       return (
         <svg {...common}>
@@ -345,10 +343,7 @@ function GlobalBanner() {
         <span className="inline-block h-3.5 w-px bg-bds-gray-20"></span>
         <Link href="/upgrades/changelog/account-abstraction-by-account-configuration" className="group flex items-center gap-1 no-underline">
           <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="text-base-blue transition-[transform] duration-200 ease-out group-hover:translate-x-[3px]" aria-hidden="true">
-            <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth="2" />
-            <path d="M13.5 10H0" stroke="currentColor" strokeWidth="2" strokeDasharray="13.5" strokeDashoffset="13.5" className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]" />
-          </svg>
+          <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
         </Link>
       </span>
       <button
@@ -357,10 +352,7 @@ function GlobalBanner() {
         className="absolute right-4 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
         aria-label="Dismiss banner"
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <line x1="1" y1="1" x2="9" y2="9" />
-          <line x1="9" y1="1" x2="1" y2="9" />
-        </svg>
+        <CloseIcon size={10} />
       </button>
     </div>
   );
@@ -437,26 +429,22 @@ export function AppShell({ children }: PropsWithChildren) {
             if (slugMatch) {
               const change = getChangeBySlug(slugMatch[1]);
               return (
-                <span className="flex items-center gap-2">
-                  <Link href="/upgrades/changelog" className="no-underline">
-                    <Text as="span" variant="headline" className="text-bds-gray-40">Changelog</Text>
-                  </Link>
-                  <Text as="span" variant="headline" className="text-bds-gray-30">/</Text>
-                  <Text as="span" variant="headline">{change?.title ?? slugMatch[1]}</Text>
-                </span>
+                <Breadcrumb
+                  parentLabel="Changelog"
+                  parentHref="/upgrades/changelog"
+                  childLabel={change?.title ?? slugMatch[1]}
+                />
               );
             }
             const upgradeMatch = pathname.match(/^\/upgrades\/upgrade\/(.+)$/);
             if (upgradeMatch) {
               const upgrade = getUpgradeById(upgradeMatch[1]);
               return (
-                <span className="flex items-center gap-2">
-                  <Link href="/upgrades" className="no-underline">
-                    <Text as="span" variant="headline" className="text-bds-gray-40">Upgrades</Text>
-                  </Link>
-                  <Text as="span" variant="headline" className="text-bds-gray-30">/</Text>
-                  <Text as="span" variant="headline">{upgrade?.name ?? upgradeMatch[1]}</Text>
-                </span>
+                <Breadcrumb
+                  parentLabel="Upgrades"
+                  parentHref="/upgrades"
+                  childLabel={upgrade?.name ?? upgradeMatch[1]}
+                />
               );
             }
             return <Text as="span" variant="headline">{title}</Text>;

@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
+import { FadeInUp } from '../components/ui/FadeInUp';
+
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Tabs } from '../components/ui/Tabs';
@@ -129,25 +131,19 @@ function TimelineView({ nowMs }: { nowMs: number }) {
 
         {planningUpgrades.length > 0 && (
           <div className="mb-12">
-            <motion.div
-              initial={{ opacity: 0, transform: 'translateY(6px)' }}
-              animate={{ opacity: 1, transform: 'translateY(0px)' }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-            >
+            <FadeInUp offset={6} duration={0.3}>
               <Text variant="headline" tone="muted" className="mb-8 pl-[111px]">
                 Upcoming
               </Text>
-            </motion.div>
+            </FadeInUp>
             <div className="flex flex-col gap-10">
               {planningUpgrades.map((upgrade) => {
                 const count = changes.filter((c) => c.upgrade === upgrade.id).length;
                 const i = entryIndex++;
                 return (
-                  <motion.div
+                  <FadeInUp
                     key={upgrade.id}
-                    initial={{ opacity: 0, transform: 'translateY(8px)' }}
-                    animate={{ opacity: 1, transform: 'translateY(0px)' }}
-                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: Math.min(i * 0.04, 0.2) }}
+                    index={i}
                     className="relative flex items-start gap-3"
                   >
                     <div className="w-[80px] shrink-0 pt-0.5 text-right">
@@ -176,7 +172,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                         </Text>
                       </div>
                     </Link>
-                  </motion.div>
+                  </FadeInUp>
                 );
               })}
             </div>
@@ -185,25 +181,19 @@ function TimelineView({ nowMs }: { nowMs: number }) {
 
         {months.map((month, mi) => (
           <div key={month.label} className={mi > 0 ? 'mt-12' : ''}>
-            <motion.div
-              initial={{ opacity: 0, transform: 'translateY(6px)' }}
-              animate={{ opacity: 1, transform: 'translateY(0px)' }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1], delay: Math.min(entryIndex * 0.04, 0.2) }}
-            >
+            <FadeInUp index={entryIndex} offset={6} duration={0.3}>
               <Text variant="headline" tone="muted" className="mb-8 pl-[111px]">
                 {month.label}
               </Text>
-            </motion.div>
+            </FadeInUp>
 
             <div className="flex flex-col gap-10">
               {month.entries.map((entry) => {
                 const i = entryIndex++;
                 return (
-                  <motion.div
+                  <FadeInUp
                     key={`${entry.upgradeId}-${entry.network}`}
-                    initial={{ opacity: 0, transform: 'translateY(8px)' }}
-                    animate={{ opacity: 1, transform: 'translateY(0px)' }}
-                    transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: Math.min(i * 0.04, 0.2) }}
+                    index={i}
                     className="relative flex items-start gap-3"
                   >
                     <div className="w-[80px] shrink-0 pt-0.5 text-right">
@@ -240,7 +230,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                         </Text>
                       </div>
                     </Link>
-                  </motion.div>
+                  </FadeInUp>
                 );
               })}
             </div>
@@ -255,11 +245,10 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
     <div className="grid gap-4 md:grid-cols-2">
         {upgrades.map((upgrade, idx) => {
           return (
-            <motion.div
+            <FadeInUp
               key={upgrade.id}
-              initial={{ opacity: 0, transform: 'translateY(10px)' }}
-              animate={{ opacity: 1, transform: 'translateY(0px)' }}
-              transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1], delay: Math.min(idx * 0.04, 0.2) }}
+              index={idx}
+              offset={10}
             >
             <Card
               className="flex flex-col overflow-hidden rounded-2xl bg-white transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md"
@@ -298,7 +287,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
               </div>
               </div>
             </Card>
-            </motion.div>
+            </FadeInUp>
           );
         })}
       </div>
