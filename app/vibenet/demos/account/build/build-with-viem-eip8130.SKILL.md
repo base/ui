@@ -28,12 +28,12 @@ sponsorship. The tooling lives in viem's `experimental/eip8130` module.
   - Public execution RPC — `https://rpc.vibes.base.org`. This **is** 8130-capable
     (`AA_TX_TYPE` / `0x79`); use it for reads, estimates, and broadcasts from
     Node/scripts.
-  - Browser proxy — `https://vibes.base.org/api/vibenet/account/rpc`. Same
+  - Browser proxy — `https://api.vibes.base.org/api/vibenet/account/rpc`. Same
     upstream chain, exposed as a same-origin Next.js proxy so the web UI can
     call `eth_*` without CORS. Prefer this from the browser; from Node either
     URL works.
-  - Hosted payer — `https://vibes.base.org/api/vibenet/account/payer`.
-  - Faucet — `POST https://vibes.base.org/api/vibenet/faucet/drip`
+  - Hosted payer — `https://api.vibes.base.org/api/vibenet/account/payer`.
+  - Faucet — `POST https://api.vibes.base.org/api/vibenet/faucet/drip`
     with `{ "address": "0x…" }`.
 - **Base Sepolia** — `https://sepolia.base.org`, chain id `84532`.
 
@@ -95,7 +95,7 @@ const chain = {
   rpcUrls: { default: { http: [RPC_URL] } },
 };
 const client = createPublicClient({ chain, transport: http(RPC_URL) });
-// Browser apps: use https://vibes.base.org/api/vibenet/account/rpc instead
+// Browser apps: use https://api.vibes.base.org/api/vibenet/account/rpc instead
 // (same chain, CORS-safe proxy).
 
 // 1) Signer = LocalAccount (NOT key.k1 — that builds an actor identity).
@@ -110,7 +110,7 @@ const signer = privateKeyToAccount(generatePrivateKey());
 //    the primary actor — you only call key.* when authorizing extra actors.
 
 // 3) Fund account.address (faucet), then estimate + send.
-await fetch("https://vibes.base.org/api/vibenet/faucet/drip", {
+await fetch("https://api.vibes.base.org/api/vibenet/faucet/drip", {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ address: account.address }),
@@ -241,7 +241,7 @@ import { createPayerClient, sendSponsoredCalls } from "viem/experimental/eip8168
 import { waitForTransactionReceipt8130 } from "viem/experimental/eip8130";
 
 const payerClient = createPayerClient({
-  url: "https://vibes.base.org/api/vibenet/account/payer",
+  url: "https://api.vibes.base.org/api/vibenet/account/payer",
 });
 
 // Default mode:"send" — payer co-signs and broadcasts.
