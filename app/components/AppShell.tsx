@@ -197,12 +197,6 @@ function NavGlyph({ name }: NavGlyphProps) {
       );
     case 'vibenet':
       return <VibenetIcon size={common.width} className="nav-vibenet-icon" />;
-    case 'tips':
-      return (
-        <svg {...common}>
-          <path d="M13 2L4.5 14H12L11 22L19.5 10H12L13 2Z" />
-        </svg>
-      );
     default:
       return null;
   }
@@ -269,7 +263,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
       )}
 
       <nav style={styles.nav}>
-        {NAV_ITEMS.filter((item) => item.icon !== 'tips').map((item) => {
+        {NAV_ITEMS.filter((item) => item.icon).map((item) => {
           let active: boolean;
           if (item.href === '/') {
             active = pathname === '/';
@@ -280,21 +274,6 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
             );
             active = isMatch && !hasMoreSpecific;
           }
-          return (
-            <NavRow
-              key={item.href}
-              icon={item.icon}
-              label={item.label}
-              href={item.href}
-              active={active}
-              enabled={item.enabled}
-              onNavigate={onNavigate}
-              layoutScope={layoutScope}
-            />
-          );
-        })}
-        {NAV_ITEMS.filter((item) => item.icon === 'tips').map((item) => {
-          const active = pathname.startsWith(item.href);
           return (
             <NavRow
               key={item.href}

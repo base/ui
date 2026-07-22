@@ -40,6 +40,8 @@ export type VibenetFeature = {
   highlights?: FeatureHighlight[];
   /** Primary action. Omitted while a target isn't ready (the card shows status). */
   cta?: FeatureLink;
+  /** Secondary action rendered as an outline button next to the primary CTA. */
+  secondaryCta?: FeatureLink;
   /** Secondary links (docs, EIP, etc.). */
   links?: FeatureLink[];
 };

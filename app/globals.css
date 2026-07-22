@@ -188,7 +188,7 @@ html,
 body {
   margin: 0;
   padding: 0;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 
 body {
