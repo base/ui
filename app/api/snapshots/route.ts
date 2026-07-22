@@ -67,13 +67,6 @@ const NETWORKS: NetworkConfig[] = [
     publicBaseUrl: 'https://sepolia-v2-snapshots.base.org',
     envPrefix: 'BASE_SEPOLIA',
   },
-  {
-    id: 'zeronet',
-    chainName: 'Base Zeronet',
-    bucket: 'base-zeronet-reth-v2-snapshots',
-    publicBaseUrl: 'https://zeronet-v2-snapshots.base.org',
-    envPrefix: 'BASE_ZERONET',
-  },
 ];
 
 export async function GET(request: Request) {
