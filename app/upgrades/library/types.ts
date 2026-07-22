@@ -9,6 +9,17 @@ export type Lifecycle = {
   mainnet: LifecycleStatusEntry;
 };
 
+/**
+ * Human-readable launch estimate per network (e.g. "Q3 2026", "September 2026").
+ * Display-only: it intentionally carries no parseable instant, so it never
+ * affects lifecycle state (an upgrade with only an estimate stays "planning")
+ * and gives date-scrapers nothing to mistake for a confirmed launch time.
+ */
+export type LifecycleEstimate = {
+  sepolia?: string;
+  mainnet?: string;
+};
+
 export type UpgradeStatus = 'live' | 'shipping' | 'scheduled' | 'planning';
 
 export type ChangeCategory =
@@ -79,6 +90,8 @@ export type Upgrade = {
   name: string;
   summary: string;
   lifecycle: Lifecycle;
+  /** Optional coarse launch estimate shown wherever an exact date is absent. */
+  estimate?: LifecycleEstimate;
   categories: UpgradeCategoryGroup[];
   migrationGuide: string[];
   specUrl: string;

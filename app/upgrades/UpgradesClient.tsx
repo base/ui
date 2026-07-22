@@ -20,7 +20,7 @@ import {
   NETWORK_LABELS,
   UPGRADE_NETWORKS,
 } from './library/display';
-import { formatShortDate } from './library/format';
+import { formatLifecycleDate } from './library/format';
 import { getLifecycleState } from './library/lifecycle';
 import type { Lifecycle, LifecycleState } from './library/types';
 
@@ -148,7 +148,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                   >
                     <div className="w-[80px] shrink-0 pt-0.5 text-right">
                       <Text variant="label.regular" tone="muted" className="text-[13px]">
-                        Coming Soon
+                        {upgrade.estimate?.mainnet ?? upgrade.estimate?.sepolia ?? 'Coming Soon'}
                       </Text>
                     </div>
                     <div className="relative z-10 flex shrink-0 items-start justify-center pt-[7px]">
@@ -271,13 +271,13 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
                   <div className="flex flex-col gap-0.5">
                     <Text variant="footnote" tone="muted" className="text-[9px] tracking-normal">Sepolia</Text>
                     <Text variant="label.medium" className="whitespace-nowrap text-black">
-                      {upgrade.lifecycle.sepolia.timestamp ? formatShortDate(upgrade.lifecycle.sepolia.timestamp) : 'Coming Soon'}
+                      {formatLifecycleDate(upgrade.lifecycle.sepolia, upgrade.estimate?.sepolia)}
                     </Text>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <Text variant="footnote" tone="muted" className="text-[9px] tracking-normal">Mainnet</Text>
                     <Text variant="label.medium" className="whitespace-nowrap text-black">
-                      {upgrade.lifecycle.mainnet.timestamp ? formatShortDate(upgrade.lifecycle.mainnet.timestamp) : 'Coming Soon'}
+                      {formatLifecycleDate(upgrade.lifecycle.mainnet, upgrade.estimate?.mainnet)}
                     </Text>
                   </div>
                 </div>

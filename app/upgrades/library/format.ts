@@ -1,3 +1,5 @@
+import type { LifecycleStatusEntry } from './types';
+
 export function formatDate(iso: string | undefined, opts?: Intl.DateTimeFormatOptions): string {
   if (!iso) return 'TBD';
   try {
@@ -22,6 +24,18 @@ export function formatShortDate(iso: string | undefined): string {
     minute: undefined,
     timeZoneName: undefined,
   });
+}
+
+/**
+ * Resolves the label shown for a network: a confirmed timestamp wins, otherwise
+ * fall back to a coarse human estimate ("Q3 2026"), otherwise "Coming Soon".
+ */
+export function formatLifecycleDate(
+  entry: LifecycleStatusEntry,
+  estimate?: string,
+): string {
+  if (entry.timestamp) return formatShortDate(entry.timestamp);
+  return estimate ?? 'Coming Soon';
 }
 
 export function sentenceJoin(parts: string[]): string {
