@@ -50,8 +50,21 @@ const baseSans = localFont({
 });
 
 export const metadata = {
+  metadataBase: new URL('https://chain.base.org'),
   title: 'Base Chain',
   description: 'Dashboards and tools for Base Chain, in one place.',
+  openGraph: {
+    type: 'website',
+    url: 'https://chain.base.org',
+    images: '/images/base-open-graph-v2.png',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@buildonbase',
+    title: 'Base Chain',
+    description: 'Base is the blockchain for global finance.',
+    images: '/images/base-open-graph-v2.png',
+  },
 };
 
 export default function RootLayout({ children }: PropsWithChildren) {
