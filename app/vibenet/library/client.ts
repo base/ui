@@ -27,7 +27,7 @@ import type {
   VibesRecentResponse,
 } from './api-types';
 
-const DEFAULT_BASE_URL = 'https://vibes.base.org';
+const DEFAULT_BASE_URL = 'https://api.vibes.base.org';
 
 // An unset OR empty env var falls back to the default. Trailing slash trimmed
 // so `${BASE}${path}` never doubles up.

@@ -19,7 +19,7 @@ import { isAddress } from "../../../library/format";
  * address does not match the sender".
  *
  * Rather than re-hardcode after every reset, the demo resolves these at runtime
- * from https://vibes.base.org/api/vibenet/contracts via {@link deploymentFromContracts}.
+ * from https://api.vibes.base.org/api/vibenet/contracts via {@link deploymentFromContracts}.
  * This constant is used only until that fetch lands (or if it fails). The K1
  * authenticator (ecrecover precompile) and p256/webAuthn/alwaysValid
  * authenticators are deterministic across resets; `accounts.upgradeable`/
