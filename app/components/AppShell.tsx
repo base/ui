@@ -1,15 +1,16 @@
 'use client';
 
-import { CSSProperties, PropsWithChildren, useEffect, useState } from 'react';
+import { CSSProperties, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../navigation';
+import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { spectrum } from '../spectrum';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { getUpgradeById } from '../upgrades/data/upgrades';
+import { titleForPath } from '../navigation';
 
 import { Breadcrumb } from './ui/Breadcrumb';
 import { AnimatedArrowIcon, CloseIcon, VibenetIcon } from './ui/icons';
@@ -26,11 +27,12 @@ function BaseLogo() {
 const SIDEBAR_WIDTH = 248;
 
 type NavRowProps = {
-  icon: NavIcon;
+  icon?: NavIcon;
   label: string;
   href: string;
   active: boolean;
   enabled: boolean;
+  hasChildren?: boolean;
   onNavigate?: () => void;
   layoutScope?: string;
 };
@@ -49,6 +51,7 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: 'column',
     padding: '0 12px 20px',
     position: 'relative',
+    overflow: 'hidden',
   },
   brand: {
     display: 'flex',
@@ -104,41 +107,13 @@ const styles: Record<string, CSSProperties> = {
     borderBottom: `1px solid ${SELECTED}`,
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     padding: '0 28px',
   },
   topbarTitle: { fontSize: 16, fontWeight: 500 },
-  topbarNav: {
-    marginLeft: 'auto',
-    alignSelf: 'stretch',
-    display: 'flex',
-    alignItems: 'stretch',
-    gap: 4,
-    overflowX: 'auto',
-  },
-  topbarTab: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    height: '100%',
-    padding: '0 10px',
-    fontSize: 14,
-    whiteSpace: 'nowrap',
-    textDecoration: 'none',
-    borderBottom: '2px solid transparent',
-    marginBottom: -1,
-  },
-  content: { flex: 1, overflowY: 'auto' },
-  contentInner: { maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px' },
+  content: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' as const },
+  contentInner: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px', flex: 1, display: 'flex', flexDirection: 'column' as const },
 };
-
-function topbarTabStyle(active: boolean): CSSProperties {
-  return {
-    ...styles.topbarTab,
-    color: active ? INK : MUTED,
-    fontWeight: active ? 500 : 400,
-    borderBottomColor: active ? BLUE : 'transparent',
-    transition: 'border-color 150ms ease-out',
-  };
-}
 
 function NavGlyph({ name }: NavGlyphProps) {
   const common = {
@@ -197,12 +172,33 @@ function NavGlyph({ name }: NavGlyphProps) {
       );
     case 'vibenet':
       return <VibenetIcon size={common.width} className="nav-vibenet-icon" />;
+    case 'demos':
+      return (
+        <svg {...common} className="nav-demos-icon">
+          <path d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
+        </svg>
+      );
+    case 'faucet':
+      return (
+        <svg {...common} className="nav-faucet-icon">
+          <path d="M12 3v3" />
+          <path d="M8 6h8" />
+          <path d="M15 6v4c0 2-1.5 3-3 5s-3 3-3 5a3 3 0 0 0 6 0" />
+        </svg>
+      );
+    case 'explorer':
+      return (
+        <svg {...common} className="nav-explorer-icon">
+          <circle cx="11" cy="11" r="7" />
+          <path d="M21 21l-4.35-4.35" />
+        </svg>
+      );
     default:
       return null;
   }
 }
 
-function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 'desktop' }: NavRowProps) {
+function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, layoutScope = 'desktop' }: NavRowProps) {
   let color = DISABLED;
   if (enabled) {
     color = active ? spectrum.gray[80] : spectrum.gray[50];
@@ -210,6 +206,7 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
 
   const row = (
     <div
+      className={hasChildren ? 'group' : undefined}
       style={{
         ...styles.navRow,
         position: 'relative',
@@ -230,11 +227,18 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
           transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
         />
       )}
-      <span style={{ ...styles.navIcon, position: 'relative' }}>
-        <NavGlyph name={icon} />
-      </span>
+      {icon && (
+        <span style={{ ...styles.navIcon, position: 'relative' }}>
+          <NavGlyph name={icon} />
+        </span>
+      )}
       <Text as="span" variant="label.medium" tone="inherit" style={{ position: 'relative' }}>{label}</Text>
       {!enabled && <span style={{ ...styles.soon, position: 'relative' }}>Soon</span>}
+      {hasChildren && (
+        <span style={{ marginLeft: 'auto', marginRight: -8, position: 'relative', color: spectrum.gray[50] }}>
+          <AnimatedArrowIcon size={16} strokeWidth={1.5} />
+        </span>
+      )}
     </div>
   );
 
@@ -250,8 +254,36 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
   );
 }
 
+function isChildActive(child: NavChild, pathname: string): boolean {
+  if (child.exact) return pathname === child.href;
+  return pathname === child.href || pathname.startsWith(`${child.href}/`);
+}
+
+const slideVariants = {
+  enter: (direction: number) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0.5 }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction: number) => ({ x: direction > 0 ? '-100%' : '100%', opacity: 0.5 }),
+};
+
+const slideTransition = { type: 'spring' as const, bounce: 0, duration: 0.3 };
+
 function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { onNavigate?: () => void; hideBrand?: boolean; layoutScope?: string }) {
   const pathname = usePathname() || '/';
+  const activeParent = getActiveParent(pathname);
+  const directionRef = useRef(1);
+  const prevParentRef = useRef<string | null>(activeParent?.href ?? null);
+
+  useEffect(() => {
+    const prev = prevParentRef.current;
+    const curr = activeParent?.href ?? null;
+    if (prev !== curr) {
+      directionRef.current = curr ? 1 : -1;
+      prevParentRef.current = curr;
+    }
+  }, [activeParent]);
+
+  const direction = directionRef.current;
+
   return (
     <>
       {!hideBrand && (
@@ -262,50 +294,125 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
         </div>
       )}
 
-      <nav style={styles.nav}>
-        {NAV_ITEMS.filter((item) => item.icon).map((item) => {
-          let active: boolean;
-          if (item.href === '/') {
-            active = pathname === '/';
-          } else {
-            const isMatch = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const hasMoreSpecific = NAV_ITEMS.some(
-              (other) => other.href !== item.href && other.href.startsWith(item.href) && (pathname === other.href || pathname.startsWith(`${other.href}/`)),
-            );
-            active = isMatch && !hasMoreSpecific;
-          }
-          return (
-            <NavRow
-              key={item.href}
-              icon={item.icon}
-              label={item.label}
-              href={item.href}
-              active={active}
-              enabled={item.enabled}
-              onNavigate={onNavigate}
-              layoutScope={layoutScope}
-            />
-          );
-        })}
-      </nav>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <AnimatePresence mode="wait" custom={direction}>
+          {activeParent ? (
+            <motion.div
+              key={`sub-nav:${activeParent.href}`}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={slideTransition}
+              style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                <Link
+                  href="/"
+                  className="group"
+                  style={{ ...styles.navLink, display: 'inline-flex', alignItems: 'center', padding: '9px 6px', flexShrink: 0, color: spectrum.gray[50] }}
+                  onClick={onNavigate}
+                >
+                  <svg
+                    width={16}
+                    height={16}
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    style={{ transform: 'scaleX(-1)' }}
+                  >
+                    <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth={1.5} />
+                    <path
+                      d="M13.5 10H0"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      strokeDasharray="13.5"
+                      strokeDashoffset="13.5"
+                      className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]"
+                    />
+                  </svg>
+                </Link>
+                <Text as="span" variant="label.medium" style={{ flex: 1, textAlign: 'center', paddingRight: 28 }}>{activeParent.label}</Text>
+              </div>
+              <nav style={styles.nav}>
+                {activeParent.children!.map((child) => {
+                  const active = isChildActive(child, pathname);
+                  return (
+                    <NavRow
+                      key={child.href}
+                      icon={child.icon}
+                      label={child.label}
+                      href={child.href}
+                      active={active}
+                      enabled={true}
+                      onNavigate={onNavigate}
+                      layoutScope={`${layoutScope}-sub`}
+                    />
+                  );
+                })}
+              </nav>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="main-nav"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={slideTransition}
+              style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+            >
+              <nav style={styles.nav}>
+                {NAV_ITEMS.filter((item) => item.icon).map((item) => {
+                  let active: boolean;
+                  if (item.href === '/') {
+                    active = pathname === '/';
+                  } else {
+                    const isMatch = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const hasMoreSpecific = NAV_ITEMS.some(
+                      (other) => other.href !== item.href && other.href.startsWith(item.href) && (pathname === other.href || pathname.startsWith(`${other.href}/`)),
+                    );
+                    active = isMatch && !hasMoreSpecific;
+                  }
+                  return (
+                    <NavRow
+                      key={item.href}
+                      icon={item.icon}
+                      label={item.label}
+                      href={item.href}
+                      active={active}
+                      enabled={item.enabled}
+                      hasChildren={!!item.children}
+                      onNavigate={onNavigate}
+                      layoutScope={layoutScope}
+                    />
+                  );
+                })}
+              </nav>
 
-      <div style={styles.sidebarFooter}>
-        <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
-              <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Support</Text>
-        </a>
-        <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
-        </a>
+              <div style={styles.sidebarFooter}>
+                <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
+                  <span style={styles.footerIcon}>
+                    <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
+                      <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
+                    </svg>
+                  </span>
+                  <Text as="span" variant="label.medium" tone="inherit">Support</Text>
+                </a>
+                <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
+                  <span style={styles.footerIcon}>
+                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                    </svg>
+                  </span>
+                  <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
+                </a>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   );
@@ -340,7 +447,6 @@ function GlobalBanner() {
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
-  const tabs = tabsForPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -364,91 +470,94 @@ export function AppShell({ children }: PropsWithChildren) {
       <GlobalBanner />
       <div style={styles.root}>
         {/* Desktop sidebar */}
-      <aside className="sidebar-desktop" style={styles.sidebar}>
-        <SidebarContent />
-      </aside>
+        <aside className="sidebar-desktop" style={styles.sidebar}>
+          <SidebarContent />
+        </aside>
 
-      {/* Mobile header (logo + hamburger) */}
-      <header className="mobile-header">
-        <span style={styles.brandMark}>
-          <BaseLogo />
-        </span>
-        <button
-          className="hamburger-btn"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Toggle menu"
-          aria-expanded={menuOpen}
-        >
-          <svg width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
-            <line className={`hamburger-line hamburger-top ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
-            <line className={`hamburger-line hamburger-bottom ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
-          </svg>
-        </button>
-      </header>
-
-      {/* Mobile drawer (full-screen from right) */}
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.aside
-            className="drawer"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+        {/* Mobile header (logo + hamburger) */}
+        <header className="mobile-header">
+          <span style={styles.brandMark}>
+            <BaseLogo />
+          </span>
+          <button
+            className="hamburger-btn"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle menu"
+            aria-expanded={menuOpen}
           >
-            <SidebarContent onNavigate={() => setMenuOpen(false)} hideBrand layoutScope="mobile" />
-          </motion.aside>
-        )}
-      </AnimatePresence>
-
-      <div className="mobile-content-offset" style={styles.main}>
-        <header className="topbar-desktop" style={{ ...styles.topbar, justifyContent: tabs.length > 0 ? undefined : 'center' }}>
-          {(() => {
-            const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
-            if (slugMatch) {
-              const change = getChangeBySlug(slugMatch[1]);
-              return (
-                <Breadcrumb
-                  parentLabel="Changelog"
-                  parentHref="/upgrades/changelog"
-                  childLabel={change?.title ?? slugMatch[1]}
-                />
-              );
-            }
-            const upgradeMatch = pathname.match(/^\/upgrades\/upgrade\/(.+)$/);
-            if (upgradeMatch) {
-              const upgrade = getUpgradeById(upgradeMatch[1]);
-              return (
-                <Breadcrumb
-                  parentLabel="Upgrades"
-                  parentHref="/upgrades"
-                  childLabel={upgrade?.name ?? upgradeMatch[1]}
-                />
-              );
-            }
-            return <Text as="span" variant="headline">{title}</Text>;
-          })()}
-          {tabs.length > 0 && (
-            <nav style={styles.topbarNav}>
-              {tabs.map((tab) => {
-                const active = isTabActive(pathname, tab);
-                return (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    aria-current={active ? 'page' : undefined}
-                    style={topbarTabStyle(active)}
-                  >
-                    <Text as="span" variant="label.medium" tone="inherit">{tab.label}</Text>
-                  </Link>
-                );
-              })}
-            </nav>
-          )}
+            <svg width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
+              <line className={`hamburger-line hamburger-top ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
+              <line className={`hamburger-line hamburger-bottom ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
+            </svg>
+          </button>
         </header>
-        <main style={styles.content}>
-          <div style={styles.contentInner}>{children}</div>
-        </main>
+
+        {/* Mobile drawer (full-screen from right) */}
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.aside
+              className="drawer"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+            >
+              <SidebarContent onNavigate={() => setMenuOpen(false)} hideBrand layoutScope="mobile" />
+            </motion.aside>
+          )}
+        </AnimatePresence>
+
+        <div className="mobile-content-offset" style={styles.main}>
+          <header className="topbar-desktop" style={styles.topbar}>
+            {(() => {
+              const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
+              if (slugMatch) {
+                const change = getChangeBySlug(slugMatch[1]);
+                return (
+                  <Breadcrumb
+                    parentLabel="Changelog"
+                    parentHref="/upgrades/changelog"
+                    childLabel={change?.title ?? slugMatch[1]}
+                  />
+                );
+              }
+              const upgradeMatch = pathname.match(/^\/upgrades\/upgrade\/(.+)$/);
+              if (upgradeMatch) {
+                const upgrade = getUpgradeById(upgradeMatch[1]);
+                return (
+                  <Breadcrumb
+                    parentLabel="Upgrades"
+                    parentHref="/upgrades"
+                    childLabel={upgrade?.name ?? upgradeMatch[1]}
+                  />
+                );
+              }
+              if (pathname.startsWith('/vibenet') && pathname !== '/vibenet') {
+                let childLabel = title;
+                const demosMatch = pathname.match(/^\/vibenet\/demos(?:\/(.+))?$/);
+                if (demosMatch) {
+                  if (!demosMatch[1]) {
+                    childLabel = 'Demos';
+                  } else {
+                    const segments = demosMatch[1].split('/');
+                    const last = segments[segments.length - 1];
+                    childLabel = last.charAt(0).toUpperCase() + last.slice(1);
+                  }
+                }
+                return (
+                  <Breadcrumb
+                    parentLabel="Vibenet"
+                    parentHref="/vibenet"
+                    childLabel={childLabel}
+                  />
+                );
+              }
+              return <Text as="span" variant="headline">{title}</Text>;
+            })()}
+          </header>
+          <main style={styles.content}>
+            <div style={styles.contentInner}>{children}</div>
+          </main>
         </div>
       </div>
     </div>

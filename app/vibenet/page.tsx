@@ -95,7 +95,7 @@ export default function VibenetHomePage() {
         key={contract.key}
         className="flex flex-wrap items-center gap-3 bg-white p-4 dark:bg-white/5"
       >
-        <span className="w-32 shrink-0 text-[14px] font-medium text-black dark:text-white">
+        <span className="w-32 shrink-0 text-[14px] text-black dark:text-white">
           {contract.label}
         </span>
         <Link
@@ -116,17 +116,44 @@ export default function VibenetHomePage() {
 
   return (
     <div className="flex flex-col gap-16 pb-4 text-black dark:text-white">
-      <header className="flex flex-col gap-4 border-b border-bds-gray-10 pb-12 dark:border-white/10">
-        <div className="max-w-3xl">
-          <Text variant="caption" className="mb-4 text-base-blue dark:text-white">
-            {config.title ?? 'Base Vibenet'}
-          </Text>
-          <Text variant="display" className="text-balance">
-            Test New Features
-          </Text>
-          <Text variant="body" tone="muted" className="mt-5 max-w-2xl">
-            {config.subtitle ?? 'An ephemeral Base devnet for trying out in-flight features.'}
-          </Text>
+      <header className="flex flex-col gap-4 pb-4">
+        <div className="flex items-start justify-between gap-8">
+          <div className="max-w-xl">
+            <Text variant="title1" className="text-balance">
+              Test New Features
+            </Text>
+            <Text variant="body" tone="muted" className="mt-5">
+              Vibenet is an ephemeral Base developer network for testing in-flight features.
+            </Text>
+          </div>
+          <Card className="hidden flex-col gap-0.5 bg-white px-5 pb-4 pt-4 dark:bg-white/5 md:flex md:min-w-[360px]">
+            <Text variant="label" className="mb-2.5">Connect to Vibenet</Text>
+            <div className="flex items-center justify-between gap-3">
+              <Text variant="label" tone="muted">Chain ID</Text>
+              <CopyableValue value={chainId} />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between gap-3">
+              <Text variant="label" tone="muted">RPC URL</Text>
+              <CopyableValue value={VIBENET_RPC_URL} />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between gap-3">
+              <Text variant="label" tone="muted">Explorer</Text>
+              <Link
+                href={VIBENET_EXPLORER_PATH}
+                className="font-mono text-[13px] text-black transition-colors hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20"
+              >
+                {VIBENET_EXPLORER_PATH}
+              </Link>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
+                Add to Wallet
+              </Button>
+              {walletStatus ? (
+                <Text variant="footnote" tone="muted">{walletStatus}</Text>
+              ) : null}
+            </div>
+          </Card>
         </div>
       </header>
 
@@ -146,25 +173,19 @@ export default function VibenetHomePage() {
         ) : null}
       </section>
 
-      <section className="flex flex-col gap-6">
+      <section className="flex flex-col gap-6 md:hidden">
         <Text variant="title2">Connect</Text>
         <Card className="flex flex-col gap-4 bg-white p-6 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Text variant="label" tone="muted">
-              Chain ID
-            </Text>
+            <Text variant="label" tone="muted">Chain ID</Text>
             <CopyableValue value={chainId} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <Text variant="label" tone="muted">
-              RPC URL
-            </Text>
+            <Text variant="label" tone="muted">RPC URL</Text>
             <CopyableValue value={VIBENET_RPC_URL} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <Text variant="label" tone="muted">
-              Explorer
-            </Text>
+            <Text variant="label" tone="muted">Explorer</Text>
             <Link
               href={VIBENET_EXPLORER_PATH}
               className="font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
@@ -172,17 +193,12 @@ export default function VibenetHomePage() {
               {VIBENET_EXPLORER_PATH}
             </Link>
           </div>
-          <Text variant="footnote" tone="muted">
-            Public RPC access is IP rate limited.
-          </Text>
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
-              Add to wallet
+              Add to Wallet
             </Button>
             {walletStatus ? (
-              <Text variant="footnote" tone="muted">
-                {walletStatus}
-              </Text>
+              <Text variant="footnote" tone="muted">{walletStatus}</Text>
             ) : null}
           </div>
         </Card>

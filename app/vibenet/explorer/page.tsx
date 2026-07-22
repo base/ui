@@ -14,8 +14,8 @@ import { timeAgoFromSeconds } from '../library/explorer';
 
 const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0 dark:bg-bds-blue-100/30';
 const TH =
-  'px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40';
-const TD = 'px-3 py-2.5 text-[13px]';
+  'px-4 py-3 text-left text-[13px] font-normal text-bds-gray-50';
+const TD = 'px-4 py-3 text-[13px]';
 
 type TablePanelProps = {
   loading: boolean;
@@ -26,21 +26,21 @@ type TablePanelProps = {
 
 // Wraps a live table, showing loading / empty states without a nested ternary.
 function TablePanel({ loading, isEmpty, emptyText, children }: TablePanelProps) {
-  let body: ReactNode = children;
   if (loading) {
-    body = (
-      <Text variant="label.regular" tone="muted" className="p-4">
+    return (
+      <Text variant="label.regular" tone="muted" className="py-4">
         Indexing…
       </Text>
     );
-  } else if (isEmpty) {
-    body = (
-      <Text variant="label.regular" tone="muted" className="p-4">
+  }
+  if (isEmpty) {
+    return (
+      <Text variant="label.regular" tone="muted" className="py-4">
         {emptyText}
       </Text>
     );
   }
-  return <Card className="overflow-hidden bg-white dark:bg-white/5">{body}</Card>;
+  return <>{children}</>;
 }
 
 export default function ExplorerPage() {
@@ -145,7 +145,7 @@ export default function ExplorerPage() {
               <Text variant="caption" tone="muted">
                 {stat.label}
               </Text>
-              <div className="mt-1 text-[24px] font-medium">{stat.value.toLocaleString()}</div>
+              <Text variant="title2" className="mt-1">{stat.value.toLocaleString()}</Text>
             </Card>
           ))}
         </div>
@@ -172,7 +172,7 @@ export default function ExplorerPage() {
                     key={b.hash}
                     aria-label={`Block ${b.number}`}
                     className={cn(
-                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 dark:border-white/10',
+                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
                       newKeys.has(`block-${b.hash}`) && NEW_ROW_HIGHLIGHT,
                     )}
                   >
@@ -216,7 +216,7 @@ export default function ExplorerPage() {
                     key={tx.hash}
                     aria-label={`Transaction ${tx.hash}`}
                     className={cn(
-                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 dark:border-white/10',
+                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
                       newKeys.has(`tx-${tx.hash}`) && NEW_ROW_HIGHLIGHT,
                     )}
                   >

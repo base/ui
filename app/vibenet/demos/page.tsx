@@ -6,7 +6,7 @@ import { DemoHeader } from './_components/DemoHeader';
 
 export const metadata: Metadata = {
   title: 'Demos · Vibenet',
-  description: 'Interactive demos of in-flight Base features running on the vibenet devnet.',
+  description: 'Interactive demos of in-flight Base features running on the vibenet developer network.',
 };
 
 type DemoEntry = {
@@ -43,7 +43,7 @@ export default function DemosIndexPage() {
       <DemoHeader
         eyebrow="Base Vibenet"
         title="Demos"
-        description="Hands-on demos of in-flight Base features, running against the vibenet devnet. Everything stays in your browser — testnet only."
+        description="Hands-on demos of in-flight Base features, running against the vibenet developer network. Everything stays in your browser — testnet only."
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

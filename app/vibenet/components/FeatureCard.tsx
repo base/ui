@@ -87,7 +87,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
               key={highlight.title}
               className="rounded-lg border border-bds-gray-10 bg-bds-gray-0 p-3 dark:border-white/10 dark:bg-white/5"
             >
-              <span className="block text-[14px] font-medium text-black dark:text-white">
+              <span className="block text-[14px] text-black dark:text-white">
                 {highlight.title}
               </span>
               <span className="mt-0.5 block text-[12px] text-bds-gray-60 dark:text-bds-gray-40">

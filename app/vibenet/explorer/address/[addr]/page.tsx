@@ -24,8 +24,8 @@ const CHIP =
 const BADGE =
   'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
 const TH =
-  'px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40';
-const TD = 'px-3 py-2.5 text-[13px]';
+  'px-4 py-3 text-left text-[13px] font-normal text-bds-gray-50';
+const TD = 'px-4 py-3 text-[13px]';
 
 type ActorCardProps = {
   actor: ActorEntry;

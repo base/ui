@@ -6,7 +6,7 @@ import { cn } from './cn';
 // Base bordered panel used across the app. Callers supply background/padding;
 // this owns only the shared border + radius so those don't get re-typed at
 // every call site.
-const CARD_BASE = 'rounded-lg border border-bds-gray-10 dark:border-white/10';
+const CARD_BASE = 'rounded-2xl border border-bds-gray-10 dark:border-white/10';
 // Border highlight for clickable cards.
 const CARD_INTERACTIVE = 'transition-colors hover:border-bds-blue-30 dark:hover:border-bds-blue-60';
 

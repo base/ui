@@ -350,7 +350,7 @@ function TxBody({ tx }: TxBodyProps) {
             </DetailRow>
           ) : null}
           <DetailRow label="Status">
-            <span className={`font-medium ${status.className}`}>{status.label}</span>
+            <span className={status.className}>{status.label}</span>
           </DetailRow>
           {typeInfo ? (
             <DetailRow label="Type">
@@ -448,7 +448,7 @@ function TxBody({ tx }: TxBodyProps) {
               // eslint-disable-next-line react/no-array-index-key -- phases are positional
               <Card key={phaseIndex} className="bg-white p-4 dark:bg-white/5">
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="text-[12px] font-medium">phase {phaseIndex}</span>
+                  <span className="text-[12px]">phase {phaseIndex}</span>
                   <span className={`text-[11px] ${DIM}`}>
                     {phase.length} call{phase.length === 1 ? '' : 's'}
                   </span>
