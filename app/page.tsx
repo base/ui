@@ -32,12 +32,6 @@ const SURFACES: Surface[] = [
     description: 'Ephemeral Base devnet explorer and faucet for trying out in-flight features.',
     enabled: true,
   },
-  {
-    label: 'TIPS',
-    href: '/tips',
-    description: 'Transaction inclusion pool bundle metrics and audit history.',
-    enabled: false,
-  },
 ];
 
 function SurfaceCard({ surface }: SurfaceCardProps) {
@@ -77,10 +71,10 @@ export default function Home() {
       <header className="flex flex-col gap-8 border-b border-bds-gray-10 pb-12">
         <div className="max-w-3xl">
           <Text variant="caption" className="mb-4 text-base-blue">
-            Base Labs
+            Base Chain
           </Text>
           <Text variant="display" className="text-balance">
-            Dashboards and stats for the Base network, in one place.
+            Dashboards and tools for Base Chain, in one place.
           </Text>
         </div>
       </header>
@@ -88,7 +82,7 @@ export default function Home() {
       <section>
         <SectionHeading
           title="Surfaces"
-          description="Jump into the Base network dashboards and tools."
+          description="Jump into the Base Chain dashboards and tools."
           className="mb-8"
         />
         <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">

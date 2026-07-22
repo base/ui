@@ -50,8 +50,8 @@ const baseSans = localFont({
 });
 
 export const metadata = {
-  title: 'Base Labs',
-  description: 'Dashboards and stats for the Base network, in one place.',
+  title: 'Base Chain',
+  description: 'Dashboards and tools for Base Chain, in one place.',
 };
 
 export default function RootLayout({ children }: PropsWithChildren) {
