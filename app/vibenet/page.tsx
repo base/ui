@@ -115,46 +115,42 @@ export default function VibenetHomePage() {
   const commit = config.commit && config.commit !== 'unknown' ? config.commit : null;
 
   return (
-    <div className="-mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-16 pb-4 text-black dark:text-white">
-      <header className="flex flex-col gap-4 pb-4">
-        <div className="flex items-start justify-between gap-8">
-          <div className="max-w-xl">
-            <Text variant="title1" className="text-balance">
-              Test New Features
-            </Text>
-            <Text variant="body" tone="muted" className="mt-5">
-              Vibenet is an ephemeral Base developer network for testing in-flight features.
-            </Text>
-          </div>
-          <Card className="hidden flex-col gap-0.5 bg-white px-4 py-5 dark:bg-white/5 md:flex md:min-w-[360px]">
-            <Text variant="label" className="mb-2.5">Connect to Vibenet</Text>
-            <div className="flex items-center justify-between gap-3">
-              <Text variant="label" tone="muted">Chain ID</Text>
-              <CopyableValue value={chainId} />
-            </div>
-            <div className="mt-1.5 flex items-center justify-between gap-3">
-              <Text variant="label" tone="muted">RPC URL</Text>
-              <CopyableValue value={VIBENET_RPC_URL} />
-            </div>
-            <div className="mt-1.5 flex items-center justify-between gap-3">
-              <Text variant="label" tone="muted">Explorer</Text>
-              <Link
-                href={VIBENET_EXPLORER_PATH}
-                className="font-mono text-[13px] text-black transition-colors hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20"
-              >
-                {VIBENET_EXPLORER_PATH}
-              </Link>
-            </div>
-            <div className="mt-4 flex items-center gap-3">
-              <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
-                Add to Wallet
-              </Button>
-              {walletStatus ? (
-                <Text variant="footnote" tone="muted">{walletStatus}</Text>
-              ) : null}
-            </div>
-          </Card>
+    <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-16 pb-4 text-black dark:text-white">
+      <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:justify-between md:gap-8">
+        <div className="flex max-w-xl flex-1 flex-col gap-6">
+          <img src="/vibenet-illo.svg" alt="" width={64} height={64} className="mt-4" />
+          <Text variant="title2" tone="muted">
+            <span className="text-black dark:text-white">Vibenet</span> is an ephemeral Base developer network for testing in-flight features.
+          </Text>
         </div>
+        <Card className="flex flex-col gap-0.5 bg-white px-5 py-5 dark:bg-white/5 md:min-w-[360px]">
+          <Text variant="label" className="mb-2.5">Connect to Vibenet</Text>
+          <div className="flex items-center justify-between gap-3">
+            <Text variant="label" tone="muted">Chain ID</Text>
+            <CopyableValue value={chainId} />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-3">
+            <Text variant="label" tone="muted">RPC URL</Text>
+            <CopyableValue value={VIBENET_RPC_URL} />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-3">
+            <Text variant="label" tone="muted">Explorer</Text>
+            <Link
+              href={VIBENET_EXPLORER_PATH}
+              className="font-mono text-[13px] text-black transition-colors hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20"
+            >
+              {VIBENET_EXPLORER_PATH}
+            </Link>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
+              Add to Wallet
+            </Button>
+            {walletStatus ? (
+              <Text variant="footnote" tone="muted">{walletStatus}</Text>
+            ) : null}
+          </div>
+        </Card>
       </header>
 
       <section className="flex flex-col gap-6">

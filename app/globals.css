@@ -311,15 +311,13 @@ button {
   .animate-in-delay-3 { animation-delay: 0ms; }
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+/* Skeleton pulse — softer rhythm than Tailwind default */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse {
+  animation: pulse 1.5s cubic-bezier(0.77, 0, 0.175, 1) infinite;
 }
 
 /* Responsive: hamburger menu + drawer */

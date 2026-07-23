@@ -205,7 +205,7 @@ export default function FaucetPage() {
     : [];
 
   return (
-    <div className="-mx-7 -mb-20 -mt-6 flex min-h-[calc(100vh-116px)] flex-col gap-4 px-7 pt-6 pb-2 text-black dark:text-white">
+    <div className="animate-in -mx-7 -mb-20 -mt-6 flex min-h-[calc(100vh-116px)] flex-col gap-4 px-7 pt-6 pb-2 text-black dark:text-white">
       <div>{summaryBody}</div>
 
       <Card className="flex flex-col gap-3 bg-white p-6 dark:bg-white/5">

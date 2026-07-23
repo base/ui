@@ -1,4 +1,4 @@
-export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'demos' | 'faucet' | 'explorer';
+export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer';
 
 export type NavChild = {
   label: string;
@@ -26,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: 'vibenet',
     enabled: true,
     children: [
-      { label: 'Overview', href: '/vibenet', icon: 'demos', exact: true },
+      { label: 'Overview', href: '/vibenet', icon: 'overview', exact: true },
       { label: 'Demos', href: '/vibenet/demos', icon: 'demos' },
       { label: 'Faucet', href: '/vibenet/faucet', icon: 'faucet' },
       { label: 'Explorer', href: '/vibenet/explorer', icon: 'explorer' },

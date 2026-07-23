@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
+import { notFound } from 'next/navigation';
 
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
@@ -17,28 +18,19 @@ type PageProps = {
 export default function ExplorerBlockPage({ params }: PageProps) {
   const { hash } = use(params);
   const [block, setBlock] = useState<ExplorerBlockResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [is404, setIs404] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     vibenetApi.explorer
       .block(hash)
       .then((next) => {
         if (!cancelled) setBlock(next);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(
-            err instanceof VibenetApiError && err.status === 404
-              ? 'Block not found'
-              : 'Failed to fetch block',
-          );
+        if (!cancelled && err instanceof VibenetApiError && err.status === 404) {
+          setIs404(true);
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -47,8 +39,10 @@ export default function ExplorerBlockPage({ params }: PageProps) {
 
   const num = block ? hexToInt(block.number) : null;
 
+  if (is404) notFound();
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="animate-in flex flex-col gap-6">
       <div>
         <Text variant="title2">Block {num !== null ? num.toLocaleString() : ''}</Text>
         {block ? (
@@ -57,19 +51,6 @@ export default function ExplorerBlockPage({ params }: PageProps) {
           </code>
         ) : null}
       </div>
-
-      {loading ? (
-        <Text variant="label.regular" tone="muted">
-          Loading…
-        </Text>
-      ) : null}
-      {error ? (
-        <Card className="bg-white p-4 dark:bg-white/5">
-          <Text variant="label.regular" tone="muted">
-            {error}
-          </Text>
-        </Card>
-      ) : null}
 
       {block ? (
         <>

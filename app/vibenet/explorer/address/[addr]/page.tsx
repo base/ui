@@ -2,13 +2,14 @@
 
 import { use, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { notFound } from 'next/navigation';
 
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
 import { DetailList, DetailRow } from '../../../components/DetailList';
 import { ExplorerLink } from '../../../components/ExplorerLink';
 import type { ActorEntry, ExplorerAddressResponse } from '../../../library/api-types';
-import { vibenetApi } from '../../../library/client';
+import { vibenetApi, VibenetApiError } from '../../../library/client';
 import {
   authLabel,
   expiryLabel,
@@ -82,24 +83,26 @@ type PageProps = {
 export default function ExplorerAddressPage({ params }: PageProps) {
   const { addr } = use(params);
   const [data, setData] = useState<ExplorerAddressResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [is404, setIs404] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     vibenetApi.explorer
       .address(addr)
       .then((next) => {
         if (!cancelled) setData(next);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch((err) => {
+        if (!cancelled && err instanceof VibenetApiError && err.status === 404) {
+          setIs404(true);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [addr]);
+
+  if (is404) notFound();
 
   // Implicit secp256k1 self key shown when no AccountConfiguration events are
   // indexed yet. Memoized so it's a stable prop for ActorCard.
@@ -157,19 +160,13 @@ export default function ExplorerAddressPage({ params }: PageProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="animate-in flex flex-col gap-6">
       <div>
         <Text variant="title2">Address</Text>
         <code className="mt-1 block break-all font-mono text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
           {addr}
         </code>
       </div>
-
-      {loading ? (
-        <Text variant="label.regular" tone="muted">
-          Loading…
-        </Text>
-      ) : null}
 
       {data ? (
         <>

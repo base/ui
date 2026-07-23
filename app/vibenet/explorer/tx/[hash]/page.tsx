@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { notFound } from 'next/navigation';
 
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
@@ -516,36 +517,29 @@ type PageProps = {
 export default function ExplorerTxPage({ params }: PageProps) {
   const { hash } = use(params);
   const [tx, setTx] = useState<ExplorerTxResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [is404, setIs404] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     vibenetApi.explorer
       .tx(hash)
       .then((next) => {
         if (!cancelled) setTx(next);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(
-            err instanceof VibenetApiError && err.status === 404
-              ? 'Transaction not found'
-              : 'Failed to fetch transaction',
-          );
+        if (!cancelled && err instanceof VibenetApiError && err.status === 404) {
+          setIs404(true);
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [hash]);
 
+  if (is404) notFound();
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="animate-in flex flex-col gap-6">
       <div>
         <Text variant="title2">Transaction</Text>
         {tx ? (
@@ -554,19 +548,6 @@ export default function ExplorerTxPage({ params }: PageProps) {
           </code>
         ) : null}
       </div>
-
-      {loading ? (
-        <Text variant="label.regular" tone="muted">
-          Loading…
-        </Text>
-      ) : null}
-      {error ? (
-        <Card className="bg-white p-4 dark:bg-white/5">
-          <Text variant="label.regular" tone="muted">
-            {error}
-          </Text>
-        </Card>
-      ) : null}
 
       {tx ? <TxBody tx={tx} /> : null}
     </div>

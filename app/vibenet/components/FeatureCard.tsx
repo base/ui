@@ -47,7 +47,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
         hasHighlights && 'flex flex-col gap-8 md:flex-row',
       )}
     >
-      <div className="flex-1">
+      <div className="flex flex-1 flex-col">
         <Text variant="title3">
           {feature.title}
         </Text>
@@ -57,7 +57,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
           </Text>
         ) : null}
         {hasActions ? (
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-auto flex flex-wrap items-center gap-3 pt-5">
             {feature.cta ? <LinkButton link={feature.cta} primary /> : null}
             {feature.secondaryCta ? <LinkButton link={feature.secondaryCta} /> : null}
             {showStatus ? (
@@ -83,18 +83,18 @@ export function FeatureCard({ feature }: FeatureCardProps) {
       </div>
 
       {hasHighlights ? (
-        <ul className="grid flex-1 grid-cols-1 gap-3">
+        <ul className="grid flex-1 grid-cols-2 gap-3">
           {highlights.map((highlight) => (
             <li
               key={highlight.title}
-              className="rounded-lg border border-bds-gray-10 bg-bds-gray-0 p-3 dark:border-white/10 dark:bg-white/5"
+              className="rounded-lg bg-bds-gray-5 p-3 dark:bg-white/5"
             >
-              <span className="block text-[14px] text-black dark:text-white">
+              <Text as="span" variant="label.medium" className="block">
                 {highlight.title}
-              </span>
-              <span className="mt-0.5 block text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+              </Text>
+              <Text as="span" variant="footnote" tone="muted" className="mt-0.5 block">
                 {highlight.detail}
-              </span>
+              </Text>
             </li>
           ))}
         </ul>

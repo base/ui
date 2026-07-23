@@ -13,7 +13,7 @@ import { getUpgradeById } from '../upgrades/data/upgrades';
 import { titleForPath } from '../navigation';
 
 import { Breadcrumb } from './ui/Breadcrumb';
-import { AnimatedArrowIcon, CloseIcon, VibenetIcon } from './ui/icons';
+import { AnimatedArrowIcon, CloseIcon } from './ui/icons';
 import { Text } from './ui/Text';
 
 function BaseLogo() {
@@ -152,45 +152,45 @@ function NavGlyph({ name }: NavGlyphProps) {
       );
     case 'changelog':
       return (
-        <svg width={common.width} height={common.height} viewBox="5 5 30 30" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <g className="changelog-row changelog-row-1">
-            <line x1="12" y1="13" x2="14.5" y2="13" />
-            <line x1="18.5" y1="13" x2="19" y2="13" />
-            <line x1="23" y1="13" x2="30.5" y2="13" />
-          </g>
-          <g className="changelog-row changelog-row-2">
-            <line x1="12" y1="20" x2="14.5" y2="20" />
-            <line x1="18.5" y1="20" x2="19" y2="20" />
-            <line x1="23" y1="20" x2="30.5" y2="20" />
-          </g>
-          <g className="changelog-row changelog-row-3">
-            <line x1="12" y1="27" x2="14.5" y2="27" />
-            <line x1="18.5" y1="27" x2="19" y2="27" />
-            <line x1="23" y1="27" x2="30.5" y2="27" />
-          </g>
+        <svg {...common} viewBox="0 0 24 24" strokeWidth={1.8} className="nav-changelog-icon">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
         </svg>
       );
     case 'vibenet':
-      return <VibenetIcon size={common.width} className="nav-vibenet-icon" />;
+      return (
+        <svg {...common} viewBox="4 3 34 34" strokeWidth={2.5} className="nav-vibenet-icon">
+          <circle cx="20" cy="20" r="12" />
+          <ellipse cx="20" cy="20" rx="5" ry="12" />
+          <path d="M32 20H8.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'overview':
+      return (
+        <svg {...common} viewBox="4 4 32 32" strokeWidth={2.5} className="nav-overview-icon">
+          <path d="M10 25C10 23.3431 11.3431 22 13 22H15C16.6569 22 18 23.3431 18 25V27C18 28.6569 16.6569 30 15 30H13C11.3431 30 10 28.6569 10 27V25Z" />
+          <path d="M22 25C22 23.3431 23.3431 22 25 22H27C28.6569 22 30 23.3431 30 25V27C30 28.6569 28.6569 30 27 30H25C23.3431 30 22 28.6569 22 27V25Z" />
+          <path d="M10 13C10 11.3431 11.3431 10 13 10H15C16.6569 10 18 11.3431 18 13V15C18 16.6569 16.6569 18 15 18H13C11.3431 18 10 16.6569 10 15V13Z" />
+          <path d="M22 13C22 11.3431 23.3431 10 25 10H27C28.6569 10 30 11.3431 30 13V15C30 16.6569 28.6569 18 27 18H25C23.3431 18 22 16.6569 22 15V13Z" />
+        </svg>
+      );
     case 'demos':
       return (
-        <svg {...common} className="nav-demos-icon">
-          <path d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
+        <svg {...common} viewBox="4 4 32 32" strokeWidth={2.5} className="nav-demos-icon">
+          <path d="M30.2895 14.8575L20.0038 20.0002M20.0038 20.0002L10.2895 14.2861M20.0038 20.0002L20.0038 30.8571M30.8608 22.8275V17.1724C30.8608 15.3861 29.9078 13.7354 28.3608 12.8423L22.4737 9.44331C20.9267 8.55015 19.0207 8.55015 17.4737 9.44331L11.5865 12.8423C10.0395 13.7354 9.08649 15.3861 9.08649 17.1724V22.8275C9.08649 24.6138 10.0395 26.2644 11.5865 27.1576L17.4737 30.5566C19.0207 31.4497 20.9267 31.4497 22.4737 30.5566L28.3608 27.1576C29.9078 26.2644 30.8608 24.6138 30.8608 22.8275Z" strokeLinecap="round" />
         </svg>
       );
     case 'faucet':
       return (
-        <svg {...common} className="nav-faucet-icon">
-          <path d="M12 3v3" />
-          <path d="M8 6h8" />
-          <path d="M15 6v4c0 2-1.5 3-3 5s-3 3-3 5a3 3 0 0 0 6 0" />
+        <svg {...common} viewBox="5 5 30 30" strokeWidth={2.5} className="nav-faucet-icon">
+          <path d="M25.6645 30.7616C24.097 31.8902 22.2107 32.5 20.2792 32.5L19.7208 32.5C17.7892 32.5 15.903 31.8902 14.3355 30.7616C6.95342 25.4465 10.9093 13.7587 20 14.0833C29.0906 13.7587 33.0465 25.4465 25.6645 30.7616Z" />
+          <path d="M17 24L20 27L23 24M20 27V19.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M19.7091 10.1729L19.7091 6.00013M23.4182 10.1729L23.4182 8.31831M16 10.1729L16 8.31831" strokeLinecap="round" />
         </svg>
       );
     case 'explorer':
       return (
-        <svg {...common} className="nav-explorer-icon">
-          <circle cx="11" cy="11" r="7" />
-          <path d="M21 21l-4.35-4.35" />
+        <svg {...common} viewBox="4 4 32 32" strokeWidth={2.5} className="nav-explorer-icon">
+          <path d="M30 30.3125L23.0674 23.3799M23.0674 23.3799C24.5189 21.9284 25.4167 19.9232 25.4167 17.7083C25.4167 13.2785 21.8256 9.6875 17.3958 9.6875C12.966 9.6875 9.375 13.2785 9.375 17.7083C9.375 22.1381 12.966 25.7292 17.3958 25.7292C19.6107 25.7292 21.6159 24.8314 23.0674 23.3799Z" strokeLinecap="round" />
         </svg>
       );
     default:
@@ -307,34 +307,32 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
               transition={slideTransition}
               style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                <Link
-                  href="/"
-                  className="group"
-                  style={{ ...styles.navLink, display: 'inline-flex', alignItems: 'center', padding: '9px 6px', flexShrink: 0, color: spectrum.gray[50] }}
-                  onClick={onNavigate}
+              <Link
+                href="/"
+                className="nav-row-hover group"
+                style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px', marginBottom: 4, color: spectrum.gray[50] }}
+                onClick={onNavigate}
+              >
+                <svg
+                  width={16}
+                  height={16}
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                  style={{ transform: 'scaleX(-1)', flexShrink: 0 }}
                 >
-                  <svg
-                    width={16}
-                    height={16}
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    aria-hidden="true"
-                    style={{ transform: 'scaleX(-1)' }}
-                  >
-                    <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth={1.5} />
-                    <path
-                      d="M13.5 10H0"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                      strokeDasharray="13.5"
-                      strokeDashoffset="13.5"
-                      className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]"
-                    />
-                  </svg>
-                </Link>
-                <Text as="span" variant="label.medium" style={{ flex: 1, textAlign: 'center', paddingRight: 28 }}>{activeParent.label}</Text>
-              </div>
+                  <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth={1.5} />
+                  <path
+                    d="M13.5 10H0"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                    strokeDasharray="13.5"
+                    strokeDashoffset="13.5"
+                    className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]"
+                  />
+                </svg>
+                <Text as="span" variant="label.medium" style={{ flex: 1, textAlign: 'center', paddingRight: 16 }}>{activeParent.label}</Text>
+              </Link>
               <nav style={styles.nav}>
                 {activeParent.children!.map((child) => {
                   const active = isChildActive(child, pathname);
@@ -401,9 +399,17 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
                   </span>
                   <Text as="span" variant="label.medium" tone="inherit">Support</Text>
                 </a>
+                <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
+                  <span style={styles.footerIcon}>
+                    <svg width={16} height={16} viewBox="7 7 26 26" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+                    </svg>
+                  </span>
+                  <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
+                </a>
                 <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
                   <span style={styles.footerIcon}>
-                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                     </svg>
                   </span>

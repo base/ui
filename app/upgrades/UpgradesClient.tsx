@@ -36,12 +36,8 @@ const GridIcon = (
 );
 
 const TimelineIcon = (
-  <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <line x1="4" y1="2" x2="4" y2="12" />
-    <circle cx="4" cy="4" r="1.5" fill="currentColor" stroke="none" />
-    <circle cx="4" cy="9" r="1.5" fill="currentColor" stroke="none" />
-    <line x1="7" y1="4" x2="12" y2="4" />
-    <line x1="7" y1="9" x2="10" y2="9" />
+  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
 );
 
@@ -242,7 +238,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
 
 function UpgradeView({ nowMs }: { nowMs: number }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-2">
         {[...upgrades].reverse().map((upgrade, idx) => {
           return (
             <FadeInUp
@@ -251,7 +247,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
               offset={10}
             >
             <Card
-              className="flex flex-col overflow-hidden rounded-2xl bg-white transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md"
+              className="flex flex-col overflow-hidden rounded-2xl bg-white transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]"
             >
               <div className="flex flex-1 flex-col px-5 pb-5 pt-3">
               <div className="flex items-center justify-between gap-3">
@@ -266,7 +262,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
                 {upgrade.summary}
               </Text>
               <div className="mt-auto pt-4" />
-              <div className="flex items-end justify-between border-t border-bds-gray-10 pt-4">
+              <div className="flex flex-col gap-3 border-t border-bds-gray-10 pt-4 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex gap-10">
                   <div className="flex flex-col gap-0.5">
                     <Text variant="footnote" tone="muted" className="text-[9px] tracking-normal">Sepolia</Text>

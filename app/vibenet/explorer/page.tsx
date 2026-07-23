@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { Banner } from '../../components/ui/Banner';
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { Text } from '../../components/ui/Text';
 import { ExplorerLink } from '../components/ExplorerLink';
 import { ExplorerSearch } from '../components/ExplorerSearch';
@@ -29,9 +30,11 @@ type TablePanelProps = {
 function TablePanel({ loading, isEmpty, emptyText, children }: TablePanelProps) {
   if (loading) {
     return (
-      <Text variant="label.regular" tone="muted" className="py-4">
-        Indexing…
-      </Text>
+      <div className="flex flex-col gap-3 py-2">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-4 w-full" />
+        ))}
+      </div>
     );
   }
   if (isEmpty) {
@@ -130,7 +133,7 @@ export default function ExplorerPage() {
     : [];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="animate-in flex flex-col gap-8">
       {fetchError ? <Banner>{fetchError}</Banner> : null}
 
       <ExplorerSearch />

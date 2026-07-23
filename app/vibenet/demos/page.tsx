@@ -39,7 +39,7 @@ const DEMOS: DemoEntry[] = [
 
 export default function DemosIndexPage() {
   return (
-    <div className="flex flex-col gap-10 pb-4 text-black dark:text-white">
+    <div className="animate-in flex flex-col gap-10 pb-4 text-black dark:text-white">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {DEMOS.map((demo) =>
           demo.available ? (
