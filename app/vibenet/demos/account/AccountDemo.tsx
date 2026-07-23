@@ -321,7 +321,7 @@ type SignedOwnerChange = {
 class TxPendingError extends Error {
   readonly txHash: Hex;
   constructor(hash: Hex) {
-    super(`Transaction is pending — not yet included (${short(hash, 10, 8)}).`);
+    super(`Transaction is pending — not yet included (${hash}).`);
     this.txHash = hash;
   }
 }
@@ -1246,11 +1246,11 @@ export function AccountDemo() {
         timeout: 30_000,
       });
       if (receipt.status === '0x0')
-        throw new Error(`Transaction reverted onchain (${short(txHash, 10, 8)}).`);
+        throw new Error(`Transaction reverted onchain (${txHash}).`);
       const phases = receipt.eip8130?.phaseStatuses ?? [];
       const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
       if (failedPhase !== -1)
-        throw new Error(`Phase ${failedPhase} reverted (tx ${short(txHash, 10, 8)}).`);
+        throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
     } catch (err) {
       if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
       throw err;
@@ -2739,10 +2739,11 @@ export function AccountDemo() {
     : VIBENET_EXPLORER_PATH;
 
   return (
-    <div className="relative -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-10 pb-4 text-black dark:text-white">
+    <div className="relative -mb-20 flex flex-1 flex-col gap-10 pb-4 text-black dark:text-white">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left column */}
         <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6">{renderAccount()}</div>
           <DemoKeys
             signers={signers}
             busy={busy}
@@ -2751,15 +2752,6 @@ export function AccountDemo() {
             createSigner={createSigner}
             renameSigner={renameSigner}
           />
-          <div className="flex flex-col gap-6">{renderAccount()}</div>
-          <div className="flex items-center gap-4 text-[12px]">
-            <a href={SPEC_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
-              Spec ↗
-            </a>
-            <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
-              Contracts ↗
-            </a>
-          </div>
         </div>
 
         {/* Right column */}
@@ -2778,6 +2770,15 @@ export function AccountDemo() {
             </motion.div>
           </AnimatePresence>
         </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-[12px]">
+        <a href={SPEC_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
+          Spec ↗
+        </a>
+        <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
+          Contracts ↗
+        </a>
       </div>
 
       {error && !estimateBlocked ? (
@@ -2860,9 +2861,12 @@ export function AccountDemo() {
         </p>
       ) : null}
 
-      {/* Activity — full main-panel width, sticky bottom */}
+      {/* Activity — full main-panel width, sticky bottom.
+          `mt-auto` pushes the bar to the bottom of the (full-height) flex column
+          so it rests at the true viewport bottom on short/zoomed-out pages, while
+          `sticky bottom-0` keeps it pinned once the content is tall enough to scroll. */}
       <div
-        className="activity-full-width sticky bottom-0 z-10"
+        className="activity-full-width sticky bottom-0 z-10 mt-auto"
       >
         <div className="border-t border-bds-gray-10 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/5">
           <button
@@ -3878,7 +3882,13 @@ function CreateAccountModal(props: CreateAccountModalProps) {
           <Button variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" onClick={createAccount} disabled={!modalAddress}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={createAccount}
+            disabled={!modalAddress}
+            className="disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Create Account
           </Button>
         </>
