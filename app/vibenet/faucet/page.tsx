@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Spinner } from '../../components/ui/Spinner';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { ExplorerLink } from '../components/ExplorerLink';
@@ -244,10 +245,7 @@ export default function FaucetPage() {
                   className="disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {drip.phase === 'pending' && drip.tokenId === token.id ? (
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" className="animate-spin" aria-hidden="true">
-                      <circle cx={12} cy={12} r={10} stroke="currentColor" strokeWidth={2.5} opacity={0.25} />
-                      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
-                    </svg>
+                    <Spinner className="h-3.5 w-3.5" />
                   ) : token.id === 'eth' ? (
                     <svg width={10} height={16} viewBox="0 0 21 35" fill="none" aria-hidden="true" className="mr-0.5">
                       <path d="M10.4976 0V12.7533L20.9934 17.5699L10.4976 0Z" fill="currentColor" fillOpacity={0.602} />

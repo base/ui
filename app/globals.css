@@ -309,6 +309,16 @@ button {
   .animate-in-delay-1,
   .animate-in-delay-2,
   .animate-in-delay-3 { animation-delay: 0ms; }
+  .animate-spin { animation: spin 3s linear infinite; }
+}
+
+/* Loading spinner — slightly faster period for small-button contexts */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 0.8s linear infinite;
 }
 
 /* Skeleton pulse — softer rhythm than Tailwind default */

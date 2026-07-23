@@ -401,7 +401,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
                 </a>
                 <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
                   <span style={styles.footerIcon}>
-                    <svg width={16} height={16} viewBox="7 7 26 26" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                       <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
                     </svg>
                   </span>
