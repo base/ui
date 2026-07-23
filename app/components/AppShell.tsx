@@ -206,7 +206,7 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
 
   const row = (
     <div
-      className={hasChildren ? 'group' : undefined}
+      className={`${hasChildren ? 'group ' : ''}${enabled && !active ? 'nav-row-hover' : ''}`}
       style={{
         ...styles.navRow,
         position: 'relative',
@@ -260,12 +260,12 @@ function isChildActive(child: NavChild, pathname: string): boolean {
 }
 
 const slideVariants = {
-  enter: (direction: number) => ({ x: direction > 0 ? '100%' : '-100%', opacity: 0.5 }),
+  enter: (direction: number) => ({ x: direction > 0 ? '60%' : '-60%', opacity: 0 }),
   center: { x: 0, opacity: 1 },
-  exit: (direction: number) => ({ x: direction > 0 ? '-100%' : '100%', opacity: 0.5 }),
+  exit: (direction: number) => ({ x: direction > 0 ? '-60%' : '60%', opacity: 0 }),
 };
 
-const slideTransition = { type: 'spring' as const, bounce: 0, duration: 0.3 };
+const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
 
 function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { onNavigate?: () => void; hideBrand?: boolean; layoutScope?: string }) {
   const pathname = usePathname() || '/';
@@ -295,7 +295,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
       )}
 
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence mode="popLayout" custom={direction}>
           {activeParent ? (
             <motion.div
               key={`sub-nav:${activeParent.href}`}
@@ -427,7 +427,7 @@ function GlobalBanner() {
         <Text as="span" variant="label.medium">New!</Text>
         <Text as="span" variant="label.medium" className="-ml-1">Account Abstraction by Account Configuration</Text>
         <span className="inline-block h-3.5 w-px bg-bds-gray-20"></span>
-        <Link href="/upgrades/changelog/account-abstraction-by-account-configuration" className="group flex items-center gap-1 no-underline">
+        <Link href="/vibenet/demos/account" className="group flex items-center gap-1 no-underline">
           <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
           <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
         </Link>
@@ -534,20 +534,23 @@ export function AppShell({ children }: PropsWithChildren) {
               }
               if (pathname.startsWith('/vibenet') && pathname !== '/vibenet') {
                 let childLabel = title;
+                let middle: { label: string; href: string } | undefined;
                 const demosMatch = pathname.match(/^\/vibenet\/demos(?:\/(.+))?$/);
                 if (demosMatch) {
                   if (!demosMatch[1]) {
                     childLabel = 'Demos';
                   } else {
+                    middle = { label: 'Demos', href: '/vibenet/demos' };
                     const segments = demosMatch[1].split('/');
-                    const last = segments[segments.length - 1];
-                    childLabel = last.charAt(0).toUpperCase() + last.slice(1);
+                    const first = segments[0];
+                    childLabel = first.charAt(0).toUpperCase() + first.slice(1);
                   }
                 }
                 return (
                   <Breadcrumb
                     parentLabel="Vibenet"
                     parentHref="/vibenet"
+                    middle={middle}
                     childLabel={childLabel}
                   />
                 );

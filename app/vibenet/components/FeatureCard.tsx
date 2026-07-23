@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
@@ -22,7 +24,7 @@ type LinkButtonProps = {
 function LinkButton({ link, primary }: LinkButtonProps) {
   const external = link.external ? { target: '_blank', rel: 'noopener' } : {};
   return (
-    <Button href={link.href} variant={primary ? 'secondary' : 'outline'} size="sm" {...external}>
+    <Button href={link.href} variant={primary ? 'primary' : 'secondary'} size="sm" {...external}>
       {link.external ? `${link.label} ↗` : link.label}
     </Button>
   );
@@ -46,22 +48,12 @@ export function FeatureCard({ feature }: FeatureCardProps) {
       )}
     >
       <div className="flex-1">
-        {feature.tag ? (
-          <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
-            {feature.tag}
-          </span>
-        ) : null}
-        <Text variant="title3" className={cn(feature.tag && 'mt-3')}>
+        <Text variant="title3">
           {feature.title}
         </Text>
         {feature.summary ? (
           <Text variant="body" tone="muted" className="mt-2 max-w-md">
             {feature.summary}
-          </Text>
-        ) : null}
-        {feature.availability ? (
-          <Text variant="footnote" tone="muted" className="mt-3 font-mono">
-            {feature.availability}
           </Text>
         ) : null}
         {hasActions ? (
@@ -78,10 +70,20 @@ export function FeatureCard({ feature }: FeatureCardProps) {
             ))}
           </div>
         ) : null}
+        {feature.availability ? (
+          <Text variant="footnote" tone="muted" className="mt-5">
+            {feature.availability}
+            {feature.availabilityHref ? (
+              <Link href={feature.availabilityHref} className="text-black hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20">
+                Base Cobalt
+              </Link>
+            ) : null}
+          </Text>
+        ) : null}
       </div>
 
       {hasHighlights ? (
-        <ul className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+        <ul className="grid flex-1 grid-cols-1 gap-3">
           {highlights.map((highlight) => (
             <li
               key={highlight.title}

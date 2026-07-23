@@ -22,7 +22,7 @@ import { shortAddress } from '../../../library/format';
 const CHIP =
   'inline-flex items-center rounded-full border border-bds-gray-10 px-2.5 py-1 text-[11px] leading-none text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40';
 const BADGE =
-  'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
+  'inline-flex items-center rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
 const TH =
   'px-4 py-3 text-left text-[13px] font-normal text-bds-gray-50';
 const TD = 'px-4 py-3 text-[13px]';

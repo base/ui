@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { Card, LinkCard } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
-import { DemoHeader } from './_components/DemoHeader';
+import { Badge } from './account/components/primitives';
 
 export const metadata: Metadata = {
   title: 'Demos · Vibenet',
@@ -40,12 +40,6 @@ const DEMOS: DemoEntry[] = [
 export default function DemosIndexPage() {
   return (
     <div className="flex flex-col gap-10 pb-4 text-black dark:text-white">
-      <DemoHeader
-        eyebrow="Base Vibenet"
-        title="Demos"
-        description="Hands-on demos of in-flight Base features, running against the vibenet developer network. Everything stays in your browser — testnet only."
-      />
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {DEMOS.map((demo) =>
           demo.available ? (
@@ -74,9 +68,7 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
-          {demo.eyebrow}
-        </span>
+        <Badge>{demo.eyebrow}</Badge>
         {!demo.available ? (
           <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
             Coming soon

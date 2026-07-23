@@ -38,7 +38,7 @@ export function WatchAssetButton({ address, token }: WatchAssetButtonProps) {
 
   return (
     <Button variant="secondary" size="sm" onClick={handleWatch}>
-      {status || `Add ${token.symbol} to wallet`}
+      {status || `Add ${token.symbol} to Wallet`}
     </Button>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 
 import { cn } from '../../../components/ui/cn';
 
@@ -10,12 +11,8 @@ type AnimatedAmountProps = {
   group: boolean;
 };
 
-/**
- * Renders a formatted balance and, when the value increases (e.g. after a
- * top-up), rolls the number upwards to the new amount with a brief lift.
- * Loading / empty placeholders ("…", "—") are shown verbatim and never
- * animated. Ported from the account demo.
- */
+const EASE = [0.23, 1, 0.32, 1] as [number, number, number, number];
+
 export function AnimatedAmount({ text, decimals, group }: AnimatedAmountProps) {
   const parse = (t: string): number | null => {
     const cleaned = t.replace(/,/g, '');
@@ -32,56 +29,43 @@ export function AnimatedAmount({ text, decimals, group }: AnimatedAmountProps) {
   );
 
   const target = parse(text);
-  const [display, setDisplay] = useState(text);
   const [rolling, setRolling] = useState(false);
-  const fromRef = useRef<number | null>(target);
-  const rafRef = useRef<number | null>(null);
+  const mv = useMotionValue(target ?? 0);
+  const displayed = useTransform(mv, (v) => fmt(v));
+  const prevTarget = useRef<number | null>(target);
 
   useEffect(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-
     if (target === null) {
-      fromRef.current = null;
-      setDisplay(text);
+      prevTarget.current = null;
       return;
     }
-    const from = fromRef.current;
-    if (from === null || from === target) {
-      fromRef.current = target;
-      setDisplay(fmt(target));
+    if (prevTarget.current === null || prevTarget.current === target) {
+      prevTarget.current = target;
+      mv.set(target);
       return;
     }
-
-    const start = performance.now();
-    const duration = 750;
+    prevTarget.current = target;
     setRolling(true);
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      const eased = 1 - (1 - t) ** 3; // easeOutCubic
-      setDisplay(fmt(from + (target - from) * eased));
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        fromRef.current = target;
-        setDisplay(fmt(target));
-        setRolling(false);
-      }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
+    const controls = animate(mv, target, {
+      duration: 0.4,
+      ease: EASE,
+      onComplete: () => setRolling(false),
+    });
+    return () => controls.stop();
+  }, [text, target, mv]);
+
+  if (target === null) {
+    return <span className="tabular-nums">{text}</span>;
+  }
 
   return (
-    <span
+    <motion.span
       className={cn(
         'tabular-nums transition-colors',
         rolling && 'text-bds-green-60 dark:text-bds-green-30',
       )}
     >
-      {display}
-    </span>
+      {displayed}
+    </motion.span>
   );
 }

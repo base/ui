@@ -1,7 +1,7 @@
 'use client';
 
 import type { PropsWithChildren } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 
 type FadeInUpProps = PropsWithChildren<{
   index?: number;
@@ -19,11 +19,22 @@ export function FadeInUp({
   className,
   children,
 }: FadeInUpProps) {
+  const reducedMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, transform: `translateY(${offset}px)` }}
-      animate={{ opacity: 1, transform: 'translateY(0px)' }}
-      transition={{ duration, ease: EASE, delay: index * 0.04 }}
+      initial={{
+        opacity: 0,
+        transform: reducedMotion ? undefined : `translateY(${offset}px)`,
+      }}
+      animate={{
+        opacity: 1,
+        transform: reducedMotion ? undefined : 'translateY(0px)',
+      }}
+      transition={{
+        duration: reducedMotion ? 0.15 : duration,
+        ease: EASE,
+        delay: reducedMotion ? 0 : index * 0.04,
+      }}
       className={className}
     >
       {children}

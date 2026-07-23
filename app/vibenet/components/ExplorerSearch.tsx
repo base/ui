@@ -4,7 +4,6 @@ import { useCallback, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { Button } from '../../components/ui/Button';
 import { vibenetApi, VibenetApiError } from '../library/client';
 
 const EXPLORER_BASE = '/vibenet/explorer';
@@ -66,7 +65,19 @@ export function ExplorerSearch() {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
+    <form onSubmit={handleSubmit} className="relative w-full max-w-md">
+      <svg
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-bds-gray-40 dark:text-bds-gray-50"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="7" cy="7" r="4.5" />
+        <path d="M10.5 10.5 14 14" />
+      </svg>
       <input
         type="text"
         value={query}
@@ -76,11 +87,8 @@ export function ExplorerSearch() {
         title={error ?? undefined}
         spellCheck={false}
         autoComplete="off"
-        className="w-full max-w-md rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2 font-mono text-[13px] text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40"
+        className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 py-2 pl-9 pr-3.5 font-mono text-[13px] text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40"
       />
-      <Button type="submit" variant="secondary" size="sm">
-        Search
-      </Button>
     </form>
   );
 }

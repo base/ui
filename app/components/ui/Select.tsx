@@ -45,11 +45,13 @@ export function Select({
       <RadixSelect.Trigger
         aria-label={ariaLabel}
         className={cn(
-          'inline-flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-bds-gray-10 bg-white px-3.5 text-[14px] text-black outline-none transition-colors focus:border-bds-blue-60 data-[placeholder]:text-bds-gray-40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-bds-blue-40',
+          'inline-flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-bds-gray-10 bg-white px-3.5 text-[14px] text-black outline-none transition-colors focus:border-black data-[placeholder]:text-bds-gray-40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white',
           className,
         )}
       >
-        <RadixSelect.Value placeholder={placeholder} />
+        <span className="min-w-0 truncate">
+          <RadixSelect.Value placeholder={placeholder} />
+        </span>
         <RadixSelect.Icon className="text-bds-gray-60 dark:text-bds-gray-20">
           <svg
             aria-hidden="true"
@@ -101,9 +103,9 @@ function SelectItem({ option }: { option: SelectOption }) {
     <RadixSelect.Item
       value={option.value}
       disabled={option.disabled}
-      className="relative flex cursor-pointer select-none items-center gap-2 rounded-md py-2 pl-8 pr-3 text-[14px] text-black outline-none data-[highlighted]:bg-bds-gray-5 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-white dark:data-[highlighted]:bg-white/10"
+      className="relative flex cursor-pointer select-none items-center gap-2 rounded-md py-2 pl-3 pr-8 text-[14px] text-black outline-none data-[highlighted]:bg-bds-gray-5 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-white dark:data-[highlighted]:bg-white/10"
     >
-      <RadixSelect.ItemIndicator className="absolute left-2.5 text-base-blue dark:text-bds-blue-20">
+      <RadixSelect.ItemIndicator className="absolute right-2.5 text-black dark:text-white">
         ✓
       </RadixSelect.ItemIndicator>
       <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>

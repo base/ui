@@ -216,7 +216,7 @@ export default function BuildPage() {
               rel="noopener"
               className="flex flex-col gap-1.5 bg-white p-5 dark:bg-white/5"
             >
-              <Text variant="label" className="font-medium">
+              <Text variant="label">
                 {doc.title} ↗
               </Text>
               <Text variant="footnote" tone="muted">

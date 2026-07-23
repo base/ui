@@ -12,7 +12,8 @@ export const FEATURES: VibenetFeature[] = [
     summary:
       'Built into the protocol. No bundler, no entrypoint. Powerful UX primitives in accounts that work on Base.',
     status: 'live',
-    availability: 'Coming in Base Cobalt',
+    availability: 'Coming soon in ',
+    availabilityHref: '/upgrades/cobalt',
     highlights: [
       { title: 'Authorize how you want', detail: 'secp256k1, P-256, WebAuthn passkeys and more' },
       { title: 'Portable everywhere', detail: 'accounts work on any EVM chain' },
@@ -31,7 +32,7 @@ export const FEATURES: VibenetFeature[] = [
     // as `live` (which hides the "coming-soon" badge). "Build your own" points at
     // the EIP-8130 build guide.
     cta: { label: 'Try It Out', href: '/vibenet/demos/account' },
-    secondaryCta: { label: 'Build your own', href: '/vibenet/demos/account/build' },
+    secondaryCta: { label: 'Build Your Own', href: '/vibenet/demos/account/build' },
     links: [{ label: 'EIP-8130', href: 'https://eip.tools/eip/8130', external: true }],
   },
 ];
