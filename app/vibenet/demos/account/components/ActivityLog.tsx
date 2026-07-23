@@ -2,12 +2,13 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 
+import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { type ActivityEntry, type StoredAccount, formatTime } from '../library/model';
 import { short } from '../shared';
-import { AccountAvatar, Badge } from './primitives';
+import { AccountIdentity, Badge } from './primitives';
 
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 
@@ -49,6 +50,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
             <th scope="col" className="px-4 py-3 text-[13px] font-normal">Event</th>
             <th scope="col" className="px-4 py-3 text-[13px] font-normal">Account</th>
             <th scope="col" className="px-4 py-3 text-[13px] font-normal">Detail</th>
+            <th scope="col" className="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
@@ -82,17 +84,9 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                   {e.account ? (
                     <Link
                       href={`${VIBENET_EXPLORER_PATH}/address/${e.account}`}
-                      className="flex items-center gap-2 no-underline transition-colors hover:opacity-80"
+                      className="no-underline transition-colors hover:opacity-80"
                     >
-                      <AccountAvatar variant={acct?.parentId ? 'spending' : 'default'} />
-                      <div className="flex flex-col">
-                        {acct ? (
-                          <Text variant="label" className="text-[13px]">{acct.label}</Text>
-                        ) : null}
-                        <span className="font-sans text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
-                          {short(e.account)}
-                        </span>
-                      </div>
+                      <AccountIdentity label={acct?.label} address={e.account} variant={acct?.parentId ? 'spending' : 'default'} hideAvatar />
                     </Link>
                   ) : null}
                 </td>
@@ -108,20 +102,17 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                         ))}
                       </div>
                     ) : null}
-                    <div className="flex flex-wrap items-center gap-3 text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
-                      {typeof e.calls === 'number' ? (
-                        <span>{e.calls} call{e.calls === 1 ? '' : 's'}</span>
-                      ) : null}
-                      {txHash ? (
-                        <Link
-                          href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}
-                          className="text-base-blue hover:underline dark:text-bds-blue-20"
-                        >
-                          {short(txHash, 10, 8)} →
-                        </Link>
-                      ) : null}
-                    </div>
+                    {typeof e.calls === 'number' ? (
+                      <Text variant="label.regular" tone="muted">{e.calls} call{e.calls === 1 ? '' : 's'}</Text>
+                    ) : null}
                   </div>
+                </td>
+                <td className="px-4 py-3.5 align-top text-right">
+                  {txHash ? (
+                    <Link href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}>
+                      <Button variant="secondary" size="sm">View Explorer</Button>
+                    </Link>
+                  ) : null}
                 </td>
               </motion.tr>
             );
@@ -159,17 +150,9 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
               {e.account ? (
                 <Link
                   href={`${VIBENET_EXPLORER_PATH}/address/${e.account}`}
-                  className="flex items-center gap-2 no-underline"
+                  className="no-underline"
                 >
-                  <AccountAvatar variant={acct?.parentId ? 'spending' : 'default'} />
-                  <div className="flex flex-col">
-                    {acct ? (
-                      <Text variant="label" className="text-[13px]">{acct.label}</Text>
-                    ) : null}
-                    <span className="font-sans text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
-                      {short(e.account)}
-                    </span>
-                  </div>
+                  <AccountIdentity label={acct?.label} address={e.account} variant={acct?.parentId ? 'spending' : 'default'} hideAvatar />
                 </Link>
               ) : null}
 
@@ -185,16 +168,13 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                 </div>
               ) : null}
 
-              <div className="flex flex-wrap items-center gap-3 text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
+              <div className="flex flex-wrap items-center gap-3">
                 {typeof e.calls === 'number' ? (
-                  <span>{e.calls} call{e.calls === 1 ? '' : 's'}</span>
+                  <Text variant="label.regular" tone="muted">{e.calls} call{e.calls === 1 ? '' : 's'}</Text>
                 ) : null}
                 {txHash ? (
-                  <Link
-                    href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}
-                    className="text-base-blue hover:underline dark:text-bds-blue-20"
-                  >
-                    {short(txHash, 10, 8)} →
+                  <Link href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}>
+                    <Button variant="secondary" size="sm">View Explorer</Button>
                   </Link>
                 ) : null}
               </div>

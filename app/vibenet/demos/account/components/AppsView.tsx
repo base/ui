@@ -94,27 +94,27 @@ export function AppsView(p: AppsViewProps) {
 
               {app.id === 'monthly-vibes' ? (
                 sk ? (
-                  <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-3 dark:border-white/10">
-                    <div className="flex items-center gap-2">
-                      <Badge tone="ok">Active</Badge>
-                      <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                        {sk.policy?.params ?? 'capped'} · {formatExpiry(sk.expiry)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="flex-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                  <div className="flex items-center gap-3 border-t border-bds-gray-10 pt-3 dark:border-white/10">
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge tone="ok">Active</Badge>
+                        <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                          {sk.policy?.params ?? 'capped'} · {formatExpiry(sk.expiry)}
+                        </span>
+                      </div>
+                      <span className="text-[12px] leading-[18px] text-bds-gray-60 dark:text-bds-gray-40">
                         Renews automatically from the session key — no monthly re-signing. Cancel by
                         revoking it.
-                      </p>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => p.revokeSessionKey(sk.id)}
-                        className="shrink-0"
-                      >
-                        Unsubscribe
-                      </Button>
+                      </span>
                     </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => p.revokeSessionKey(sk.id)}
+                      className="shrink-0"
+                    >
+                      Unsubscribe
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-3 border-t border-bds-gray-10 pt-3 dark:border-white/10">

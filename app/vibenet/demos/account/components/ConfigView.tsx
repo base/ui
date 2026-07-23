@@ -38,7 +38,7 @@ import {
   stableSymbol,
 } from '../library/policy';
 import { type Balances, KIND_LABEL, short, signerIdentity, type WalletSigner } from '../shared';
-import { AccountAvatar, Badge, KindBadge } from './primitives';
+import { AccountAvatar, AccountIdentity, Badge, CheckIcon, KindBadge } from './primitives';
 
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -144,26 +144,18 @@ export function ConfigView(p: ConfigViewProps) {
     <div className="flex flex-col gap-6">
       {/* Hero */}
       <div className="flex flex-wrap items-center gap-4">
-        <AccountAvatar variant={acct.parentId ? 'spending' : 'default'} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[16px] font-normal">{acct.label}</span>
+        <AccountIdentity
+          label={acct.label}
+          address={acct.address}
+          variant={acct.parentId ? 'spending' : 'default'}
+          badges={<>
             {acct.type === 'eoa' ? <Badge>EOA</Badge> : null}
             {acct.deployed ? <Badge tone="ok">Deployed</Badge> : null}
-          </div>
-          <button
-            type="button"
-            onClick={() => p.copy(acct.address, 'cfg')}
-            title="Copy address"
-            className="flex w-fit items-center gap-1.5 text-left text-[13px] text-bds-gray-60 transition-colors hover:text-black dark:text-bds-gray-40 dark:hover:text-white"
-          >
-            {p.copied === 'cfg' ? 'Copied' : short(acct.address)}
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
-              <path d="M10.5 5.5V3.5C10.5 2.67 9.83 2 9 2H3.5C2.67 2 2 2.67 2 3.5V9C2 9.83 2.67 10.5 3.5 10.5H5.5" />
-            </svg>
-          </button>
-        </div>
+          </>}
+          onCopy={() => p.copy(acct.address, 'cfg')}
+          copied={p.copied === 'cfg'}
+          className="min-w-0 flex-1"
+        />
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={p.onTransact}>
             Transact
@@ -276,7 +268,7 @@ function AssetsTab({ p }: { p: ConfigViewProps }) {
               <span className="text-[14px] font-normal">{a.fullName}</span>
               <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{a.symbol}</span>
             </div>
-            <span className="ml-auto text-[14px]">
+            <span className="ml-auto font-base text-[14px]">
               <AnimatedAmount
                 text={a.balance}
                 decimals={a.symbol === 'ETH' ? 4 : 2}
@@ -468,7 +460,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
               {p.ownerChangeSigned ? (
                 <>
                   <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-                    <span className="text-bds-green-70 dark:text-bds-green-20">✓ Signed</span> — owner change authorized.
+                    <span className="inline-flex items-center gap-1 text-bds-green-70 dark:text-bds-green-20">Signed</span> — owner change authorized.
                     It rides your next Transact automatically, or apply it now.
                   </p>
                   <div className="flex gap-2">
@@ -509,7 +501,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
               href={`${VIBENET_EXPLORER_PATH}/tx/${p.configTx.hash}`}
               className="flex items-center gap-2 font-sans text-[12px] text-base-blue hover:underline dark:text-bds-blue-20"
             >
-              <Badge tone="ok">✓ {p.configTx.label} landed</Badge>
+              <Badge tone="ok">{p.configTx.label} landed</Badge>
               <code>{short(p.configTx.hash, 14, 12)}</code>
             </Link>
           ) : null}
@@ -592,7 +584,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                 {sk.pendingAuth ? (
                   <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-2 dark:border-white/10">
                     <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                      <span className="text-bds-green-70 dark:text-bds-green-20">✓ Signed</span> — installs on this key&apos;s
+                      <span className="inline-flex items-center gap-1 text-bds-green-70 dark:text-bds-green-20">Signed</span> — installs on this key&apos;s
                       first transaction, or apply it now.
                     </p>
                     <div className="flex gap-2">
@@ -881,12 +873,7 @@ function SubAccountsTab({ p }: { p: ConfigViewProps }) {
         <div className="flex flex-col gap-3">
           {acct.subAccounts.map((sa) => (
             <div key={sa.id} className="flex items-center gap-3 rounded-lg border border-bds-gray-10 p-3 dark:border-white/10">
-              <AccountAvatar variant="spending" />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-[14px] font-normal">{sa.label}</span>
-                <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(sa.address)}</span>
-              </div>
-              <Badge>Sub</Badge>
+              <AccountIdentity label={sa.label} address={sa.address} variant="spending" />
               <Badge>delegate → {short(sa.delegateTo, 6, 4)}</Badge>
             </div>
           ))}

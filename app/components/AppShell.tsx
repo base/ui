@@ -4,6 +4,7 @@ import { CSSProperties, PropsWithChildren, useEffect, useRef, useState } from 'r
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
+import { Toaster } from 'sonner';
 
 import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
@@ -310,7 +311,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
               <Link
                 href="/"
                 className="nav-row-hover group"
-                style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px', marginBottom: 4, color: spectrum.gray[50] }}
+                style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: spectrum.gray[50] }}
                 onClick={onNavigate}
               >
                 <svg
@@ -577,6 +578,7 @@ export function AppShell({ children }: PropsWithChildren) {
           </main>
         </div>
       </div>
+      <Toaster position="top-center" width={300} toastOptions={{ className: 'text-[13px] font-base tracking-[0px]' }} />
     </div>
   );
 }
