@@ -118,7 +118,7 @@ export default function VibenetHomePage() {
     <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-16 pb-4 text-black dark:text-white">
       <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:justify-between md:gap-8">
         <div className="flex max-w-xl flex-1 flex-col gap-6">
-          <img src="/vibenet-illo.svg" alt="" width={64} height={64} className="mt-4" />
+          <img src="/vibenet-illo.svg" alt="" width={64} height={64} className="mt-8" />
           <Text variant="title2" tone="muted">
             <span className="text-black dark:text-white">Vibenet</span> is an ephemeral Base developer network for testing in-flight features.
           </Text>

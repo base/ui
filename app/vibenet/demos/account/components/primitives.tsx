@@ -45,20 +45,18 @@ const KIND_BADGE: Record<SignerKind, string> = {
 export function AccountAvatar({ variant = 'default' }: { variant?: 'default' | 'spending' }) {
   if (variant === 'spending') {
     return (
-      <svg width="36" height="36" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
-        <rect x="1" y="1" width="16" height="16" rx="8" fill="white" />
-        <path d="M9 10C11.7664 10 14.1573 11.6051 15.2939 13.9346C13.8293 15.8 11.5556 17 9 17C6.44435 17 4.17065 15.8 2.70605 13.9346C3.84271 11.6051 6.23357 10 9 10Z" fill="#FBD880" />
-        <path d="M10.5 5C10.7761 5 11 5.22386 11 5.5L11 8.5C11 8.77614 10.7761 9 10.5 9L7.5 9C7.22386 9 7 8.77614 7 8.5L7 5.5C7 5.22386 7.22386 5 7.5 5L10.5 5Z" fill="#FBD880" />
-        <rect x="1" y="1" width="16" height="16" rx="8" stroke="#FEA8CD" strokeWidth="2" />
+      <svg width="40" height="40" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+        <rect x="0.5" y="0.5" width="16" height="16" rx="8" fill="#F8F8F8" stroke="#EFEFEF" />
+        <path d="M8.5 9.5C11.2664 9.5 13.6573 11.1051 14.7939 13.4346C13.3293 15.3 11.0556 16.5 8.5 16.5C5.94435 16.5 3.67065 15.3 2.20605 13.4346C3.34271 11.1051 5.73357 9.5 8.5 9.5Z" fill="#A7E66B" />
+        <path d="M10 4.5C10.2761 4.5 10.5 4.72386 10.5 5L10.5 8C10.5 8.27614 10.2761 8.5 10 8.5L7 8.5C6.72386 8.5 6.5 8.27614 6.5 8L6.5 5C6.5 4.72386 6.72386 4.5 7 4.5L10 4.5Z" fill="#A7E66B" />
       </svg>
     );
   }
   return (
-    <svg width="36" height="36" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
-      <rect x="1" y="1" width="16" height="16" rx="8" fill="white" />
-      <path d="M9 10C11.7664 10 14.1573 11.6051 15.2939 13.9346C13.8293 15.8 11.5556 17 9 17C6.44435 17 4.17065 15.8 2.70605 13.9346C3.84271 11.6051 6.23357 10 9 10Z" fill="#A7E66B" />
-      <path d="M10.5 5C10.7761 5 11 5.22386 11 5.5L11 8.5C11 8.77614 10.7761 9 10.5 9L7.5 9C7.22386 9 7 8.77614 7 8.5L7 5.5C7 5.22386 7.22386 5 7.5 5L10.5 5Z" fill="#A7E66B" />
-      <rect x="1" y="1" width="16" height="16" rx="8" stroke="#0000FF" strokeWidth="2" />
+    <svg width="40" height="40" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+      <rect x="0.5" y="0.5" width="16" height="16" rx="8" fill="#F8F8F8" stroke="#EFEFEF" />
+      <path d="M8.5 9.5C11.2664 9.5 13.6573 11.1051 14.7939 13.4346C13.3293 15.3 11.0556 16.5 8.5 16.5C5.94435 16.5 3.67065 15.3 2.20605 13.4346C3.34271 11.1051 5.73357 9.5 8.5 9.5Z" fill="#FEA8CD" />
+      <path d="M10 4.5C10.2761 4.5 10.5 4.72386 10.5 5L10.5 8C10.5 8.27614 10.2761 8.5 10 8.5L7 8.5C6.72386 8.5 6.5 8.27614 6.5 8L6.5 5C6.5 4.72386 6.72386 4.5 7 4.5L10 4.5Z" fill="#FEA8CD" />
     </svg>
   );
 }

@@ -9,6 +9,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { cn } from '../../../../components/ui/cn';
 import { CloseIcon } from '../../../../components/ui/icons';
+import { Spinner } from '../../../../components/ui/Spinner';
 import { Select } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
@@ -293,7 +294,7 @@ function AssetsTab({ p }: { p: ConfigViewProps }) {
             onClick={p.requestFaucet}
             disabled={p.faucetBusy !== null}
           >
-            {p.faucetBusy ? '…' : 'Top Up'}
+            {p.faucetBusy ? <Spinner /> : 'Top Up'}
           </Button>
         </div>
       ) : null}

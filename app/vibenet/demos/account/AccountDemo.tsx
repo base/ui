@@ -69,6 +69,7 @@ import { vibenetApi } from '../../library/client';
 import { ACCOUNT_RPC_URL, VIBENET_EXPLORER_PATH } from '../../library/config';
 import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { DemoHeader } from '../_components/DemoHeader';
+import { Spinner } from '../../../components/ui/Spinner';
 import { Tabs } from '../../../components/ui/Tabs';
 import { Stat } from '../_components/Stat';
 import { ActivityLog } from './components/ActivityLog';
@@ -3261,7 +3262,7 @@ export function AccountDemo() {
                 className="flex items-center gap-3"
               >
                 <AccountAvatar />
-                <span className="flex flex-col">
+                <span className="flex flex-col text-left">
                   <span className="text-[14px] font-normal">{acct.label}</span>
                   <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
                     {copied === 'txaddr' ? 'Copied' : short(acct.address)}
@@ -3271,7 +3272,7 @@ export function AccountDemo() {
               </button>
               {networkShort === 'vibenet' ? (
                 <Button variant="secondary" size="sm" onClick={requestFaucet} disabled={faucetBusy !== null}>
-                  {faucetBusy ? '…' : 'Top Up'}
+                  {faucetBusy ? <Spinner /> : 'Top Up'}
                 </Button>
               ) : null}
             </div>
@@ -3803,7 +3804,7 @@ function DemoKeys({ signers, busy, renameId, setRenameId, createSigner, renameSi
       <div className="flex flex-wrap gap-2">
         {(['k1', 'p256', 'passkey'] as const).map((kind) => (
           <Button key={kind} variant="secondary" size="sm" onClick={() => createSigner(kind)} disabled={busy !== null}>
-            {busy === kind ? '…' : `+ ${KIND_LABEL[kind]}`}
+            {busy === kind ? <Spinner /> : `+ ${KIND_LABEL[kind]}`}
           </Button>
         ))}
       </div>
