@@ -546,6 +546,14 @@ export function AppShell({ children }: PropsWithChildren) {
                     childLabel = first.charAt(0).toUpperCase() + first.slice(1);
                   }
                 }
+                const explorerDetailMatch = pathname.match(/^\/vibenet\/explorer\/(tx|block|address)\/(.+)$/);
+                if (explorerDetailMatch) {
+                  middle = { label: 'Explorer', href: '/vibenet/explorer' };
+                  const raw = explorerDetailMatch[2];
+                  childLabel = raw.startsWith('0x') && raw.length > 12
+                    ? `${raw.slice(0, 6)}…${raw.slice(-4)}`
+                    : raw;
+                }
                 return (
                   <Breadcrumb
                     parentLabel="Vibenet"

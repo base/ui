@@ -8,14 +8,15 @@ import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { ExplorerLink } from '../components/ExplorerLink';
+import { ExplorerSearch } from '../components/ExplorerSearch';
 import type { BlockRow, StatsRow, TxRow } from '../library/api-types';
 import { vibenetApi } from '../library/client';
 import { timeAgoFromSeconds } from '../library/explorer';
 
 const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0 dark:bg-bds-blue-100/30';
 const TH =
-  'px-4 py-3 text-left text-[13px] font-normal text-bds-gray-50';
-const TD = 'px-4 py-3 text-[13px]';
+  'px-4 py-3 text-left text-sm font-normal text-bds-gray-50 first:pl-0 last:pr-0';
+const TD = 'px-4 py-3 text-sm first:pl-0 last:pr-0';
 
 type TablePanelProps = {
   loading: boolean;
@@ -91,7 +92,7 @@ export default function ExplorerPage() {
           }
           if (changed.size > 0) {
             setStatHighlight(changed);
-            window.setTimeout(() => setStatHighlight(new Set()), 1000);
+            window.setTimeout(() => setStatHighlight(new Set()), 1300);
           }
         }
 
@@ -132,6 +133,8 @@ export default function ExplorerPage() {
     <div className="flex flex-col gap-8">
       {fetchError ? <Banner>{fetchError}</Banner> : null}
 
+      <ExplorerSearch />
+
       {statItems.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {statItems.map((stat) => (
@@ -142,7 +145,7 @@ export default function ExplorerPage() {
                 statHighlight.has(stat.key) && NEW_ROW_HIGHLIGHT,
               )}
             >
-              <Text variant="caption" tone="muted">
+              <Text variant="label.medium" tone="muted">
                 {stat.label}
               </Text>
               <Text variant="title2" className="mt-1">{stat.value.toLocaleString()}</Text>
@@ -152,7 +155,7 @@ export default function ExplorerPage() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="flex flex-col gap-3">
+        <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
           <Text variant="title3">Latest Blocks</Text>
           <TablePanel loading={loading} isEmpty={blocks.length === 0} emptyText="No blocks yet">
             <table className="w-full border-collapse">
@@ -193,12 +196,13 @@ export default function ExplorerPage() {
               </tbody>
             </table>
           </TablePanel>
-        </section>
+        </Card>
 
-        <section className="flex flex-col gap-3">
+        <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
           <Text variant="title3">Latest Transactions</Text>
           <TablePanel loading={loading} isEmpty={txs.length === 0} emptyText="No transactions yet">
-            <table className="w-full border-collapse">
+            {/* Desktop table */}
+            <table className="hidden w-full border-collapse sm:table">
               <thead>
                 <tr
                   aria-label="Column headers"
@@ -246,8 +250,42 @@ export default function ExplorerPage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile stacked */}
+            <div className="flex flex-col sm:hidden">
+              {txs.slice(0, 10).map((tx) => (
+                <div
+                  key={tx.hash}
+                  className={cn(
+                    'flex flex-col gap-1.5 border-b border-bds-gray-10 px-1 py-3 transition-colors duration-1000 last:border-0 dark:border-white/10',
+                    newKeys.has(`tx-${tx.hash}`) && NEW_ROW_HIGHLIGHT,
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <ExplorerLink kind="tx" value={tx.hash} />
+                    <span className="text-sm text-bds-gray-60 dark:text-bds-gray-40">
+                      Block{' '}
+                      <ExplorerLink
+                        kind="block"
+                        value={String(tx.block_num)}
+                        label={tx.block_num.toLocaleString()}
+                      />
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-bds-gray-60 dark:text-bds-gray-40">
+                    <ExplorerLink kind="address" value={tx.from_addr} />
+                    <span>→</span>
+                    {tx.to_addr ? (
+                      <ExplorerLink kind="address" value={tx.to_addr} />
+                    ) : (
+                      <span className="italic">(create)</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </TablePanel>
-        </section>
+        </Card>
       </div>
     </div>
   );

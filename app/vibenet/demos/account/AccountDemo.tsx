@@ -3056,13 +3056,13 @@ export function AccountDemo() {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <Text variant="headline">Accounts</Text>
-                <button
-                  type="button"
-                  onClick={() => setClearConfirm(true)}
-                  className="text-[12px] text-bds-gray-50 transition-colors hover:text-bds-red-60 dark:text-bds-gray-40"
-                >
-                  Clear All
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setClearConfirm(true)}
+                    className="text-[12px] text-bds-gray-50 transition-colors hover:text-bds-red-60 dark:text-bds-gray-40"
+                  >
+                    Clear All
+                  </button>
                 </div>
                 <Text variant="footnote" tone="muted">Select an account to start testing transacting and performing app actions.</Text>
               </div>
