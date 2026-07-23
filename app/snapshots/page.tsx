@@ -10,6 +10,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
+import SnapshotsLoading from './loading';
 import {
   CHAIN_NAME_BY_NETWORK,
   formatBytes,
@@ -313,8 +314,6 @@ export default function SnapshotsPage() {
     if (value) toggleComponent(value);
   }
 
-  const reducedMotion = useReducedMotion();
-
   const chainName = activeSnapshot ? (CHAIN_NAME_BY_NETWORK[network] ?? network) : '';
   const command = activeSnapshot ? buildDownloadCommand(chainName, preset, selectedComponents) : '';
 
@@ -345,7 +344,7 @@ export default function SnapshotsPage() {
     stateHistoryComponents.length > 0 &&
     stateHistoryComponents.every((c) => selectedComponents.includes(c.name));
 
-  if (loading) return null;
+  if (loading) return <SnapshotsLoading />;
 
   return (
     <div className="animate-in mx-auto w-full max-w-5xl">

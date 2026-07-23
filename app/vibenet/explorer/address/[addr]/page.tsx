@@ -102,8 +102,6 @@ export default function ExplorerAddressPage({ params }: PageProps) {
     };
   }, [addr]);
 
-  if (is404) notFound();
-
   // Implicit secp256k1 self key shown when no AccountConfiguration events are
   // indexed yet. Memoized so it's a stable prop for ActorCard.
   const selfActor = useMemo<ActorEntry>(
@@ -158,6 +156,8 @@ export default function ExplorerAddressPage({ params }: PageProps) {
       );
     }
   }
+
+  if (is404) notFound();
 
   return (
     <div className="animate-in flex flex-col gap-6">
