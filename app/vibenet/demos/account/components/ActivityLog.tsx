@@ -95,15 +95,15 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                     {e.detail ? (
                       <Text variant="label.regular" tone="muted">{e.detail}</Text>
                     ) : null}
+                    {typeof e.calls === 'number' ? (
+                      <Text variant="label.regular" tone="muted">{e.calls} call{e.calls === 1 ? '' : 's'}</Text>
+                    ) : null}
                     {e.changes && e.changes.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {e.changes.map((c, ci) => (
                           <Badge key={`${e.id}-${ci}`}>{c}</Badge>
                         ))}
                       </div>
-                    ) : null}
-                    {typeof e.calls === 'number' ? (
-                      <Text variant="label.regular" tone="muted">{e.calls} call{e.calls === 1 ? '' : 's'}</Text>
                     ) : null}
                   </div>
                 </td>
@@ -160,6 +160,10 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                 <Text variant="label.regular" tone="muted">{e.detail}</Text>
               ) : null}
 
+              {typeof e.calls === 'number' ? (
+                <Text variant="label.regular" tone="muted">{e.calls} call{e.calls === 1 ? '' : 's'}</Text>
+              ) : null}
+
               {e.changes && e.changes.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {e.changes.map((c, ci) => (
@@ -169,9 +173,6 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
               ) : null}
 
               <div className="flex flex-wrap items-center gap-3">
-                {typeof e.calls === 'number' ? (
-                  <Text variant="label.regular" tone="muted">{e.calls} call{e.calls === 1 ? '' : 's'}</Text>
-                ) : null}
                 {txHash ? (
                   <Link href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}>
                     <Button variant="secondary" size="sm">View Transaction</Button>
