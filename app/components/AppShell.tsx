@@ -318,9 +318,9 @@ function GlobalBanner() {
     <div className="relative flex items-center justify-center border-b border-bds-gray-10 bg-bds-gray-5 px-4 py-2 sm:px-10">
       <span className="flex items-center gap-2">
         <Text as="span" variant="label.medium">New!</Text>
-        <Text as="span" variant="label.medium" className="-ml-1">Account Abstraction by Account Configuration</Text>
+        <Text as="span" variant="label.medium" className="-ml-1">EIP-8130: Native Account Abstraction</Text>
         <span className="inline-block h-3.5 w-px bg-bds-gray-20"></span>
-        <Link href="/upgrades/changelog/account-abstraction-by-account-configuration" className="group flex items-center gap-1 no-underline">
+        <Link href="/upgrades/changelog/native-account-abstraction" className="group flex items-center gap-1 no-underline">
           <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
           <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
         </Link>

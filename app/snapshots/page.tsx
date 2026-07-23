@@ -24,7 +24,6 @@ import {
 const NETWORK_LABELS: Record<string, string> = {
   mainnet: 'Mainnet',
   sepolia: 'Sepolia',
-  zeronet: 'Zeronet',
 };
 
 const SHIMMER_GRADIENT =

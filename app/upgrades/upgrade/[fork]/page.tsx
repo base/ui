@@ -9,7 +9,7 @@ import { UpgradeIllustration } from '../../components/UpgradeIllustration';
 import { changes } from '../../data/changes';
 import { getUpgradeById } from '../../data/upgrades';
 import { changeDisplayTitle, LIFECYCLE_LABELS, NETWORK_LABELS, UPGRADE_NETWORKS } from '../../library/display';
-import { formatShortDate, toPlainText } from '../../library/format';
+import { formatLifecycleDate, toPlainText } from '../../library/format';
 import { getLifecycleState } from '../../library/lifecycle';
 
 // Time-based lifecycle states depend on Date.now(). Revalidate so the page
@@ -73,9 +73,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
                 </StatusPill>
                 <span className="text-bds-gray-30">·</span>
                 <Text variant="label">
-                  {upgrade.lifecycle[network].timestamp
-                    ? formatShortDate(upgrade.lifecycle[network].timestamp)
-                    : 'Coming Soon'}
+                  {formatLifecycleDate(upgrade.lifecycle[network], upgrade.estimate?.[network])}
                 </Text>
               </div>
             </div>
@@ -104,8 +102,6 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
                   <a
                     key={change.id}
                     href={`/upgrades/changelog/${change.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="group flex items-center gap-4 py-4"
                   >
                     <div className="min-w-0 flex-1">

@@ -39,7 +39,7 @@ describe('upgrades route helpers', () => {
   });
 
   it('looks up changelog entries by slug', () => {
-    const change = getChangeBySlug('account-abstraction-by-account-configuration');
+    const change = getChangeBySlug('native-account-abstraction');
     expect(change?.id).toBe('eip-8130');
     expect(getChangeBySlug('missing')).toBeUndefined();
   });

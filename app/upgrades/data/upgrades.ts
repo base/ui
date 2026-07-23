@@ -39,16 +39,20 @@ export const upgrades: Upgrade[] = [
     categories: categoryGroupsForUpgrade('beryl'),
     migrationGuide: [],
     specUrl: 'https://docs.base.org/base-chain/specs/upgrades/beryl/',
-    blog: '',
+    blog: 'https://blog.base.dev/introducing-base-beryl',
   },
   {
     id: 'cobalt',
     name: 'Cobalt',
     summary:
-      'Cobalt adds native account abstraction with EIP-8130 and makes improvements to the B20 token standard.',
+      'Cobalt adds native account abstraction with EIP-8130, makes improvements to the B20 token standard, and introduces dynamic node upgrades.',
     lifecycle: {
-      sepolia: {},
-      mainnet: {},
+      sepolia: { },
+      mainnet: { },
+    },
+    estimate: {
+      sepolia: 'September 2026',
+      mainnet: 'September 2026',
     },
     categories: categoryGroupsForUpgrade('cobalt'),
     migrationGuide: [],
