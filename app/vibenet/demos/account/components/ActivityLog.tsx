@@ -110,7 +110,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                 <td className="px-4 py-3.5 align-top text-right">
                   {txHash ? (
                     <Link href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}>
-                      <Button variant="secondary" size="sm">View Explorer</Button>
+                      <Button variant="secondary" size="sm">View Transaction</Button>
                     </Link>
                   ) : null}
                 </td>
@@ -174,7 +174,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                 ) : null}
                 {txHash ? (
                   <Link href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}>
-                    <Button variant="secondary" size="sm">View Explorer</Button>
+                    <Button variant="secondary" size="sm">View Transaction</Button>
                   </Link>
                 ) : null}
               </div>
