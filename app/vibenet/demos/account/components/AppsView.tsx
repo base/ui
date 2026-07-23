@@ -173,12 +173,12 @@ function SpendingAccountLive({
         type="button"
         onClick={() => copy(sub.address, 'vault')}
         title="Copy account address"
-        className="flex w-fit items-center gap-2 text-left"
+        className="flex min-w-0 max-w-full items-center gap-2 text-left"
       >
-        <code className="font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
+        <code className="min-w-0 truncate font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
           {short(sub.address)}
         </code>
-        <span className="text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
+        <span className="shrink-0 text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
           {copied === 'vault' ? 'copied!' : 'tap to copy'}
         </span>
       </button>

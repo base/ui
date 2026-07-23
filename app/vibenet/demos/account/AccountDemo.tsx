@@ -3718,10 +3718,10 @@ function ResultPanel({ result, chain, copied, copy }: ResultPanelProps) {
           href={native ? `${VIBENET_EXPLORER_PATH}/tx/${result.txHash}` : basescanTx(result.txHash)}
           target={native ? undefined : '_blank'}
           rel="noopener"
-          className="flex items-center gap-2 font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
+          className="flex flex-wrap items-center gap-2 font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
         >
-          <code>{short(result.txHash, 16, 12)}</code>
-          <span className="text-[11px] uppercase tracking-[0.4px]">
+          <code className="break-all">{short(result.txHash, 16, 12)}</code>
+          <span className="shrink-0 text-[11px] uppercase tracking-[0.4px]">
             {native ? 'Explorer ↗' : 'Basescan ↗'}
           </span>
         </a>
@@ -3729,10 +3729,10 @@ function ResultPanel({ result, chain, copied, copy }: ResultPanelProps) {
         <button
           type="button"
           onClick={() => copy(result.serialized as string, 'res')}
-          className="flex items-center gap-2 text-left font-mono text-[13px] text-base-blue dark:text-bds-blue-20"
+          className="flex flex-wrap items-center gap-2 text-left font-mono text-[13px] text-base-blue dark:text-bds-blue-20"
         >
-          <code>{short(result.serialized, 16, 12)}</code>
-          <span className="text-[11px] uppercase tracking-[0.4px]">
+          <code className="break-all">{short(result.serialized, 16, 12)}</code>
+          <span className="shrink-0 text-[11px] uppercase tracking-[0.4px]">
             {copied === 'res' ? 'Copied' : 'copy raw tx'}
           </span>
         </button>
