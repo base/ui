@@ -1,5 +1,4 @@
 import { Card, LinkCard } from './components/ui/Card';
-import { SectionHeading } from './components/ui/SectionHeading';
 import { Text } from './components/ui/Text';
 
 type Surface = {
@@ -29,17 +28,15 @@ const SURFACES: Surface[] = [
   {
     label: 'Vibenet',
     href: '/vibenet',
-    description: 'Ephemeral Base devnet explorer and faucet for trying out in-flight features.',
+    description: 'An ephemeral Base developer network for testing in-flight features.',
     enabled: true,
   },
 ];
 
 function SurfaceCard({ surface }: SurfaceCardProps) {
-  // Disabled surfaces render as a static Card (no link) with a "Soon" pill;
-  // enabled ones use the interactive LinkCard with the shared hover treatment.
   if (!surface.enabled) {
     return (
-      <Card className="bg-white p-5 opacity-60">
+      <Card className="bg-white p-5 opacity-60 dark:bg-white/5">
         <div className="flex items-center gap-2">
           <Text variant="headline">{surface.label}</Text>
           <span className="rounded-full border border-bds-gray-15 px-2.5 py-0.5 text-[13px] text-bds-gray-60">
@@ -54,8 +51,8 @@ function SurfaceCard({ surface }: SurfaceCardProps) {
   }
 
   return (
-    <LinkCard href={surface.href} className="group bg-white p-5">
-      <Text variant="headline" className="transition-colors group-hover:text-base-blue">
+    <LinkCard href={surface.href} interactive={false} className="group bg-white p-5 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]">
+      <Text variant="headline">
         {surface.label}
       </Text>
       <Text variant="label.regular" tone="muted" className="mt-1">
@@ -67,30 +64,14 @@ function SurfaceCard({ surface }: SurfaceCardProps) {
 
 export default function Home() {
   return (
-    <div className="flex flex-col gap-12 text-black">
-      <header className="flex flex-col gap-8 border-b border-bds-gray-10 pb-12">
-        <div className="max-w-3xl">
-          <Text variant="caption" className="mb-4 text-base-blue">
-            Base Chain
-          </Text>
-          <Text variant="display" className="text-balance">
-            Dashboards and tools for Base Chain, in one place.
-          </Text>
-        </div>
-      </header>
-
-      <section>
-        <SectionHeading
-          title="Surfaces"
-          description="Jump into the Base Chain dashboards and tools."
-          className="mb-8"
-        />
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
-          {SURFACES.map((surface) => (
-            <SurfaceCard key={surface.href} surface={surface} />
-          ))}
-        </div>
-      </section>
+    <div className="flex flex-1 items-center justify-center">
+      <div className="animate-in flex w-full max-w-xl flex-col gap-4 px-6 py-12 text-black dark:text-white">
+        <Text variant="title2" className="mb-4">Monitor and test Base, all in one place.</Text>
+        <Text variant="label.medium" tone="muted">Jump to...</Text>
+        {SURFACES.map((surface) => (
+          <SurfaceCard key={surface.href} surface={surface} />
+        ))}
+      </div>
     </div>
   );
 }

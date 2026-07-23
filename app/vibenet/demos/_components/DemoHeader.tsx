@@ -3,16 +3,12 @@ import type { ReactNode } from 'react';
 import { Text } from '../../../components/ui/Text';
 
 type DemoHeaderProps = {
-  // Small uppercase label above the title (e.g. "Base Vibenet · Demo").
   eyebrow?: string;
   title: ReactNode;
   description?: ReactNode;
-  // Optional actions rendered to the right of the title row.
   actions?: ReactNode;
 };
 
-// Section header shared across the Demos surface — mirrors the faucet/explorer
-// headers (eyebrow caption + display title + muted description, bottom border).
 export function DemoHeader({
   eyebrow = 'Base Vibenet · Demo',
   title,

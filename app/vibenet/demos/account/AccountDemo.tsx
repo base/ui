@@ -56,23 +56,27 @@ import {
 } from '@aa';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
+import { AnimatedArrowIcon, CloseIcon } from '../../../components/ui/icons';
 import { Modal } from '../../../components/ui/Modal';
 import { Select } from '../../../components/ui/Select';
 import { Text } from '../../../components/ui/Text';
+import { toast } from 'sonner';
 import { vibenetApi } from '../../library/client';
 import { ACCOUNT_RPC_URL, VIBENET_EXPLORER_PATH } from '../../library/config';
 import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { DemoHeader } from '../_components/DemoHeader';
-import { DemoTabs } from '../_components/DemoTabs';
+import { Spinner } from '../../../components/ui/Spinner';
+import { Tabs } from '../../../components/ui/Tabs';
 import { Stat } from '../_components/Stat';
 import { ActivityLog } from './components/ActivityLog';
 import { AppsView } from './components/AppsView';
 import { ConfigView } from './components/ConfigView';
-import { AccountDot, Badge, KindBadge } from './components/primitives';
+import { AccountAvatar, AccountIdentity, Badge, CheckIcon, KindBadge } from './components/primitives';
 import { DEMO_APPS, type DemoApp } from './library/apps';
 import {
   basescanTx,
@@ -246,7 +250,6 @@ function isUnsupportedRpcError(err: unknown): boolean {
   );
 }
 
-type View = 'account' | 'transact' | 'apps';
 
 // ---------------------------------------------------------------------------
 // Module-scope helpers.
@@ -326,7 +329,6 @@ class TxPendingError extends Error {
 // ---------------------------------------------------------------------------
 
 export function AccountDemo() {
-  const [view, setView] = useState<View>('account');
 
   const [signers, setSigners] = useState<WalletSigner[]>([]);
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
@@ -372,6 +374,7 @@ export function AccountDemo() {
   const [genesisHash, setGenesisHash] = useState<string | null>(null);
   const [regenesisNotice, setRegenesisNotice] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Create modal.
   const [modalOpen, setModalOpen] = useState(false);
@@ -434,6 +437,8 @@ export function AccountDemo() {
 
   // Apps directory.
   const [appBusy, setAppBusy] = useState<string | null>(null);
+  const [activityOpen, setActivityOpen] = useState(true);
+  const [transactModalOpen, setTransactModalOpen] = useState(false);
 
   // EIP-8130 system-contract addresses, resolved live from the dataplane so a
   // devnet reset (which redeploys them to new addresses) never needs a code
@@ -536,6 +541,13 @@ export function AccountDemo() {
       /* quota / unavailable */
     }
   }, [hydrated, signers, accounts, activeAccountId, activity, networkShort, genesisHash]);
+
+  // Auto-collapse the activity sheet after a brief preview on load.
+  useEffect(() => {
+    if (!hydrated) return;
+    const timer = window.setTimeout(() => setActivityOpen(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [hydrated]);
 
   // --- regenesis detection ----------------------------------------------
   useEffect(() => {
@@ -805,7 +817,7 @@ export function AccountDemo() {
 
   // --- transact balances (active network) --------------------------------
   useEffect(() => {
-    if (!acct || view !== 'transact') return;
+    if (!acct) return;
     let cancelled = false;
     setBalLoading(true);
     setBalances(null);
@@ -821,7 +833,7 @@ export function AccountDemo() {
     return () => {
       cancelled = true;
     };
-  }, [acct, view, networkShort]);
+  }, [acct, networkShort]);
 
   // --- session-key live spend remaining ----------------------------------
   // Read each installed session key's per-token budget from the SessionPolicy
@@ -957,8 +969,10 @@ export function AccountDemo() {
         const fresh = await refreshVibenetBalances();
         if (BigInt(fresh?.eth_wei ?? '0') > ethBefore) break;
       }
+      toast.success('Topped up successfully');
     } catch (e) {
       setError((e as Error).message);
+      toast.error('Top up failed');
     } finally {
       setFaucetBusy(null);
     }
@@ -1056,7 +1070,6 @@ export function AccountDemo() {
     setAccounts([]);
     setActiveAccountId(null);
     setActivity([]);
-    setView('account');
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -1119,7 +1132,7 @@ export function AccountDemo() {
       pushActivity({
         kind: 'create',
         title: `EOA account · ${account.label}`,
-        detail: 'delegates to DefaultAccount on first use',
+        detail: 'Delegates to DefaultAccount on first use',
         account: account.address,
       });
       setModalOpen(false);
@@ -1147,7 +1160,7 @@ export function AccountDemo() {
     pushActivity({
       kind: 'create',
       title: `Account created · ${account.label}`,
-      detail: 'stored locally · deploys on first use',
+      detail: 'Stored locally · deploys on first use',
       changes: initialActors.map((a) => `${a.label} (${KIND_LABEL[a.kind]})`),
       account: account.address,
     });
@@ -1487,6 +1500,8 @@ export function AccountDemo() {
     extraChanges: string[] = [],
   ) => {
     setResult({ serialized, txHash, by: by.label, kind: by.kind, pending, gasNote });
+    setTransactModalOpen(false);
+    setActivityOpen(true);
     pushActivity({
       kind: a.deployed && !pending ? 'transact' : 'create',
       txHash,
@@ -1599,9 +1614,10 @@ export function AccountDemo() {
       if (!pending) applyLandedBundle(acct, nextSeq, bundle);
       recordResult(acct, serialized, txHash, pending, txSigner, undefined, extra);
     } catch (err) {
-      if (handleSeqMismatch(err, seqCtx)) return;
+      if (handleSeqMismatch(err, seqCtx)) return false;
       const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      setError(conciseError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err))));
+      return false;
     } finally {
       setSigning(false);
       setSubmitStatus('');
@@ -1713,16 +1729,19 @@ export function AccountDemo() {
       if (!pending) applyLandedBundle(acct, nextSeq, bundle);
       recordResult(acct, finalTx, txHash, pending, txSigner, gasNote, extra);
     } catch (err) {
-      if (handleSeqMismatch(err, seqCtx)) return;
+      if (handleSeqMismatch(err, seqCtx)) return false;
       const e = err as { message?: string; name?: string };
       const msg = e.message ?? String(err);
       setError(
-        e.name === 'NotAllowedError'
-          ? 'Signature was dismissed.'
-          : /fetch|ECONNREFUSED|network/i.test(msg)
-            ? `Couldn't reach the payer service at ${PAYER_URL}.`
-            : msg,
+        conciseError(
+          e.name === 'NotAllowedError'
+            ? 'Signature was dismissed.'
+            : /fetch|ECONNREFUSED|network/i.test(msg)
+              ? `Couldn't reach the payer service at ${PAYER_URL}.`
+              : msg,
+        ),
       );
+      return false;
     } finally {
       setSigning(false);
       setSubmitStatus('');
@@ -1732,8 +1751,9 @@ export function AccountDemo() {
   };
 
   const confirmSend = async () => {
-    setReviewOpen(false);
-    await (gasMode === 'eth' ? doSignNative() : doSponsoredSign());
+    setError('');
+    const ok = await (gasMode === 'eth' ? doSignNative() : doSponsoredSign());
+    if (ok !== false) setReviewOpen(false);
   };
 
   // --- calls editor handlers ---------------------------------------------
@@ -2582,7 +2602,7 @@ export function AccountDemo() {
     const signerIds: string[] = [];
     let spare: WalletSigner | null = null;
     if (opts?.withSpareKey) {
-      spare = mintAppKey(`${label.trim() || 'Spending account'} key`);
+      spare = mintAppKey(`${label.trim() || 'Spending Account'} key`);
       if (spare?.address) {
         actors.push(key.k1(spare.address));
         signerIds.push(spare.id);
@@ -2640,7 +2660,7 @@ export function AccountDemo() {
     pushActivity({
       kind: 'subaccount',
       title: `Sub-account created · ${sub.label}`,
-      detail: `delegates to ${short(acct.address)}`,
+      detail: `Delegates to ${short(acct.address)}`,
       changes: ['owner: this account', ...(spare ? [`owner: ${spare.label}`] : [])],
       account: subAddress,
     });
@@ -2719,47 +2739,45 @@ export function AccountDemo() {
     : VIBENET_EXPLORER_PATH;
 
   return (
-    <div className="flex flex-col gap-10 pb-4 text-black dark:text-white">
-      <DemoHeader
-        eyebrow="EIP-8130 · Demo"
-        title="Account"
-        description="Create portable account-abstraction accounts from in-browser signer keys, fund them from the faucet, compose atomic batches, and broadcast native EIP-8130 transactions. Keys never leave this browser — testnet only."
-        actions={
-          <div className="hidden items-center gap-4 font-mono text-[12px] text-bds-gray-60 sm:flex dark:text-bds-gray-40">
-            <a href={SPEC_URL} target="_blank" rel="noopener" className="hover:text-base-blue dark:hover:text-bds-blue-20">
+    <div className="relative -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-10 pb-4 text-black dark:text-white">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Left column */}
+        <div className="flex flex-col gap-6">
+          <DemoKeys
+            signers={signers}
+            busy={busy}
+            renameId={renameId}
+            setRenameId={setRenameId}
+            createSigner={createSigner}
+            renameSigner={renameSigner}
+          />
+          <div className="flex flex-col gap-6">{renderAccount()}</div>
+          <div className="flex items-center gap-4 text-[12px]">
+            <a href={SPEC_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
               Spec ↗
             </a>
-            <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="hover:text-base-blue dark:hover:text-bds-blue-20">
+            <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
               Contracts ↗
             </a>
           </div>
-        }
-      />
-
-      <DemoTabs
-        ariaLabel="Account demo views"
-        value={view}
-        onChange={(v) => setView(v as View)}
-        items={[
-          { value: 'account', label: 'Account' },
-          { value: 'transact', label: 'Transact', disabled: !acct },
-          { value: 'apps', label: 'Apps', disabled: !acct },
-        ]}
-      />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="flex flex-col gap-6">
-          {view === 'account' ? renderAccount() : view === 'transact' ? renderTransact() : renderApps()}
         </div>
 
-        <DemoKeys
-          signers={signers}
-          busy={busy}
-          renameId={renameId}
-          setRenameId={setRenameId}
-          createSigner={createSigner}
-          renameSigner={renameSigner}
-        />
+        {/* Right column */}
+        <div className="flex flex-col gap-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeAccountId ?? 'empty'}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+              className="flex flex-col gap-6"
+            >
+              {renderTransact()}
+              {renderApps()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
 
       {error && !estimateBlocked ? (
@@ -2790,7 +2808,7 @@ export function AccountDemo() {
           </span>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" onClick={() => copy(estimateBlocked, 'estimate-error')}>
-              {copied === 'estimate-error' ? 'Copied' : 'Copy error'}
+              {copied === 'estimate-error' ? 'Copied' : 'Copy Error'}
             </Button>
             <Button
               size="sm"
@@ -2800,7 +2818,7 @@ export function AccountDemo() {
                 void confirmSend();
               }}
             >
-              Send anyway
+              Send Anyway
             </Button>
           </div>
         </div>
@@ -2817,10 +2835,10 @@ export function AccountDemo() {
           </span>
           <div className="flex gap-2">
             <Button size="sm" onClick={() => seqRecovery.resign()} disabled={seqRecovery.busy}>
-              {seqRecovery.busy ? 'Re-signing…' : 'Re-sign'}
+              {seqRecovery.busy ? 'Re-Signing…' : 'Re-Sign'}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => seqRecovery.drop()} disabled={seqRecovery.busy}>
-              Drop it
+              Drop It
             </Button>
           </div>
         </div>
@@ -2842,7 +2860,62 @@ export function AccountDemo() {
         </p>
       ) : null}
 
-      <ActivityLog activity={activity} />
+      {/* Activity — full main-panel width, sticky bottom */}
+      <div
+        className="activity-full-width sticky bottom-0 z-10"
+      >
+        <div className="border-t border-bds-gray-10 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/5">
+          <button
+            type="button"
+            onClick={() => setActivityOpen(!activityOpen)}
+            className="group flex w-full items-center justify-between px-5 py-4"
+          >
+            <Text variant="headline" className="flex items-center gap-2">
+              Activity
+              <AnimatePresence>
+                {activity.length > 0 && (
+                  <motion.span
+                    key="activity-count"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-bds-gray-10 text-[13px] font-normal text-bds-gray-50 dark:bg-white/10"
+                  >
+                    {activity.length}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Text>
+            <svg width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="text-bds-gray-50">
+              <path d={activityOpen ? 'M5 12.5L10 7.5L15 12.5' : 'M5 7.5L10 12.5L15 7.5'} />
+            </svg>
+          </button>
+          <AnimatePresence initial={false}>
+            {activityOpen && (
+              <motion.div
+                key="activity-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="max-h-[280px] overflow-y-auto px-5 pb-5">
+                  {activity.length > 0 ? (
+                    <ActivityLog activity={activity} accounts={accounts} />
+                  ) : (
+                    <Text variant="label.regular" tone="muted" className="py-4 text-center">
+                      No activity yet. Transactions and account changes will appear here.
+                    </Text>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
 
       <CreateAccountModal
         open={modalOpen}
@@ -2870,14 +2943,14 @@ export function AccountDemo() {
       <Modal
         open={reviewOpen}
         onClose={() => setReviewOpen(false)}
-        title="Review transaction"
+        title="Review Transaction"
         footer={
           <>
-            <Button variant="secondary" size="sm" onClick={() => setReviewOpen(false)}>
+            <Button variant="secondary" size="sm" onClick={() => { setReviewOpen(false); setError(''); }} disabled={signing}>
               Cancel
             </Button>
-            <Button variant="primary" size="sm" onClick={confirmSend}>
-              Sign &amp; send
+            <Button variant="primary" size="sm" onClick={confirmSend} disabled={signing}>
+              {signing ? (submitStatus || 'Signing…') : error ? 'Retry' : 'Sign & Send'}
             </Button>
           </>
         }
@@ -2891,6 +2964,8 @@ export function AccountDemo() {
             gasMode={gasMode}
             gasEstimate={gasEstimate}
             txSigner={txSigner}
+            error={error}
+            signing={signing}
           />
         ) : null}
       </Modal>
@@ -2898,14 +2973,14 @@ export function AccountDemo() {
       <Modal
         open={clearConfirm}
         onClose={() => setClearConfirm(false)}
-        title="Clear all accounts?"
+        title="Clear All Accounts?"
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={() => setClearConfirm(false)}>
               Cancel
             </Button>
             <Button variant="primary" size="sm" onClick={clearAllData} className="bg-bds-red-60 hover:bg-bds-red-70">
-              Clear everything
+              Clear Everything
             </Button>
           </>
         }
@@ -2919,10 +2994,10 @@ export function AccountDemo() {
       <Modal
         open={regenesisNotice}
         onClose={() => setRegenesisNotice(false)}
-        title="Chain was reset"
+        title="Chain Was Reset"
         footer={
           <Button variant="primary" size="sm" onClick={() => setRegenesisNotice(false)}>
-            Got it
+            Got It
           </Button>
         }
       >
@@ -2943,57 +3018,77 @@ export function AccountDemo() {
     // One selectable account card. Reused for top-level accounts and, indented,
     // for their delegated sub-accounts (grouped below their parent).
     const acctButton = (a: StoredAccount) => (
-      <button
+      <motion.div
         key={a.id}
-        type="button"
-        onClick={() => setActiveAccountId(a.id)}
-        className={cn(
-          'flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors',
-          a.id === activeAccountId
-            ? 'border-base-blue bg-bds-blue-0 dark:border-bds-blue-60 dark:bg-bds-blue-100/30'
-            : 'border-bds-gray-10 bg-white hover:border-bds-blue-30 dark:border-white/10 dark:bg-white/5 dark:hover:border-bds-blue-60',
-        )}
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
       >
-        <AccountDot />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[14px] font-medium">{a.label}</span>
-          <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(a.address)}</code>
-        </span>
-        {a.parentId ? <Badge tone="default">sub</Badge> : null}
-        {a.deployed ? <Badge tone="ok">deployed</Badge> : null}
-      </button>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setActiveAccountId(a.id)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveAccountId(a.id); } }}
+          className={cn(
+            'flex w-full cursor-pointer items-center gap-3 rounded-xl border-[1.5px] p-4 text-left transition-colors',
+            a.id === activeAccountId
+              ? 'border-black dark:border-white'
+              : 'border-bds-gray-10 bg-white hover:border-black dark:border-white/10 dark:bg-white/5 dark:hover:border-white',
+          )}
+        >
+          <AccountIdentity
+            label={a.label}
+            address={a.address}
+            variant={a.parentId ? 'spending' : 'default'}
+            badges={a.deployed ? <Badge tone="ok">Deployed</Badge> : undefined}
+            className="min-w-0 flex-1"
+          />
+          {a.id === activeAccountId && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDetailsOpen(true); }}
+              >
+                Details
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); requestFaucet(); }}
+                disabled={faucetBusy !== null}
+              >
+                {faucetBusy ? <Spinner /> : 'Top Up'}
+              </Button>
+            </div>
+          )}
+        </div>
+      </motion.div>
     );
     const topLevel = accounts.filter((a) => !a.parentId);
     return (
       <>
-        <div className="flex items-center justify-between gap-4">
-          <Text variant="title2">Accounts</Text>
-          {accounts.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setClearConfirm(true)}
-              className="text-[13px] text-bds-gray-60 transition-colors hover:text-bds-red-60 dark:text-bds-gray-40"
-            >
-              Clear all
-            </button>
-          ) : null}
-        </div>
-
         {accounts.length === 0 ? (
           <Card className="flex flex-col items-center gap-4 bg-white px-6 py-12 text-center dark:bg-white/5">
-            <span className="text-[32px] leading-none text-bds-gray-30" aria-hidden="true">
-              ◉
-            </span>
-            <Text variant="title3">No accounts yet</Text>
-            <Text variant="body" tone="muted" className="max-w-sm">
+            <Text variant="label.medium">No accounts yet</Text>
+            <Text variant="label.regular" tone="muted" className="max-w-sm">
               Create an account from one or more signer keys. You&apos;ll get a portable address you
               can fund and transact with anywhere.
             </Text>
-            <Button onClick={openCreate}>Create account</Button>
+            <Button size="sm" onClick={openCreate}>Create Account</Button>
           </Card>
         ) : (
           <>
-            <div className="flex flex-col gap-3">
+            <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <Text variant="headline">Accounts</Text>
+                  <Button variant="secondary" size="sm" className="h-7 px-2.5 text-xs" onClick={() => setClearConfirm(true)}>
+                    Clear
+                  </Button>
+                </div>
+                <Text variant="label.regular" tone="muted">Select an account to start testing transacting and performing app actions.</Text>
+              </div>
               {topLevel.map((parent) => {
                 const subs = accounts.filter((s) => s.parentId === parent.id);
                 return (
@@ -3010,79 +3105,86 @@ export function AccountDemo() {
               <button
                 type="button"
                 onClick={openCreate}
-                className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-bds-gray-15 p-4 text-[14px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-base-blue dark:border-white/15 dark:text-bds-gray-40 dark:hover:border-bds-blue-60"
+                className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-bds-gray-15 px-4 py-2.5 text-[14px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-base-blue dark:border-white/15 dark:text-bds-gray-40 dark:hover:border-bds-blue-60"
               >
-                + New account
+                + New Account
               </button>
-            </div>
+            </Card>
 
-            {acct ? (
-              <ConfigView
-                acct={acct}
-                copied={copied}
-                copy={copy}
-                cfgTab={cfgTab}
-                setCfgTab={setCfgTab}
-                explorerHref={explorerAddrHref}
-                onTransact={() => setView('transact')}
-                assetBals={assetBals}
-                assetsLoading={assetsLoading}
-                faucetBusy={faucetBusy}
-                requestFaucet={requestFaucet}
-                signers={signers}
-                ownerDraft={ownerDraft}
-                scopeDraft={scopeDraft}
-                ownersEditing={ownersEditing}
-                setOwnersEditing={setOwnersEditing}
-                pendingAuthorize={pendingAuthorize}
-                pendingRevoke={pendingRevoke}
-                pendingScope={pendingScope}
-                keyChangeCount={keyChangeCount}
-                ownerChangeSigned={ownerChangeSigned}
-                configTx={configTx}
-                applying={applying}
-                busy={busy}
-                stageAddOwner={stageAddOwner}
-                stageRemoveOwner={stageRemoveOwner}
-                setOwnerScope={setOwnerScope}
-                mintOwner={mintOwner}
-                signOwnerChange={signOwnerChange}
-                applyOwnerNow={applyOwnerNow}
-                discardOwnerChanges={discardOwnerChanges}
-                sessionAdding={sessionAdding}
-                setSessionAdding={setSessionAdding}
-                skSignerId={skSignerId}
-                setSkSignerId={setSkSignerId}
-                skChainShort={skChainShort}
-                setSkChainShort={setSkChainShort}
-                skExpiryId={skExpiryId}
-                setSkExpiryId={setSkExpiryId}
-                skLimits={skLimits}
-                patchLimit={patchLimit}
-                addLimit={addLimit}
-                removeLimit={removeLimit}
-                skScopes={skScopes}
-                patchScope={patchScope}
-                addScope={addScope}
-                removeScope={removeScope}
-                toggleScopeSelector={toggleScopeSelector}
-                setScopeAll={setScopeAll}
-                skBusy={skBusy}
-                skApplyingId={skApplyingId}
-                policyRemaining={policyRemaining}
-                formPolicyEmpty={formPolicyEmpty}
-                submitStatus={submitStatus}
-                registerSessionKey={registerSessionKey}
-                applySessionKeyNow={applySessionKeyNow}
-                revokeSessionKey={revokeSessionKey}
-                undoStagedRevoke={undoStagedRevoke}
-                skRevokingId={skRevokingId}
-                saLabel={saLabel}
-                setSaLabel={setSaLabel}
-                saBusy={saBusy}
-                createSubAccount={createSubAccount}
-              />
-            ) : null}
+            <Modal
+              open={detailsOpen && !!acct}
+              onClose={() => setDetailsOpen(false)}
+              title="Account Details"
+              className="max-w-lg"
+            >
+              {acct ? (
+                <ConfigView
+                  acct={acct}
+                  copied={copied}
+                  copy={copy}
+                  cfgTab={cfgTab}
+                  setCfgTab={setCfgTab}
+                  explorerHref={explorerAddrHref}
+                  onTransact={() => { setDetailsOpen(false); setTransactModalOpen(true); }}
+                  assetBals={assetBals}
+                  assetsLoading={assetsLoading}
+                  faucetBusy={faucetBusy}
+                  requestFaucet={requestFaucet}
+                  signers={signers}
+                  ownerDraft={ownerDraft}
+                  scopeDraft={scopeDraft}
+                  ownersEditing={ownersEditing}
+                  setOwnersEditing={setOwnersEditing}
+                  pendingAuthorize={pendingAuthorize}
+                  pendingRevoke={pendingRevoke}
+                  pendingScope={pendingScope}
+                  keyChangeCount={keyChangeCount}
+                  ownerChangeSigned={ownerChangeSigned}
+                  configTx={configTx}
+                  applying={applying}
+                  busy={busy}
+                  stageAddOwner={stageAddOwner}
+                  stageRemoveOwner={stageRemoveOwner}
+                  setOwnerScope={setOwnerScope}
+                  mintOwner={mintOwner}
+                  signOwnerChange={signOwnerChange}
+                  applyOwnerNow={applyOwnerNow}
+                  discardOwnerChanges={discardOwnerChanges}
+                  sessionAdding={sessionAdding}
+                  setSessionAdding={setSessionAdding}
+                  skSignerId={skSignerId}
+                  setSkSignerId={setSkSignerId}
+                  skChainShort={skChainShort}
+                  setSkChainShort={setSkChainShort}
+                  skExpiryId={skExpiryId}
+                  setSkExpiryId={setSkExpiryId}
+                  skLimits={skLimits}
+                  patchLimit={patchLimit}
+                  addLimit={addLimit}
+                  removeLimit={removeLimit}
+                  skScopes={skScopes}
+                  patchScope={patchScope}
+                  addScope={addScope}
+                  removeScope={removeScope}
+                  toggleScopeSelector={toggleScopeSelector}
+                  setScopeAll={setScopeAll}
+                  skBusy={skBusy}
+                  skApplyingId={skApplyingId}
+                  policyRemaining={policyRemaining}
+                  formPolicyEmpty={formPolicyEmpty}
+                  submitStatus={submitStatus}
+                  registerSessionKey={registerSessionKey}
+                  applySessionKeyNow={applySessionKeyNow}
+                  revokeSessionKey={revokeSessionKey}
+                  undoStagedRevoke={undoStagedRevoke}
+                  skRevokingId={skRevokingId}
+                  saLabel={saLabel}
+                  setSaLabel={setSaLabel}
+                  saBusy={saBusy}
+                  createSubAccount={createSubAccount}
+                />
+              ) : null}
+            </Modal>
           </>
         )}
       </>
@@ -3090,7 +3192,12 @@ export function AccountDemo() {
   }
 
   function renderApps() {
-    if (!acct) return null;
+    if (!acct) return (
+      <Card className="flex flex-col items-center gap-3 bg-white px-6 py-12 text-center dark:bg-white/5">
+        <Text variant="headline">Apps</Text>
+        <Text variant="label.regular" tone="muted">Create and select an account to connect apps.</Text>
+      </Card>
+    );
     return (
       <AppsView
         acct={acct}
@@ -3113,64 +3220,120 @@ export function AccountDemo() {
   }
 
   function renderTransact() {
-    if (!acct) return null;
-    const stableSym = balances?.usdv_symbol ?? (networkShort === 'vibenet' ? 'USDV' : 'USDC');
+    if (!acct) return (
+      <Card className="flex flex-col items-center gap-3 bg-white px-6 py-12 text-center dark:bg-white/5">
+        <Text variant="headline">Transact</Text>
+        <Text variant="label.regular" tone="muted">Create and select an account to transact.</Text>
+      </Card>
+    );
     return (
       <>
-        <div className="flex items-center justify-between gap-4">
-          <Text variant="title2">Transact</Text>
-        </div>
-
-        {/* Account + network + balances */}
         <Card className="flex flex-col gap-4 bg-white p-5 dark:bg-white/5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* From-account picker: choose which account (incl. sub-accounts) to
-                transact from. Switching resets the signer (see the activeAccountId
-                effect). Falls back to a static label when there's only one account. */}
-            {accounts.length > 1 ? (
-              <label className="flex min-w-0 items-center gap-2 text-[13px]">
-                <span className="text-bds-gray-60 dark:text-bds-gray-40">From</span>
-                <AccountDot />
-                <div className="w-52">
-                  <Select
-                    ariaLabel="From account"
-                    value={acct.id}
-                    onValueChange={(id) => setActiveAccountId(id)}
-                    options={accounts.map((account) => ({
-                      value: account.id,
-                      label: `${account.parentId ? '↳ ' : ''}${account.label}`,
-                    }))}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => copy(acct.address, 'txaddr')}
-                  title="Copy address"
-                  className="shrink-0"
-                >
-                  <code className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-                    {copied === 'txaddr' ? 'Copied' : short(acct.address)}
-                  </code>
-                </button>
-              </label>
-            ) : (
+          <Text variant="headline">Transact</Text>
+          <Text variant="label.regular" tone="muted" className="-mt-2">
+            Compose and send EIP-8130 transactions from your account.
+          </Text>
+          <div>
+            <Button size="sm" onClick={() => setTransactModalOpen(true)}>
+              Create Transaction
+            </Button>
+          </div>
+        </Card>
+
+        <Modal
+          open={transactModalOpen}
+          onClose={() => setTransactModalOpen(false)}
+          title="Create Transaction"
+          footer={
+            <div className="flex w-full items-center justify-between gap-3">
+              <span className="text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
+                {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'} · 1 tx · ~
+                {gasEstimate.toLocaleString()} gas
+                {!acct.deployed
+                  ? acct.type === 'eoa'
+                    ? ' · first use delegates your EOA'
+                    : ' · first use deploys your account'
+                  : ''}
+              </span>
+              <Button size="sm" onClick={startSend} disabled={!callsValid || !txSigner || signing}>
+                {submitStatus === 'submitting'
+                  ? 'Submitting…'
+                  : submitStatus === 'confirming'
+                    ? 'Waiting for confirmation…'
+                    : 'Send Transaction'}
+              </Button>
+            </div>
+          }
+        >
+          {/* From */}
+          <div className="flex flex-col gap-3">
+            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">From</span>
+            <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => copy(acct.address, 'txaddr')}
                 title="Copy address"
-                className="flex items-center gap-2"
+                className="flex items-center gap-3"
               >
-                <AccountDot />
-                <span className="text-[14px] font-medium">{acct.label}</span>
-                <code className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-                  {short(acct.address)}
-                </code>
-                <span className="text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
-                  {copied === 'txaddr' ? 'Copied' : ''}
+                <AccountAvatar />
+                <span className="flex flex-col text-left">
+                  <span className="text-[14px] font-normal">{acct.label}</span>
+                  <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                    {copied === 'txaddr' ? 'Copied' : short(acct.address)}
+                    {balances?.eth_wei ? ` · ${(Number(balances.eth_wei) / 1e18).toFixed(4)} ETH` : ''}
+                  </span>
                 </span>
               </button>
+              {networkShort === 'vibenet' ? (
+                <Button variant="secondary" size="sm" onClick={requestFaucet} disabled={faucetBusy !== null}>
+                  {faucetBusy ? <Spinner /> : 'Top Up'}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Signer */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Signer</span>
+            {signableSigners.length > 1 ? (
+              <Select
+                ariaLabel="Signing key"
+                value={txSigner?.id ?? ''}
+                onValueChange={(id) => {
+                  setTxSignerId(id);
+                  if (ownerSigners.some((s) => s.id === id)) setActiveSignerId(id);
+                }}
+                options={postChangeOwnerSigners.map((s) => ({
+                  value: s.id,
+                  label: `${s.label} (${KIND_LABEL[s.kind]})${
+                    ownerSigners.some((o) => o.id === s.id) ? '' : ' · pending'
+                  }`,
+                }))}
+                groups={
+                  sessionSigners.length > 0
+                    ? [
+                        {
+                          label: 'Session keys',
+                          options: sessionSigners.map((s) => ({
+                            value: s.id,
+                            label: `${s.label} (${KIND_LABEL[s.kind]}) · session`,
+                          })),
+                        },
+                      ]
+                    : []
+                }
+              />
+            ) : (
+              <span className="flex items-center gap-1.5 text-[14px] font-normal">
+                {txSigner?.label}
+                {txSigner ? <KindBadge kind={txSigner.kind} /> : null}
+              </span>
             )}
-            <div className="w-44">
+          </div>
+
+          {DEMO_CHAINS.length > 1 ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Network</span>
               <Select
                 ariaLabel="Network"
                 value={networkShort}
@@ -3181,156 +3344,62 @@ export function AccountDemo() {
                 }))}
               />
             </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <label className="flex items-center gap-2 text-[13px]">
-              <span className="text-bds-gray-60 dark:text-bds-gray-40">Sign with</span>
-              {signableSigners.length > 1 ? (
-                <div className="w-52">
-                  <Select
-                    ariaLabel="Signing key"
-                    value={txSigner?.id ?? ''}
-                    onValueChange={(id) => {
-                      setTxSignerId(id);
-                      if (ownerSigners.some((s) => s.id === id)) setActiveSignerId(id);
-                    }}
-                    options={postChangeOwnerSigners.map((s) => ({
-                      value: s.id,
-                      label: `${s.label} (${KIND_LABEL[s.kind]})${
-                        ownerSigners.some((o) => o.id === s.id) ? '' : ' · pending'
-                      }`,
-                    }))}
-                    groups={
-                      sessionSigners.length > 0
-                        ? [
-                            {
-                              label: 'Session keys',
-                              options: sessionSigners.map((s) => ({
-                                value: s.id,
-                                label: `${s.label} (${KIND_LABEL[s.kind]}) · session`,
-                              })),
-                            },
-                          ]
-                        : []
-                    }
-                  />
-                </div>
-              ) : (
-                <span className="flex items-center gap-1.5 font-medium">
-                  {txSigner?.label}
-                  {txSigner ? <KindBadge kind={txSigner.kind} /> : null}
-                </span>
-              )}
-            </label>
-            <div className="flex items-center gap-4">
-              <span className="text-[14px]">
-                <b>
-                  <AnimatedAmount
-                    text={balLoading ? '…' : formatEthWei(balances?.eth_wei)}
-                    decimals={4}
-                    group={false}
-                  />
-                </b>{' '}
-                <small className="text-bds-gray-60 dark:text-bds-gray-40">ETH</small>
-              </span>
-              <span className="text-[14px]">
-                <b>
-                  <AnimatedAmount
-                    text={balLoading ? '…' : formatUnits(balances?.usdv, balances?.usdv_decimals)}
-                    decimals={2}
-                    group
-                  />
-                </b>{' '}
-                <small className="text-bds-gray-60 dark:text-bds-gray-40">{stableSym}</small>
-              </span>
-              {networkShort === 'vibenet' ? (
-                <Button variant="secondary" size="sm" onClick={requestFaucet} disabled={faucetBusy !== null}>
-                  {faucetBusy ? '…' : 'Top Up'}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        </Card>
-
-        {/* Calls editor */}
-        <CallsEditor
-          calls={calls}
-          callsAdvanced={callsAdvanced}
-          setCallsAdvanced={setCallsAdvanced}
-          setRow={setRow}
-          addEthRow={addEthRow}
-          addUsdvRow={addUsdvRow}
-          removeRow={removeRow}
-          switchRowToUsdv={switchRowToUsdv}
-          switchRowToEth={switchRowToEth}
-          usdvRecipientDrafts={usdvRecipientDrafts}
-          setUsdvRecipientDrafts={setUsdvRecipientDrafts}
-          usdvAmountDrafts={usdvAmountDrafts}
-          setUsdvAmountDrafts={setUsdvAmountDrafts}
-          callsValid={callsValid}
-          addRow={addRow}
-        />
-
-        {/* Metadata */}
-        <Card className="flex flex-col gap-2 bg-white p-5 dark:bg-white/5">
-          <div className="flex items-baseline justify-between gap-2">
-            <Text variant="label" className="font-medium">
-              Metadata
-            </Text>
-            <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">top-level · signed</span>
-          </div>
-          <input
-            value={metaField}
-            spellCheck={false}
-            placeholder="optional note / app data — e.g. invoice #4242"
-            onChange={(e) => setMetaField(e.target.value)}
-            className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
-          />
-          {metadataHex ? (
-            <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-              → <code>{short(metadataHex, 14, 8)}</code>
-            </p>
           ) : null}
-        </Card>
 
-        {/* Submit */}
-        <Card className="flex flex-col gap-4 bg-white p-5 dark:bg-white/5">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <label className="flex flex-col gap-1.5 text-[13px]">
-              <span className="text-bds-gray-60 dark:text-bds-gray-40">Gas</span>
-              <div className="w-56">
-                <Select
-                  ariaLabel="Gas payment"
-                  value={gasMode}
-                  onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
-                  options={[
-                    { value: 'eth', label: 'Pay in ETH' },
-                    { value: 'free', label: 'Sponsored — free (ERC-8168)' },
-                    { value: 'usdv', label: 'Pay in USDV (ERC-8168)' },
-                  ]}
-                />
-              </div>
-            </label>
-            <Button onClick={startSend} disabled={!callsValid || !txSigner || signing}>
-              {submitStatus === 'submitting'
-                ? 'Submitting…'
-                : submitStatus === 'confirming'
-                  ? 'Waiting for confirmation…'
-                  : 'Send transaction'}
-            </Button>
+          {/* Calls */}
+          <div className="rounded-lg border border-bds-gray-10 px-4 pb-4 pt-2 dark:border-white/10">
+            <CallsEditor
+              calls={calls}
+              callsAdvanced={callsAdvanced}
+              setCallsAdvanced={setCallsAdvanced}
+              setRow={setRow}
+              addEthRow={addEthRow}
+              addUsdvRow={addUsdvRow}
+              removeRow={removeRow}
+              usdvRecipientDrafts={usdvRecipientDrafts}
+              setUsdvRecipientDrafts={setUsdvRecipientDrafts}
+              usdvAmountDrafts={usdvAmountDrafts}
+              setUsdvAmountDrafts={setUsdvAmountDrafts}
+              callsValid={callsValid}
+              addRow={addRow}
+            />
           </div>
-          <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-            <b>{chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'}</b> · 1 tx · ~
-            {gasEstimate.toLocaleString()} gas
-            {!acct.deployed
-              ? acct.type === 'eoa'
-                ? ' · first use delegates your EOA'
-                : ' · first use deploys your account'
-              : ''}
-          </p>
 
-          {result ? <ResultPanel result={result} chain={chain} copied={copied} copy={copy} /> : null}
-        </Card>
+          {/* Metadata */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Metadata</span>
+              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Top-Level · Signed</span>
+            </div>
+            <input
+              value={metaField}
+              spellCheck={false}
+              placeholder="Optional note / app data — e.g. invoice #4242"
+              onChange={(e) => setMetaField(e.target.value)}
+              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
+            />
+            {metadataHex ? (
+              <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                → <span className="font-sans">{short(metadataHex, 14, 8)}</span>
+              </p>
+            ) : null}
+          </div>
+
+          {/* Gas */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Gas</span>
+            <Select
+              ariaLabel="Gas payment"
+              value={gasMode}
+              onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
+              options={[
+                { value: 'eth', label: 'Pay in ETH' },
+                { value: 'free', label: 'Sponsored (EIP-8168)' },
+                { value: 'usdv', label: 'Pay in USDV (EIP-8168)' },
+              ]}
+            />
+          </div>
+        </Modal>
       </>
     );
   }
@@ -3348,8 +3417,6 @@ type CallsEditorProps = {
   addEthRow: () => void;
   addUsdvRow: () => void;
   removeRow: (id: string) => void;
-  switchRowToUsdv: (id: string) => void;
-  switchRowToEth: (id: string) => void;
   usdvRecipientDrafts: Record<string, string>;
   setUsdvRecipientDrafts: (fn: (d: Record<string, string>) => Record<string, string>) => void;
   usdvAmountDrafts: Record<string, string>;
@@ -3359,7 +3426,7 @@ type CallsEditorProps = {
 };
 
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
 
 function CallsEditor(props: CallsEditorProps) {
   const {
@@ -3370,8 +3437,6 @@ function CallsEditor(props: CallsEditorProps) {
     addEthRow,
     addUsdvRow,
     removeRow,
-    switchRowToUsdv,
-    switchRowToEth,
     usdvRecipientDrafts,
     setUsdvRecipientDrafts,
     usdvAmountDrafts,
@@ -3381,23 +3446,25 @@ function CallsEditor(props: CallsEditorProps) {
   } = props;
 
   return (
-    <Card className="flex flex-col gap-4 bg-white p-5 dark:bg-white/5">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-baseline gap-3">
-          <Text variant="label" className="font-medium">
+        <div className="flex items-center gap-2">
+          <Text variant="label" className="font-normal">
             Calls
           </Text>
-          <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-            {calls.length === 1 ? '1 call' : `${calls.length} calls · atomic batch`}
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-bds-gray-10 px-1.5 font-base text-[11px] font-medium tabular-nums text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-40">
+            {calls.length}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setCallsAdvanced((v) => !v)}
-          className="rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-60 transition-colors hover:border-bds-gray-15 dark:border-white/10 dark:text-bds-gray-40"
-        >
-          {callsAdvanced ? 'Simple' : 'Raw'}
-        </button>
+        <Tabs
+          size="sm"
+          items={[
+            { value: 'simple', label: 'Simple' },
+            { value: 'raw', label: 'Raw' },
+          ]}
+          value={callsAdvanced ? 'raw' : 'simple'}
+          onChange={(v) => setCallsAdvanced(() => v === 'raw')}
+        />
       </div>
 
       {!callsAdvanced ? (
@@ -3409,23 +3476,15 @@ function CallsEditor(props: CallsEditorProps) {
                 const amtDisplay = usdvAmountDrafts[r.id] ?? formatUnits(usdv.amount, USDV_DECIMALS);
                 const recipientDisplay = usdvRecipientDrafts[r.id] ?? usdv.recipient;
                 return (
-                  <li key={r.id} className="flex items-end gap-2">
-                    <span className="pb-2 text-[12px] text-bds-gray-50">{i + 1}</span>
-                    <button
-                      type="button"
-                      onClick={() => switchRowToEth(r.id)}
-                      title="Switch to ETH send"
-                      className="mb-0.5 shrink-0 rounded-md border border-bds-purple-15 bg-bds-purple-0 px-2 py-2 text-[12px] font-medium text-bds-purple-70 dark:border-bds-purple-80 dark:bg-bds-purple-100/40 dark:text-bds-purple-20"
-                    >
-                      USDV ⇄
-                    </button>
-                    <label className="flex flex-1 flex-col gap-1">
-                      <span className="text-[11px] text-bds-gray-60 dark:text-bds-gray-40">Recipient</span>
-                      <input
-                        className={INPUT_CLS}
-                        value={recipientDisplay}
-                        spellCheck={false}
-                        placeholder="0x…"
+                  <li key={r.id} className="flex items-center gap-2">
+                    <label className="flex flex-1 flex-col">
+                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                        <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">Recipient</span>
+                        <input
+                          className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
+                          value={recipientDisplay}
+                          spellCheck={false}
+                          placeholder="0x…"
                         onChange={(e) => {
                           const val = e.target.value;
                           setUsdvRecipientDrafts((d) => ({ ...d, [r.id]: val }));
@@ -3438,15 +3497,17 @@ function CallsEditor(props: CallsEditorProps) {
                           }
                         }}
                       />
+                      </div>
                     </label>
-                    <label className="flex w-28 flex-col gap-1">
-                      <span className="text-[11px] text-bds-gray-60 dark:text-bds-gray-40">USDV</span>
-                      <input
-                        className={INPUT_CLS}
-                        value={amtDisplay}
-                        spellCheck={false}
-                        inputMode="decimal"
-                        placeholder="0"
+                    <label className="flex w-28 flex-col">
+                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                        <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">USDV</span>
+                        <input
+                          className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
+                          value={amtDisplay}
+                          spellCheck={false}
+                          inputMode="decimal"
+                          placeholder="0"
                         onChange={(e) => {
                           const val = e.target.value;
                           setUsdvAmountDrafts((d) => ({ ...d, [r.id]: val }));
@@ -3466,55 +3527,51 @@ function CallsEditor(props: CallsEditorProps) {
                           })
                         }
                       />
+                      </div>
                     </label>
-                    <RemoveRowButton onClick={() => removeRow(r.id)} disabled={calls.length === 1} />
+                    {calls.length > 1 && <RemoveRowButton onClick={() => removeRow(r.id)} disabled={false} />}
                   </li>
                 );
               }
               return (
-                <li key={r.id} className="flex items-end gap-2">
-                  <span className="pb-2 text-[12px] text-bds-gray-50">{i + 1}</span>
-                  <button
-                    type="button"
-                    onClick={() => switchRowToUsdv(r.id)}
-                    title="Switch to USDV send"
-                    className="mb-0.5 shrink-0 rounded-md border border-bds-gray-10 px-2 py-2 text-[12px] font-medium text-bds-gray-70 dark:border-white/10 dark:text-bds-gray-20"
-                  >
-                    ETH ⇄
-                  </button>
-                  <label className="flex flex-1 flex-col gap-1">
-                    <span className="text-[11px] text-bds-gray-60 dark:text-bds-gray-40">To</span>
-                    <input
-                      className={INPUT_CLS}
-                      value={r.to}
-                      spellCheck={false}
-                      placeholder="0x… recipient address"
-                      onChange={(e) => setRow(r.id, { to: e.target.value })}
-                    />
+                <li key={r.id} className="flex items-center gap-2">
+                  <label className="flex flex-1 flex-col">
+                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                      <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">To</span>
+                      <input
+                        className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
+                        value={r.to}
+                        spellCheck={false}
+                        placeholder="0x… recipient address"
+                        onChange={(e) => setRow(r.id, { to: e.target.value })}
+                      />
+                    </div>
                   </label>
-                  <label className="flex w-28 flex-col gap-1">
-                    <span className="text-[11px] text-bds-gray-60 dark:text-bds-gray-40">ETH</span>
-                    <input
-                      className={INPUT_CLS}
-                      value={r.value}
-                      spellCheck={false}
-                      inputMode="decimal"
-                      placeholder="0.0"
-                      onChange={(e) => setRow(r.id, { value: e.target.value })}
-                    />
+                  <label className="flex w-28 flex-col">
+                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                      <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">ETH</span>
+                      <input
+                        className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
+                        value={r.value}
+                        spellCheck={false}
+                        inputMode="decimal"
+                        placeholder="0.0"
+                        onChange={(e) => setRow(r.id, { value: e.target.value })}
+                      />
+                    </div>
                   </label>
-                  <RemoveRowButton onClick={() => removeRow(r.id)} disabled={calls.length === 1} />
+                  {calls.length > 1 && <RemoveRowButton onClick={() => removeRow(r.id)} disabled={false} />}
                 </li>
               );
             })}
           </ul>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Add call:</span>
-            <Button variant="outline" size="sm" onClick={addEthRow}>
-              + Send ETH
+            <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Add Call:</span>
+            <Button variant="secondary" size="sm" onClick={addEthRow}>
+              Send ETH
             </Button>
-            <Button variant="outline" size="sm" onClick={addUsdvRow}>
-              + Send USDV
+            <Button variant="secondary" size="sm" onClick={addUsdvRow}>
+              Send USDV
             </Button>
           </div>
         </>
@@ -3522,11 +3579,10 @@ function CallsEditor(props: CallsEditorProps) {
         <>
           <ul className="flex flex-col gap-2">
             <li
-              className="hidden items-center gap-2 px-1 text-[11px] uppercase tracking-[0.4px] text-bds-gray-50 sm:flex"
+              className="hidden items-center gap-2 px-1 text-[11px] tracking-[0.4px] text-bds-gray-50 sm:flex"
               aria-hidden="true"
             >
-              <span className="w-5" />
-              <span className="w-12">Phase</span>
+              <span className="w-12 text-left">Phase</span>
               <span className="flex-1">Send to</span>
               <span className="w-24">ETH</span>
               <span className="flex-1">Calldata (hex)</span>
@@ -3534,7 +3590,6 @@ function CallsEditor(props: CallsEditorProps) {
             </li>
             {calls.map((r, i) => (
               <li key={r.id} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-                <span className="w-5 text-[12px] text-bds-gray-50">{i + 1}</span>
                 <button
                   type="button"
                   onClick={() => setRow(r.id, { phase: r.phase === 0 ? 1 : 0 })}
@@ -3544,7 +3599,7 @@ function CallsEditor(props: CallsEditorProps) {
                       : 'Phase 1 — main user calls (click to move to phase 0)'
                   }
                   className={cn(
-                    'w-12 shrink-0 rounded-md border py-2 text-[12px] font-medium',
+                    'w-12 shrink-0 rounded-md border py-2 text-[12px] font-normal',
                     r.phase === 0
                       ? 'border-bds-orange-20 bg-bds-orange-0 text-bds-orange-70 dark:border-bds-orange-80 dark:bg-bds-orange-100/40 dark:text-bds-orange-20'
                       : 'border-bds-gray-10 text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40',
@@ -3556,7 +3611,7 @@ function CallsEditor(props: CallsEditorProps) {
                   className={cn(INPUT_CLS, 'flex-1')}
                   value={r.to}
                   spellCheck={false}
-                  placeholder="contract / address"
+                  placeholder="Contract / address"
                   onChange={(e) => setRow(r.id, { to: e.target.value })}
                 />
                 <input
@@ -3568,13 +3623,13 @@ function CallsEditor(props: CallsEditorProps) {
                   onChange={(e) => setRow(r.id, { value: e.target.value })}
                 />
                 <input
-                  className={cn(INPUT_CLS, 'flex-1 font-mono')}
+                  className={cn(INPUT_CLS, 'flex-1 font-sans')}
                   value={r.data}
                   spellCheck={false}
                   placeholder="0x"
                   onChange={(e) => setRow(r.id, { data: e.target.value })}
                 />
-                <RemoveRowButton onClick={() => removeRow(r.id)} disabled={calls.length === 1} />
+                {calls.length > 1 && <RemoveRowButton onClick={() => removeRow(r.id)} disabled={false} />}
               </li>
             ))}
           </ul>
@@ -3590,7 +3645,7 @@ function CallsEditor(props: CallsEditorProps) {
           </div>
         </>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -3601,9 +3656,9 @@ function RemoveRowButton({ onClick, disabled }: { onClick: () => void; disabled:
       onClick={onClick}
       disabled={disabled}
       aria-label="Remove call"
-      className="mb-0.5 flex h-9 w-7 shrink-0 items-center justify-center rounded-md text-[18px] text-bds-gray-50 transition-colors hover:text-bds-red-60 disabled:cursor-not-allowed disabled:opacity-30"
+      className="mb-0.5 flex h-9 w-7 shrink-0 items-center justify-center rounded-md text-bds-gray-50 transition-colors hover:text-bds-red-60 disabled:cursor-not-allowed disabled:opacity-30"
     >
-      ×
+      <CloseIcon size={10} />
     </button>
   );
 }
@@ -3616,16 +3671,18 @@ type ReviewBodyProps = {
   gasMode: 'eth' | 'free' | 'usdv';
   gasEstimate: number;
   txSigner: WalletSigner | null;
+  error: string;
+  signing: boolean;
 };
 
-function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSigner }: ReviewBodyProps) {
+function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSigner, error, signing }: ReviewBodyProps) {
   const gasLabel =
     gasMode === 'eth' ? 'Pay in ETH' : gasMode === 'free' ? 'Free · sponsored' : 'USDV · payer';
   return (
     <div className="flex flex-col gap-4">
       {!acct.deployed ? (
         <div className="flex items-start gap-2 rounded-lg border border-bds-blue-15 bg-bds-blue-0 p-3 text-[13px] dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
-          <Badge>{acct.type === 'eoa' ? 'delegate' : 'deploy'}</Badge>
+          <Badge>{acct.type === 'eoa' ? 'Delegate' : 'Deploy'}</Badge>
           <span className="text-bds-gray-70 dark:text-bds-gray-20">
             {acct.type === 'eoa'
               ? 'First use — this also delegates your EOA to the account contract.'
@@ -3640,14 +3697,14 @@ function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSig
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-bds-gray-10 text-[11px] dark:bg-white/10">
               {i + 1}
             </span>
-            <code className="text-bds-gray-70 dark:text-bds-gray-20">
+            <span className="font-sans text-bds-gray-70 dark:text-bds-gray-20">
               {short(r.to.trim() || acct.address)}
-            </code>
+            </span>
             {r.value.trim() && r.value.trim() !== '0' ? (
-              <span className="font-medium">{r.value} ETH</span>
+              <span className="font-normal">{r.value} ETH</span>
             ) : null}
             {r.data.trim() && r.data.trim() !== '0x' ? (
-              <span className="font-mono text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+              <span className="font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
                 {short(r.data.trim(), 8, 4)}
               </span>
             ) : null}
@@ -3655,88 +3712,39 @@ function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSig
         ))}
         {metaField.trim() ? (
           <li className="flex items-center gap-2 text-[13px]">
-            <Badge>meta</Badge>
+            <Badge>Meta</Badge>
             {metaField.trim()}
           </li>
         ) : null}
       </ul>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-bds-gray-10 pt-3 text-[13px] dark:border-white/10">
-        <span className="text-bds-gray-60 dark:text-bds-gray-40">
-          <b className="text-black dark:text-white">
-            {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'}
-          </b>{' '}
-          · 1 tx · ~{gasEstimate.toLocaleString()} gas · {gasLabel}
-        </span>
-        {txSigner ? (
-          <span className="flex items-center gap-1.5">
-            <span className="text-bds-gray-60 dark:text-bds-gray-40">signing</span>
-            <KindBadge kind={txSigner.kind} />
-            <span className="font-medium">{txSigner.label}</span>
-          </span>
-        ) : null}
+      <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-3 text-[13px] dark:border-white/10">
+        {error ? (
+          <div className="flex items-start gap-2 py-1 text-[13px] text-bds-red-60 [line-break:anywhere] dark:text-bds-red-30">
+            <svg width={16} height={16} viewBox="0 0 40 40" fill="none" className="mt-px shrink-0" aria-hidden="true">
+              <circle cx="20" cy="24.5" r="1" fill="currentColor" stroke="currentColor" />
+              <path d="M20 15V20M30.5 20C30.5 25.799 25.799 30.5 20 30.5C14.201 30.5 9.5 25.799 9.5 20C9.5 14.201 14.201 9.5 20 9.5C25.799 9.5 30.5 14.201 30.5 20Z" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
+            </svg>
+            {error}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-bds-gray-60 dark:text-bds-gray-40">
+              <span className="text-black dark:text-white">
+                {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'}
+              </span>{' '}
+              · 1 tx · ~{gasEstimate.toLocaleString()} gas · {gasLabel}
+            </span>
+            {txSigner ? (
+              <span className="flex items-center gap-1.5">
+                <span className="text-bds-gray-60 dark:text-bds-gray-40">signing</span>
+                <KindBadge kind={txSigner.kind} />
+                <span className="font-normal">{txSigner.label}</span>
+              </span>
+            ) : null}
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
-
-type ResultPanelProps = {
-  result: {
-    serialized?: Hex;
-    txHash?: Hex;
-    by: string;
-    kind: SignerKind;
-    gasNote?: string;
-    pending?: boolean;
-  };
-  chain: DemoChain;
-  copied: string | null;
-  copy: (text: string, k: string) => void;
-};
-
-function ResultPanel({ result, chain, copied, copy }: ResultPanelProps) {
-  const native = chain.mode === 'eip8130-native';
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-bds-gray-10 bg-bds-gray-0 p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={result.pending ? 'warn' : 'ok'}>
-          {result.txHash
-            ? result.pending
-              ? '⏳ pending · not yet included'
-              : '✓ landed onchain'
-            : '✓ signed in-browser'}
-        </Badge>
-        <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-          by {result.by} ({KIND_LABEL[result.kind]})
-        </span>
-      </div>
-      {result.gasNote ? (
-        <div className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{result.gasNote}</div>
-      ) : null}
-      {result.txHash ? (
-        <a
-          href={native ? `${VIBENET_EXPLORER_PATH}/tx/${result.txHash}` : basescanTx(result.txHash)}
-          target={native ? undefined : '_blank'}
-          rel="noopener"
-          className="flex flex-wrap items-center gap-2 font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
-        >
-          <code className="break-all">{short(result.txHash, 16, 12)}</code>
-          <span className="shrink-0 text-[11px] uppercase tracking-[0.4px]">
-            {native ? 'Explorer ↗' : 'Basescan ↗'}
-          </span>
-        </a>
-      ) : result.serialized ? (
-        <button
-          type="button"
-          onClick={() => copy(result.serialized as string, 'res')}
-          className="flex flex-wrap items-center gap-2 text-left font-mono text-[13px] text-base-blue dark:text-bds-blue-20"
-        >
-          <code className="break-all">{short(result.serialized, 16, 12)}</code>
-          <span className="shrink-0 text-[11px] uppercase tracking-[0.4px]">
-            {copied === 'res' ? 'Copied' : 'copy raw tx'}
-          </span>
-        </button>
-      ) : null}
     </div>
   );
 }
@@ -3752,21 +3760,14 @@ type DemoKeysProps = {
 
 function DemoKeys({ signers, busy, renameId, setRenameId, createSigner, renameSigner }: DemoKeysProps) {
   return (
-    <Card className="flex h-fit flex-col gap-4 bg-white p-5 lg:sticky lg:top-6 dark:bg-white/5">
-      <div className="flex items-center justify-between gap-2">
-        <Text variant="label" className="font-medium">
-          Demo Keys
-        </Text>
-        <Badge>in-browser · demo</Badge>
-      </div>
-      <Text variant="footnote" tone="muted">
-        Keys live in this browser only. Testnet demo — do not reuse these or send real assets.
+    <Card className="flex flex-col gap-4 overflow-hidden bg-white p-5 dark:bg-white/5">
+      <Text variant="headline">
+        Demo Keys
       </Text>
-
       <div className="flex flex-wrap gap-2">
         {(['k1', 'p256', 'passkey'] as const).map((kind) => (
-          <Button key={kind} variant="outline" size="sm" onClick={() => createSigner(kind)} disabled={busy !== null}>
-            {busy === kind ? '…' : `+ ${KIND_LABEL[kind]}`}
+          <Button key={kind} variant="secondary" size="sm" onClick={() => createSigner(kind)} disabled={busy !== null}>
+            {busy === kind ? <Spinner /> : `+ ${KIND_LABEL[kind]}`}
           </Button>
         ))}
       </div>
@@ -3778,9 +3779,8 @@ function DemoKeys({ signers, busy, renameId, setRenameId, createSigner, renameSi
       ) : (
         <ul className="flex flex-col gap-2">
           {signers.map((s) => (
-            <li key={s.id} className="flex flex-col gap-1.5 rounded-lg border border-bds-gray-10 p-3 dark:border-white/10">
+            <li key={s.id} className="flex flex-col gap-0.5 rounded-lg border border-bds-gray-10 p-3 dark:border-white/10">
               <div className="flex items-center gap-2">
-                <KindBadge kind={s.kind} />
                 {renameId === s.id ? (
                   <input
                     autoFocus
@@ -3790,14 +3790,14 @@ function DemoKeys({ signers, busy, renameId, setRenameId, createSigner, renameSi
                       if (e.key === 'Enter') renameSigner(s.id, (e.target as HTMLInputElement).value);
                       if (e.key === 'Escape') setRenameId(null);
                     }}
-                    className="min-w-0 flex-1 rounded border border-bds-gray-10 bg-bds-gray-0 px-1.5 py-0.5 text-[13px] outline-none focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5"
+                    className="min-w-0 flex-1 rounded border border-bds-gray-10 bg-bds-gray-0 px-1.5 py-0.5 text-[13px] outline-none focus:border-black dark:border-white/10 dark:bg-white/5"
                   />
                 ) : (
                   <button
                     type="button"
                     title="Rename key"
                     onClick={() => setRenameId(s.id)}
-                    className="group flex min-w-0 flex-1 items-center gap-1 text-left text-[13px] font-medium"
+                    className="group flex min-w-0 flex-1 items-center gap-1 text-left text-[13px] font-normal"
                   >
                     <span className="truncate">{s.label}</span>
                     <span aria-hidden="true" className="text-bds-gray-40 opacity-0 transition-opacity group-hover:opacity-100">
@@ -3805,14 +3805,20 @@ function DemoKeys({ signers, busy, renameId, setRenameId, createSigner, renameSi
                     </span>
                   </button>
                 )}
+                <KindBadge kind={s.kind} />
               </div>
-              <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
                 {short(signerIdentity(s))}
-              </code>
+              </span>
             </li>
           ))}
         </ul>
       )}
+      <div className="-mx-5 -mb-5 rounded-b-[11px] border-t border-bds-gray-10 bg-bds-gray-5 px-5 py-3 dark:border-white/10 dark:bg-white/5">
+        <Text variant="footnote" tone="muted">
+          Keys live in this browser only. Do not reuse these or send real assets.
+        </Text>
+      </div>
     </Card>
   );
 }
@@ -3866,35 +3872,35 @@ function CreateAccountModal(props: CreateAccountModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Create account"
+      title="Create Account"
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button variant="primary" size="sm" onClick={createAccount} disabled={!modalAddress}>
-            Create account
+            Create Account
           </Button>
         </>
       }
     >
-      <label className="flex flex-col gap-2 text-[14px] font-medium">
+      <label className="flex flex-col gap-2 text-[14px] font-normal">
         Label
         <input
           value={modalLabel}
-          placeholder="e.g. Main account"
+          placeholder="E.g. Main account"
           onChange={(e) => setModalLabel(e.target.value)}
-          className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] font-normal outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
+          className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] font-normal outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
         />
       </label>
 
-      <div className="flex flex-col gap-2 text-[14px] font-medium">
+      <div className="flex flex-col gap-2 text-[14px] font-normal">
         Account type
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              ['smart', 'Smart account', 'Counterfactual · keys + salt → address'],
-              ['eoa', 'EOA account', 'Your EOA · delegates to DefaultAccount'],
+              ['smart', 'Smart Account', 'Counterfactual · keys + salt → address'],
+              ['eoa', 'EOA', 'Your EOA · delegates to DefaultAccount'],
             ] as const
           ).map(([type, title, hint]) => (
             <button
@@ -3904,11 +3910,11 @@ function CreateAccountModal(props: CreateAccountModalProps) {
               className={cn(
                 'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
                 modalType === type
-                  ? 'border-base-blue bg-bds-blue-0 dark:border-bds-blue-60 dark:bg-bds-blue-100/30'
-                  : 'border-bds-gray-10 hover:border-bds-gray-15 dark:border-white/10 dark:hover:border-white/20',
+                  ? 'border-black dark:border-white'
+                  : 'border-bds-gray-10 hover:border-black dark:border-white/10 dark:hover:border-white',
               )}
             >
-              <span className="text-[14px] font-semibold">{title}</span>
+              <span className="text-[14px] font-normal">{title}</span>
               <span className="text-[12px] font-normal text-bds-gray-60 dark:text-bds-gray-40">{hint}</span>
             </button>
           ))}
@@ -3932,17 +3938,22 @@ function CreateAccountModal(props: CreateAccountModalProps) {
               if (s) setModalIds((prev) => [...prev, s.id]);
             }}
           />
-          <label className="flex flex-col gap-2 text-[14px] font-medium">
+          <label className="flex flex-col gap-2 text-[14px] font-normal">
             Salt
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-bds-blue-40">
               <input
                 value={modalSalt}
                 spellCheck={false}
                 onChange={(e) => setModalSalt(e.target.value)}
                 placeholder="0x… (32 bytes) or any phrase"
-                className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 font-mono text-[13px] font-normal outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
+                className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 font-sans text-[13px] font-normal outline-none placeholder:text-bds-gray-40"
               />
-              <Button variant="outline" size="sm" onClick={() => setModalSalt(randomHex32())}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setModalSalt(randomHex32())}
+                className="mr-1.5 shrink-0"
+              >
                 Randomize
               </Button>
             </div>
@@ -3965,18 +3976,18 @@ function CreateAccountModal(props: CreateAccountModalProps) {
         />
       )}
 
-      <div className="flex flex-col gap-1 rounded-lg border border-bds-gray-10 bg-bds-gray-0 p-3 dark:border-white/10 dark:bg-white/5">
-        <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
           Address
         </span>
         {modalAddress ? (
-          <code className="break-all font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
+          <span className="break-all font-sans text-[13px] text-black dark:text-white">
             {modalAddress}
-          </code>
+          </span>
         ) : modalType === 'eoa' ? (
-          <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">pick a K1 key</span>
+          <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Pick a K1 key</span>
         ) : modalSigners.length === 0 ? (
-          <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">select at least one key</span>
+          <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Select at least one key</span>
         ) : (
           <span className="text-[13px] text-bds-red-60">duplicate key — pick distinct actors</span>
         )}
@@ -4001,7 +4012,7 @@ function KeyPicker({ heading, empty, hint, signers, busy, mintKinds, isOn, onTog
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <Text variant="label" className="font-medium">
+        <Text variant="label" className="font-normal">
           {heading}
         </Text>
         <div className="flex gap-2">
@@ -4026,18 +4037,20 @@ function KeyPicker({ heading, empty, hint, signers, busy, mintKinds, isOn, onTog
                   type="button"
                   onClick={() => onToggle(s)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg border p-2.5 text-left transition-colors',
+                    'flex w-full items-center gap-2 rounded-lg border px-2 py-2.5 text-left transition-colors',
                     on
-                      ? 'border-base-blue bg-bds-blue-0 dark:border-bds-blue-60 dark:bg-bds-blue-100/30'
-                      : 'border-bds-gray-10 hover:border-bds-gray-15 dark:border-white/10 dark:hover:border-white/20',
+                      ? 'border-black dark:border-white'
+                      : 'border-bds-gray-10 hover:border-black dark:border-white/10 dark:hover:border-white',
                   )}
                 >
+                  <Text as="span" variant="label" className="truncate">{s.label}</Text>
                   <KindBadge kind={s.kind} />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{s.label}</span>
-                  <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                  <Text as="span" variant="caption" tone="muted" className="min-w-0 flex-1 text-right font-sans">
                     {short(signerIdentity(s))}
-                  </code>
-                  <span className="w-4 text-center text-base-blue dark:text-bds-blue-20">{on ? '✓' : ''}</span>
+                  </Text>
+                  <span className="flex w-4 items-center justify-center">
+                    {on ? <CheckIcon size={16} /> : null}
+                  </span>
                 </button>
               </li>
             );

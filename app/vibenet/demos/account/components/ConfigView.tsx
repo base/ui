@@ -1,16 +1,19 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import type { Address, Hex } from '@aa';
 import Link from 'next/link';
+import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { cn } from '../../../../components/ui/cn';
+import { CloseIcon } from '../../../../components/ui/icons';
+import { Spinner } from '../../../../components/ui/Spinner';
 import { Select } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { AnimatedAmount } from '../../_components/AnimatedAmount';
-import { Stat } from '../../_components/Stat';
 import {
   DEMO_CHAINS,
   getDemoChain,
@@ -35,12 +38,12 @@ import {
   stableSymbol,
 } from '../library/policy';
 import { type Balances, KIND_LABEL, short, signerIdentity, type WalletSigner } from '../shared';
-import { AccountDot, Badge, KindBadge } from './primitives';
+import { AccountAvatar, AccountIdentity, Badge, CheckIcon, KindBadge } from './primitives';
 
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
 const CHIP_CLS =
   'rounded-full border border-bds-gray-10 px-2.5 py-1 text-[12px] text-bds-gray-60 transition-colors hover:border-bds-gray-15 dark:border-white/10 dark:text-bds-gray-40';
 const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue dark:border-bds-blue-60 dark:bg-bds-blue-100/30 dark:text-bds-blue-20';
@@ -138,127 +141,156 @@ export function ConfigView(p: ConfigViewProps) {
     { id: 'subaccounts', label: 'Sub-accounts', count: acct.subAccounts.length },
   ];
   return (
-    <Card className="flex flex-col gap-6 bg-white p-6 dark:bg-white/5">
+    <div className="flex flex-col gap-6">
       {/* Hero */}
       <div className="flex flex-wrap items-center gap-4">
-        <AccountDot size="lg" />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="text-[16px] font-medium">{acct.label}</span>
-          <button
-            type="button"
-            onClick={() => p.copy(acct.address, 'cfg')}
-            title="Copy address"
-            className="flex min-w-0 max-w-full items-center gap-2 text-left"
-          >
-            <code className="min-w-0 truncate font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
-              {acct.address}
-            </code>
-            <span className="shrink-0 text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
-              {p.copied === 'cfg' ? 'Copied' : 'copy'}
-            </span>
-          </button>
+        <AccountIdentity
+          label={acct.label}
+          address={acct.address}
+          variant={acct.parentId ? 'spending' : 'default'}
+          badges={<>
+            {acct.type === 'eoa' ? <Badge>EOA</Badge> : null}
+            {acct.deployed ? <Badge tone="ok">Deployed</Badge> : null}
+          </>}
+          onCopy={() => p.copy(acct.address, 'cfg')}
+          copied={p.copied === 'cfg'}
+          className="min-w-0 flex-1"
+        />
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={p.onTransact}>
+            Transact
+          </Button>
+          <Button variant="outline" size="sm" href={p.explorerHref}>
+            Explorer
+          </Button>
         </div>
-        <div className="flex items-center gap-5">
-          <Stat n={acct.owners.length} label="owners" />
-          <Stat n={acct.sessionKeys.length} label="sessions" />
-          <Stat n={acct.subAccounts.length} label="sub-accts" />
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {acct.type === 'eoa' ? <Badge>EOA</Badge> : null}
-        {acct.deployed ? <Badge tone="ok">deployed</Badge> : null}
-        <Button variant="outline" size="sm" onClick={p.onTransact} className="ml-auto">
-          Transact →
-        </Button>
-        <Link href={p.explorerHref} className="text-[13px] text-base-blue hover:underline dark:text-bds-blue-20">
-          Explorer ↗
-        </Link>
       </div>
 
       {/* Tab bar */}
       <div role="tablist" className="flex flex-wrap gap-1 border-b border-bds-gray-10 dark:border-white/10">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={p.cfgTab === t.id}
-            onClick={() => p.setCfgTab(t.id)}
-            className={cn(
-              '-mb-px border-b-2 px-3 py-2 text-[14px] transition-colors',
-              p.cfgTab === t.id
-                ? 'border-base-blue text-black dark:border-bds-blue-40 dark:text-white'
-                : 'border-transparent text-bds-gray-60 hover:text-black dark:text-bds-gray-40 dark:hover:text-white',
-            )}
-          >
-            {t.label}
-            {t.count ? (
-              <span className="ml-1.5 rounded-full bg-bds-gray-10 px-1.5 text-[11px] dark:bg-white/10">
-                {t.count}
-              </span>
-            ) : null}
-          </button>
-        ))}
+        {tabs.map((t) => {
+          const active = p.cfgTab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => p.setCfgTab(t.id)}
+              className={cn(
+                'relative -mb-px px-3 py-2 text-[14px] transition-colors',
+                active
+                  ? 'text-black dark:text-white'
+                  : 'text-bds-gray-60 hover:text-black dark:text-bds-gray-40 dark:hover:text-white',
+              )}
+            >
+              {t.label}
+              {t.count != null ? (
+                <span className="ml-1.5 rounded-full bg-bds-gray-10 px-1.5 text-[11px] dark:bg-white/10">
+                  {t.count}
+                </span>
+              ) : null}
+              {active ? (
+                <motion.div
+                  layoutId="cfg-tab-underline"
+                  className="absolute right-0 bottom-0 left-0 h-0.5 bg-black dark:bg-white"
+                  transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+                />
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
-      {p.cfgTab === 'assets' ? <AssetsTab p={p} /> : null}
-      {p.cfgTab === 'owners' ? <OwnersTab p={p} /> : null}
-      {p.cfgTab === 'session' ? <SessionKeysTab p={p} /> : null}
-      {p.cfgTab === 'subaccounts' ? <SubAccountsTab p={p} /> : null}
-    </Card>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={p.cfgTab}
+          initial={{ opacity: 0, transform: 'translateY(4px)' }}
+          animate={{ opacity: 1, transform: 'translateY(0px)' }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.1, ease: [0.23, 1, 0.32, 1] }}
+        >
+          {p.cfgTab === 'assets' ? <AssetsTab p={p} /> : null}
+          {p.cfgTab === 'owners' ? <OwnersTab p={p} /> : null}
+          {p.cfgTab === 'session' ? <SessionKeysTab p={p} /> : null}
+          {p.cfgTab === 'subaccounts' ? <SubAccountsTab p={p} /> : null}
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }
 
 function AssetsTab({ p }: { p: ConfigViewProps }) {
+  const [faucetDone, setFaucetDone] = useState(false);
+  const prevBusy = useRef(p.faucetBusy);
+  useEffect(() => {
+    if (prevBusy.current && !p.faucetBusy) {
+      setFaucetDone(true);
+      const t = setTimeout(() => setFaucetDone(false), 700);
+      return () => clearTimeout(t);
+    }
+    prevBusy.current = p.faucetBusy;
+  }, [p.faucetBusy]);
+
   const cleanName = (s: string) => s.replace(/\s*devnet\s*$/i, '').trim();
-  // One row per supported chain. Sourced from DEMO_CHAINS so scoping the demo to
-  // a single network (currently vibenet) can't leave a stale hardcoded row that
-  // falls back to VIBENET and renders as a duplicate.
   const rows = DEMO_CHAINS.map((c) => ({
     net: c.shortName,
     name: cleanName(c.name),
     faucet: c.shortName === 'vibenet',
   }));
+  const assets: { key: string; symbol: string; fullName: string; balance: string; faucet: boolean }[] = [];
+  for (const r of rows) {
+    const b = p.assetBals[r.net];
+    const stable = b?.usdv_symbol ?? (r.net === 'vibenet' ? 'USDV' : 'USDC');
+    assets.push({
+      key: `${r.net}-eth`,
+      symbol: 'ETH',
+      fullName: 'Ether',
+      balance: p.assetsLoading ? '…' : formatEthWei(b?.eth_wei),
+      faucet: r.faucet,
+    });
+    assets.push({
+      key: `${r.net}-stable`,
+      symbol: stable,
+      fullName: stable === 'USDV' ? 'Vibenet USD' : 'USD Coin',
+      balance: p.assetsLoading ? '…' : formatUnits(b?.usdv, b?.usdv_decimals),
+      faucet: r.faucet,
+    });
+  }
+  const hasFaucet = assets.some((a) => a.faucet);
   return (
-    <ul className="flex flex-col divide-y divide-bds-gray-10 dark:divide-white/10">
-      {rows.map((r) => {
-        const b = p.assetBals[r.net];
-        const stable = b?.usdv_symbol ?? (r.net === 'vibenet' ? 'USDV' : 'USDC');
-        return (
-          <li key={r.net} className="flex flex-wrap items-center gap-4 py-4">
-            <span className="flex items-center gap-2 text-[14px] font-medium">
-              <AccountDot size="sm" />
-              {r.name}
+    <div className="-mt-2 flex flex-col gap-3">
+      <ul className="flex flex-col">
+        {assets.map((a) => (
+          <li key={a.key} className={cn('flex items-center gap-3 rounded-lg px-2 py-2 -mx-2 transition-colors duration-700', a.faucet && faucetDone && 'bg-bds-green-0 dark:bg-bds-green-100/20')}>
+            <span aria-hidden="true" className="h-8 w-8 shrink-0 rounded-full bg-bds-gray-10 dark:bg-white/10" />
+            <div className="flex flex-col">
+              <span className="text-[14px] font-normal">{a.fullName}</span>
+              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{a.symbol}</span>
+            </div>
+            <span className="ml-auto font-base text-[14px]">
+              <AnimatedAmount
+                text={a.balance}
+                decimals={a.symbol === 'ETH' ? 4 : 2}
+                group={a.symbol !== 'ETH'}
+              />
             </span>
-            <span className="ml-auto flex items-center gap-6">
-              <span className="text-[14px]">
-                <AnimatedAmount text={p.assetsLoading ? '…' : formatEthWei(b?.eth_wei)} decimals={4} group={false} />{' '}
-                <small className="text-bds-gray-60 dark:text-bds-gray-40">ETH</small>
-              </span>
-              <span className="text-[14px]">
-                <AnimatedAmount
-                  text={p.assetsLoading ? '…' : formatUnits(b?.usdv, b?.usdv_decimals)}
-                  decimals={2}
-                  group
-                />{' '}
-                <small className="text-bds-gray-60 dark:text-bds-gray-40">{stable}</small>
-              </span>
-            </span>
-            {r.faucet ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={p.requestFaucet}
-                disabled={p.faucetBusy !== null}
-                title="Get testnet ETH + USDV from the vibenet faucet"
-              >
-                {p.faucetBusy ? 'Topping up…' : 'Top Up'}
-              </Button>
-            ) : null}
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+      {hasFaucet ? (
+        <div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={p.requestFaucet}
+            disabled={p.faucetBusy !== null}
+          >
+            {p.faucetBusy ? <Spinner /> : 'Top Up'}
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -283,39 +315,42 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <Text variant="label" className="font-medium">
-          Owners
-        </Text>
-        <Button variant="outline" size="sm" onClick={() => p.setOwnersEditing(!p.ownersEditing)}>
-          {p.ownersEditing ? 'Done' : 'Modify owners'}
-        </Button>
-      </div>
-
       {!p.ownersEditing ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {acct.owners.map((o) => (
-            <div key={o.signerId} className="flex flex-col gap-2 rounded-lg border border-bds-gray-10 p-4 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <KindBadge kind={o.kind} />
-                <span className="truncate text-[14px] font-medium">{o.label}</span>
-                {isEoaSelf(o.signerId) ? <Badge>EOA</Badge> : null}
-              </div>
-              <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(o.identity)}</code>
-              <div className="flex flex-wrap gap-1.5">
-                {(o.scope ?? 0) === 0 ? (
-                  <span className={cn(CHIP_CLS, CHIP_ON)}>full control</span>
-                ) : (
-                  scopeChips(o.scope ?? 0).map((c) => (
-                    <span key={c} className={CHIP_CLS}>
-                      {c}
+        <>
+          <div className="flex flex-col gap-3">
+            {acct.owners.map((o) => (
+              <div key={o.signerId} className="flex items-center gap-3 rounded-lg border border-bds-gray-10 p-3 dark:border-white/10">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-[14px] font-normal">{o.label}</span>
+                    {isEoaSelf(o.signerId) ? <Badge>EOA</Badge> : null}
+                  </div>
+                  <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(o.identity)}</span>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  <KindBadge kind={o.kind} />
+                  {(o.scope ?? 0) === 0 ? (
+                    <span className={cn(CHIP_CLS, 'flex items-center gap-1')}>
+                      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 7V5a3 3 0 0 1 6 0v2" /><rect x="3" y="7" width="10" height="7" rx="1.5" /></svg>
+                      Full Control
                     </span>
-                  ))
-                )}
+                  ) : (
+                    scopeChips(o.scope ?? 0).map((c) => (
+                      <span key={c} className={CHIP_CLS}>
+                        {c}
+                      </span>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <div>
+            <Button variant="secondary" size="sm" onClick={() => p.setOwnersEditing(true)}>
+              Modify Owners
+            </Button>
+          </div>
+        </>
       ) : (
         <>
           <ul className="flex flex-col gap-2">
@@ -337,9 +372,9 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
                   )}
                 >
                   <KindBadge kind={o.kind} />
-                  <span className="text-[13px] font-medium">{o.label}</span>
+                  <span className="text-[13px] font-normal">{o.label}</span>
                   {eoaSelf ? <Badge>EOA</Badge> : null}
-                  <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(o.identity)}</code>
+                  <span className="font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(o.identity)}</span>
                   <div className="ml-auto w-40">
                     <Select
                       ariaLabel="Permissions for this key"
@@ -351,7 +386,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
                       options={OWNER_SCOPE_PRESETS.map((pp) => ({ value: pp.id, label: pp.label }))}
                     />
                   </div>
-                  {isNew ? <Badge tone="ok">authorize +</Badge> : scopeChanged ? <Badge>scope ~</Badge> : null}
+                  {isNew ? <Badge tone="ok">Authorize +</Badge> : scopeChanged ? <Badge>Scope ~</Badge> : null}
                   <button
                     type="button"
                     onClick={() => p.stageRemoveOwner(o.id, eoaSelf && !isNew)}
@@ -412,12 +447,9 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
                   </Badge>
                 ))}
                 {p.pendingRevoke.map((o) => (
-                  <span
-                    key={`r-${o.signerId}`}
-                    className="inline-flex items-center rounded-full border border-bds-red-20 bg-bds-red-0 px-2 py-1 text-[11px] font-medium uppercase leading-none tracking-[0px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
-                  >
+                  <Badge key={`r-${o.signerId}`} tone="error">
                     − {o.label}
-                  </span>
+                  </Badge>
                 ))}
                 {p.pendingScope.map((o) => (
                   <Badge key={`s-${o.signerId}`}>
@@ -428,7 +460,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
               {p.ownerChangeSigned ? (
                 <>
                   <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-                    <b className="text-bds-green-70 dark:text-bds-green-20">✓ Signed</b> — owner change authorized.
+                    <span className="inline-flex items-center gap-1 text-bds-green-70 dark:text-bds-green-20">Signed</span> — owner change authorized.
                     It rides your next Transact automatically, or apply it now.
                   </p>
                   <div className="flex gap-2">
@@ -439,7 +471,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
                           ? 'Waiting…'
                           : p.applying
                             ? 'Applying…'
-                            : 'Apply now'}
+                            : 'Apply Now'}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={p.discardOwnerChanges}>
                       Discard
@@ -454,10 +486,10 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
                   </p>
                   <div className="flex gap-2">
                     <Button size="sm" onClick={p.signOwnerChange} disabled={p.applying}>
-                      {p.applying ? 'Signing…' : 'Sign owner change'}
+                      {p.applying ? 'Signing…' : 'Sign Owner Change'}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={p.discardOwnerChanges}>
-                      Discard changes
+                      Discard Changes
                     </Button>
                   </div>
                 </>
@@ -467,10 +499,10 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
           {p.configTx && TX_HASH_RE.test(p.configTx.hash) ? (
             <Link
               href={`${VIBENET_EXPLORER_PATH}/tx/${p.configTx.hash}`}
-              className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-base-blue hover:underline dark:text-bds-blue-20"
+              className="flex items-center gap-2 font-sans text-[12px] text-base-blue hover:underline dark:text-bds-blue-20"
             >
-              <Badge tone="ok">✓ {p.configTx.label} landed</Badge>
-              <code className="break-all">{short(p.configTx.hash, 14, 12)}</code>
+              <Badge tone="ok">{p.configTx.label} landed</Badge>
+              <code>{short(p.configTx.hash, 14, 12)}</code>
             </Link>
           ) : null}
         </div>
@@ -483,81 +515,76 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
   const { acct } = p;
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <Text variant="label" className="font-medium">
-          Session keys
-        </Text>
-        <Button variant="outline" size="sm" onClick={() => p.setSessionAdding(!p.sessionAdding)}>
-          {p.sessionAdding ? 'Cancel' : '+ Add session key'}
-        </Button>
-      </div>
-
-      {acct.sessionKeys.length === 0 ? (
-        <Text variant="footnote" tone="muted" className="py-2">
-          No session keys yet. Authorize a scoped, expiring, policy-gated key — for an agent, a dapp, or a hot
-          signer.
-        </Text>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Text variant="label" tone="muted" className="font-normal">
+        Authorize a scoped, expiring, policy-gated key — for an agent, a dapp, or a hot signer.
+      </Text>
+      {acct.sessionKeys.length === 0 ? null : (
+        <div className="flex flex-col gap-3">
           {acct.sessionKeys.map((sk) => {
             const live = Object.entries(p.policyRemaining[sk.id] ?? {});
             return (
               <div key={sk.id} className="flex flex-col gap-2 rounded-lg border border-bds-gray-10 p-4 dark:border-white/10">
-                <div className="flex items-center gap-2">
-                  <KindBadge kind={sk.kind} />
-                  <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{sk.label}</span>
+                <div className="flex items-start gap-2">
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-[14px] font-normal">{sk.label}</span>
+                      <KindBadge kind={sk.kind} />
+                    </div>
+                    <span className="font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(sk.actorId)}</span>
+                  </div>
                   {!sk.pendingAuth && !sk.pendingRevoke ? (
                     <button
                       type="button"
                       onClick={() => p.revokeSessionKey(sk.id)}
                       disabled={p.skRevokingId === sk.id}
-                      className="text-[12px] text-bds-red-60 hover:text-bds-red-70 disabled:opacity-50"
+                      className="shrink-0 text-[12px] text-bds-red-60 hover:text-bds-red-70 disabled:opacity-50"
                     >
-                      {p.skRevokingId === sk.id ? 'signing…' : 'revoke'}
+                      {p.skRevokingId === sk.id ? 'Signing…' : 'Revoke'}
                     </button>
                   ) : null}
                 </div>
-                <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(sk.actorId)}</code>
                 <div className="flex flex-wrap gap-1.5">
                   {scopeChips(sk.scope).map((c) => (
-                    <span key={c} className={CHIP_CLS}>
-                      {c}
-                    </span>
+                    <Badge key={c}>{c}</Badge>
                   ))}
-                  <span className={CHIP_CLS}>{formatExpiry(sk.expiry)}</span>
+                  <Badge>{formatExpiry(sk.expiry)}</Badge>
                 </div>
                 {sk.policy ? (
-                  <div className="flex flex-col gap-1 rounded-md border border-bds-gray-10 bg-bds-gray-0 p-2 dark:border-white/10 dark:bg-white/5">
-                    <span className="text-[12px] font-medium text-bds-purple-70 dark:text-bds-purple-20">
-                      ◆ {sk.policy.label}
-                    </span>
+                  <div className="flex flex-col gap-1">
                     {live.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-col gap-1">
                         {live.map(([token, b]) => (
-                          <span key={token} className={CHIP_CLS}>
-                            {formatUnits(b.remaining, b.decimals)} / {formatUnits(b.allowance, b.decimals)} {b.symbol}{' '}
-                            left{b.period ? ` ${periodLabel(b.period)}` : ''}
-                          </span>
+                          <div key={token} className="flex items-center justify-between text-[13px]">
+                            <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy!.label}</span>
+                            <span className="font-normal text-black dark:text-white">
+                              {formatUnits(b.remaining, b.decimals)} / {formatUnits(b.allowance, b.decimals)} {b.symbol}{b.period ? ` ${periodLabel(b.period)}` : ''}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     ) : sk.policy.limits && sk.policy.limits.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-col gap-1">
                         {sk.policy.limits.map((lim) => (
-                          <span key={lim.token} className={CHIP_CLS}>
-                            ≤ {formatUnits(lim.allowance, lim.decimals)} {lim.symbol}
-                            {lim.period ? ` ${periodLabel(lim.period)}` : ''}
-                          </span>
+                          <div key={lim.token} className="flex items-center justify-between text-[13px]">
+                            <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy!.label}</span>
+                            <span className="font-normal text-black dark:text-white">
+                              ≤ {formatUnits(lim.allowance, lim.decimals)} {lim.symbol}{lim.period ? ` ${periodLabel(lim.period)}` : ''}
+                            </span>
+                          </div>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{sk.policy.params}</span>
+                      <div className="flex items-center justify-between text-[13px]">
+                        <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy.label}</span>
+                        <span className="font-normal text-black dark:text-white">{sk.policy.params}</span>
+                      </div>
                     )}
                   </div>
                 ) : null}
                 {sk.pendingAuth ? (
                   <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-2 dark:border-white/10">
                     <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                      <b className="text-bds-green-70 dark:text-bds-green-20">✓ Signed</b> — installs on this key&apos;s
+                      <span className="inline-flex items-center gap-1 text-bds-green-70 dark:text-bds-green-20">Signed</span> — installs on this key&apos;s
                       first transaction, or apply it now.
                     </p>
                     <div className="flex gap-2">
@@ -568,7 +595,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                             : p.submitStatus === 'confirming'
                               ? 'Waiting…'
                               : 'Applying…'
-                          : 'Apply now'}
+                          : 'Apply Now'}
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => p.revokeSessionKey(sk.id)}>
                         Discard
@@ -579,7 +606,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                 {sk.pendingRevoke ? (
                   <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-2 dark:border-white/10">
                     <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                      <b className="text-bds-red-60 dark:text-bds-red-40">Revoke signed</b> — applies on this account&apos;s
+                      <span className="text-bds-red-60 dark:text-bds-red-40">Revoke signed</span> — applies on this account&apos;s
                       next session-key transaction, or apply it now. The policy manager is kept.
                     </p>
                     <div className="flex gap-2">
@@ -590,7 +617,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                             : p.submitStatus === 'confirming'
                               ? 'Waiting…'
                               : 'Applying…'
-                          : 'Apply now'}
+                          : 'Apply Now'}
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => p.undoStagedRevoke(sk.id)}>
                         Undo
@@ -605,6 +632,21 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
       )}
 
       {p.sessionAdding ? <SessionForm p={p} /> : null}
+
+      <div>
+        <Button variant="secondary" size="sm" onClick={() => {
+          if (!p.sessionAdding) {
+            const avail = p.signers.find((s) =>
+              !acct.owners.some((o) => o.actorId === s.actorId) &&
+              !acct.sessionKeys.some((sk) => sk.actorId === s.actorId)
+            );
+            if (avail) p.setSkSignerId(avail.id);
+          }
+          p.setSessionAdding(!p.sessionAdding);
+        }}>
+          {p.sessionAdding ? 'Cancel' : 'Add Session Key'}
+        </Button>
+      </div>
     </section>
   );
 }
@@ -627,9 +669,9 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
       });
   }
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-bds-gray-10 p-4 dark:border-white/10">
-      <Text variant="label" className="font-medium">
-        Register a session key
+    <div className="flex flex-col gap-4 rounded-lg border border-bds-gray-10 bg-bds-gray-5 p-4 dark:border-white/10 dark:bg-white/5">
+      <Text variant="label" className="font-normal">
+        Register a Session Key
       </Text>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
@@ -637,14 +679,14 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
           <Select
             value={p.skSignerId}
             onValueChange={p.setSkSignerId}
-            placeholder="Select a signer…"
+            placeholder="Select"
             options={p.signers.map((s) => {
               const isOwner = acct.owners.some((o) => o.actorId === s.actorId);
               const isSession = acct.sessionKeys.some((sk) => sk.actorId === s.actorId);
               return {
                 value: s.id,
                 disabled: isOwner || isSession,
-                label: `${s.label} (${KIND_LABEL[s.kind]})${isOwner ? ' — owner' : isSession ? ' — active session key' : ''}`,
+                label: `${s.label}${isOwner ? ' — owner' : isSession ? ' — session key' : ''}`,
               };
             })}
           />
@@ -667,29 +709,24 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
         </label>
       </div>
 
-      {/* Spend limits */}
+      {/* Spend Limits */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] font-medium">Spend limits</span>
-          <button type="button" onClick={p.addLimit} className={CHIP_CLS}>
-            + Add limit
-          </button>
-        </div>
+        <span className="text-[13px] font-normal">Spend Limits</span>
         {p.skLimits.length === 0 ? (
           <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">No spend cap on this key.</span>
         ) : null}
         {p.skLimits.map((l) => {
           const customOk = l.token !== 'custom' || ADDR_RE.test(l.custom.trim());
           return (
-            <div key={l.id} className="flex flex-wrap items-center gap-2">
-              <div className="w-32">
+            <div key={l.id} className="flex items-center gap-2">
+              <div className="flex-1">
                 <Select
                   value={l.token}
                   onValueChange={(value) => p.patchLimit(l.id, { token: value as LimitDraft['token'] })}
                   options={[
                     { value: 'stable', label: stableSymbol(p.skChainShort) },
                     { value: 'eth', label: 'ETH' },
-                    { value: 'custom', label: 'Custom token…' },
+                    { value: 'custom', label: 'Custom token...' },
                   ]}
                 />
               </div>
@@ -703,13 +740,13 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
                 />
               ) : null}
               <input
-                className={cn(INPUT_CLS, 'w-24')}
+                className={cn(INPUT_CLS, 'flex-1')}
                 value={l.amount}
                 inputMode="decimal"
                 placeholder={l.token === 'eth' ? '0.1' : '100'}
                 onChange={(e) => p.patchLimit(l.id, { amount: e.target.value })}
               />
-              <div className="w-28">
+              <div className="flex-1">
                 <Select
                   value={l.periodId}
                   onValueChange={(value) => p.patchLimit(l.id, { periodId: value })}
@@ -720,29 +757,29 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
                 type="button"
                 onClick={() => p.removeLimit(l.id)}
                 aria-label="Remove limit"
-                className="text-[18px] text-bds-gray-50 hover:text-bds-red-60"
+                className="shrink-0 text-bds-gray-50 hover:text-bds-red-60"
               >
-                ×
+                <CloseIcon size={10} />
               </button>
             </div>
           );
         })}
+        <div>
+          <Button variant="secondary" size="sm" onClick={p.addLimit}>
+            + Add Limit
+          </Button>
+        </div>
       </div>
 
       {/* Target allowlist */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] font-medium">Target allowlist</span>
-          <button type="button" onClick={p.addScope} className={CHIP_CLS}>
-            + Add target
-          </button>
-        </div>
+        <span className="text-[13px] font-normal">Target Allowlist</span>
         {impliedScopes.map((imp) => (
           <div
             key={imp.key}
-            className="flex items-center justify-between gap-2 rounded-md border border-dashed border-bds-gray-15 px-3 py-2 text-[12px] dark:border-white/15"
+            className="flex items-center justify-between gap-2 rounded-md border border-bds-gray-10 bg-white px-3 py-2 text-[12px] dark:border-white/10 dark:bg-white/5"
           >
-            <span className="font-medium">{imp.label}</span>
+            <span className="font-normal">{imp.label}</span>
             <span className="text-bds-gray-60 dark:text-bds-gray-40">{imp.note}</span>
           </div>
         ))}
@@ -767,9 +804,9 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
                   type="button"
                   onClick={() => p.removeScope(s.id)}
                   aria-label="Remove target"
-                  className="text-[18px] text-bds-gray-50 hover:text-bds-red-60"
+                  className="shrink-0 text-bds-gray-50 hover:text-bds-red-60"
                 >
-                  ×
+                  <CloseIcon size={10} />
                 </button>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -778,7 +815,7 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
                   onClick={() => p.setScopeAll(s.id)}
                   className={cn(CHIP_CLS, s.all && CHIP_ON)}
                 >
-                  All selectors
+                  All Selectors
                 </button>
                 {SELECTOR_PRESETS.map((sp) => (
                   <button
@@ -795,66 +832,86 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
             </div>
           );
         })}
+        <div>
+          <Button variant="secondary" size="sm" onClick={p.addScope}>
+            + Add Target
+          </Button>
+        </div>
       </div>
 
-      <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-        Send-only key on {getDemoChain(p.skChainShort).name}.
-        {p.skLimits.some((l) => l.token === 'eth')
-          ? ' An ETH limit needs at least one allowed target to pay.'
-          : ''}
-      </p>
-      <Button
-        onClick={p.registerSessionKey}
-        disabled={p.skBusy || !p.skSignerId || p.formPolicyEmpty}
-        className="w-fit"
-      >
-        {p.skBusy ? 'Signing authorization…' : 'Sign authorization'}
-      </Button>
+      <div className="flex items-center gap-3">
+        <p className="flex-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+          Send-only key on {getDemoChain(p.skChainShort).name}.
+          {p.skLimits.some((l) => l.token === 'eth')
+            ? ' An ETH limit needs at least one allowed target to pay.'
+            : ''}
+        </p>
+        <Button size="sm" variant="secondary" onClick={() => p.setSessionAdding(false)} disabled={p.skBusy}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={p.registerSessionKey}
+          disabled={p.skBusy || !p.skSignerId || p.formPolicyEmpty}
+        >
+          {p.skBusy ? 'Signing Authorization…' : 'Sign Authorization'}
+        </Button>
+      </div>
     </div>
   );
 }
 
 function SubAccountsTab({ p }: { p: ConfigViewProps }) {
   const { acct } = p;
+  const [creating, setCreating] = useState(false);
   return (
     <section className="flex flex-col gap-4">
-      {acct.subAccounts.length === 0 ? (
-        <Text variant="footnote" tone="muted" className="py-2">
-          No sub-accounts yet. Spin up a delegated account (its own address, controlled by this one).
-        </Text>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Text variant="label" tone="muted" className="font-normal">
+        Spin up a delegated account with its own address, controlled by this one.
+      </Text>
+      {acct.subAccounts.length > 0 ? (
+        <div className="flex flex-col gap-3">
           {acct.subAccounts.map((sa) => (
-            <div key={sa.id} className="flex flex-col gap-2 rounded-lg border border-bds-gray-10 p-4 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <Badge>sub</Badge>
-                <span className="truncate text-[14px] font-medium">{sa.label}</span>
-              </div>
-              <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">{short(sa.address)}</code>
-              <span className={CHIP_CLS + ' w-fit'}>delegate → {short(sa.delegateTo, 6, 4)}</span>
+            <div key={sa.id} className="flex items-center gap-3 rounded-lg border border-bds-gray-10 p-3 dark:border-white/10">
+              <AccountIdentity label={sa.label} address={sa.address} variant="spending" />
+              <Badge>delegate → {short(sa.delegateTo, 6, 4)}</Badge>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
-      <div className="flex flex-col gap-2 rounded-lg border border-bds-gray-10 p-4 dark:border-white/10">
-        <Text variant="label" className="font-medium">
-          Create a sub-account
-        </Text>
-        <input
-          className={INPUT_CLS}
-          value={p.saLabel}
-          placeholder="name, e.g. “Trading bot” or “Team vault”"
-          onChange={(e) => p.setSaLabel(e.target.value)}
-        />
-        <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-          A delegated account with its own address, controlled by this account via{' '}
-          <code>key.delegate(parent)</code>.
-        </p>
-        <Button onClick={p.createSubAccount} disabled={p.saBusy} className="w-fit">
-          {p.saBusy ? 'Deriving…' : 'Create sub-account'}
-        </Button>
-      </div>
+      {creating ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-bds-gray-10 bg-bds-gray-5 p-4 dark:border-white/10 dark:bg-white/5">
+          <Text variant="label" className="font-normal">
+            Create a Sub-Account
+          </Text>
+          <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+            A delegated account with its own address, controlled by this account via{' '}
+            <code>key.delegate(parent)</code>.
+          </p>
+          <input
+            autoFocus
+            className={INPUT_CLS}
+            value={p.saLabel}
+            placeholder={'name, e.g. "Trading bot" or "Team vault"'}
+            onChange={(e) => p.setSaLabel(e.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setCreating(false)} disabled={p.saBusy}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={p.createSubAccount} disabled={p.saBusy}>
+              {p.saBusy ? 'Deriving…' : 'Create Sub-Account'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <Button variant="secondary" size="sm" onClick={() => setCreating(true)}>
+            Create Sub-Account
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { notFound } from 'next/navigation';
 
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
@@ -28,7 +29,7 @@ import {
 } from '../../../library/explorer';
 
 const BADGE =
-  'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
+  'inline-flex items-center rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
 const RAW_PRE = 'mt-1 overflow-x-auto rounded bg-bds-gray-5 p-2 text-[11px] dark:bg-white/5';
 const DIM = 'text-bds-gray-60 dark:text-bds-gray-40';
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -350,7 +351,7 @@ function TxBody({ tx }: TxBodyProps) {
             </DetailRow>
           ) : null}
           <DetailRow label="Status">
-            <span className={`font-medium ${status.className}`}>{status.label}</span>
+            <span className={status.className}>{status.label}</span>
           </DetailRow>
           {typeInfo ? (
             <DetailRow label="Type">
@@ -427,7 +428,7 @@ function TxBody({ tx }: TxBodyProps) {
         <>
           {tx.aa.accountChanges.length > 0 ? (
             <section className="flex flex-col gap-2">
-              <Text variant="title3">Account changes ({tx.aa.accountChanges.length})</Text>
+              <Text variant="headline">Account changes ({tx.aa.accountChanges.length})</Text>
               <Text variant="footnote" tone="muted">
                 Owner / authenticator updates applied atomically before the calls run.
               </Text>
@@ -440,7 +441,7 @@ function TxBody({ tx }: TxBodyProps) {
           ) : null}
 
           <section className="flex flex-col gap-2">
-            <Text variant="title3">Calls ({callCount})</Text>
+            <Text variant="headline">Calls ({callCount})</Text>
             <Text variant="footnote" tone="muted">
               Each phase is an atomic batch executed in order from the AA account.
             </Text>
@@ -448,7 +449,7 @@ function TxBody({ tx }: TxBodyProps) {
               // eslint-disable-next-line react/no-array-index-key -- phases are positional
               <Card key={phaseIndex} className="bg-white p-4 dark:bg-white/5">
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="text-[12px] font-medium">phase {phaseIndex}</span>
+                  <span className="text-[12px]">phase {phaseIndex}</span>
                   <span className={`text-[11px] ${DIM}`}>
                     {phase.length} call{phase.length === 1 ? '' : 's'}
                   </span>
@@ -467,7 +468,7 @@ function TxBody({ tx }: TxBodyProps) {
 
       {tx.phaseStatuses && tx.phaseStatuses.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <Text variant="title3">Call phases ({tx.phaseStatuses.length})</Text>
+          <Text variant="headline">Call phases ({tx.phaseStatuses.length})</Text>
           <div className="flex flex-wrap gap-2">
             {tx.phaseStatuses.map((phaseStatus, index) => {
               const ok = phaseOk(phaseStatus);
@@ -490,7 +491,7 @@ function TxBody({ tx }: TxBodyProps) {
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <Text variant="title3">Logs ({tx.logs.length})</Text>
+        <Text variant="headline">Logs ({tx.logs.length})</Text>
         {tx.logs.length === 0 ? (
           <Card className="bg-white p-4 dark:bg-white/5">
             <Text variant="label.regular" tone="muted">
@@ -516,36 +517,34 @@ type PageProps = {
 export default function ExplorerTxPage({ params }: PageProps) {
   const { hash } = use(params);
   const [tx, setTx] = useState<ExplorerTxResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [is404, setIs404] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    setFetchError(false);
     vibenetApi.explorer
       .tx(hash)
       .then((next) => {
         if (!cancelled) setTx(next);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(
-            err instanceof VibenetApiError && err.status === 404
-              ? 'Transaction not found'
-              : 'Failed to fetch transaction',
-          );
+        if (cancelled) return;
+        if (err instanceof VibenetApiError && err.status === 404) {
+          setIs404(true);
+        } else {
+          setFetchError(true);
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [hash]);
 
+  if (is404) notFound();
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="animate-in flex flex-col gap-6">
       <div>
         <Text variant="title2">Transaction</Text>
         {tx ? (
@@ -555,20 +554,21 @@ export default function ExplorerTxPage({ params }: PageProps) {
         ) : null}
       </div>
 
-      {loading ? (
-        <Text variant="label.regular" tone="muted">
-          Loading…
-        </Text>
-      ) : null}
-      {error ? (
-        <Card className="bg-white p-4 dark:bg-white/5">
+      {tx ? (
+        <TxBody tx={tx} />
+      ) : fetchError ? (
+        <Card className="bg-white p-6 dark:bg-white/5">
           <Text variant="label.regular" tone="muted">
-            {error}
+            Failed to fetch transaction. Please try again.
           </Text>
         </Card>
-      ) : null}
-
-      {tx ? <TxBody tx={tx} /> : null}
+      ) : (
+        <Card className="bg-white p-6 dark:bg-white/5">
+          <Text variant="label.regular" tone="muted">
+            Loading…
+          </Text>
+        </Card>
+      )}
     </div>
   );
 }

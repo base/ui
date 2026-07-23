@@ -2,13 +2,14 @@
 
 import { use, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { notFound } from 'next/navigation';
 
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
 import { DetailList, DetailRow } from '../../../components/DetailList';
 import { ExplorerLink } from '../../../components/ExplorerLink';
 import type { ActorEntry, ExplorerAddressResponse } from '../../../library/api-types';
-import { vibenetApi } from '../../../library/client';
+import { vibenetApi, VibenetApiError } from '../../../library/client';
 import {
   authLabel,
   expiryLabel,
@@ -22,10 +23,10 @@ import { shortAddress } from '../../../library/format';
 const CHIP =
   'inline-flex items-center rounded-full border border-bds-gray-10 px-2.5 py-1 text-[11px] leading-none text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40';
 const BADGE =
-  'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
+  'inline-flex items-center rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
 const TH =
-  'px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40';
-const TD = 'px-3 py-2.5 text-[13px]';
+  'px-4 py-3 text-left text-[13px] font-normal text-bds-gray-50';
+const TD = 'px-4 py-3 text-[13px]';
 
 type ActorCardProps = {
   actor: ActorEntry;
@@ -82,19 +83,19 @@ type PageProps = {
 export default function ExplorerAddressPage({ params }: PageProps) {
   const { addr } = use(params);
   const [data, setData] = useState<ExplorerAddressResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [is404, setIs404] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     vibenetApi.explorer
       .address(addr)
       .then((next) => {
         if (!cancelled) setData(next);
       })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+      .catch((err) => {
+        if (!cancelled && err instanceof VibenetApiError && err.status === 404) {
+          setIs404(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -156,20 +157,16 @@ export default function ExplorerAddressPage({ params }: PageProps) {
     }
   }
 
+  if (is404) notFound();
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="animate-in flex flex-col gap-6">
       <div>
         <Text variant="title2">Address</Text>
         <code className="mt-1 block break-all font-mono text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
           {addr}
         </code>
       </div>
-
-      {loading ? (
-        <Text variant="label.regular" tone="muted">
-          Loading…
-        </Text>
-      ) : null}
 
       {data ? (
         <>
@@ -182,12 +179,12 @@ export default function ExplorerAddressPage({ params }: PageProps) {
           </Card>
 
           <section className="flex flex-col gap-3">
-            <Text variant="title3">Actors</Text>
+            <Text variant="headline">Actors</Text>
             {actorsBody}
           </section>
 
           <section className="flex flex-col gap-3">
-            <Text variant="title3">Activity</Text>
+            <Text variant="headline">Activity</Text>
             {data.activity.length === 0 ? (
               <Card className="bg-white p-4 dark:bg-white/5">
                 <Text variant="label.regular" tone="muted">

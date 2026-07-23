@@ -37,7 +37,7 @@ export const DEMO_APPS: DemoApp[] = [
   },
   {
     id: 'spending-account',
-    name: 'Spending account',
+    name: 'Spending Account',
     emoji: '💳',
     tagline: 'Spare-key account',
     grant: 'subaccount',

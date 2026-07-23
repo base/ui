@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { cn } from './cn';
+import { CloseIcon } from './icons';
 import { Text } from './Text';
 
 type ModalProps = {
@@ -42,6 +43,8 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
   }, [open, onClose]);
 
   const stop = useCallback((event: MouseEvent) => event.stopPropagation(), []);
+  const reducedMotion = useReducedMotion();
+  const panelTransition = reducedMotion ? { duration: 0.1 } : PANEL_TRANSITION;
 
   return (
     <AnimatePresence>
@@ -55,36 +58,37 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px] dark:bg-black/60"
         >
           <motion.div
+            layout
             role="dialog"
             aria-modal="true"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={PANEL_TRANSITION}
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
+            transition={panelTransition}
             onClick={stop}
             className={cn(
-              'flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-white text-black shadow-xl dark:border-white/10 dark:bg-[#141414] dark:text-white',
+              'flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-white text-black shadow-xl dark:border-white/10 dark:bg-[#141414] dark:text-white',
               className,
             )}
           >
-            <div className="flex items-center justify-between gap-4 border-b border-bds-gray-10 px-6 py-4 dark:border-white/10">
-              <Text as="h2" variant="title3">
+            <div className="flex items-center justify-between gap-4 border-b border-bds-gray-10 px-5 pb-3 pt-4 dark:border-white/10">
+              <Text as="h2" variant="headline">
                 {title}
               </Text>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[20px] leading-none text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-black dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
+                className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-black dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
               >
-                ×
+                <CloseIcon size={14} />
               </button>
             </div>
 
-            <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5">{children}</div>
+            <div className="flex flex-col gap-5 overflow-y-auto px-5 pb-8 pt-5">{children}</div>
 
             {footer ? (
-              <div className="flex items-center justify-end gap-3 border-t border-bds-gray-10 px-6 py-4 dark:border-white/10">
+              <div className="flex items-center justify-end gap-3 border-t border-bds-gray-10 px-5 py-4 dark:border-white/10">
                 {footer}
               </div>
             ) : null}

@@ -248,75 +248,22 @@ button {
   background: rgba(0, 0, 0, 0.3);
 }
 
-.nav-home-icon {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: left center;
+.nav-row-hover {
+  transition: background-color 0.15s ease;
+  border-radius: 8px;
 }
 
-a:hover .nav-home-icon {
-  transform: perspective(400px) rotateY(-15deg);
+.nav-row-hover:hover {
+  background-color: var(--bds-gray-5);
 }
 
-.nav-upgrades-arrow {
-  transition: transform 0.2s ease-out;
+.nav-back-icon {
+  color: #9a9a9a;
+  transition: color 0.15s ease;
 }
 
-a:hover .nav-upgrades-arrow {
-  transform: translateY(-1px);
-}
-
-.nav-snapshots-icon {
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-a:hover .nav-snapshots-icon {
-  transform: scale(0.82);
-}
-
-a:not(:hover) .nav-snapshots-icon {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.nav-vibenet-icon {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-a:hover .nav-vibenet-icon {
-  transform: rotate(60deg);
-}
-
-.changelog-row {
-  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-a:hover .changelog-row-1 { transform: translateX(2px); transition-delay: 0ms; }
-a:hover .changelog-row-2 { transform: translateX(2px); transition-delay: 40ms; }
-a:hover .changelog-row-3 { transform: translateX(2px); transition-delay: 80ms; }
-
-a:not(:hover) .changelog-row-1 { transition-delay: 80ms; }
-a:not(:hover) .changelog-row-2 { transition-delay: 40ms; }
-a:not(:hover) .changelog-row-3 { transition-delay: 0ms; }
-
-@media (prefers-reduced-motion: reduce) {
-  .changelog-row { transition: none; }
-  a:hover .changelog-row { transform: none; }
-}
-
-.nav-faucet-icon {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-a:hover .nav-faucet-icon {
-  transform: translateY(2px);
-}
-
-.nav-explorer-icon {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-a:hover .nav-explorer-icon,
-.external-nav-row:hover .nav-explorer-icon {
-  transform: scale(1.08);
+.nav-back-link:hover .nav-back-icon {
+  color: #3a3a3a;
 }
 
 .external-nav-arrow {
@@ -327,6 +274,20 @@ a:hover .nav-explorer-icon,
 .external-nav-row:hover .external-nav-arrow {
   opacity: 1;
 }
+
+/* Faucet: gentle status pulse (subtler than animate-ping) */
+@keyframes gentle-ping {
+  0%, 100% { opacity: 0.75; transform: scale(1); }
+  50% { opacity: 0; transform: scale(1.8); }
+}
+.animate-gentle-ping { animation: gentle-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+/* Faucet: result banner slide-in */
+@keyframes slide-down-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-down { animation: slide-down-fade 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 
 /* Detail page entrance */
 @keyframes fade-in-up {
@@ -348,17 +309,28 @@ a:hover .nav-explorer-icon,
   .animate-in-delay-1,
   .animate-in-delay-2,
   .animate-in-delay-3 { animation-delay: 0ms; }
+  .animate-spin { animation: spin 3s linear infinite; }
+  /* Suppress continuous/infinite motion for reduced-motion users */
+  .animate-gentle-ping { animation: none; opacity: 0.75; }
+  .animate-pulse { animation: none; }
+  .animate-slide-down { animation: fade-in 0.2s ease both; }
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+/* Loading spinner — slightly faster period for small-button contexts */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 0.8s linear infinite;
+}
+/* Skeleton pulse — softer rhythm than Tailwind default */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse {
+  animation: pulse 1.5s cubic-bezier(0.77, 0, 0.175, 1) infinite;
 }
 
 /* Responsive: hamburger menu + drawer */
@@ -441,5 +413,17 @@ a:hover .nav-explorer-icon,
 
   .mobile-content-offset {
     padding-top: 56px;
+  }
+
+  .activity-full-width {
+    width: 100vw;
+    margin-left: calc(-1 * (100vw - 100%) / 2);
+  }
+}
+
+@media (min-width: 768px) {
+  .activity-full-width {
+    width: calc(100vw - 248px);
+    margin-left: calc(-1 * (100vw - 248px - 100%) / 2);
   }
 }

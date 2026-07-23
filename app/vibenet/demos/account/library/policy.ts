@@ -71,7 +71,7 @@ export function stableSymbol(networkShort: string): string {
 }
 
 export function scopeLabel(scope: number): string {
-  if (!scope) return 'full control';
+  if (!scope) return 'Full Control';
   return OWNER_SCOPE_PRESETS.find((p) => p.scope === scope)?.label ?? scopeChips(scope).join(' + ');
 }
 

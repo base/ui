@@ -26,7 +26,7 @@ export const FAUCET_TOKENS: FaucetToken[] = [
       status?.usdv_drip_units != null
         ? `Request ${formatAmount(status.usdv_drip_units, 6, 2)} USDV`
         : 'Request USDV',
-    summaryValue: (status) => (status.usdv_address ? 'Ready to print' : 'Not deployed'),
+    summaryValue: (status) => (status.usdv_address ? 'Ready' : 'Not deployed'),
     drip: async (address) => {
       const res = await vibenetApi.faucet.dripUsdv({ address });
       return { txHash: res.tx_hash, to: res.to, via: { label: 'USDV', address: res.usdv_address } };
@@ -37,7 +37,7 @@ export const FAUCET_TOKENS: FaucetToken[] = [
     label: 'NFV',
     isEnabled: (status) => Boolean(status.nfv_address),
     actionLabel: () => 'Mint NFV',
-    summaryValue: (status) => (status.nfv_address ? 'Ready to mint' : 'Not deployed'),
+    summaryValue: (status) => (status.nfv_address ? 'Ready' : 'Not deployed'),
     drip: async (address) => {
       const res = await vibenetApi.faucet.dripNfv({ address });
       return { txHash: res.tx_hash, to: res.to, via: { label: 'NFV', address: res.nfv_address } };

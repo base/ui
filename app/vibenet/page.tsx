@@ -93,14 +93,14 @@ export default function VibenetHomePage() {
     contractsBody = contractRows.map((contract) => (
       <div
         key={contract.key}
-        className="flex flex-wrap items-center gap-3 bg-white p-4 dark:bg-white/5"
+        className="flex flex-wrap items-center gap-3 py-4"
       >
-        <span className="w-32 shrink-0 text-[14px] font-medium text-black dark:text-white">
+        <span className="w-32 shrink-0 text-[14px] text-bds-gray-50 dark:text-bds-gray-40">
           {contract.label}
         </span>
         <Link
           href={`${VIBENET_EXPLORER_PATH}/address/${contract.address}`}
-          className="min-w-0 flex-1 truncate font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
+          className="min-w-0 flex-1 truncate text-[14px] text-black transition-colors hover:text-base-blue hover:underline dark:text-white dark:hover:text-bds-blue-20"
         >
           {contract.address}
         </Link>
@@ -115,23 +115,46 @@ export default function VibenetHomePage() {
   const commit = config.commit && config.commit !== 'unknown' ? config.commit : null;
 
   return (
-    <div className="flex flex-col gap-16 pb-4 text-black dark:text-white">
-      <header className="flex flex-col gap-4 border-b border-bds-gray-10 pb-12 dark:border-white/10">
-        <div className="max-w-3xl">
-          <Text variant="caption" className="mb-4 text-base-blue dark:text-white">
-            {config.title ?? 'Base Vibenet'}
-          </Text>
-          <Text variant="display" className="text-balance">
-            Test New Features
-          </Text>
-          <Text variant="body" tone="muted" className="mt-5 max-w-2xl">
-            {config.subtitle ?? 'An ephemeral Base devnet for trying out in-flight features.'}
+    <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-16 pb-4 text-black dark:text-white">
+      <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:justify-between md:gap-8">
+        <div className="flex max-w-xl flex-1 flex-col gap-6">
+          <img src="/vibenet-illo.svg" alt="" width={48} height={48} className="mt-8" />
+          <Text variant="title2" tone="muted">
+            <span className="text-black dark:text-white">Vibenet</span> is an ephemeral Base developer network for testing in-flight features.
           </Text>
         </div>
+        <Card className="flex flex-col gap-0.5 bg-white px-5 py-5 dark:bg-white/5 md:min-w-[360px]">
+          <Text variant="label" className="mb-2.5">Connect to Vibenet</Text>
+          <div className="flex items-center justify-between gap-3">
+            <Text variant="label" tone="muted">Chain ID</Text>
+            <CopyableValue value={chainId} />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-3">
+            <Text variant="label" tone="muted">RPC URL</Text>
+            <CopyableValue value={VIBENET_RPC_URL} />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-3">
+            <Text variant="label" tone="muted">Explorer</Text>
+            <Link
+              href={VIBENET_EXPLORER_PATH}
+              className="font-mono text-[13px] text-black transition-colors hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20"
+            >
+              {VIBENET_EXPLORER_PATH}
+            </Link>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
+              Add to Wallet
+            </Button>
+            {walletStatus ? (
+              <Text variant="footnote" tone="muted">{walletStatus}</Text>
+            ) : null}
+          </div>
+        </Card>
       </header>
 
       <section className="flex flex-col gap-6">
-        <Text variant="title2">Features</Text>
+        <Text variant="headline">Features</Text>
         <div className="flex flex-col gap-4">
           {FEATURES.map((feature) => (
             <FeatureCard key={feature.id} feature={feature} />
@@ -146,25 +169,19 @@ export default function VibenetHomePage() {
         ) : null}
       </section>
 
-      <section className="flex flex-col gap-6">
+      <section className="flex flex-col gap-6 md:hidden">
         <Text variant="title2">Connect</Text>
         <Card className="flex flex-col gap-4 bg-white p-6 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Text variant="label" tone="muted">
-              Chain ID
-            </Text>
+            <Text variant="label" tone="muted">Chain ID</Text>
             <CopyableValue value={chainId} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <Text variant="label" tone="muted">
-              RPC URL
-            </Text>
+            <Text variant="label" tone="muted">RPC URL</Text>
             <CopyableValue value={VIBENET_RPC_URL} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <Text variant="label" tone="muted">
-              Explorer
-            </Text>
+            <Text variant="label" tone="muted">Explorer</Text>
             <Link
               href={VIBENET_EXPLORER_PATH}
               className="font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
@@ -172,30 +189,25 @@ export default function VibenetHomePage() {
               {VIBENET_EXPLORER_PATH}
             </Link>
           </div>
-          <Text variant="footnote" tone="muted">
-            Public RPC access is IP rate limited.
-          </Text>
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
-              Add to wallet
+              Add to Wallet
             </Button>
             {walletStatus ? (
-              <Text variant="footnote" tone="muted">
-                {walletStatus}
-              </Text>
+              <Text variant="footnote" tone="muted">{walletStatus}</Text>
             ) : null}
           </div>
         </Card>
       </section>
 
-      <section className="flex flex-col gap-6">
-        <Text variant="title2">Deployed Contracts</Text>
-        <Card className="flex flex-col divide-y divide-bds-gray-10 overflow-hidden dark:divide-white/10">
+      <section className="flex flex-col gap-3">
+        <Text variant="headline">Deployed Contracts</Text>
+        <div className="flex flex-col divide-y divide-bds-gray-10 border-y border-bds-gray-10 dark:divide-white/10 dark:border-white/10">
           {contractsBody}
-        </Card>
+        </div>
       </section>
 
-      <footer className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-bds-gray-10 pt-6 font-mono text-[12px] text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40">
+      <footer className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-2 pb-4 text-[12px] text-bds-gray-30 dark:text-bds-gray-50">
         <span>
           branch{' '}
           {branch ? (
@@ -203,7 +215,7 @@ export default function VibenetHomePage() {
               href={`https://github.com/base/base/tree/${branch}`}
               target="_blank"
               rel="noopener"
-              className="text-base-blue hover:underline dark:text-bds-blue-20"
+              className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 hover:no-underline dark:text-bds-gray-40 dark:hover:text-bds-gray-30"
             >
               {branch}
             </a>
@@ -218,7 +230,7 @@ export default function VibenetHomePage() {
               href={`https://github.com/base/base/commit/${commit}`}
               target="_blank"
               rel="noopener"
-              className="text-base-blue hover:underline dark:text-bds-blue-20"
+              className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 hover:no-underline dark:text-bds-gray-40 dark:hover:text-bds-gray-30"
             >
               {commit.slice(0, 12)}
             </a>

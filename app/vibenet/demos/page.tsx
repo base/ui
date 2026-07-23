@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 
 import { Card, LinkCard } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
-import { DemoHeader } from './_components/DemoHeader';
+import { Badge } from './account/components/primitives';
 
 export const metadata: Metadata = {
   title: 'Demos · Vibenet',
-  description: 'Interactive demos of in-flight Base features running on the vibenet devnet.',
+  description: 'Interactive demos of in-flight Base features running on the vibenet developer network.',
 };
 
 type DemoEntry = {
@@ -25,7 +25,7 @@ const DEMOS: DemoEntry[] = [
   {
     href: '/vibenet/demos/account',
     eyebrow: 'EIP-8130',
-    title: 'Account',
+    title: 'Native Account Abstraction',
     summary:
       'Create portable account-abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances across networks.',
     points: [
@@ -39,20 +39,15 @@ const DEMOS: DemoEntry[] = [
 
 export default function DemosIndexPage() {
   return (
-    <div className="flex flex-col gap-10 pb-4 text-black dark:text-white">
-      <DemoHeader
-        eyebrow="Base Vibenet"
-        title="Demos"
-        description="Hands-on demos of in-flight Base features, running against the vibenet devnet. Everything stays in your browser — testnet only."
-      />
-
+    <div className="animate-in flex flex-col gap-10 pb-4 text-black dark:text-white">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {DEMOS.map((demo) =>
           demo.available ? (
             <LinkCard
               key={demo.href}
               href={demo.href}
-              className="group flex flex-col gap-4 bg-white p-6 dark:bg-white/5"
+              interactive={false}
+              className="group flex flex-col gap-4 bg-white p-6 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]"
             >
               <DemoCardBody demo={demo} />
             </LinkCard>
@@ -73,32 +68,25 @@ export default function DemosIndexPage() {
 function DemoCardBody({ demo }: { demo: DemoEntry }) {
   return (
     <>
-      <div className="flex items-center gap-2">
-        <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
-          {demo.eyebrow}
-        </span>
-        {!demo.available ? (
-          <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
-            Coming soon
-          </span>
-        ) : null}
-      </div>
       <div>
-        <Text variant="title3">{demo.title}</Text>
+        <div className="flex items-center gap-2">
+          <Text variant="headline">{demo.title}</Text>
+          <Badge>{demo.eyebrow}</Badge>
+          {!demo.available ? (
+            <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
+              Coming soon
+            </span>
+          ) : null}
+        </div>
         <Text variant="body" tone="muted" className="mt-2">
           {demo.summary}
         </Text>
       </div>
-      <ul className="mt-auto flex flex-col gap-1.5">
+      <ul className="mt-auto flex flex-col gap-2 border-t border-bds-gray-10 pt-4 dark:border-white/10">
         {demo.points.map((point) => (
-          <li
-            key={point}
-            className="flex items-start gap-2 text-[13px] text-bds-gray-60 dark:text-bds-gray-40"
-          >
-            <span className="mt-[3px] text-base-blue dark:text-bds-blue-20" aria-hidden="true">
-              ›
-            </span>
-            {point}
+          <li key={point} className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-[1px] bg-bds-gray-30 dark:bg-bds-gray-50" aria-hidden="true" />
+            <Text as="span" variant="label.regular" tone="muted">{point}</Text>
           </li>
         ))}
       </ul>

@@ -10,6 +10,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
+import SnapshotsLoading from './loading';
 import {
   CHAIN_NAME_BY_NETWORK,
   formatBytes,
@@ -59,7 +60,7 @@ function InlineCommand({ command }: { command: string }) {
   }, [command]);
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
       <div className="shrink-0">
         <Text as="span" variant="label.medium" className="block">
           Sync Your Base Node
@@ -69,7 +70,7 @@ function InlineCommand({ command }: { command: string }) {
         </Text>
       </div>
       <div
-        className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-white px-3 py-2 md:max-w-[420px]"
+        className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-white px-3 py-2 xl:max-w-[420px]"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -313,8 +314,6 @@ export default function SnapshotsPage() {
     if (value) toggleComponent(value);
   }
 
-  const reducedMotion = useReducedMotion();
-
   const chainName = activeSnapshot ? (CHAIN_NAME_BY_NETWORK[network] ?? network) : '';
   const command = activeSnapshot ? buildDownloadCommand(chainName, preset, selectedComponents) : '';
 
@@ -345,30 +344,12 @@ export default function SnapshotsPage() {
     stateHistoryComponents.length > 0 &&
     stateHistoryComponents.every((c) => selectedComponents.includes(c.name));
 
+  if (loading) return <SnapshotsLoading />;
+
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="animate-in mx-auto w-full max-w-5xl">
     <AnimatePresence mode="wait">
-      {loading ? (
-        <motion.div
-          key="loading"
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.1, ease: [0.23, 1, 0.32, 1] }}
-          className="flex flex-col items-center justify-center gap-4 py-32"
-        >
-          <motion.svg
-            width="24"
-            height="24"
-            viewBox="0 0 450 450"
-            fill="none"
-            animate={reducedMotion ? undefined : { rotate: [0, 90, 90, 180, 180, 270, 270, 360] }}
-            transition={{ duration: 4.8, ease: 'linear', times: [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875], repeat: Infinity }}
-          >
-            <path d="M0 35.55C0 23.3732 0 17.2848 2.29438 12.6014C4.49116 8.11719 8.11719 4.49116 12.6014 2.29438C17.2848 0 23.3732 0 35.55 0H414.45C426.627 0 432.715 0 437.399 2.29438C441.883 4.49116 445.509 8.11719 447.706 12.6014C450 17.2848 450 23.3732 450 35.55V414.45C450 426.627 450 432.715 447.706 437.399C445.509 441.883 441.883 445.509 437.399 447.706C432.715 450 426.627 450 414.45 450H35.55C23.3732 450 17.2848 450 12.6014 447.706C8.11719 445.509 4.49116 441.883 2.29438 437.399C0 432.715 0 426.627 0 414.45V35.55Z" fill="#dadada"/>
-          </motion.svg>
-          <Text as="span" variant="label.regular" tone="muted">Loading Snapshots...</Text>
-        </motion.div>
-      ) : !activeSnapshot ? (
+      {!activeSnapshot ? (
         <motion.div
           key="empty"
           initial={{ opacity: 0 }}
@@ -394,7 +375,7 @@ export default function SnapshotsPage() {
         transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1], delay: 0 }}
         className="flex flex-col gap-3 rounded-xl border border-bds-gray-10 bg-bds-gray-5 px-0 pb-0 pt-5"
       >
-        <div className="px-4 pb-2 md:px-6">
+        <div className="px-4 pb-2 sm:px-6">
           <InlineCommand command={command} />
         </div>
 
@@ -402,7 +383,7 @@ export default function SnapshotsPage() {
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1], delay: 0.06 }}
-          className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 md:p-6"
+          className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 sm:p-6"
         >
           <Text as="h2" variant="headline" className="mb-6">Configuration</Text>
           <section>
@@ -412,7 +393,7 @@ export default function SnapshotsPage() {
                 Choose the Base network for your node.
               </Text>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
               {networkTabs.map((tab) => {
                 const selected = tab.value === network;
                 const snap = snapshots.find((s) => s.network === tab.value);
@@ -432,7 +413,7 @@ export default function SnapshotsPage() {
                       {tab.label}
                     </Text>
                     {snap && (
-                      <Text as="span" variant="label.regular" tone="muted" className="mt-1 flex items-center gap-1.5 whitespace-nowrap">
+                      <Text as="span" variant="label.regular" tone="muted" className="mt-1 flex flex-wrap items-center gap-1.5">
                         <span>block {formatNumber(snap.block)}</span>
                         <span className="text-bds-gray-40">·</span>
                         <span>{formatDate(snap.date)}</span>
@@ -445,7 +426,7 @@ export default function SnapshotsPage() {
           </section>
 
           <section className="mt-10">
-            <div className="mb-4 flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="mb-4 flex flex-col items-start gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <Text as="h2" variant="label.medium">Configure Snapshot</Text>
                 <Text as="span" variant="label.regular" tone="muted" className="mt-0.5">
@@ -470,7 +451,7 @@ export default function SnapshotsPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15, ease: 'easeOut' }}
-                  className="grid grid-cols-1 gap-3 md:grid-cols-3"
+                  className="grid grid-cols-1 gap-3 lg:grid-cols-3"
                 >
                   {PRESETS.map((p) => {
                     const size = activeSnapshot.components

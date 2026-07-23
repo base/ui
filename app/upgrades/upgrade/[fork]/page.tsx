@@ -92,7 +92,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
 
       <div className="animate-in animate-in-delay-1">
         <section>
-          <Text variant="title3" className="mb-5">Features</Text>
+          <Text variant="headline" className="mb-5">Features</Text>
           <div className="divide-y divide-bds-gray-10 border-y border-bds-gray-10">
             {categories.map((group) =>
               group.changeIds.map((id) => {

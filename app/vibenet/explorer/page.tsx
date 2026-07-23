@@ -6,16 +6,18 @@ import type { ReactNode } from 'react';
 import { Banner } from '../../components/ui/Banner';
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { Text } from '../../components/ui/Text';
 import { ExplorerLink } from '../components/ExplorerLink';
+import { ExplorerSearch } from '../components/ExplorerSearch';
 import type { BlockRow, StatsRow, TxRow } from '../library/api-types';
 import { vibenetApi } from '../library/client';
 import { timeAgoFromSeconds } from '../library/explorer';
 
 const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0 dark:bg-bds-blue-100/30';
 const TH =
-  'px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40';
-const TD = 'px-3 py-2.5 text-[13px]';
+  'px-4 py-3 text-left text-sm font-normal text-bds-gray-50 first:pl-0 last:pr-0';
+const TD = 'px-4 py-3 text-sm first:pl-0 last:pr-0';
 
 type TablePanelProps = {
   loading: boolean;
@@ -26,21 +28,23 @@ type TablePanelProps = {
 
 // Wraps a live table, showing loading / empty states without a nested ternary.
 function TablePanel({ loading, isEmpty, emptyText, children }: TablePanelProps) {
-  let body: ReactNode = children;
   if (loading) {
-    body = (
-      <Text variant="label.regular" tone="muted" className="p-4">
-        Indexing…
-      </Text>
+    return (
+      <div className="flex flex-col gap-3 py-2">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-4 w-full" />
+        ))}
+      </div>
     );
-  } else if (isEmpty) {
-    body = (
-      <Text variant="label.regular" tone="muted" className="p-4">
+  }
+  if (isEmpty) {
+    return (
+      <Text variant="label.regular" tone="muted" className="py-4">
         {emptyText}
       </Text>
     );
   }
-  return <Card className="overflow-hidden bg-white dark:bg-white/5">{body}</Card>;
+  return <>{children}</>;
 }
 
 export default function ExplorerPage() {
@@ -91,7 +95,7 @@ export default function ExplorerPage() {
           }
           if (changed.size > 0) {
             setStatHighlight(changed);
-            window.setTimeout(() => setStatHighlight(new Set()), 1000);
+            window.setTimeout(() => setStatHighlight(new Set()), 1300);
           }
         }
 
@@ -129,8 +133,10 @@ export default function ExplorerPage() {
     : [];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="animate-in flex flex-col gap-8">
       {fetchError ? <Banner>{fetchError}</Banner> : null}
+
+      <ExplorerSearch />
 
       {statItems.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -142,18 +148,18 @@ export default function ExplorerPage() {
                 statHighlight.has(stat.key) && NEW_ROW_HIGHLIGHT,
               )}
             >
-              <Text variant="caption" tone="muted">
+              <Text variant="label.medium" tone="muted">
                 {stat.label}
               </Text>
-              <div className="mt-1 text-[24px] font-medium">{stat.value.toLocaleString()}</div>
+              <Text variant="title2" className="mt-1">{stat.value.toLocaleString()}</Text>
             </Card>
           ))}
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="flex flex-col gap-3">
-          <Text variant="title3">Latest Blocks</Text>
+        <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
+          <Text variant="headline">Latest Blocks</Text>
           <TablePanel loading={loading} isEmpty={blocks.length === 0} emptyText="No blocks yet">
             <table className="w-full border-collapse">
               <thead>
@@ -172,7 +178,7 @@ export default function ExplorerPage() {
                     key={b.hash}
                     aria-label={`Block ${b.number}`}
                     className={cn(
-                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 dark:border-white/10',
+                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
                       newKeys.has(`block-${b.hash}`) && NEW_ROW_HIGHLIGHT,
                     )}
                   >
@@ -193,12 +199,13 @@ export default function ExplorerPage() {
               </tbody>
             </table>
           </TablePanel>
-        </section>
+        </Card>
 
-        <section className="flex flex-col gap-3">
-          <Text variant="title3">Latest Transactions</Text>
+        <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
+          <Text variant="headline">Latest Transactions</Text>
           <TablePanel loading={loading} isEmpty={txs.length === 0} emptyText="No transactions yet">
-            <table className="w-full border-collapse">
+            {/* Desktop table */}
+            <table className="hidden w-full border-collapse sm:table">
               <thead>
                 <tr
                   aria-label="Column headers"
@@ -216,7 +223,7 @@ export default function ExplorerPage() {
                     key={tx.hash}
                     aria-label={`Transaction ${tx.hash}`}
                     className={cn(
-                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 dark:border-white/10',
+                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
                       newKeys.has(`tx-${tx.hash}`) && NEW_ROW_HIGHLIGHT,
                     )}
                   >
@@ -246,8 +253,42 @@ export default function ExplorerPage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Mobile stacked */}
+            <div className="flex flex-col sm:hidden">
+              {txs.slice(0, 10).map((tx) => (
+                <div
+                  key={tx.hash}
+                  className={cn(
+                    'flex flex-col gap-1.5 border-b border-bds-gray-10 px-1 py-3 transition-colors duration-1000 last:border-0 dark:border-white/10',
+                    newKeys.has(`tx-${tx.hash}`) && NEW_ROW_HIGHLIGHT,
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <ExplorerLink kind="tx" value={tx.hash} />
+                    <span className="text-sm text-bds-gray-60 dark:text-bds-gray-40">
+                      Block{' '}
+                      <ExplorerLink
+                        kind="block"
+                        value={String(tx.block_num)}
+                        label={tx.block_num.toLocaleString()}
+                      />
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-bds-gray-60 dark:text-bds-gray-40">
+                    <ExplorerLink kind="address" value={tx.from_addr} />
+                    <span>→</span>
+                    {tx.to_addr ? (
+                      <ExplorerLink kind="address" value={tx.to_addr} />
+                    ) : (
+                      <span className="italic">(create)</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </TablePanel>
-        </section>
+        </Card>
       </div>
     </div>
   );

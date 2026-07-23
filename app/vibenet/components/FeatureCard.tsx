@@ -1,6 +1,9 @@
+import Link from 'next/link';
+
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
+import { ExternalLinkIcon } from '../../components/ui/icons';
 import { Text } from '../../components/ui/Text';
 import type { FeatureLink, FeatureStatus, VibenetFeature } from '../library/types';
 
@@ -22,8 +25,9 @@ type LinkButtonProps = {
 function LinkButton({ link, primary }: LinkButtonProps) {
   const external = link.external ? { target: '_blank', rel: 'noopener' } : {};
   return (
-    <Button href={link.href} variant={primary ? 'secondary' : 'outline'} size="sm" {...external}>
-      {link.external ? `${link.label} ↗` : link.label}
+    <Button href={link.href} variant={primary ? 'primary' : 'secondary'} size="sm" {...external}>
+      {link.label}
+      {link.external ? <ExternalLinkIcon /> : null}
     </Button>
   );
 }
@@ -45,13 +49,8 @@ export function FeatureCard({ feature }: FeatureCardProps) {
         hasHighlights && 'flex flex-col gap-8 md:flex-row',
       )}
     >
-      <div className="flex-1">
-        {feature.tag ? (
-          <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
-            {feature.tag}
-          </span>
-        ) : null}
-        <Text variant="title3" className={cn(feature.tag && 'mt-3')}>
+      <div className="flex flex-1 flex-col">
+        <Text variant="headline">
           {feature.title}
         </Text>
         {feature.summary ? (
@@ -59,13 +58,8 @@ export function FeatureCard({ feature }: FeatureCardProps) {
             {feature.summary}
           </Text>
         ) : null}
-        {feature.availability ? (
-          <Text variant="footnote" tone="muted" className="mt-3 font-mono">
-            {feature.availability}
-          </Text>
-        ) : null}
         {hasActions ? (
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-auto flex flex-wrap items-center gap-3 pt-5">
             {feature.cta ? <LinkButton link={feature.cta} primary /> : null}
             {feature.secondaryCta ? <LinkButton link={feature.secondaryCta} /> : null}
             {showStatus ? (
@@ -78,21 +72,31 @@ export function FeatureCard({ feature }: FeatureCardProps) {
             ))}
           </div>
         ) : null}
+        {feature.availability ? (
+          <Text variant="footnote" tone="muted" className="mt-5">
+            {feature.availability}
+            {feature.availabilityHref ? (
+              <Link href={feature.availabilityHref} className="text-black hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20">
+                Base Cobalt
+              </Link>
+            ) : null}
+          </Text>
+        ) : null}
       </div>
 
       {hasHighlights ? (
-        <ul className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+        <ul className="grid flex-1 grid-cols-2 gap-3">
           {highlights.map((highlight) => (
             <li
               key={highlight.title}
-              className="rounded-lg border border-bds-gray-10 bg-bds-gray-0 p-3 dark:border-white/10 dark:bg-white/5"
+              className="rounded-lg bg-bds-gray-5 p-3 dark:bg-white/5"
             >
-              <span className="block text-[14px] font-medium text-black dark:text-white">
+              <Text as="span" variant="label.medium" className="block">
                 {highlight.title}
-              </span>
-              <span className="mt-0.5 block text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+              </Text>
+              <Text as="span" variant="footnote" tone="muted" className="mt-0.5 block">
                 {highlight.detail}
-              </span>
+              </Text>
             </li>
           ))}
         </ul>

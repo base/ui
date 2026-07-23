@@ -18,11 +18,11 @@ export const SCOPE = {
 } as const;
 
 const SCOPE_LABEL: Array<[number, string]> = [
-  [SCOPE.sender, "send"],
-  [SCOPE.policy, "policy"],
-  [SCOPE.nonce, "nonce"],
-  [SCOPE.selfPayer, "pay gas"],
-  [SCOPE.sponsorPayer, "sponsor"],
+  [SCOPE.sender, "Send"],
+  [SCOPE.policy, "Policy"],
+  [SCOPE.nonce, "Nonce"],
+  [SCOPE.selfPayer, "Pay Gas"],
+  [SCOPE.sponsorPayer, "Sponsor"],
 ];
 
 /** Human-readable chips for a scope bitmask. `0` = unrestricted admin (full owner). */

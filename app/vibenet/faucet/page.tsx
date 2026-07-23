@@ -3,14 +3,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from 'react';
 
+import Link from 'next/link';
+
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Spinner } from '../../components/ui/Spinner';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { ExplorerLink } from '../components/ExplorerLink';
 import { FAUCET_TOKENS, faucetTokenLabel } from '../data/faucetTokens';
 import type { FaucetStatusResponse } from '../library/api-types';
 import { vibenetApi, VibenetApiError } from '../library/client';
+import { VIBENET_EXPLORER_PATH } from '../library/config';
 import { isAddress, shortAddress } from '../library/format';
 import type { DripState, FaucetTokenId } from '../library/types';
 
@@ -136,14 +140,24 @@ export default function FaucetPage() {
         {FAUCET_TOKENS.map((token) => (
           <div
             key={token.id}
-            className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 dark:border-white/10 dark:bg-white/5"
+            className="flex items-center gap-2 rounded-lg bg-bds-gray-0 px-3 py-2 dark:bg-white/5"
           >
             <span className="font-mono text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
               {token.label}
             </span>
-            <span className="text-[13px] font-medium text-black dark:text-white">
-              {token.summaryValue(loaded)}
-            </span>
+            {token.summaryValue(loaded) === 'Ready' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-bds-green-0 px-2 py-0.5 text-[12px] leading-none text-bds-green-70">
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                  <span className="animate-gentle-ping absolute inline-flex h-full w-full rounded-full bg-bds-green-40" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-bds-green-40" />
+                </span>
+                Ready
+              </span>
+            ) : (
+              <span className="text-[13px] text-black dark:text-white">
+                {token.summaryValue(loaded)}
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -167,7 +181,7 @@ export default function FaucetPage() {
     const { outcome } = drip;
     resultBody = (
       <>
-        <div className="font-medium">{faucetTokenLabel(drip.tokenId)} request submitted</div>
+        <div>{faucetTokenLabel(drip.tokenId)} request submitted</div>
         <div className="mt-1 text-[13px]">
           Transaction <ExplorerLink kind="tx" value={outcome.txHash} /> →{' '}
           <ExplorerLink kind="address" value={outcome.to} />
@@ -192,27 +206,18 @@ export default function FaucetPage() {
     : [];
 
   return (
-    <div className="flex flex-col gap-10 pb-4 text-black dark:text-white">
-      <header className="flex flex-col gap-4 border-b border-bds-gray-10 pb-10 dark:border-white/10">
-        <div className="max-w-3xl">
-          <Text variant="caption" className="mb-4 text-base-blue dark:text-white">
-            Base Vibenet
-          </Text>
-          <Text variant="display" className="text-balance">
-            Faucet
-          </Text>
-          <Text variant="body" tone="muted" className="mt-5 max-w-2xl">
-            Drip testnet ETH or mint USDV (Vibe USD) / NFV (NFT) to any address.
+    <div className="animate-in -mx-7 -mb-20 -mt-6 flex min-h-[calc(100vh-116px)] flex-col gap-4 px-7 pt-6 pb-2 text-black dark:text-white">
+      <div>{summaryBody}</div>
+
+      <Card className="flex flex-col gap-3 bg-white p-6 dark:bg-white/5">
+        <div className="flex flex-col gap-0.5">
+          <Text variant="label.medium">Recipient Address</Text>
+          <Text variant="label.medium" tone="muted">
+            Send vibenet ETH, USDV (Vibe USD), NFV (NFT) to any address to start testing.
           </Text>
         </div>
-      </header>
-
-      <Card className="bg-white p-6 dark:bg-white/5">{summaryBody}</Card>
-
-      <Card className="flex flex-col gap-5 bg-white p-6 dark:bg-white/5">
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-          <label htmlFor="faucet-address" className="flex flex-col gap-2 text-[14px] font-medium">
-            Recipient address
+          <label htmlFor="faucet-address" className="flex flex-col gap-2 text-[14px]">
             <input
               id="faucet-address"
               type="text"
@@ -222,7 +227,7 @@ export default function FaucetPage() {
               placeholder="0x…"
               spellCheck={false}
               autoComplete="off"
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 font-mono text-[14px] font-normal text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40"
+              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 font-sans text-[14px] font-normal text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40"
             />
           </label>
           <div className="flex flex-wrap gap-3">
@@ -232,12 +237,25 @@ export default function FaucetPage() {
                 <Button
                   key={token.id}
                   type="button"
+                  size="sm"
                   data-token={token.id}
                   onClick={handleDripClick}
-                  variant={token.id === 'eth' ? 'primary' : 'secondary'}
+                  variant="secondary"
                   disabled={busy || !validAddress || !enabled}
                   className="disabled:cursor-not-allowed disabled:opacity-50"
                 >
+                  {drip.phase === 'pending' && drip.tokenId === token.id ? (
+                    <Spinner className="h-3.5 w-3.5" />
+                  ) : token.id === 'eth' ? (
+                    <svg width={10} height={16} viewBox="0 0 21 35" fill="none" aria-hidden="true" className="mr-0.5">
+                      <path d="M10.4976 0V12.7533L20.9934 17.5699L10.4976 0Z" fill="currentColor" fillOpacity={0.602} />
+                      <path d="M10.4972 0L0 17.5699L10.4972 12.7533V0Z" fill="currentColor" />
+                      <path d="M10.4976 25.8345V34.5001L21.0004 19.5771L10.4976 25.8345Z" fill="currentColor" fillOpacity={0.602} />
+                      <path d="M10.4972 34.5001V25.833L0 19.5771L10.4972 34.5001Z" fill="currentColor" />
+                      <path d="M10.4976 23.8288L20.9934 17.5701L10.4976 12.7563V23.8288Z" fill="currentColor" fillOpacity={0.2} />
+                      <path d="M0 17.5701L10.4972 23.8288V12.7563L0 17.5701Z" fill="currentColor" fillOpacity={0.602} />
+                    </svg>
+                  ) : null}
                   {token.actionLabel(status)}
                 </Button>
               );
@@ -248,7 +266,7 @@ export default function FaucetPage() {
         {drip.phase !== 'idle' ? (
           <div
             aria-live="polite"
-            className={cn('rounded-lg border px-4 py-3 text-[14px]', RESULT_CLASSES[drip.phase])}
+            className={cn('animate-slide-down rounded-lg border px-4 py-3 text-[14px]', RESULT_CLASSES[drip.phase])}
           >
             {resultBody}
           </div>
@@ -256,15 +274,20 @@ export default function FaucetPage() {
       </Card>
 
       {addressChips.length > 0 ? (
-        <div className="flex flex-wrap gap-2 border-t border-bds-gray-10 pt-6 dark:border-white/10">
-          {addressChips.map((chip) => (
-            <ExplorerLink
+        <div className="mt-auto flex flex-wrap gap-x-8 gap-y-2 pt-6 text-[12px]">
+          {addressChips.map((chip, i) => (
+            <Link
               key={chip.label}
-              kind="address"
-              value={chip.address}
-              label={`${chip.label} ${shortAddress(chip.address)}`}
-              className="rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] hover:border-bds-gray-15 hover:no-underline dark:border-white/10 dark:hover:border-white/20"
-            />
+              href={`${VIBENET_EXPLORER_PATH}/address/${chip.address}`}
+              className={cn(
+                'animate-in inline-flex gap-2 text-bds-gray-30 transition-colors hover:text-bds-gray-50 hover:no-underline dark:text-bds-gray-50 dark:hover:text-bds-gray-40',
+                i === 1 && 'animate-in-delay-1',
+                i === 2 && 'animate-in-delay-2',
+              )}
+            >
+              <span>{chip.label}</span>
+              <span>{shortAddress(chip.address)}</span>
+            </Link>
           ))}
         </div>
       ) : null}
