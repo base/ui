@@ -2017,10 +2017,11 @@ export function AccountDemo() {
       chainShort: string;
       // `true` (default): capture the owner-signed authorization and install on
       // the key's first use. `false`: sign an immediate authorize+install tx now
-      // (the caller broadcasts the returned `serialized`).
+      // (the caller broadcasts the returned `serialized`, then calls `commit()`
+      // to persist the key + `deployed` state ONLY once the tx has landed).
       defer?: boolean;
     },
-  ): Promise<AppSessionKey | null> => {
+  ): Promise<(AppSessionKey & { commit?: () => void }) | null> => {
     const defer = opts.defer ?? true;
     if (!acct || !activeSigner) return null;
     const skChain = resolveChain(opts.chainShort);
@@ -2215,29 +2216,36 @@ export function AccountDemo() {
       createdAt: Date.now(),
       serialized,
     };
-    updateAccount(acct.id, (a) => ({
-      ...a,
-      deployed: true,
-      configSeq: nextSeq,
-      sessionKeys: [...a.sessionKeys, sk],
-    }));
-    pushActivity({
-      kind: 'session',
-      title: `Session key authorized · ${opts.label}`,
-      detail: scopeChips(scope).join(' · '),
-      changes: [
-        `authorize ${opts.label}`,
-        ...(registeredManager ? ['register manager as external caller'] : []),
-        `policy: ${policy.label}`,
-        `binding ${short(policy.commitment, 6, 4)}`,
-        expiry ? formatExpiry(expiry) : 'no expiry',
-      ],
-      network: skChain.name,
-      mode: skChain.mode,
-      serialized,
-      account: acct.address,
-    });
-    return sk;
+    // Don't persist the key, flip `deployed`, or advance `configSeq` yet: the
+    // subscribed/"Deployed" UI is derived from this local state, so committing
+    // before the tx lands would leave the account looking subscribed/deployed
+    // even if the authorize+install reverts. The caller broadcasts `serialized`
+    // and calls `commit()` only after the tx has landed successfully.
+    const commit = () => {
+      updateAccount(acct.id, (a) => ({
+        ...a,
+        deployed: true,
+        configSeq: nextSeq,
+        sessionKeys: [...a.sessionKeys, sk],
+      }));
+      pushActivity({
+        kind: 'session',
+        title: `Session key authorized · ${opts.label}`,
+        detail: scopeChips(scope).join(' · '),
+        changes: [
+          `authorize ${opts.label}`,
+          ...(registeredManager ? ['register manager as external caller'] : []),
+          `policy: ${policy.label}`,
+          `binding ${short(policy.commitment, 6, 4)}`,
+          expiry ? formatExpiry(expiry) : 'no expiry',
+        ],
+        network: skChain.name,
+        mode: skChain.mode,
+        serialized,
+        account: acct.address,
+      });
+    };
+    return { ...sk, commit };
   };
 
   const registerSessionKey = async () => {
@@ -2682,12 +2690,18 @@ export function AccountDemo() {
     if (!acct || !activeSigner) return;
     setAppBusy(app.id);
     setError('');
+    // Track the freshly minted app key so we can discard it if the authorize tx
+    // never lands — `mintAppKey` persists the signer up front, and `commit()`
+    // (below) is what actually marks the account subscribed/deployed. Cleared
+    // only once the tx has landed and been committed.
+    let mintedKeyId: string | null = null;
     try {
       const target = mintAppKey(app.name);
       if (!target) {
         setError("Couldn't mint an app key — try again.");
         return;
       }
+      mintedKeyId = target.id;
       const expirySecs = EXPIRY_PRESETS.find((p) => p.id === app.expiryId)?.seconds ?? 0;
       const sk = await doAuthorizeSession(target, {
         expirySecs,
@@ -2698,13 +2712,20 @@ export function AccountDemo() {
         defer: false,
       });
       if (sk?.serialized) {
+        // broadcast8130 throws on an on-chain/phase revert or timeout, so we only
+        // reach commit() when the authorize+install actually landed.
         const txHash = await broadcast8130(sk.serialized, setSubmitStatus);
+        sk.commit?.();
+        mintedKeyId = null;
         setConfigTx({ hash: txHash, label: `Connected: ${app.name}` });
       }
     } catch (err) {
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
+      // Revert/timeout/dismiss (or a null sign result): drop the orphaned app key
+      // so the card stays on "Subscribe" and no stray signer lingers.
+      if (mintedKeyId) setSigners((prev) => prev.filter((s) => s.id !== mintedKeyId));
       setAppBusy(null);
       setSubmitStatus('');
     }
