@@ -2358,10 +2358,15 @@ export function AccountDemo() {
   // per-chain LOCAL counter, STAGED (not broadcast): it rides the next session-key
   // tx or an explicit "Apply now", and the key record is removed only once it
   // lands. The PolicyManager is intentionally never revoked (other keys share it).
-  const revokeSessionKey = async (id: string) => {
-    if (!acct) return;
+  // Returns how the revoke resolved so callers can react: `'discarded'` (removed
+  // locally, nothing to apply), `'staged'` (an on-chain revoke is now pending and
+  // must be applied), `'noop'` (already staged), or `'error'`.
+  const revokeSessionKey = async (
+    id: string,
+  ): Promise<'discarded' | 'staged' | 'noop' | 'error'> => {
+    if (!acct) return 'error';
     const sk = acct.sessionKeys.find((x) => x.id === id);
-    if (!sk) return;
+    if (!sk) return 'error';
 
     // Never-landed or undeployed → nothing on-chain to revoke; discard locally.
     if (sk.pendingAuth || !acct.deployed) {
@@ -2372,17 +2377,17 @@ export function AccountDemo() {
         detail: scopeChips(sk.scope).join(' · '),
         account: acct.address,
       });
-      return;
+      return 'discarded';
     }
 
     // Already staged — no-op (use "Apply now" to land it, or "Undo" to discard).
-    if (sk.pendingRevoke) return;
+    if (sk.pendingRevoke) return 'noop';
 
     const changeWS =
       ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
     if (!changeWS) {
       setError('Select an owner key to sign the revoke.');
-      return;
+      return 'error';
     }
     setSkRevokingId(id);
     setError('');
@@ -2412,11 +2417,26 @@ export function AccountDemo() {
         changes: [`revoke ${sk.label}`, 'manager kept', 'applies on next tx'],
         account: acct.address,
       });
+      return 'staged';
     } catch (err) {
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      return 'error';
     } finally {
       setSkRevokingId(null);
+    }
+  };
+
+  // Unsubscribe from a session-key app card. Revoking a landed key is a config
+  // change that must be signed AND applied on-chain, so once it's staged we open
+  // the account modal on the Session Keys tab — making the required "Apply now"
+  // step obvious rather than silently leaving a pending revoke. (A never-landed
+  // key is just discarded, so there's nothing to apply and no modal to open.)
+  const unsubscribeApp = async (sk: AppSessionKey) => {
+    const outcome = await revokeSessionKey(sk.id);
+    if (outcome === 'staged' || outcome === 'noop') {
+      setCfgTab('session');
+      setDetailsOpen(true);
     }
   };
 
@@ -3230,7 +3250,7 @@ export function AccountDemo() {
         subAccountFor={subAccountFor}
         connectSessionApp={connectSessionApp}
         connectVault={connectVault}
-        revokeSessionKey={revokeSessionKey}
+        unsubscribeApp={unsubscribeApp}
       />
     );
   }

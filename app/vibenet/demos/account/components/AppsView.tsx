@@ -25,7 +25,7 @@ type AppsViewProps = {
   subAccountFor: (name: string) => AppSubAccount | undefined;
   connectSessionApp: (app: DemoApp) => void;
   connectVault: (app: DemoApp) => void;
-  revokeSessionKey: (id: string) => void;
+  unsubscribeApp: (sk: AppSessionKey) => void;
 };
 
 // Apps directory: connect demo apps to the active account through a scoped grant
@@ -110,7 +110,7 @@ export function AppsView(p: AppsViewProps) {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => p.revokeSessionKey(sk.id)}
+                      onClick={() => p.unsubscribeApp(sk)}
                       className="shrink-0"
                     >
                       Unsubscribe
