@@ -3047,18 +3047,18 @@ export function AccountDemo() {
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
+                variant="outline"
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDetailsOpen(true); }}
+              >
+                Details
+              </Button>
+              <Button
+                size="sm"
                 variant="secondary"
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); requestFaucet(); }}
                 disabled={faucetBusy !== null}
               >
                 {faucetBusy ? <Spinner /> : 'Top Up'}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDetailsOpen(true); }}
-              >
-                Details
               </Button>
             </div>
           )}
