@@ -540,6 +540,13 @@ export function AccountDemo() {
     }
   }, [hydrated, signers, accounts, activeAccountId, activity, networkShort, genesisHash]);
 
+  // Auto-collapse the activity sheet after a brief preview on load.
+  useEffect(() => {
+    if (!hydrated) return;
+    const timer = window.setTimeout(() => setActivityOpen(false), 450);
+    return () => window.clearTimeout(timer);
+  }, [hydrated]);
+
   // --- regenesis detection ----------------------------------------------
   useEffect(() => {
     let cancelled = false;
@@ -2863,7 +2870,7 @@ export function AccountDemo() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-bds-gray-10 text-[13px] font-normal dark:bg-white/10"
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-bds-gray-10 text-[13px] font-normal text-bds-gray-50 dark:bg-white/10"
                   >
                     {activity.length}
                   </motion.span>

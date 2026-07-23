@@ -25,7 +25,7 @@ const DEMOS: DemoEntry[] = [
   {
     href: '/vibenet/demos/account',
     eyebrow: 'EIP-8130',
-    title: 'Account',
+    title: 'Native Account Abstraction',
     summary:
       'Create portable account-abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances across networks.',
     points: [
@@ -46,7 +46,8 @@ export default function DemosIndexPage() {
             <LinkCard
               key={demo.href}
               href={demo.href}
-              className="group flex flex-col gap-4 bg-white p-6 dark:bg-white/5"
+              interactive={false}
+              className="group flex flex-col gap-4 bg-white p-6 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]"
             >
               <DemoCardBody demo={demo} />
             </LinkCard>
@@ -67,30 +68,25 @@ export default function DemosIndexPage() {
 function DemoCardBody({ demo }: { demo: DemoEntry }) {
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Badge>{demo.eyebrow}</Badge>
-        {!demo.available ? (
-          <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
-            Coming soon
-          </span>
-        ) : null}
-      </div>
       <div>
-        <Text variant="title3">{demo.title}</Text>
+        <div className="flex items-center gap-2">
+          <Text variant="title3">{demo.title}</Text>
+          <Badge>{demo.eyebrow}</Badge>
+          {!demo.available ? (
+            <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
+              Coming soon
+            </span>
+          ) : null}
+        </div>
         <Text variant="body" tone="muted" className="mt-2">
           {demo.summary}
         </Text>
       </div>
-      <ul className="mt-auto flex flex-col gap-1.5">
+      <ul className="mt-auto flex flex-col gap-2 border-t border-bds-gray-10 pt-4 dark:border-white/10">
         {demo.points.map((point) => (
-          <li
-            key={point}
-            className="flex items-start gap-2 text-[13px] text-bds-gray-60 dark:text-bds-gray-40"
-          >
-            <span className="mt-[3px] text-base-blue dark:text-bds-blue-20" aria-hidden="true">
-              ›
-            </span>
-            {point}
+          <li key={point} className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-[1px] bg-bds-gray-30 dark:bg-bds-gray-50" aria-hidden="true" />
+            <Text as="span" variant="label.regular" tone="muted">{point}</Text>
           </li>
         ))}
       </ul>
