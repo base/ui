@@ -119,6 +119,15 @@ export type AppPolicy = {
   policy: Address;
   /** Committed `SessionPolicy` config bytes (re-derives the commitment + actions). */
   policyConfig: Hex;
+  /**
+   * Complete binding fields required by `PolicyManager.execute`: every execute
+   * carries the full committed binding (no install call), so re-deriving the
+   * session (see `sessionFor`) MUST re-pass these or the recomputed commitment
+   * won't match the account-authorized one and the manager reverts.
+   */
+  validAfter?: bigint;
+  validUntil?: bigint;
+  salt?: bigint;
   /** keccak256 of the account-authorized policy binding. */
   commitment: Hex;
   /** Human-readable parameter summary (e.g. "≤ 100 USDV / 7d"). */
@@ -163,13 +172,11 @@ export type AppSessionKey = {
   privateKey?: Hex;
   /**
    * Owner-signed authorization captured at registration but NOT yet broadcast.
-   * When present, the session key is authorized + its policy installed lazily
-   * on its FIRST transaction (which the session key itself signs): the
-   * owner-signed config (actor) change rides `accountChanges`, and the manager
-   * `install(actorId, binding)` runs as call 0 of call-phase 0 — before the
-   * key's `execute` calls in the next phase (`PolicyManager.execute` reverts
-   * `PolicyNotInstalled` otherwise). Cleared once that first tx (or a standalone
-   * "deploy now" tx) lands. Absent = already authorized + installed onchain.
+   * When present, the session key is authorized lazily on its FIRST transaction
+   * (which the session key itself signs): the owner-signed config (actor) change
+   * rides `accountChanges`. The PolicyManager needs no install call because every
+   * `execute` carries the full committed binding. Cleared once that first tx (or
+   * a standalone "deploy now" tx) lands. Absent = already authorized onchain.
    */
   pendingAuth?: {
     /** Owner-signed actor change (authorize session key [+ trusted manager]). */
@@ -178,8 +185,6 @@ export type AppSessionKey = {
     sequence: number;
     /** Whether the change also registered the manager as a trusted executor. */
     registeredManager: boolean;
-    /** `PolicyManager.install(actorId, binding)` call for phase 0, call 0. */
-    installCall: { to: Address; value: bigint; data: Hex };
   };
   /**
    * Owner-signed `revokeActor(actorId)` captured but NOT yet broadcast. Mirrors

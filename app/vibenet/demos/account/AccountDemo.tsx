@@ -686,7 +686,6 @@ export function AccountDemo() {
   type PendingChangeItem = {
     change: AaAccountChange;
     sequence: number;
-    installCall?: { to: Address; value: bigint; data: Hex };
     sessionId?: string;
     resultingOwners?: StoredActor[];
   };
@@ -704,11 +703,10 @@ export function AccountDemo() {
         items.push({
           change: sk.pendingAuth.change,
           sequence: sk.pendingAuth.sequence,
-          installCall: sk.pendingAuth.installCall,
           sessionId: sk.id,
         });
       // A staged revoke is a local-counter change too — carry it like an
-      // authorization (no install) so it rides a session send / apply-all.
+      // authorization so it rides a session send / apply-all.
       if (sk.pendingRevoke)
         items.push({
           change: sk.pendingRevoke.change,
@@ -1287,9 +1285,10 @@ export function AccountDemo() {
 
   // Compose + sign a native EIP-8130 transaction: first-use deploy change,
   // any pre-signed owner/session config changes (carried in sequence order),
-  // phase-0 installs / payer pre-calls, and the user calls (wrapped through the
-  // PolicyManager when a session key signs). Returns the signed tx + the config
-  // sequence it advances to.
+  // optional payer pre-calls, and the user calls (wrapped through the
+  // PolicyManager when a session key signs — every execute carries the full
+  // committed binding, so there is no separate install phase). Returns the
+  // signed tx + the config sequence it advances to.
   const signComposed = async (
     a: StoredAccount,
     signerWS: WalletSigner,
@@ -1298,7 +1297,6 @@ export function AccountDemo() {
     changeSeq: number | null,
     meta: Hex | undefined,
     sessionPolicy?: AppPolicy,
-    installCalls?: { to: Address; value: bigint; data: Hex }[],
     payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[] },
   ): Promise<{ serialized: Hex; nextSeq: number }> => {
     const signer = await buildSigner(signerWS);
@@ -1337,7 +1335,6 @@ export function AccountDemo() {
       /* RPC unavailable — keep the stored flag */
     }
     if (!effectivelyDeployed) accountChanges.push(firstDeployChange(a, account));
-    const installs = installCalls ?? [];
     if (presignedChanges.length > 0) {
       nextSeq = changeSeq ?? a.configSeq;
       accountChanges.push(...presignedChanges);
@@ -1347,9 +1344,9 @@ export function AccountDemo() {
     const phases: { to: Address; value?: bigint; data?: Hex }[][] = [];
     if (sessionPolicy) {
       // A gated session key may only reach the PolicyManager, so wrap every user
-      // call as `PolicyManager.execute`. On first use the install runs in phase 0
-      // (before any execute), plus any payer USDV payment (also wrapped).
-      const sessionPhase0: { to: Address; value?: bigint; data?: Hex }[] = [...installs];
+      // call as `PolicyManager.execute` (each execute carries the full committed
+      // binding — no install phase). Any payer USDV payment is also wrapped.
+      const sessionPhase0: { to: Address; value?: bigint; data?: Hex }[] = [];
       if (payerOpt?.phase0 && payerOpt.phase0.length > 0)
         sessionPhase0.push(
           ...wrapSessionCalls(
@@ -1361,19 +1358,17 @@ export function AccountDemo() {
       if (sessionPhase0.length > 0) phases.push(sessionPhase0);
       phases.push(wrapSessionCalls([...userPhase0, ...userPhase1], sessionPolicy, account.address));
     } else {
-      // [installs?, payerPreCalls?, userPhase0?, userPhase1]
-      if (installs.length > 0) phases.push(installs);
+      // [payerPreCalls?, userPhase0?, userPhase1]
       if (payerOpt?.phase0 && payerOpt.phase0.length > 0)
         phases.push(payerOpt.phase0.map((c) => ({ to: c.to, value: 0n, data: c.data })));
       if (userPhase0.length > 0) phases.push(userPhase0);
       phases.push(userPhase1);
     }
 
-    // Structural gas-floor accounting: installs + wrapped session calls are
-    // "heavy" (PolicyManager frames + first-use SSTOREs); everything else plain.
+    // Structural gas-floor accounting: wrapped session calls are "heavy"
+    // (PolicyManager frames + first-use SSTOREs); everything else plain.
     const totalCalls = phases.reduce((n, p) => n + p.length, 0);
-    const heavyCallCount =
-      installs.length + (sessionPolicy ? userPhase0.length + userPhase1.length : 0);
+    const heavyCallCount = sessionPolicy ? userPhase0.length + userPhase1.length : 0;
     const plainCallCount = Math.max(totalCalls - heavyCallCount, 1);
     const wire = encodeWalletCalls({ account: account.address, calls: phases });
 
@@ -1387,10 +1382,11 @@ export function AccountDemo() {
       nonceSequence = effectivelyDeployed ? 1n : 0n;
     }
 
-    // Verifier hint so estimateGas8130 shapes the senderAuth stub for the actual
-    // signer. A delegate-signed sub-account acts via the parent's delegate actor,
-    // whose senderAuth is the longer delegate blob — hint the delegate verifier.
-    const senderAuthVerifier: Address = isDelegateSub
+    // Authenticator hint so estimateGas8130 shapes the senderAuth stub for the
+    // actual signer. A delegate-signed sub-account acts via the parent's delegate
+    // actor, whose senderAuth is the longer delegate blob — hint the delegate
+    // authenticator.
+    const senderAuthAuthenticator: Address = isDelegateSub
       ? canonicalAuthenticators.delegate
       : signerWS.kind === 'p256'
         ? canonicalAuthenticators.p256
@@ -1429,7 +1425,7 @@ export function AccountDemo() {
           accountChanges,
           calls: phases,
           nonceSequence: Number(nonceSequence),
-          senderAuthVerifier,
+          senderAuthAuthenticator,
           // The delegate authenticator has no fixed default auth-payload length,
           // so hand the estimator the exact senderAuth size (delegate blob).
           ...(isDelegateSub ? { senderAuthSize: delegateAuthSize() } : {}),
@@ -1587,7 +1583,6 @@ export function AccountDemo() {
         hasOwner: bundle.some((i) => i.resultingOwners),
       };
       const presigned = bundle.map((i) => i.change);
-      const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
       const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
       const extra = sendExtraChanges();
       const { serialized, nextSeq } = await signComposed(
@@ -1598,7 +1593,6 @@ export function AccountDemo() {
         changeSeq,
         metadataHex,
         sessionPolicy,
-        installs,
         undefined,
       );
       let txHash: Hex;
@@ -1696,7 +1690,6 @@ export function AccountDemo() {
         hasOwner: bundle.some((i) => i.resultingOwners),
       };
       const presigned = bundle.map((i) => i.change);
-      const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
       const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
       const extra = sendExtraChanges();
       const { serialized, nextSeq } = await signComposed(
@@ -1707,7 +1700,6 @@ export function AccountDemo() {
         changeSeq,
         metadataHex,
         sessionPolicy,
-        installs,
         { address: option.payer, phase0 },
       );
       const cosigned = await payerClient.signTransaction({
@@ -1933,7 +1925,6 @@ export function AccountDemo() {
       return;
     }
     const presigned = bundle.map((i) => i.change);
-    const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
     const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : signedChange.sequence;
     const summary = signedChange.summary;
     setApplying(true);
@@ -1948,7 +1939,6 @@ export function AccountDemo() {
         changeSeq,
         undefined,
         undefined,
-        installs,
         undefined,
       );
       const txHash = await broadcast8130(serialized, setSubmitStatus);
@@ -2015,7 +2005,7 @@ export function AccountDemo() {
     setSkScopes((ss) => ss.map((s) => (s.id === id ? { ...s, all: true, selectors: [] } : s)));
 
   // Mint the owner-signed authorization for a session key. `defer` captures it
-  // without broadcasting — the key installs on its first transaction (or via
+  // without broadcasting — the key authorizes on its first transaction (or via
   // "Apply now"). Returns the stored key.
   const doAuthorizeSession = async (
     target: WalletSigner,
@@ -2057,14 +2047,17 @@ export function AccountDemo() {
       validUntil: expiry,
     });
     const actorPolicy = session.actorPolicy;
-    const call = session.installCall(target.actorId);
-    const installCall = { to: call.to, value: call.value ?? 0n, data: (call.data ?? '0x') as Hex };
     const policy: AppPolicy = {
       type: session.actorPolicy.type,
       label: opts.policyLabel,
       manager: session.manager,
       policy: session.policy,
       policyConfig,
+      // Persist the full binding so every later execute (see `sessionFor`)
+      // recomputes the same commitment the account authorized.
+      validAfter: session.binding.validAfter,
+      validUntil: session.binding.validUntil,
+      salt: session.binding.salt,
       commitment: session.commitment,
       params: summary,
       limits,
@@ -2117,7 +2110,7 @@ export function AccountDemo() {
     const configChange = await account.change(configChanges, { chainId, sequence: nextSeq });
     accountChanges.push(configChange);
 
-    // Defer: hold the owner-signed authorization on the key; it installs on the
+    // Defer: hold the owner-signed authorization on the key; it authorizes on the
     // key's first transaction (or via "Apply now"). Nothing is broadcast now.
     if (defer) {
       const deferredKey: AppSessionKey = {
@@ -2132,7 +2125,7 @@ export function AccountDemo() {
         chainId,
         policy,
         createdAt: Date.now(),
-        pendingAuth: { change: configChange, sequence: nextSeq, registeredManager, installCall },
+        pendingAuth: { change: configChange, sequence: nextSeq, registeredManager },
       };
       updateAccount(acct.id, (a) => ({ ...a, sessionKeys: [...a.sessionKeys, deferredKey] }));
       pushActivity({
@@ -2143,7 +2136,7 @@ export function AccountDemo() {
           `authorize ${opts.label}`,
           ...(registeredManager ? ['register manager as external caller'] : []),
           `policy: ${policy.label}`,
-          'installs on first use',
+          'authorizes on first use',
           expiry ? formatExpiry(expiry) : 'no expiry',
         ],
         network: skChain.name,
@@ -2153,9 +2146,9 @@ export function AccountDemo() {
       return deferredKey;
     }
 
-    // Immediate: sign the authorize + install tx now (owner-signed). The install
-    // runs as phase-0 call 0 before any use; the caller broadcasts `serialized`.
-    const wire = encodeWalletCalls({ account: account.address, calls: [[installCall]] });
+    // Immediate: sign the authorize tx now (owner-signed). There is no install
+    // call — the policy binding is committed entirely by the actor change; the
+    // caller broadcasts `serialized`.
     let nonceSeqSk: bigint;
     try {
       nonceSeqSk = await getTransactionCount8130(makeRpcClient(), {
@@ -2165,7 +2158,7 @@ export function AccountDemo() {
     } catch {
       nonceSeqSk = acct.deployed ? 1n : 0n;
     }
-    const skSenderAuthVerifier: Address =
+    const skSenderAuthAuthenticator: Address =
       activeSigner.kind === 'p256'
         ? canonicalAuthenticators.p256
         : activeSigner.kind === 'passkey'
@@ -2176,20 +2169,20 @@ export function AccountDemo() {
       try {
         const estimated = await estimateGas8130(makeRpcClient(), {
           sender: account.address as Address,
-          // Owner signs this authorize+install tx, so name the owner's actor for
-          // full node simulation (resolves the new actor's scope + policy install).
+          // Owner signs this authorize tx, so name the owner's actor for full
+          // node simulation (resolves the new actor's scope + policy binding).
           senderActorId: activeSigner.actorId,
           accountChanges,
-          calls: [[installCall]],
+          calls: [],
           nonceSequence: Number(nonceSeqSk),
-          senderAuthVerifier: skSenderAuthVerifier,
+          senderAuthAuthenticator: skSenderAuthAuthenticator,
         });
         skGas = safeGasLimit(
           estimated,
           estimateTxGas({
             mode: chain.mode,
             deploy: !acct.deployed,
-            calls: 1,
+            calls: 0,
             keyChanges: accountChanges.filter((c) => c.type === 'config').length,
           }),
         );
@@ -2200,7 +2193,7 @@ export function AccountDemo() {
     const serialized = await account.signTransaction({
       chainId,
       accountChanges,
-      calls: wire,
+      calls: [],
       metadata: toHex(`authorize:${opts.label}`),
       nonceKey: 0n,
       nonceSequence: nonceSeqSk,
@@ -2236,7 +2229,7 @@ export function AccountDemo() {
         `authorize ${opts.label}`,
         ...(registeredManager ? ['register manager as external caller'] : []),
         `policy: ${policy.label}`,
-        `install ${short(policy.commitment, 6, 4)}`,
+        `binding ${short(policy.commitment, 6, 4)}`,
         expiry ? formatExpiry(expiry) : 'no expiry',
       ],
       network: skChain.name,
@@ -2301,7 +2294,6 @@ export function AccountDemo() {
       activeSigner;
     const bundle = pendingBundleFor({ mode: 'session-send', sessionId: sk.id });
     const presigned = bundle.map((i) => i.change);
-    const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
     const changeSeq = bundle.length
       ? bundle[bundle.length - 1].sequence
       : (sk.pendingAuth?.sequence ?? sk.pendingRevoke?.sequence ?? null);
@@ -2318,7 +2310,6 @@ export function AccountDemo() {
         changeSeq,
         undefined,
         undefined,
-        installs,
         undefined,
       );
       const txHash = await broadcast8130(serialized, setSubmitStatus);
@@ -2493,7 +2484,7 @@ export function AccountDemo() {
         registeredInBatch.add(managerLc);
       }
       const change = await account.change(configChanges, { chainId: skChainId, sequence: seq });
-      updates.set(sk.id, { change, sequence: seq, registeredManager, installCall: sk.pendingAuth.installCall });
+      updates.set(sk.id, { change, sequence: seq, registeredManager });
       offset++;
     }
     updateAccount(acct.id, (a) => ({
