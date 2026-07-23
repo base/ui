@@ -19,17 +19,22 @@ export default function ExplorerBlockPage({ params }: PageProps) {
   const { hash } = use(params);
   const [block, setBlock] = useState<ExplorerBlockResponse | null>(null);
   const [is404, setIs404] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setFetchError(false);
     vibenetApi.explorer
       .block(hash)
       .then((next) => {
         if (!cancelled) setBlock(next);
       })
       .catch((err) => {
-        if (!cancelled && err instanceof VibenetApiError && err.status === 404) {
+        if (cancelled) return;
+        if (err instanceof VibenetApiError && err.status === 404) {
           setIs404(true);
+        } else {
+          setFetchError(true);
         }
       });
     return () => {
@@ -110,7 +115,19 @@ export default function ExplorerBlockPage({ params }: PageProps) {
             )}
           </section>
         </>
-      ) : null}
+      ) : fetchError ? (
+        <Card className="bg-white p-6 dark:bg-white/5">
+          <Text variant="label.regular" tone="muted">
+            Failed to fetch block. Please try again.
+          </Text>
+        </Card>
+      ) : (
+        <Card className="bg-white p-6 dark:bg-white/5">
+          <Text variant="label.regular" tone="muted">
+            Loading…
+          </Text>
+        </Card>
+      )}
     </div>
   );
 }
