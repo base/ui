@@ -4043,11 +4043,11 @@ function KeyPicker({ heading, empty, hint, signers, busy, mintKinds, isOn, onTog
                       : 'border-bds-gray-10 hover:border-black dark:border-white/10 dark:hover:border-white',
                   )}
                 >
-                  <span className="truncate text-[13px] font-normal">{s.label}</span>
+                  <Text as="span" variant="label" className="truncate">{s.label}</Text>
                   <KindBadge kind={s.kind} />
-                  <span className="min-w-0 flex-1 text-right font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                  <Text as="span" variant="caption" tone="muted" className="min-w-0 flex-1 text-right font-sans">
                     {short(signerIdentity(s))}
-                  </span>
+                  </Text>
                   <span className="flex w-4 items-center justify-center">
                     {on ? <CheckIcon size={16} /> : null}
                   </span>

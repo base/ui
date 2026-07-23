@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
+import { ExternalLinkIcon } from '../../components/ui/icons';
 import { Text } from '../../components/ui/Text';
 import type { FeatureLink, FeatureStatus, VibenetFeature } from '../library/types';
 
@@ -25,7 +26,8 @@ function LinkButton({ link, primary }: LinkButtonProps) {
   const external = link.external ? { target: '_blank', rel: 'noopener' } : {};
   return (
     <Button href={link.href} variant={primary ? 'primary' : 'secondary'} size="sm" {...external}>
-      {link.external ? `${link.label} ↗` : link.label}
+      {link.label}
+      {link.external ? <ExternalLinkIcon /> : null}
     </Button>
   );
 }
