@@ -228,7 +228,11 @@ export function decodeExecuteBatch(data: string): DecodedCall[] | null {
     const calls: DecodedCall[] = [];
     for (let i = 0; i < arrLen; i += 1) {
       const headOffset = arrOffset + 32 + i * 32;
-      const elemOffset = arrOffset + Number(bytesToBigInt(buf.slice(headOffset, headOffset + 32)));
+      // Array element head offsets are relative to the start of the element
+      // region — the word *after* the length word — so skip the length word
+      // (`+ 32`) in addition to `arrOffset` (which points at the length itself).
+      const elemOffset =
+        arrOffset + 32 + Number(bytesToBigInt(buf.slice(headOffset, headOffset + 32)));
       const to = `0x${Array.from(buf.slice(elemOffset + 12, elemOffset + 32))
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('')}`;
