@@ -48,7 +48,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
       )}
     >
       <div className="flex flex-1 flex-col">
-        <Text variant="title3">
+        <Text variant="headline">
           {feature.title}
         </Text>
         {feature.summary ? (

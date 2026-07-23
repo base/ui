@@ -179,12 +179,12 @@ export default function ExplorerAddressPage({ params }: PageProps) {
           </Card>
 
           <section className="flex flex-col gap-3">
-            <Text variant="title3">Actors</Text>
+            <Text variant="headline">Actors</Text>
             {actorsBody}
           </section>
 
           <section className="flex flex-col gap-3">
-            <Text variant="title3">Activity</Text>
+            <Text variant="headline">Activity</Text>
             {data.activity.length === 0 ? (
               <Card className="bg-white p-4 dark:bg-white/5">
                 <Text variant="label.regular" tone="muted">

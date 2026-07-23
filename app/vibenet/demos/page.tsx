@@ -70,7 +70,7 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
     <>
       <div>
         <div className="flex items-center gap-2">
-          <Text variant="title3">{demo.title}</Text>
+          <Text variant="headline">{demo.title}</Text>
           <Badge>{demo.eyebrow}</Badge>
           {!demo.available ? (
             <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">

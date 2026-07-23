@@ -154,7 +154,7 @@ export default function VibenetHomePage() {
       </header>
 
       <section className="flex flex-col gap-6">
-        <Text variant="title3">Features</Text>
+        <Text variant="headline">Features</Text>
         <div className="flex flex-col gap-4">
           {FEATURES.map((feature) => (
             <FeatureCard key={feature.id} feature={feature} />
@@ -201,7 +201,7 @@ export default function VibenetHomePage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <Text variant="title3">Deployed Contracts</Text>
+        <Text variant="headline">Deployed Contracts</Text>
         <div className="flex flex-col divide-y divide-bds-gray-10 border-y border-bds-gray-10 dark:divide-white/10 dark:border-white/10">
           {contractsBody}
         </div>

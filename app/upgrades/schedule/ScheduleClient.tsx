@@ -133,7 +133,7 @@ export function ScheduleClient() {
           >
             <span aria-hidden>&lt;</span>
           </button>
-          <Text variant="title3">
+          <Text variant="headline">
             {MONTH_NAMES[month]} {year}
           </Text>
           <button

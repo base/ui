@@ -428,7 +428,7 @@ function TxBody({ tx }: TxBodyProps) {
         <>
           {tx.aa.accountChanges.length > 0 ? (
             <section className="flex flex-col gap-2">
-              <Text variant="title3">Account changes ({tx.aa.accountChanges.length})</Text>
+              <Text variant="headline">Account changes ({tx.aa.accountChanges.length})</Text>
               <Text variant="footnote" tone="muted">
                 Owner / authenticator updates applied atomically before the calls run.
               </Text>
@@ -441,7 +441,7 @@ function TxBody({ tx }: TxBodyProps) {
           ) : null}
 
           <section className="flex flex-col gap-2">
-            <Text variant="title3">Calls ({callCount})</Text>
+            <Text variant="headline">Calls ({callCount})</Text>
             <Text variant="footnote" tone="muted">
               Each phase is an atomic batch executed in order from the AA account.
             </Text>
@@ -468,7 +468,7 @@ function TxBody({ tx }: TxBodyProps) {
 
       {tx.phaseStatuses && tx.phaseStatuses.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <Text variant="title3">Call phases ({tx.phaseStatuses.length})</Text>
+          <Text variant="headline">Call phases ({tx.phaseStatuses.length})</Text>
           <div className="flex flex-wrap gap-2">
             {tx.phaseStatuses.map((phaseStatus, index) => {
               const ok = phaseOk(phaseStatus);
@@ -491,7 +491,7 @@ function TxBody({ tx }: TxBodyProps) {
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <Text variant="title3">Logs ({tx.logs.length})</Text>
+        <Text variant="headline">Logs ({tx.logs.length})</Text>
         {tx.logs.length === 0 ? (
           <Card className="bg-white p-4 dark:bg-white/5">
             <Text variant="label.regular" tone="muted">

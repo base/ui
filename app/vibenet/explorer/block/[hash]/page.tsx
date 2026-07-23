@@ -87,7 +87,7 @@ export default function ExplorerBlockPage({ params }: PageProps) {
           </Card>
 
           <section className="flex flex-col gap-3">
-            <Text variant="title3">Transactions ({block.transactions.length})</Text>
+            <Text variant="headline">Transactions ({block.transactions.length})</Text>
             {block.transactions.length === 0 ? (
               <Card className="bg-white p-4 dark:bg-white/5">
                 <Text variant="label.regular" tone="muted">

@@ -3072,7 +3072,7 @@ export function AccountDemo() {
                     Clear All
                   </button>
                 </div>
-                <Text variant="footnote" tone="muted">Select an account to start testing transacting and performing app actions.</Text>
+                <Text variant="label.regular" tone="muted">Select an account to start testing transacting and performing app actions.</Text>
               </div>
               {topLevel.map((parent) => {
                 const subs = accounts.filter((s) => s.parentId === parent.id);
@@ -3936,8 +3936,8 @@ function CreateAccountModal(props: CreateAccountModalProps) {
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              ['smart', 'Smart account', 'Counterfactual · keys + salt → address'],
-              ['eoa', 'EOA account', 'Your EOA · delegates to DefaultAccount'],
+              ['smart', 'Smart Account', 'Counterfactual · keys + salt → address'],
+              ['eoa', 'EOA', 'Your EOA · delegates to DefaultAccount'],
             ] as const
           ).map(([type, title, hint]) => (
             <button
@@ -3947,8 +3947,8 @@ function CreateAccountModal(props: CreateAccountModalProps) {
               className={cn(
                 'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
                 modalType === type
-                  ? 'border-base-blue bg-bds-blue-0 dark:border-bds-blue-60 dark:bg-bds-blue-100/30'
-                  : 'border-bds-gray-10 hover:border-bds-gray-15 dark:border-white/10 dark:hover:border-white/20',
+                  ? 'border-black dark:border-white'
+                  : 'border-bds-gray-10 hover:border-black dark:border-white/10 dark:hover:border-white',
               )}
             >
               <span className="text-[14px] font-normal">{title}</span>
@@ -3985,13 +3985,14 @@ function CreateAccountModal(props: CreateAccountModalProps) {
                 placeholder="0x… (32 bytes) or any phrase"
                 className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 font-sans text-[13px] font-normal outline-none placeholder:text-bds-gray-40"
               />
-              <button
-                type="button"
+              <Button
+                size="sm"
+                variant="secondary"
                 onClick={() => setModalSalt(randomHex32())}
-                className="mr-1.5 shrink-0 rounded-md border border-bds-gray-10 bg-white px-2.5 py-1 text-[12px] font-normal text-bds-gray-60 transition-colors hover:border-bds-gray-15 hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-bds-gray-40 dark:hover:text-white"
+                className="mr-1.5 shrink-0"
               >
                 Randomize
-              </button>
+              </Button>
             </div>
           </label>
         </>
@@ -4012,12 +4013,12 @@ function CreateAccountModal(props: CreateAccountModalProps) {
         />
       )}
 
-      <div className="flex flex-col gap-1 rounded-lg border border-bds-gray-10 bg-bds-gray-0 p-3 dark:border-white/10 dark:bg-white/5">
+      <div className="flex flex-col gap-1 p-3">
         <span className="text-[11px] tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
           Address
         </span>
         {modalAddress ? (
-          <span className="break-all font-sans text-[13px] text-base-blue dark:text-bds-blue-20">
+          <span className="break-all font-sans text-[13px] text-black dark:text-white">
             {modalAddress}
           </span>
         ) : modalType === 'eoa' ? (
@@ -4073,15 +4074,15 @@ function KeyPicker({ heading, empty, hint, signers, busy, mintKinds, isOn, onTog
                   type="button"
                   onClick={() => onToggle(s)}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-lg border p-2.5 text-left transition-colors',
+                    'flex w-full items-center gap-2 rounded-lg border px-2 py-2.5 text-left transition-colors',
                     on
-                      ? 'border-base-blue bg-bds-blue-0 dark:border-bds-blue-60 dark:bg-bds-blue-100/30'
-                      : 'border-bds-gray-10 hover:border-bds-gray-15 dark:border-white/10 dark:hover:border-white/20',
+                      ? 'border-black dark:border-white'
+                      : 'border-bds-gray-10 hover:border-black dark:border-white/10 dark:hover:border-white',
                   )}
                 >
+                  <span className="truncate text-[13px] font-normal">{s.label}</span>
                   <KindBadge kind={s.kind} />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-normal">{s.label}</span>
-                  <span className="font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                  <span className="min-w-0 flex-1 text-right font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
                     {short(signerIdentity(s))}
                   </span>
                   <span className="w-4 text-center text-base-blue dark:text-bds-blue-20">{on ? '✓' : ''}</span>

@@ -159,7 +159,7 @@ export default function ExplorerPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
-          <Text variant="title3">Latest Blocks</Text>
+          <Text variant="headline">Latest Blocks</Text>
           <TablePanel loading={loading} isEmpty={blocks.length === 0} emptyText="No blocks yet">
             <table className="w-full border-collapse">
               <thead>
@@ -202,7 +202,7 @@ export default function ExplorerPage() {
         </Card>
 
         <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
-          <Text variant="title3">Latest Transactions</Text>
+          <Text variant="headline">Latest Transactions</Text>
           <TablePanel loading={loading} isEmpty={txs.length === 0} emptyText="No transactions yet">
             {/* Desktop table */}
             <table className="hidden w-full border-collapse sm:table">
