@@ -148,12 +148,12 @@ export function ConfigView(p: ConfigViewProps) {
             type="button"
             onClick={() => p.copy(acct.address, 'cfg')}
             title="Copy address"
-            className="flex w-fit items-center gap-2 text-left"
+            className="flex min-w-0 max-w-full items-center gap-2 text-left"
           >
-            <code className="truncate font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
+            <code className="min-w-0 truncate font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
               {acct.address}
             </code>
-            <span className="text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
+            <span className="shrink-0 text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
               {p.copied === 'cfg' ? 'Copied' : 'copy'}
             </span>
           </button>
@@ -467,10 +467,10 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
           {p.configTx && TX_HASH_RE.test(p.configTx.hash) ? (
             <Link
               href={`${VIBENET_EXPLORER_PATH}/tx/${p.configTx.hash}`}
-              className="flex items-center gap-2 font-mono text-[12px] text-base-blue hover:underline dark:text-bds-blue-20"
+              className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-base-blue hover:underline dark:text-bds-blue-20"
             >
               <Badge tone="ok">✓ {p.configTx.label} landed</Badge>
-              <code>{short(p.configTx.hash, 14, 12)}</code>
+              <code className="break-all">{short(p.configTx.hash, 14, 12)}</code>
             </Link>
           ) : null}
         </div>
