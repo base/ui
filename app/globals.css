@@ -310,6 +310,10 @@ button {
   .animate-in-delay-2,
   .animate-in-delay-3 { animation-delay: 0ms; }
   .animate-spin { animation: spin 3s linear infinite; }
+  /* Suppress continuous/infinite motion for reduced-motion users */
+  .animate-gentle-ping { animation: none; opacity: 0.75; }
+  .animate-pulse { animation: none; }
+  .animate-slide-down { animation: fade-in 0.2s ease both; }
 }
 
 /* Loading spinner — slightly faster period for small-button contexts */
