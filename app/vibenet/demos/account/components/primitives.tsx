@@ -35,7 +35,7 @@ export function Badge({ children, tone }: { children: ReactNode; tone?: 'ok' | '
 }
 
 const KIND_BADGE: Record<SignerKind, string> = {
-  k1: 'border-bds-blue-15 bg-bds-blue-0 text-bds-blue-70 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20',
+  k1: 'border-bds-blue-15 bg-bds-blue-0 text-bds-blue-70 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-base-blue',
   p256: 'border-bds-purple-15 bg-bds-purple-0 text-bds-purple-70 dark:border-bds-purple-80 dark:bg-bds-purple-100/40 dark:text-bds-purple-20',
   passkey:
     'border-bds-teal-15 bg-bds-teal-0 text-bds-teal-70 dark:border-bds-teal-80 dark:bg-bds-teal-100/40 dark:text-bds-teal-20',

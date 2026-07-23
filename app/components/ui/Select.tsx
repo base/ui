@@ -103,7 +103,7 @@ function SelectItem({ option }: { option: SelectOption }) {
       disabled={option.disabled}
       className="relative flex cursor-pointer select-none items-center gap-2 rounded-md py-2 pl-8 pr-3 text-[14px] text-black outline-none data-[highlighted]:bg-bds-gray-5 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-white dark:data-[highlighted]:bg-white/10"
     >
-      <RadixSelect.ItemIndicator className="absolute left-2.5 text-base-blue dark:text-bds-blue-20">
+      <RadixSelect.ItemIndicator className="absolute left-2.5 text-base-blue">
         ✓
       </RadixSelect.ItemIndicator>
       <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>

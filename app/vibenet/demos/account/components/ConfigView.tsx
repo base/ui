@@ -43,7 +43,7 @@ const INPUT_CLS =
   'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-bds-blue-60 dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
 const CHIP_CLS =
   'rounded-full border border-bds-gray-10 px-2.5 py-1 text-[12px] text-bds-gray-60 transition-colors hover:border-bds-gray-15 dark:border-white/10 dark:text-bds-gray-40';
-const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue dark:border-bds-blue-60 dark:bg-bds-blue-100/30 dark:text-bds-blue-20';
+const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue dark:border-bds-blue-60 dark:bg-bds-blue-100/30';
 
 type CfgTab = 'assets' | 'owners' | 'session' | 'subaccounts';
 
@@ -150,7 +150,7 @@ export function ConfigView(p: ConfigViewProps) {
             title="Copy address"
             className="flex w-fit items-center gap-2 text-left"
           >
-            <code className="truncate font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
+            <code className="truncate font-mono text-[13px] text-base-blue">
               {acct.address}
             </code>
             <span className="text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">
@@ -170,7 +170,7 @@ export function ConfigView(p: ConfigViewProps) {
         <Button variant="outline" size="sm" onClick={p.onTransact} className="ml-auto">
           Transact →
         </Button>
-        <Link href={p.explorerHref} className="text-[13px] text-base-blue hover:underline dark:text-bds-blue-20">
+        <Link href={p.explorerHref} className="text-[13px] text-base-blue hover:underline">
           Explorer ↗
         </Link>
       </div>
@@ -467,7 +467,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
           {p.configTx && TX_HASH_RE.test(p.configTx.hash) ? (
             <Link
               href={`${VIBENET_EXPLORER_PATH}/tx/${p.configTx.hash}`}
-              className="flex items-center gap-2 font-mono text-[12px] text-base-blue hover:underline dark:text-bds-blue-20"
+              className="flex items-center gap-2 font-mono text-[12px] text-base-blue hover:underline"
             >
               <Badge tone="ok">✓ {p.configTx.label} landed</Badge>
               <code>{short(p.configTx.hash, 14, 12)}</code>

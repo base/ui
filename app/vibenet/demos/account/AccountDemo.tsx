@@ -2726,10 +2726,10 @@ export function AccountDemo() {
         description="Create portable account-abstraction accounts from in-browser signer keys, fund them from the faucet, compose atomic batches, and broadcast native EIP-8130 transactions. Keys never leave this browser — testnet only."
         actions={
           <div className="hidden items-center gap-4 font-mono text-[12px] text-bds-gray-60 sm:flex dark:text-bds-gray-40">
-            <a href={SPEC_URL} target="_blank" rel="noopener" className="hover:text-base-blue dark:hover:text-bds-blue-20">
+            <a href={SPEC_URL} target="_blank" rel="noopener" className="hover:text-base-blue">
               Spec ↗
             </a>
-            <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="hover:text-base-blue dark:hover:text-bds-blue-20">
+            <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="hover:text-base-blue">
               Contracts ↗
             </a>
           </div>
@@ -3718,7 +3718,7 @@ function ResultPanel({ result, chain, copied, copy }: ResultPanelProps) {
           href={native ? `${VIBENET_EXPLORER_PATH}/tx/${result.txHash}` : basescanTx(result.txHash)}
           target={native ? undefined : '_blank'}
           rel="noopener"
-          className="flex items-center gap-2 font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
+          className="flex items-center gap-2 font-mono text-[13px] text-base-blue hover:underline"
         >
           <code>{short(result.txHash, 16, 12)}</code>
           <span className="text-[11px] uppercase tracking-[0.4px]">
@@ -3729,7 +3729,7 @@ function ResultPanel({ result, chain, copied, copy }: ResultPanelProps) {
         <button
           type="button"
           onClick={() => copy(result.serialized as string, 'res')}
-          className="flex items-center gap-2 text-left font-mono text-[13px] text-base-blue dark:text-bds-blue-20"
+          className="flex items-center gap-2 text-left font-mono text-[13px] text-base-blue"
         >
           <code>{short(result.serialized, 16, 12)}</code>
           <span className="text-[11px] uppercase tracking-[0.4px]">
@@ -3970,7 +3970,7 @@ function CreateAccountModal(props: CreateAccountModalProps) {
           Address
         </span>
         {modalAddress ? (
-          <code className="break-all font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
+          <code className="break-all font-mono text-[13px] text-base-blue">
             {modalAddress}
           </code>
         ) : modalType === 'eoa' ? (
@@ -4037,7 +4037,7 @@ function KeyPicker({ heading, empty, hint, signers, busy, mintKinds, isOn, onTog
                   <code className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
                     {short(signerIdentity(s))}
                   </code>
-                  <span className="w-4 text-center text-base-blue dark:text-bds-blue-20">{on ? '✓' : ''}</span>
+                  <span className="w-4 text-center text-base-blue">{on ? '✓' : ''}</span>
                 </button>
               </li>
             );

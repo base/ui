@@ -69,7 +69,7 @@ export function Tabs({
         <motion.span
           animate={{ x: pill.x, width: pill.width }}
           transition={pillTransition}
-          className="absolute top-1 bottom-1 left-0 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+          className="absolute top-1 bottom-1 left-0 rounded-full bg-background shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
         />
       )}
       {items.map((item) => {
@@ -87,7 +87,7 @@ export function Tabs({
             onClick={handleClick}
             className={cn(
               'relative z-[1] flex select-none items-center gap-1.5 rounded-full px-3 py-1.5 font-sans text-[14px] transition-colors',
-              active ? 'text-black' : 'text-bds-gray-60',
+              active ? 'text-foreground' : 'text-bds-gray-60',
             )}
           >
             {item.icon && <span className="flex shrink-0">{item.icon}</span>}

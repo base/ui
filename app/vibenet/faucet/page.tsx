@@ -195,7 +195,7 @@ export default function FaucetPage() {
     <div className="flex flex-col gap-10 pb-4 text-black dark:text-white">
       <header className="flex flex-col gap-4 border-b border-bds-gray-10 pb-10 dark:border-white/10">
         <div className="max-w-3xl">
-          <Text variant="caption" className="mb-4 text-base-blue dark:text-white">
+          <Text variant="caption" className="mb-4 text-base-blue">
             Base Vibenet
           </Text>
           <Text variant="display" className="text-balance">

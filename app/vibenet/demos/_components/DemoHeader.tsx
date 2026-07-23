@@ -23,7 +23,7 @@ export function DemoHeader({
     <header className="flex flex-col gap-4 border-b border-bds-gray-10 pb-10 dark:border-white/10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-3xl">
-          <Text variant="caption" className="mb-4 text-base-blue dark:text-white">
+          <Text variant="caption" className="mb-4 text-base-blue">
             {eyebrow}
           </Text>
           <Text variant="display" className="text-balance">

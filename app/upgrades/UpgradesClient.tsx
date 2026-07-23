@@ -158,7 +158,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                       href={`/upgrades/upgrade/${upgrade.id}`}
                       className="group min-w-0 flex-1 text-left no-underline"
                     >
-                      <Text variant="title3" className="text-black transition-colors group-hover:text-base-blue">
+                      <Text variant="title3" className="text-foreground transition-colors group-hover:text-base-blue">
                         {upgrade.name}
                       </Text>
                       <Text variant="body" tone="muted" className="mt-2 line-clamp-2 text-[14px]">
@@ -210,7 +210,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                       href={`/upgrades/upgrade/${entry.upgradeId}`}
                       className="group min-w-0 flex-1 text-left no-underline"
                     >
-                      <Text variant="title3" className="text-black transition-colors group-hover:text-base-blue">
+                      <Text variant="title3" className="text-foreground transition-colors group-hover:text-base-blue">
                         {entry.upgradeName}
                       </Text>
                       <Text variant="body" tone="muted" className="mt-2 line-clamp-2 text-[14px]">
@@ -251,7 +251,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
               offset={10}
             >
             <Card
-              className="flex flex-col overflow-hidden rounded-2xl bg-white transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md"
+              className="flex flex-col overflow-hidden rounded-2xl bg-background transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-[1px] hover:shadow-md"
             >
               <div className="flex flex-1 flex-col px-5 pb-5 pt-3">
               <div className="flex items-center justify-between gap-3">
@@ -270,13 +270,13 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
                 <div className="flex gap-10">
                   <div className="flex flex-col gap-0.5">
                     <Text variant="footnote" tone="muted" className="text-[9px] tracking-normal">Sepolia</Text>
-                    <Text variant="label.medium" className="whitespace-nowrap text-black">
+                    <Text variant="label.medium" className="whitespace-nowrap text-foreground">
                       {formatLifecycleDate(upgrade.lifecycle.sepolia, upgrade.estimate?.sepolia)}
                     </Text>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <Text variant="footnote" tone="muted" className="text-[9px] tracking-normal">Mainnet</Text>
-                    <Text variant="label.medium" className="whitespace-nowrap text-black">
+                    <Text variant="label.medium" className="whitespace-nowrap text-foreground">
                       {formatLifecycleDate(upgrade.lifecycle.mainnet, upgrade.estimate?.mainnet)}
                     </Text>
                   </div>
@@ -300,7 +300,7 @@ export function UpgradesClient() {
   const nowMs = Date.now();
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-4 text-black">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-4 text-foreground">
       <header className="flex justify-center">
         <Tabs
           items={VIEW_TABS}

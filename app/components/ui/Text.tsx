@@ -3,7 +3,7 @@ import type { ComponentPropsWithoutRef } from 'react';
 import { cn } from './cn';
 
 // Typographic scale ported from mb-base-web so migrated Upgrades markup keeps
-// its variants. Light-theme only in omni-ui; `dark:` variants never activate.
+// its variants in both color modes.
 type TextVariant =
   | 'display'
   | 'stats'
@@ -59,8 +59,8 @@ export const textVariantClasses: Record<TextVariant, string> = {
 };
 
 const textToneClasses: Record<TextTone, string> = {
-  default: 'text-black dark:text-white',
-  muted: 'text-[#787878]',
+  default: 'text-foreground',
+  muted: 'text-bds-gray-60',
   inverse: 'text-white dark:text-white',
   inverseMuted: 'text-neutral-300 dark:text-neutral-300',
   inherit: '',

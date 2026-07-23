@@ -74,7 +74,7 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
   return (
     <>
       <div className="flex items-center gap-2">
-        <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
+        <span className="inline-flex rounded-full border border-bds-blue-15 bg-bds-blue-0 px-2.5 py-1 font-mono text-[11px] uppercase leading-none tracking-[0px] text-bds-blue-60 dark:border-bds-blue-80 dark:bg-bds-blue-100/40 dark:text-base-blue">
           {demo.eyebrow}
         </span>
         {!demo.available ? (
@@ -95,7 +95,7 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
             key={point}
             className="flex items-start gap-2 text-[13px] text-bds-gray-60 dark:text-bds-gray-40"
           >
-            <span className="mt-[3px] text-base-blue dark:text-bds-blue-20" aria-hidden="true">
+            <span className="mt-[3px] text-base-blue" aria-hidden="true">
               ›
             </span>
             {point}

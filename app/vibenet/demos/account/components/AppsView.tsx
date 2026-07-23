@@ -175,7 +175,7 @@ function SpendingAccountLive({
         title="Copy account address"
         className="flex w-fit items-center gap-2 text-left"
       >
-        <code className="font-mono text-[13px] text-base-blue dark:text-bds-blue-20">
+        <code className="font-mono text-[13px] text-base-blue">
           {short(sub.address)}
         </code>
         <span className="text-[11px] uppercase tracking-[0.4px] text-bds-gray-50">

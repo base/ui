@@ -13,7 +13,7 @@ export function Checkbox({ checked, className }: CheckboxProps) {
     <span
       className={cn(
         'inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-[background-color,border-color] duration-150 ease-out',
-        checked ? 'border-black bg-black' : 'border-bds-gray-20 bg-white',
+        checked ? 'border-foreground bg-foreground' : 'border-bds-gray-20 bg-background',
         className,
       )}
     >
@@ -22,12 +22,12 @@ export function Checkbox({ checked, className }: CheckboxProps) {
         height="12"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="white"
+        stroke="currentColor"
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
         className={cn(
-          'transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none',
+          'text-background transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none',
           checked ? 'scale-100 opacity-100' : 'scale-75 opacity-0',
         )}
       >

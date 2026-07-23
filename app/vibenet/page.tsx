@@ -100,7 +100,7 @@ export default function VibenetHomePage() {
         </span>
         <Link
           href={`${VIBENET_EXPLORER_PATH}/address/${contract.address}`}
-          className="min-w-0 flex-1 truncate font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
+          className="min-w-0 flex-1 truncate font-mono text-[13px] text-base-blue hover:underline"
         >
           {contract.address}
         </Link>
@@ -118,7 +118,7 @@ export default function VibenetHomePage() {
     <div className="flex flex-col gap-16 pb-4 text-black dark:text-white">
       <header className="flex flex-col gap-4 border-b border-bds-gray-10 pb-12 dark:border-white/10">
         <div className="max-w-3xl">
-          <Text variant="caption" className="mb-4 text-base-blue dark:text-white">
+          <Text variant="caption" className="mb-4 text-base-blue">
             {config.title ?? 'Base Vibenet'}
           </Text>
           <Text variant="display" className="text-balance">
@@ -167,7 +167,7 @@ export default function VibenetHomePage() {
             </Text>
             <Link
               href={VIBENET_EXPLORER_PATH}
-              className="font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
+              className="font-mono text-[13px] text-base-blue hover:underline"
             >
               {VIBENET_EXPLORER_PATH}
             </Link>
@@ -203,7 +203,7 @@ export default function VibenetHomePage() {
               href={`https://github.com/base/base/tree/${branch}`}
               target="_blank"
               rel="noopener"
-              className="text-base-blue hover:underline dark:text-bds-blue-20"
+              className="text-base-blue hover:underline"
             >
               {branch}
             </a>
@@ -218,7 +218,7 @@ export default function VibenetHomePage() {
               href={`https://github.com/base/base/commit/${commit}`}
               target="_blank"
               rel="noopener"
-              className="text-base-blue hover:underline dark:text-bds-blue-20"
+              className="text-base-blue hover:underline"
             >
               {commit.slice(0, 12)}
             </a>

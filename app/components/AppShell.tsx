@@ -6,8 +6,7 @@ import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { isTabActive, NAV_ITEMS, NavIcon, tabsForPath, titleForPath } from '../navigation';
-import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
-import { spectrum } from '../spectrum';
+import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED, SURFACE } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 
@@ -18,7 +17,7 @@ import { Text } from './ui/Text';
 function BaseLogo() {
   return (
     <svg width="22" height="22" viewBox="0 0 450 450" fill="none">
-      <path d="M0 35.55C0 23.3732 0 17.2848 2.29438 12.6014C4.49116 8.11719 8.11719 4.49116 12.6014 2.29438C17.2848 0 23.3732 0 35.55 0H414.45C426.627 0 432.715 0 437.399 2.29438C441.883 4.49116 445.509 8.11719 447.706 12.6014C450 17.2848 450 23.3732 450 35.55V414.45C450 426.627 450 432.715 447.706 437.399C445.509 441.883 441.883 445.509 437.399 447.706C432.715 450 426.627 450 414.45 450H35.55C23.3732 450 17.2848 450 12.6014 447.706C8.11719 445.509 4.49116 441.883 2.29438 437.399C0 432.715 0 426.627 0 414.45V35.55Z" fill="#0000FF"/>
+      <path d="M0 35.55C0 23.3732 0 17.2848 2.29438 12.6014C4.49116 8.11719 8.11719 4.49116 12.6014 2.29438C17.2848 0 23.3732 0 35.55 0H414.45C426.627 0 432.715 0 437.399 2.29438C441.883 4.49116 445.509 8.11719 447.706 12.6014C450 17.2848 450 23.3732 450 35.55V414.45C450 426.627 450 432.715 447.706 437.399C445.509 441.883 441.883 445.509 437.399 447.706C432.715 450 426.627 450 414.45 450H35.55C23.3732 450 17.2848 450 12.6014 447.706C8.11719 445.509 4.49116 441.883 2.29438 437.399C0 432.715 0 426.627 0 414.45V35.55Z" fill="var(--base-logo)"/>
     </svg>
   );
 }
@@ -44,7 +43,7 @@ const styles: Record<string, CSSProperties> = {
   sidebar: {
     width: SIDEBAR_WIDTH,
     flexShrink: 0,
-    borderRight: '1px solid rgba(0,0,0,0.06)',
+    borderRight: `1px solid ${SELECTED}`,
     display: 'flex',
     flexDirection: 'column',
     padding: '0 12px 20px',
@@ -94,7 +93,14 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     textDecoration: 'none',
-    color: spectrum.gray[50],
+    color: 'var(--bds-gray-50)',
+  },
+  themeButton: {
+    width: '100%',
+    border: 0,
+    background: 'transparent',
+    cursor: 'pointer',
+    textAlign: 'left',
   },
   footerIcon: { display: 'inline-flex', width: 18, height: 18 },
   main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
@@ -205,7 +211,7 @@ function NavGlyph({ name }: NavGlyphProps) {
 function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 'desktop' }: NavRowProps) {
   let color = DISABLED;
   if (enabled) {
-    color = active ? spectrum.gray[80] : spectrum.gray[50];
+    color = active ? 'var(--bds-gray-80)' : 'var(--bds-gray-50)';
   }
 
   const row = (
@@ -225,7 +231,7 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
             position: 'absolute',
             inset: 0,
             borderRadius: 8,
-            background: spectrum.gray[5],
+            background: SURFACE,
           }}
           transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
         />
@@ -250,7 +256,32 @@ function NavRow({ icon, label, href, active, enabled, onNavigate, layoutScope = 
   );
 }
 
-function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { onNavigate?: () => void; hideBrand?: boolean; layoutScope?: string }) {
+function ThemeIcon({ dark }: { dark: boolean }) {
+  return dark ? (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+    </svg>
+  ) : (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+    </svg>
+  );
+}
+
+function SidebarContent({
+  dark,
+  onNavigate,
+  onToggleTheme,
+  hideBrand,
+  layoutScope = 'desktop',
+}: {
+  dark: boolean;
+  onNavigate?: () => void;
+  onToggleTheme: () => void;
+  hideBrand?: boolean;
+  layoutScope?: string;
+}) {
   const pathname = usePathname() || '/';
   return (
     <>
@@ -290,6 +321,15 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
       </nav>
 
       <div style={styles.sidebarFooter}>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-label={`Switch to ${dark ? 'light' : 'dark'} mode`}
+          style={{ ...styles.footerLink, ...styles.themeButton }}
+        >
+          <span style={styles.footerIcon}><ThemeIcon dark={dark} /></span>
+          <Text as="span" variant="label.medium" tone="inherit">{dark ? 'Light mode' : 'Dark mode'}</Text>
+        </button>
         <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
           <span style={styles.footerIcon}>
             <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
@@ -328,7 +368,7 @@ function GlobalBanner() {
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        className="absolute right-4 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
+        className="absolute right-4 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
         aria-label="Dismiss banner"
       >
         <CloseIcon size={10} />
@@ -342,6 +382,22 @@ export function AppShell({ children }: PropsWithChildren) {
   const title = titleForPath(pathname);
   const tabs = tabsForPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !dark;
+    document.documentElement.classList.toggle('dark', nextDark);
+    setDark(nextDark);
+    try {
+      localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+    } catch {
+      // The active theme still works when storage is unavailable.
+    }
+  };
 
   useEffect(() => {
     setMenuOpen(false);
@@ -365,7 +421,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <div style={styles.root}>
         {/* Desktop sidebar */}
       <aside className="sidebar-desktop" style={styles.sidebar}>
-        <SidebarContent />
+        <SidebarContent dark={dark} onToggleTheme={toggleTheme} />
       </aside>
 
       {/* Mobile header (logo + hamburger) */}
@@ -396,7 +452,13 @@ export function AppShell({ children }: PropsWithChildren) {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
           >
-            <SidebarContent onNavigate={() => setMenuOpen(false)} hideBrand layoutScope="mobile" />
+            <SidebarContent
+              dark={dark}
+              onToggleTheme={toggleTheme}
+              onNavigate={() => setMenuOpen(false)}
+              hideBrand
+              layoutScope="mobile"
+            />
           </motion.aside>
         )}
       </AnimatePresence>

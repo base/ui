@@ -41,8 +41,7 @@ const bdsColors = Object.fromEntries(
 );
 
 const config: Config = {
-  // Light theme only in omni-ui; `dark:` variants port harmlessly but never
-  // activate since no `.dark` class is applied.
+  // Dark mode is applied to <html> and persisted by AppShell.
   darkMode: 'class',
   content: ['./app/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {

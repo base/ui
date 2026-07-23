@@ -23,7 +23,7 @@ export function FilterGroup({ label, options, value, onChange }: FilterGroupProp
             className={cn(
               'rounded-full px-3 py-1.5 text-[13px] transition-colors',
               value === o.value
-                ? 'bg-black text-white'
+                ? 'bg-foreground text-background'
                 : 'bg-bds-gray-5 text-bds-gray-60',
             )}
           >

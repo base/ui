@@ -15,7 +15,7 @@ type ButtonProps = ComponentPropsWithoutRef<'button'> & {
 };
 
 const variantClasses = {
-  primary: 'bg-base-blue text-white hover:bg-[#0000CC] border border-transparent',
+  primary: 'border border-transparent bg-base-blue text-white hover:bg-[#0000CC] dark:text-black dark:hover:bg-bds-blue-80',
   secondary:
     'text-foreground hover:bg-bds-gray-15 bg-bds-gray-10 dark:bg-white/10 dark:hover:bg-white/20',
   outline:

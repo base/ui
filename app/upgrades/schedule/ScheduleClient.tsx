@@ -188,7 +188,7 @@ export function ScheduleClient() {
                       <span
                         className={
                           isToday
-                            ? 'flex h-7 w-7 items-center justify-center rounded-full bg-base-blue text-[13px] text-white'
+                            ? 'flex h-7 w-7 items-center justify-center rounded-full bg-base-blue text-[13px] text-white dark:text-black'
                             : 'text-[13px] text-bds-gray-50'
                         }
                       >

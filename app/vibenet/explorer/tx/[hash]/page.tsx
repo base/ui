@@ -28,7 +28,7 @@ import {
 } from '../../../library/explorer';
 
 const BADGE =
-  'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
+  'inline-flex items-center rounded-md bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-base-blue';
 const RAW_PRE = 'mt-1 overflow-x-auto rounded bg-bds-gray-5 p-2 text-[11px] dark:bg-white/5';
 const DIM = 'text-bds-gray-60 dark:text-bds-gray-40';
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;

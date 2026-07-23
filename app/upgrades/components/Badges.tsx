@@ -20,7 +20,7 @@ const statusClassName: Record<StatusVariant, string> = {
   draft:
     'border-bds-orange-20 bg-bds-orange-0 text-bds-orange-80 dark:border-bds-orange-80 dark:bg-bds-orange-100 dark:text-bds-orange-15',
   accepted:
-    'border-bds-blue-20 bg-bds-blue-0 text-bds-blue-70 dark:border-bds-blue-80 dark:bg-bds-blue-100 dark:text-bds-blue-15',
+    'border-bds-blue-20 bg-bds-blue-0 text-bds-blue-70 dark:border-bds-blue-80 dark:bg-bds-blue-100 dark:text-base-blue',
 };
 
 const dotClassName: Record<StatusVariant, string> = {

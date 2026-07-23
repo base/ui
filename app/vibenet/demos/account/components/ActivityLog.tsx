@@ -59,7 +59,7 @@ export function ActivityLog({ activity }: { activity: ActivityEntry[] }) {
                   {txHash ? (
                     <Link
                       href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}
-                      className="font-mono text-base-blue hover:underline dark:text-bds-blue-20"
+                      className="font-mono text-base-blue hover:underline"
                     >
                       {short(txHash, 10, 8)} →
                     </Link>

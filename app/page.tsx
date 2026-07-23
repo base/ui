@@ -39,7 +39,7 @@ function SurfaceCard({ surface }: SurfaceCardProps) {
   // enabled ones use the interactive LinkCard with the shared hover treatment.
   if (!surface.enabled) {
     return (
-      <Card className="bg-white p-5 opacity-60">
+      <Card className="bg-background p-5 opacity-60">
         <div className="flex items-center gap-2">
           <Text variant="headline">{surface.label}</Text>
           <span className="rounded-full border border-bds-gray-15 px-2.5 py-0.5 text-[13px] text-bds-gray-60">
@@ -54,7 +54,7 @@ function SurfaceCard({ surface }: SurfaceCardProps) {
   }
 
   return (
-    <LinkCard href={surface.href} className="group bg-white p-5">
+    <LinkCard href={surface.href} className="group bg-background p-5">
       <Text variant="headline" className="transition-colors group-hover:text-base-blue">
         {surface.label}
       </Text>
@@ -67,7 +67,7 @@ function SurfaceCard({ surface }: SurfaceCardProps) {
 
 export default function Home() {
   return (
-    <div className="flex flex-col gap-12 text-black">
+    <div className="flex flex-col gap-12 text-foreground">
       <header className="flex flex-col gap-8 border-b border-bds-gray-10 pb-12">
         <div className="max-w-3xl">
           <Text variant="caption" className="mb-4 text-base-blue">
