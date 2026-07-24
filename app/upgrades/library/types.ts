@@ -28,7 +28,7 @@ export type ChangeCategory =
   | 'networking'
   | 'rpc'
   | 'flashblocks'
-  | 'wallet'
+  | 'accounts'
   | 'precompile'
   | 'bridging';
 

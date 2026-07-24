@@ -11,6 +11,7 @@ type VibenetAvailability = FeaturedChangePresentation & {
   status: LifecycleState;
   timestamp?: string;
   featured?: boolean;
+  demo?: string;
 };
 
 const vibenetAvailability = [
@@ -20,6 +21,7 @@ const vibenetAvailability = [
     timestamp: '2026-07-02',
     featured: true,
     image: '/images/upgrades/layered-squares.png',
+    demo: '/vibenet/demos/account'
   },
 ] as const satisfies VibenetAvailability[];
 
@@ -29,11 +31,12 @@ export type VibenetChange = Change &
       status: LifecycleState;
       timestamp?: string;
       featured: boolean;
+      demo?: string;
     };
   };
 
 export function getVibenetChanges(): VibenetChange[] {
-  return vibenetAvailability.map(({ changeId, status, timestamp, featured = false, image }) => {
+  return vibenetAvailability.map(({ changeId, status, timestamp, featured = false, image, demo }) => {
     const change = getChangeById(changeId);
     if (!change) throw new Error(`Vibenet change "${changeId}" was not found`);
     return {
@@ -43,6 +46,7 @@ export function getVibenetChanges(): VibenetChange[] {
         status,
         timestamp,
         featured,
+        demo,
       },
     };
   });

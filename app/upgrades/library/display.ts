@@ -10,7 +10,7 @@ export const CATEGORY_ORDER = [
   'flashblocks',
   'rpc',
   'proofs',
-  'wallet',
+  'accounts',
   'bridging',
   'precompile',
 ] as const satisfies ChangeCategory[];
@@ -28,8 +28,8 @@ export const CATEGORY_METADATA = {
       'border-bds-pink-20 bg-bds-pink-0 text-bds-pink-70 dark:border-bds-pink-80 dark:bg-bds-pink-100 dark:text-bds-pink-15',
     accentClassName: 'bg-bds-pink-40',
   },
-  wallet: {
-    label: 'Wallet',
+  accounts: {
+    label: 'Accounts',
     className:
       'border-bds-teal-20 bg-bds-teal-0 text-bds-teal-70 dark:border-bds-teal-80 dark:bg-bds-teal-100 dark:text-bds-teal-15',
     accentClassName: 'bg-bds-teal-40',
