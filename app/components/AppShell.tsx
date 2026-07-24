@@ -14,6 +14,7 @@ import { getUpgradeById } from '../upgrades/data/upgrades';
 import { titleForPath } from '../navigation';
 
 import { Breadcrumb } from './ui/Breadcrumb';
+import { cn } from './ui/cn';
 import { AnimatedArrowIcon, CloseIcon } from './ui/icons';
 import { Text } from './ui/Text';
 
@@ -425,14 +426,24 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
   );
 }
 
-function GlobalBanner() {
-  const [dismissed, setDismissed] = useState(false);
+type GlobalBannerProps = {
+  dismissed: boolean;
+  onDismiss: () => void;
+  className?: string;
+};
+
+function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
   if (dismissed) return null;
   return (
-    <div className="relative flex items-center justify-center border-b border-bds-gray-10 bg-bds-gray-5 px-4 py-2 sm:px-10">
-      <span className="flex items-center gap-2">
+    <div
+      className={cn(
+        'relative items-center justify-center border-b border-bds-gray-10 bg-bds-gray-5 py-2 pl-4 pr-10 sm:px-10',
+        className,
+      )}
+    >
+      <span className="flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1">
         <Text as="span" variant="label.medium">New!</Text>
-        <Text as="span" variant="label.medium" className="-ml-1">EIP-8130: Native Account Abstraction</Text>
+        <Text as="span" variant="label.medium">EIP-8130: Native Account Abstraction</Text>
         <span className="inline-block h-3.5 w-px bg-bds-gray-20"></span>
         <Link href="/vibenet/demos/account" className="group flex items-center gap-1 no-underline">
           <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
@@ -441,8 +452,8 @@ function GlobalBanner() {
       </span>
       <button
         type="button"
-        onClick={() => setDismissed(true)}
-        className="absolute right-4 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
+        onClick={onDismiss}
+        className="absolute right-4 top-2 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
         aria-label="Dismiss banner"
       >
         <CloseIcon size={10} />
@@ -455,6 +466,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -474,7 +486,14 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <GlobalBanner />
+      {/* Desktop: banner spans the full width above the shell. On mobile it is
+          rendered below the fixed header instead (see below), so it isn't hidden
+          behind it. */}
+      <GlobalBanner
+        dismissed={bannerDismissed}
+        onDismiss={() => setBannerDismissed(true)}
+        className="hidden md:flex"
+      />
       <div style={styles.root}>
         {/* Desktop sidebar */}
         <aside className="sidebar-desktop" style={styles.sidebar}>
@@ -515,6 +534,13 @@ export function AppShell({ children }: PropsWithChildren) {
         </AnimatePresence>
 
         <div className="mobile-content-offset" style={styles.main}>
+          {/* Mobile: banner sits below the fixed header (which the top slot is
+              hidden behind), so it's visible without scrolling. */}
+          <GlobalBanner
+            dismissed={bannerDismissed}
+            onDismiss={() => setBannerDismissed(true)}
+            className="flex md:hidden"
+          />
           <header className="topbar-desktop" style={styles.topbar}>
             {(() => {
               const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
