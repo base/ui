@@ -683,6 +683,14 @@ export function AccountDemo() {
       ? (acct?.sessionKeys.find((sk) => sk.signerId === txSigner.id) ?? null)
       : null;
 
+  // Session keys can only ride sponsored (EIP-8168 "free") transactions — ETH
+  // and USDV-payer gas modes aren't a supported combination and will fail
+  // estimation/submission. Force sponsored mode as soon as a session key
+  // becomes the selected signer.
+  useEffect(() => {
+    if (txIsSession) setGasMode('free');
+  }, [txIsSession]);
+
   type PendingChangeItem = {
     change: AaAccountChange;
     sequence: number;
@@ -1565,6 +1573,10 @@ export function AccountDemo() {
   const doSignNative = async () => {
     if (!acct || !txSigner || !callsValid) return;
     const sessionPolicy = activeSessionKey?.policy;
+    if (txIsSession && gasMode !== 'free') {
+      setError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
+      return;
+    }
     if (txIsSession && !acct.deployed && !activeSessionKey?.pendingAuth) {
       setError('Authorize this session key with an owner key first (Apply now).');
       return;
@@ -1630,6 +1642,10 @@ export function AccountDemo() {
   const doSponsoredSign = async () => {
     if (!acct || !txSigner || !callsValid) return;
     const sessionPolicy = activeSessionKey?.policy;
+    if (txIsSession && gasMode !== 'free') {
+      setError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
+      return;
+    }
     if (txIsSession && !acct.deployed && !activeSessionKey?.pendingAuth) {
       setError('Authorize this session key with an owner key first (Apply now).');
       return;
@@ -3445,12 +3461,21 @@ export function AccountDemo() {
               ariaLabel="Gas payment"
               value={gasMode}
               onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
-              options={[
-                { value: 'eth', label: 'Pay in ETH' },
-                { value: 'free', label: 'Sponsored (EIP-8168)' },
-                { value: 'usdv', label: 'Pay in USDV (EIP-8168)' },
-              ]}
+              options={
+                txIsSession
+                  ? [{ value: 'free', label: 'Sponsored (EIP-8168)' }]
+                  : [
+                      { value: 'eth', label: 'Pay in ETH' },
+                      { value: 'free', label: 'Sponsored (EIP-8168)' },
+                      { value: 'usdv', label: 'Pay in USDV (EIP-8168)' },
+                    ]
+              }
             />
+            {txIsSession ? (
+              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                Session keys can only send sponsored transactions.
+              </span>
+            ) : null}
           </div>
         </Modal>
       </>
