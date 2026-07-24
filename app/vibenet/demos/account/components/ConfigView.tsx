@@ -640,7 +640,9 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
               !acct.owners.some((o) => o.actorId === s.actorId) &&
               !acct.sessionKeys.some((sk) => sk.actorId === s.actorId)
             );
-            if (avail) p.setSkSignerId(avail.id);
+            // Clear any stale selection so a signer that's no longer eligible
+            // (or no signer at all) can't sneak through as "selected".
+            p.setSkSignerId(avail ? avail.id : '');
           }
           p.setSessionAdding(!p.sessionAdding);
         }}>
@@ -652,7 +654,22 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
 }
 
 function SessionForm({ p }: { p: ConfigViewProps }) {
-  const { acct } = p;
+  const { acct, skSignerId, setSkSignerId } = p;
+  const eligibleSigners = p.signers.filter((s) =>
+    !acct.owners.some((o) => o.actorId === s.actorId) &&
+    !acct.sessionKeys.some((sk) => sk.actorId === s.actorId)
+  );
+  const skSignerValid = eligibleSigners.some((s) => s.id === skSignerId);
+  const noEligibleSigners = eligibleSigners.length === 0;
+
+  // A disabled Select option (owner / existing session key) can still be the
+  // current value if it went stale — don't let that count as a real pick.
+  useEffect(() => {
+    if (skSignerId && !skSignerValid) {
+      setSkSignerId('');
+    }
+  }, [skSignerId, skSignerValid, setSkSignerId]);
+
   const impliedScopes: { key: string; label: string; note: string }[] = [];
   for (const l of p.skLimits) {
     if (l.token === 'stable')
@@ -677,9 +694,10 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
         <label className="flex flex-col gap-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
           Signer
           <Select
-            value={p.skSignerId}
-            onValueChange={p.setSkSignerId}
+            value={skSignerId}
+            onValueChange={setSkSignerId}
             placeholder="Select"
+            disabled={noEligibleSigners}
             options={p.signers.map((s) => {
               const isOwner = acct.owners.some((o) => o.actorId === s.actorId);
               const isSession = acct.sessionKeys.some((sk) => sk.actorId === s.actorId);
@@ -690,6 +708,11 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
               };
             })}
           />
+          {noEligibleSigners ? (
+            <span className="text-bds-red-60 dark:text-bds-red-40">
+              No eligible signer available — every wallet is already an owner or session key.
+            </span>
+          ) : null}
         </label>
         <label className="flex flex-col gap-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
           Chain
@@ -852,7 +875,7 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
         <Button
           size="sm"
           onClick={p.registerSessionKey}
-          disabled={p.skBusy || !p.skSignerId || p.formPolicyEmpty}
+          disabled={p.skBusy || !skSignerValid || p.formPolicyEmpty}
         >
           {p.skBusy ? 'Signing Authorization…' : 'Sign Authorization'}
         </Button>
