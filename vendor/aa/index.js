@@ -20956,7 +20956,7 @@ var accountConfigurationAbi = parseAbi([
   "function applySignedActorChanges(address account, uint256 chainId, ActorChange[] actorChanges, bytes auth)",
   "function applySignedLockChanges(address account, uint8 op, uint16 unlockDelay, bytes auth)",
   "function verifySignature(address account, bytes32 hash, bytes signature) view returns (bool verified)",
-  "function authenticateActor(address account, bytes32 hash, bytes auth) view returns (uint8 scope, address policyTarget)",
+  "function authenticateActor(address account, bytes32 hash, bytes auth) view returns (bytes32 actorId, uint8 scope, address policyTarget)",
   "function isActor(address account, bytes32 actorId) view returns (bool)",
   "function getActorConfig(address account, bytes32 actorId) view returns (ActorConfig)",
   "function getPolicy(address account, bytes32 actorId) view returns (address target, bytes32 commitment)",
@@ -20991,8 +20991,8 @@ var nonceManagerAbi = parseAbi([
 ]);
 // ../viem/src/_esm/experimental/eip8130/accounts/to8130Account.js
 init_base();
-init_toHex();
 init_fromHex();
+init_toHex();
 
 // ../viem/src/_esm/experimental/eip8130/constants.js
 var aaTransactionType = "0x79";
@@ -21038,7 +21038,7 @@ var canonicalAuthenticators = {
   k1: "0x0000000000000000000000000000000000000001",
   p256: "0xf8847a74F8067CabaE5fe56B70b372A7D670f0f8",
   passkey: "0x871c72d3950308A028E9c4917591bcfd3D6a1EF7",
-  delegate: "0x1B0195ba5E3FCdB387DD619816eeF8b510Ed0855"
+  delegate: "0xbb73E3871FBaC8aef1a7Ee8A24E21139916f14C2"
 };
 var canonicalAuthDataLength = {
   [canonicalAuthenticators.k1.toLowerCase()]: 65,
@@ -21047,13 +21047,31 @@ var canonicalAuthDataLength = {
 };
 var nonceManagerAddress = "0x813000000000000000000000000000000000aa01";
 var txContextAddress = "0x813000000000000000000000000000000000aa02";
-var accountConfigAddress = "0xe7Bb8eF3728ea9f0A8be6D7e9585FeAb12dE086A";
-var defaultAccountAddress = "0xDd802113C9FF6964cD2A61A16e075D5271cC82c9";
+var accountConfigAddress = "0x53648Cf00356fbAA1F2B531715c6B64AaBDE1555";
+var defaultAccountAddress = "0x58da469ef71Dd4B092B010CdA37DE124C926EebD";
 var deploymentHeaderSize = 14;
 var maxCodeSize = 24576;
 
 // ../viem/src/_esm/experimental/eip8130/deployments.js
 var canonicalEip8130Deployment = {
+  accountConfiguration: "0x53648Cf00356fbAA1F2B531715c6B64AaBDE1555",
+  accounts: {
+    default: "0x58da469ef71Dd4B092B010CdA37DE124C926EebD",
+    defaultHighRate: "0x23Fe6949d6370330Ae32e7c17E1265D65955C92a"
+  },
+  authenticators: {
+    k1: "0x0000000000000000000000000000000000000001",
+    p256: "0xf8847a74F8067CabaE5fe56B70b372A7D670f0f8",
+    webAuthn: "0x871c72d3950308A028E9c4917591bcfd3D6a1EF7",
+    delegate: "0xbb73E3871FBaC8aef1a7Ee8A24E21139916f14C2",
+    alwaysValid: "0xA550545Da91720c23483c5B3493412A02D1cF9F9"
+  },
+  policies: {
+    manager: "0x6e9E627770C1c90371A2E4CB9474A7Af577a4306",
+    sessionPolicy: "0x58ef2d572a1bC528f0B9121d686B2618809604Dc"
+  }
+};
+var baseSepoliaDeployment = {
   accountConfiguration: "0xe7Bb8eF3728ea9f0A8be6D7e9585FeAb12dE086A",
   accounts: {
     upgradeable: "0xF8dafa4DA35F664cf2CF842f00482ebb68a982b3",
@@ -21073,8 +21091,9 @@ var canonicalEip8130Deployment = {
     sessionPolicy: "0x6Ef50425716c134162C5c289E02162dde75b23Ea"
   }
 };
-var baseSepoliaDeployment = canonicalEip8130Deployment;
-var vibenetDevnetDeployment = canonicalEip8130Deployment;
+var vibenetDevnetDeployment = {
+  ...canonicalEip8130Deployment
+};
 var eip8130Deployments = {
   84532: baseSepoliaDeployment,
   84538453: vibenetDevnetDeployment
@@ -21150,6 +21169,13 @@ var key = {
 function toScope(...flags) {
   return flags.reduce((acc, flag) => acc | flag, 0);
 }
+function canUseSequencedNonce(scope) {
+  const s = scope ?? scopeUnrestricted;
+  return s === scopeUnrestricted || (s & actorScope.nonce) !== 0;
+}
+function isNoncelessOnly(scope) {
+  return !canUseSequencedNonce(scope);
+}
 function encodePolicyData(policy) {
   if (policy.type === 0)
     throw new BaseError2("`policy.type` must be non-zero (0 = no policy).");
@@ -21168,7 +21194,7 @@ function authorizeActor(actor, options = {}) {
     change.expiry = options.expiry;
   if (options.policy) {
     if (scope === 0)
-      throw new BaseError2("A policy-bearing actor MUST have a restricted (non-admin) scope (e.g. `actorScope.sender`).");
+      throw new BaseError2("A policy-bearing actor MUST have a restricted (non-admin) scope (e.g. `actorScope.policy`).");
     scope |= actorScope.policy;
     change.policyData = encodePolicyData(options.policy);
   }
@@ -21533,8 +21559,9 @@ async function signTransaction8130(parameters) {
 
 // ../viem/src/_esm/experimental/eip8130/accounts/to8130Account.js
 function to8130Account(parameters) {
-  const { signer, authenticator = ecrecoverAuthenticator } = parameters;
+  const { signer, authenticator = ecrecoverAuthenticator, scope } = parameters;
   const isAddressOnly = parameters.userSalt === undefined;
+  const accountConfigAddress2 = parameters.accountConfigAddress ?? accountConfigAddress;
   const address = (() => {
     if (parameters.address)
       return parameters.address;
@@ -21544,14 +21571,19 @@ function to8130Account(parameters) {
       userSalt: parameters.userSalt,
       code: parameters.code,
       initialActors: parameters.initialActors,
-      accountConfigAddress: parameters.accountConfigAddress ?? accountConfigAddress
+      accountConfigAddress: accountConfigAddress2
     });
   })();
   const initialActors = parameters.initialActors ?? [];
+  const isK1Authenticator = authenticator === ecrecoverAuthenticator || authenticator === canonicalAuthenticators.k1;
+  const actorId = parameters.actorId ?? (isK1Authenticator ? key.k1(signer.address).actorId : undefined);
   return {
     address,
     signer,
     initialActors,
+    scope,
+    actorId,
+    accountConfigAddress: accountConfigAddress2,
     create() {
       if (isAddressOnly)
         throw new BaseError2("`create()` is not available for address-only (delegated EOA) accounts. " + "Include `account.delegate(impl)` in `accountChanges` instead.");
@@ -21588,32 +21620,44 @@ function to8130Account(parameters) {
   };
 }
 function newSmartAccount8130(parameters) {
-  const { signer, implementation, upgradeable = true, extraActors = [], accountConfigAddress: accountConfigAddress2 } = parameters;
-  const primaryActor = "publicKey" in signer && signer.publicKey ? signer.authenticator === canonicalAuthenticators.passkey ? key.webAuthn(signer.publicKey) : key.p256(signer.publicKey) : key.k1(signer.address);
+  const { signer, implementation, upgradeable = false, extraActors = [], accountConfigAddress: accountConfigAddress2 } = parameters;
+  const primaryActor = "publicKey" in signer && signer.publicKey && typeof signer.publicKey !== "string" ? signer.authenticator === canonicalAuthenticators.passkey ? key.webAuthn(signer.publicKey) : key.p256(signer.publicKey) : key.k1(signer.address);
   const allActors = [primaryActor, ...extraActors].sort((a, b) => {
     const ai = hexToBigInt(a.actorId);
     const bi = hexToBigInt(b.actorId);
     return ai < bi ? -1 : ai > bi ? 1 : 0;
   });
   const salt = parameters.salt ?? randomBytes32();
-  const code = parameters.code ?? (upgradeable ? upgradeableProxyBytecode(implementation ?? canonicalEip8130Deployment.accounts.upgradeable) : erc1167Bytecode(implementation ?? canonicalEip8130Deployment.accounts.defaultHighRate));
+  let code = parameters.code;
+  if (!code) {
+    if (upgradeable) {
+      if (!implementation)
+        throw new BaseError2("`implementation` is required for `upgradeable: true`; the canonical deployment does not include the unaudited UpgradeableAccount example.");
+      code = upgradeableProxyBytecode(implementation);
+    } else {
+      code = erc1167Bytecode(implementation ?? canonicalEip8130Deployment.accounts.default);
+    }
+  }
   const inner = to8130Account({
     signer,
     userSalt: salt,
     code,
     initialActors: allActors,
     authenticator: signer.authenticator,
-    accountConfigAddress: accountConfigAddress2
+    accountConfigAddress: accountConfigAddress2,
+    scope: primaryActor.scope ?? scopeUnrestricted
   });
   return { ...inner, createChange: inner.create() };
 }
-function toEoa8130Account(signer) {
+function toEoa8130Account(signer, parameters = {}) {
   if (!signer.address)
     throw new BaseError2("`signer.address` is required. Use `privateKeyToAccount(pk)` or equivalent.");
   const address = signer.address;
+  const scope = parameters.scope ?? scopeUnrestricted;
   return {
     address,
     signer,
+    scope,
     delegate(target) {
       return { type: "delegation", target };
     },
@@ -22155,7 +22199,8 @@ init_fromHex();
 init_toHex();
 var maxAuthSize = 8192;
 async function estimateGas8130(client, parameters) {
-  const { from: from14, sender, to, data, value, senderAuth: senderAuthExplicit, senderAuthAuthenticator, senderAuthSize, senderActorId, accountChanges, calls, nonceKey = 0n, nonceSequence = 0, payer, payerAuth: payerAuthExplicit, payerAuthAuthenticator, payerAuthSize, blockNumber, blockTag = "pending" } = parameters;
+  const { from: from14, sender, to, data, value, senderAuth: senderAuthExplicit, senderAuthAuthenticator, senderAuthSize, senderActorId, accountChanges, calls, nonceKey = 0n, nonceSequence = 0, payer, payerAuth: payerAuthExplicit, payerAuthAuthenticator, payerAuthSize, dataSuffix: dataSuffixParam, blockNumber, blockTag = "pending" } = parameters;
+  const dataSuffix = dataSuffixParam ?? (typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value);
   const account_ = sender ?? from14;
   if (!account_)
     throw new BaseError2("`sender` (or `from`) is required for an EIP-8130 gas estimate: the sender drives actor/policy resolution.");
@@ -22184,7 +22229,7 @@ async function estimateGas8130(client, parameters) {
         value: numberToHex(c.value ?? 0n),
         data: c.data ?? "0x"
       }))),
-      metadata: "0x",
+      metadata: dataSuffix ?? "0x",
       payer: payer ?? null
     };
     if (senderAuth !== undefined)
@@ -22322,13 +22367,12 @@ init_encodeFunctionData();
 init_keccak256();
 var policyManagerAbi = parseAbi([
   "struct PolicyBinding { address account; address policy; bytes policyConfig; uint40 validAfter; uint40 validUntil; uint256 salt; }",
-  "struct PolicyRecord { bool installed; address account; uint40 validAfter; uint40 validUntil; }",
-  "event PolicyInstalled(address indexed account, address indexed policy, bytes32 indexed commitment)",
   "event PolicyExecuted(address indexed account, address indexed policy, bytes32 indexed commitment, address caller)",
+  "event ExecutionSkipped(address indexed account, address indexed policy, bytes32 indexed actorId)",
   "function commitmentOf(PolicyBinding binding) pure returns (bytes32)",
-  "function getPolicyRecord(address policy, bytes32 commitment) view returns (PolicyRecord)",
-  "function install(bytes32 actorId, PolicyBinding binding) returns (bytes32 commitment)",
-  "function execute(address policy, bytes executionData)"
+  "function execute(PolicyBinding binding, bytes executionData)",
+  "function executeFor(PolicyBinding binding, bytes executionData)",
+  "function executeForMany(PolicyBinding[] bindings, bytes[] executionData) returns (bool[] results)"
 ]);
 var sessionPolicyAbi = parseAbi([
   "struct TokenLimit { address token; uint256 limit; uint40 period; }",
@@ -22337,11 +22381,11 @@ var sessionPolicyAbi = parseAbi([
   "struct Config { TokenLimit[] tokenLimits; CallScope[] callScopes; }",
   "struct Action { address target; uint256 value; bytes data; }",
   "struct PeriodUsage { uint48 start; uint48 end; uint160 spend; }",
-  "function isTargetAllowed(bytes32 commitment, address target) view returns (bool allowed, bool anySelector)",
-  "function getSelectorRule(bytes32 commitment, address target, bytes4 selector) view returns (bool allowed, bool recipientBound)",
-  "function isRecipientAllowed(bytes32 commitment, address target, bytes4 selector, address recipient) view returns (bool)",
-  "function getTokenLimit(bytes32 commitment, address token) view returns (bool set, uint160 allowance, uint40 period)",
-  "function getCurrentSpend(bytes32 commitment, address token) view returns (PeriodUsage)"
+  "function isTargetAllowed(Config config, address target) pure returns (bool allowed, bool anySelector)",
+  "function getSelectorRule(Config config, address target, bytes4 selector) pure returns (bool allowed, bool recipientBound)",
+  "function isRecipientAllowed(Config config, address target, bytes4 selector, address recipient) pure returns (bool)",
+  "function getTokenLimit(Config config, address token) pure returns (bool set, uint160 allowance, uint40 period)",
+  "function getCurrentSpend(bytes32 commitment, TokenLimit limit) view returns (PeriodUsage)"
 ]);
 var commitmentParameters = [
   { type: "address" },
@@ -22390,25 +22434,15 @@ function defineSessionPolicy(parameters) {
     binding,
     commitment,
     actorPolicy: { type: policyType, manager, commitment },
-    installCall(actorId) {
-      return {
-        to: manager,
-        value: 0n,
-        data: encodeFunctionData({
-          abi: policyManagerAbi,
-          functionName: "install",
-          args: [actorId, toBindingArgs(binding)]
-        })
-      };
-    },
-    executeCall(executionData) {
+    executeCall(executionDataOrAction) {
+      const executionData = typeof executionDataOrAction === "string" ? executionDataOrAction : encodeSessionPolicyAction(executionDataOrAction);
       return {
         to: manager,
         value: 0n,
         data: encodeFunctionData({
           abi: policyManagerAbi,
           functionName: "execute",
-          args: [policy, executionData]
+          args: [toBindingArgs(binding), executionData]
         })
       };
     }
@@ -22486,26 +22520,26 @@ function encodeSessionPolicyAction(action) {
 
 // ../viem/src/_esm/experimental/eip8130/actions/getSessionSpend8130.js
 async function getSessionSpend8130(client, parameters) {
-  const { commitment, token, sessionPolicy = sessionPolicyAddress } = parameters;
+  const { commitment, tokenLimit, sessionPolicy = sessionPolicyAddress } = parameters;
   const read = getAction(client, readContract, "readContract");
-  const [[set, allowance, period], usage] = await Promise.all([
-    read({
-      address: sessionPolicy,
-      abi: sessionPolicyAbi,
-      functionName: "getTokenLimit",
-      args: [commitment, token]
-    }),
-    read({
-      address: sessionPolicy,
-      abi: sessionPolicyAbi,
-      functionName: "getCurrentSpend",
-      args: [commitment, token]
-    })
-  ]);
+  const allowance = tokenLimit.limit;
+  const period = Number(tokenLimit.period ?? 0n);
+  const usage = await read({
+    address: sessionPolicy,
+    abi: sessionPolicyAbi,
+    functionName: "getCurrentSpend",
+    args: [
+      commitment,
+      {
+        token: tokenLimit.token,
+        limit: tokenLimit.limit,
+        period
+      }
+    ]
+  });
   const spent = usage.spend;
   const remaining = allowance > spent ? allowance - spent : 0n;
   return {
-    set,
     allowance,
     period,
     spent,
@@ -22599,17 +22633,110 @@ async function getTransaction8130(client, parameters) {
     transactionIndex: raw.transactionIndex ? Number(raw.transactionIndex) : null
   };
 }
+// ../viem/src/_esm/experimental/eip8130/errors.js
+init_base();
+
+class NonceScopeError extends BaseError2 {
+  constructor({ scope, nonceKey }) {
+    super(`Restricted signing actor scope \`0x${scope.toString(16)}\` lacks \`SCOPE_NONCE\`, so it may only send nonce-free (expiring) transactions${nonceKey !== undefined ? ` — received \`nonceKey\` ${nonceKey}.` : "."}`, {
+      metaMessages: [
+        "Only a restricted (non-admin) actor without the `SCOPE_NONCE` bit is confined to nonce-free mode; admin (scope 0) and `SCOPE_NONCE` actors may use ordered nonces too.",
+        "Omit `nonceKey` to let the library select the default nonce mode automatically, or pass `...nonce.nonceless({ expiresIn })` for nonce-free."
+      ]
+    });
+    Object.defineProperty(this, "name", {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: "NonceScopeError"
+    });
+  }
+}
+
+class ScopeMismatchError extends BaseError2 {
+  constructor({ declared, onChain }) {
+    super(`Declared signing scope \`0x${declared.toString(16)}\` does not match on-chain actor scope \`0x${onChain.toString(16)}\`.`, {
+      metaMessages: [
+        "Omit `scope` on the account handle and let prepare read `getActorConfig` — the chain is authoritative for nonce-mode selection.",
+        "If you pass `scope`, it must equal the authorized on-chain value."
+      ]
+    });
+    Object.defineProperty(this, "name", {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: "ScopeMismatchError"
+    });
+  }
+}
+
+class TransactionExpiredError extends BaseError2 {
+  constructor({ hash: hash3, expiry, blockTimestamp }) {
+    super(`Transaction \`${hash3}\` expired before landing: \`expiry\` ${expiry} passed (latest block timestamp ${blockTimestamp}).`, {
+      metaMessages: [
+        "Nonce-free (expiring) transactions are only valid until their `expiry`; once the block timestamp passes it the tx is dropped and can never be mined.",
+        "Resubmit with a fresh `expiry` (e.g. `nonce.nonceless({ expiresIn })`)."
+      ]
+    });
+    Object.defineProperty(this, "name", {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: "TransactionExpiredError"
+    });
+  }
+}
+
+class ActorNotBoundError extends BaseError2 {
+  constructor({ account, actorId }) {
+    super(`Signing actor \`${actorId}\` is not bound on account \`${account}\`.`, {
+      metaMessages: [
+        "Check actorId derivation (`key.k1` / `key.p256` / …) and that authorize used the same actorId + authenticator.",
+        "If the public RPC shows the actor bound but broadcast still fails, that is builder lag — not this error."
+      ]
+    });
+    Object.defineProperty(this, "name", {
+      enumerable: true,
+      configurable: true,
+      writable: true,
+      value: "ActorNotBoundError"
+    });
+  }
+}
+
 // ../viem/src/_esm/experimental/eip8130/actions/waitForTransactionReceipt8130.js
 async function waitForTransactionReceipt8130(client, parameters) {
   const { hash: hash3, pollingInterval = 500, timeout = 60000 } = parameters;
   const deadline = Date.now() + timeout;
+  const suppliedExpiry = parameters.expiry !== undefined && BigInt(parameters.expiry) > 0n;
+  let expiry = suppliedExpiry ? BigInt(parameters.expiry) : undefined;
   while (Date.now() < deadline) {
     const receipt = await getTransactionReceipt8130(client, { hash: hash3 });
     if (receipt !== null)
       return receipt;
+    if (expiry === undefined) {
+      try {
+        const tx = await getTransaction8130(client, { hash: hash3 });
+        if (tx.expiry > 0)
+          expiry = BigInt(tx.expiry);
+      } catch {}
+    }
+    if (expiry !== undefined) {
+      const blockTimestamp = await getLatestBlockTimestamp(client);
+      if (blockTimestamp !== undefined && blockTimestamp > expiry)
+        throw new TransactionExpiredError({ hash: hash3, expiry, blockTimestamp });
+    }
     await new Promise((resolve) => setTimeout(resolve, pollingInterval));
   }
   throw new Error(`waitForTransactionReceipt8130: timed out after ${timeout}ms waiting for ${hash3}`);
+}
+async function getLatestBlockTimestamp(client) {
+  try {
+    const block = await client.request({ method: "eth_getBlockByNumber", params: ["latest", false] });
+    return block?.timestamp ? BigInt(block.timestamp) : undefined;
+  } catch {
+    return;
+  }
 }
 // ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
 init_base();
@@ -22646,11 +22773,44 @@ function encodeWalletCalls(parameters) {
 }
 
 // ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
+async function resolveSigningScope(client, account) {
+  const { actorId, scope: declared } = account;
+  if (!actorId)
+    return declared;
+  const accountConfiguration = account.accountConfigAddress;
+  const bound = await isActor8130(client, {
+    account: account.address,
+    actorId,
+    ...accountConfiguration ? { accountConfiguration } : {}
+  });
+  if (!bound)
+    return declared;
+  const { scope: onChain } = await getActorConfig8130(client, {
+    account: account.address,
+    actorId,
+    ...accountConfiguration ? { accountConfiguration } : {}
+  });
+  if (declared !== undefined && declared !== onChain)
+    throw new ScopeMismatchError({ declared, onChain });
+  return onChain;
+}
 async function prepareTransaction8130(client, parameters) {
-  const { account, calls, accountChanges, payer, gas, expiry, nonceKey = 0n } = parameters;
+  const { account, calls, accountChanges, payer, gas } = parameters;
   const chainId = client.chain?.id;
   if (!chainId)
     throw new BaseError2("`client` must be configured with a `chain`.");
+  const dataSuffix = parameters.dataSuffix ?? (typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value);
+  const scope = await resolveSigningScope(client, account);
+  const noncelessOnly = scope !== undefined && isNoncelessOnly(scope);
+  let nonceKey = parameters.nonceKey;
+  if (noncelessOnly) {
+    if (nonceKey !== undefined && nonceKey !== nonceKeyMax)
+      throw new NonceScopeError({ scope, nonceKey });
+    nonceKey = nonceKeyMax;
+  } else {
+    nonceKey ??= 0n;
+  }
+  let expiry = parameters.expiry;
   let { maxFeePerGas, maxPriorityFeePerGas } = parameters;
   if (maxFeePerGas === undefined || maxPriorityFeePerGas === undefined) {
     const fees = await getAction(client, estimateFeesPerGas, "estimateFeesPerGas")({ chain: client.chain });
@@ -22660,7 +22820,7 @@ async function prepareTransaction8130(client, parameters) {
   let nonceSequence = parameters.nonceSequence;
   if (nonceKey === nonceKeyMax) {
     if (!expiry || expiry === 0n)
-      throw new BaseError2("`expiry` is required for nonce-free transactions (`nonceKey` = `NONCE_KEY_MAX`). Build the nonce with `nonce.nonceless({ expiresIn })`.");
+      expiry = BigInt(Math.floor(Date.now() / 1000)) + nonceFreeMaxExpiryWindow;
     nonceSequence ??= 0n;
   } else if (nonceSequence === undefined) {
     nonceSequence = await getAction(client, getTransactionCount8130, "getTransactionCount8130")({ address: account.address, nonceKey });
@@ -22676,6 +22836,7 @@ async function prepareTransaction8130(client, parameters) {
     expiry,
     accountChanges,
     calls,
+    ...dataSuffix ? { metadata: dataSuffix } : {},
     payer: payer?.address ?? payer?.account.address
   };
 }
@@ -22687,7 +22848,7 @@ function toPhases(calls) {
   return [calls];
 }
 async function sendCalls8130(client, parameters) {
-  const { account, calls, payer, encodeExecute, ...rest } = parameters;
+  const { account, calls, payer, encodeExecute, onTransaction, ...rest } = parameters;
   const transaction = await prepareTransaction8130(client, {
     ...rest,
     account,
@@ -22698,6 +22859,7 @@ async function sendCalls8130(client, parameters) {
     }),
     payer
   });
+  onTransaction?.(transaction);
   const serializedTransaction = await account.signTransaction(transaction, {
     payer
   });
@@ -22798,6 +22960,13 @@ var nonce = {
     if (resolvedExpiry === undefined || resolvedExpiry <= 0n)
       throw new BaseError2("Nonce-free mode requires a non-zero `expiry` (or `expiresIn`).");
     return { nonceKey: nonceKeyMax, nonceSequence: 0n, expiry: resolvedExpiry };
+  },
+  forScope(scope, parameters = {}) {
+    if (isNoncelessOnly(scope))
+      return nonce.nonceless(parameters.expiry !== undefined ? { expiry: parameters.expiry } : {
+        expiresIn: parameters.expiresIn ?? Number(nonceFreeMaxExpiryWindow)
+      });
+    return nonce.channel(parameters.key ?? 0n);
   }
 };
 // ../viem/src/_esm/experimental/eip8130/utils/parseTransaction.js
@@ -23244,7 +23413,7 @@ function parsePayerError(error) {
 
 // ../viem/src/_esm/experimental/eip8168/actions/sendSponsoredCalls.js
 async function sendSponsoredCalls(client, parameters) {
-  const { account, payerClient, calls, mode = "send", token, context, retries = 2, confirmRetry } = parameters;
+  const { account, payerClient, calls, accountChanges, mode = "send", token, context, retries = 2, confirmRetry, onTransaction } = parameters;
   const chainId = client.chain?.id;
   if (!chainId)
     throw new BaseError2("`client` must be configured with a `chain`.");
@@ -23266,15 +23435,19 @@ async function sendSponsoredCalls(client, parameters) {
   const maxFeePerGas = parameters.maxFeePerGas ?? (gasEstimate ? hexToBigInt(gasEstimate.maxFeePerGas) : undefined);
   const maxPriorityFeePerGas = parameters.maxPriorityFeePerGas ?? (gasEstimate ? hexToBigInt(gasEstimate.maxPriorityFeePerGas) : undefined);
   const maxGasLimit = option.conditions?.maxGasLimit ? hexToBigInt(option.conditions.maxGasLimit) : undefined;
+  const noncelessOnly = account.scope !== undefined && isNoncelessOnly(account.scope);
   const computeExpiry = () => {
     if (parameters.expiry !== undefined)
       return parameters.expiry;
+    if (noncelessOnly)
+      return BigInt(Math.floor(Date.now() / 1000)) + nonceFreeMaxExpiryWindow;
     const maxExpiry = option.conditions?.maxExpiry;
     return maxExpiry !== undefined ? BigInt(Math.floor(Date.now() / 1000)) + BigInt(maxExpiry) : 0n;
   };
   const transaction = await prepareTransaction8130(client, {
     account,
     calls: built.calls,
+    accountChanges,
     gas: initialGas,
     maxFeePerGas,
     maxPriorityFeePerGas,
@@ -23290,6 +23463,7 @@ async function sendSponsoredCalls(client, parameters) {
     transaction.gas = gas;
     transaction.expiry = computeExpiry();
     transaction.payerAuth = "0x";
+    onTransaction?.(transaction);
     const signedTransaction = await account.signTransaction(transaction);
     try {
       if (mode === "sign")
@@ -23444,6 +23618,7 @@ export {
   isTokenOffer,
   isSponsoredOffer,
   isSelectableOffer,
+  isNoncelessOnly,
   isLocked8130,
   isDeclinedOffer,
   isActor8130,
@@ -23505,6 +23680,7 @@ export {
   canonicalEip8130Deployment,
   canonicalAuthenticators,
   canonicalAuthDataLength,
+  canUseSequencedNonce,
   buildSponsoredCalls,
   baseSepoliaDeployment,
   authorizeActor,
@@ -23522,5 +23698,9 @@ export {
   accountChangeType,
   aaTransactionType,
   aaPayerType,
-  aaBaseCost
+  aaBaseCost,
+  TransactionExpiredError,
+  ScopeMismatchError,
+  NonceScopeError,
+  ActorNotBoundError
 };

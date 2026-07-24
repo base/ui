@@ -208,6 +208,70 @@ export function getConfigSequence8130(
   },
 ): Promise<{ local: bigint; multichain: bigint }>
 
+// --- EIP-8130 account locking (elevated per-account rate limits) -----------
+
+/** Lock-change op for {@link hashLockChange8130} / {@link lockCall}. */
+export type LockChangeOp = 'lock' | 'unlock'
+
+/**
+ * Digest an account's admin (`scope == 0`) actor signs to lock/unlock the
+ * account. Sign it in `authenticator || data` form and pass the blob as `auth`
+ * to {@link lockCall}. Binds `chainId` and the account's local change sequence
+ * (from {@link getConfigSequence8130}).
+ */
+export function hashLockChange8130(parameters: {
+  account: Address
+  chainId: number
+  op: LockChangeOp
+  unlockDelay: number
+  sequence: number
+}): Hex
+
+/**
+ * Builds the account call that hard-locks the account
+ * (`AccountConfiguration.applySignedLockChanges(account, LOCK_OP, unlockDelay, auth)`).
+ */
+export function lockCall(parameters: {
+  account: Address
+  unlockDelay: number
+  auth: Hex
+  accountConfiguration?: Address
+}): AaCall
+
+/** Reads whether an EIP-8130 account is currently locked. */
+export function isLocked8130(
+  client: Client,
+  parameters: { account: Address; accountConfiguration?: Address },
+): Promise<boolean>
+
+/** Reads the full lock status of an EIP-8130 account. */
+export function getLockStatus8130(
+  client: Client,
+  parameters: { account: Address; accountConfiguration?: Address },
+): Promise<{
+  locked: boolean
+  hasInitiatedUnlock: boolean
+  unlocksAt: number
+  unlockDelay: number
+}>
+
+/** Live SessionPolicy spend for one token limit (getCurrentSpend). */
+export function getSessionSpend8130(
+  client: Client,
+  parameters: {
+    commitment: Hex
+    tokenLimit: SessionPolicyTokenLimit
+    sessionPolicy?: Address
+  },
+): Promise<{
+  allowance: bigint
+  period: number
+  spent: bigint
+  remaining: bigint
+  periodStart: number | bigint
+  periodEnd: number | bigint
+}>
+
 /** Read the EIP-8130 nonce via `eth_getTransactionCount` (2D channel-nonce). */
 export function getTransactionCount8130(
   client: Client,
@@ -224,10 +288,10 @@ export function getTransactionCount8130(
  *
  * The node prices authentication gas from the auth blob's *shape*, never a
  * real signature. Provide at most one of, in priority order:
- * `senderAuth` (raw blob, priced verbatim) > `senderAuthVerifier` (+ optional
- * `senderAuthSize`, synthesizes `verifier || filler`) > nothing (node
+ * `senderAuth` (raw blob, priced verbatim) > `senderAuthAuthenticator`
+ * (+ optional `senderAuthSize`, synthesizes `authenticator || filler`) > nothing (node
  * default: configured k1 stub if `sender`/`from` names a configured account,
- * else the default-EOA bare k1 stub). Same for `payerAuth`/`payerAuthVerifier`.
+ * else the default-EOA bare k1 stub). Same for payer authentication.
  */
 export function estimateGas8130(
   client: Client,
@@ -246,26 +310,27 @@ export function estimateGas8130(
     nonceKey?: bigint
     nonceSequence?: number
     // Sender authentication
-    /** Raw `senderAuth` blob, priced verbatim. Takes priority over `senderAuthVerifier`. */
+    /** Raw `senderAuth` blob, priced verbatim. Takes priority over `senderAuthAuthenticator`. */
     senderAuth?: Hex
-    /** Verifier (authenticator) address hint; see `canonicalAuthenticators`. */
-    senderAuthVerifier?: Address
+    /** Authenticator address hint; see `canonicalAuthenticators`. */
+    senderAuthAuthenticator?: Address
     /** Overrides the verifier's default auth-payload length, or (alone) prices a bare filler blob of this length. */
     senderAuthSize?: number
     /**
      * Acting actor id. Names the actor the node resolves for simulation so
-     * policy-gated session keys (and owner bundles that install a policy) price
+     * policy-gated session keys and owner authorization bundles price
      * correctly instead of falling back to the account's self actor.
      */
     senderActorId?: Hex
     // Common
     payer?: Address
-    /** Raw `payerAuth` blob, priced verbatim. Takes priority over `payerAuthVerifier`. */
+    /** Raw `payerAuth` blob, priced verbatim. Takes priority over `payerAuthAuthenticator`. */
     payerAuth?: Hex
-    /** Payer verifier address hint. See `senderAuthVerifier`. */
-    payerAuthVerifier?: Address
+    /** Payer authenticator address hint. */
+    payerAuthAuthenticator?: Address
     /** Payer auth-payload byte length override. See `senderAuthSize`. */
     payerAuthSize?: number
+    dataSuffix?: Hex
     blockNumber?: bigint
     blockTag?: string
   },
@@ -345,8 +410,7 @@ export type SessionPolicy = {
   binding: PolicyBinding
   commitment: Hex
   actorPolicy: Policy
-  installCall(actorId: Hex): AaCall
-  executeCall(executionData: Hex): AaCall
+  executeCall(executionData: Hex | SessionPolicyAction): AaCall
 }
 export function commitmentOf(binding: PolicyBinding): Hex
 export function defineSessionPolicy(parameters: {
@@ -448,8 +512,9 @@ export type NewSmartAccount8130ReturnType = To8130AccountReturnType & {
  * Supports K1 (secp256k1), P-256, and WebAuthn signers (detected automatically).
  */
 export function newSmartAccount8130(parameters: {
-  signer: Signer & { publicKey?: { x: Hex; y: Hex } }
+  signer: Signer & { publicKey?: Hex | { x: Hex; y: Hex } }
   salt?: Hex
+  upgradeable?: boolean
   implementation?: Address
   code?: Hex
   extraActors?: readonly AaActor[]
@@ -563,6 +628,8 @@ export function sendCalls8130(
     gas: bigint
     nonceKey?: bigint
     nonceSequence?: bigint
+    expiry?: bigint
+    dataSuffix?: Hex
     maxFeePerGas?: bigint
     maxPriorityFeePerGas?: bigint
   },
@@ -586,10 +653,10 @@ export function toSmartAccount8130(parameters: {
 export type Eip8130Deployment = {
   accountConfiguration: Address
   accounts: {
-    upgradeable: Address
+    upgradeable?: Address
     default: Address
     defaultHighRate: Address
-    erc4337: Address
+    erc4337?: Address
   }
   authenticators: {
     k1: Address
@@ -602,6 +669,9 @@ export type Eip8130Deployment = {
     manager: Address
     sessionPolicy: Address
   }
+}
+export const canonicalEip8130Deployment: Eip8130Deployment & {
+  policies: { manager: Address; sessionPolicy: Address }
 }
 export const baseSepoliaDeployment: Eip8130Deployment & {
   policies: { manager: Address; sessionPolicy: Address }

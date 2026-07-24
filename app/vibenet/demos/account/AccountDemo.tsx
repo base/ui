@@ -321,7 +321,7 @@ type SignedOwnerChange = {
 class TxPendingError extends Error {
   readonly txHash: Hex;
   constructor(hash: Hex) {
-    super(`Transaction is pending — not yet included (${short(hash, 10, 8)}).`);
+    super(`Transaction is pending — not yet included (${hash}).`);
     this.txHash = hash;
   }
 }
@@ -686,7 +686,6 @@ export function AccountDemo() {
   type PendingChangeItem = {
     change: AaAccountChange;
     sequence: number;
-    installCall?: { to: Address; value: bigint; data: Hex };
     sessionId?: string;
     resultingOwners?: StoredActor[];
   };
@@ -704,11 +703,10 @@ export function AccountDemo() {
         items.push({
           change: sk.pendingAuth.change,
           sequence: sk.pendingAuth.sequence,
-          installCall: sk.pendingAuth.installCall,
           sessionId: sk.id,
         });
       // A staged revoke is a local-counter change too — carry it like an
-      // authorization (no install) so it rides a session send / apply-all.
+      // authorization so it rides a session send / apply-all.
       if (sk.pendingRevoke)
         items.push({
           change: sk.pendingRevoke.change,
@@ -1246,11 +1244,11 @@ export function AccountDemo() {
         timeout: 30_000,
       });
       if (receipt.status === '0x0')
-        throw new Error(`Transaction reverted onchain (${short(txHash, 10, 8)}).`);
+        throw new Error(`Transaction reverted onchain (${txHash}).`);
       const phases = receipt.eip8130?.phaseStatuses ?? [];
       const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
       if (failedPhase !== -1)
-        throw new Error(`Phase ${failedPhase} reverted (tx ${short(txHash, 10, 8)}).`);
+        throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
     } catch (err) {
       if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
       throw err;
@@ -1287,9 +1285,10 @@ export function AccountDemo() {
 
   // Compose + sign a native EIP-8130 transaction: first-use deploy change,
   // any pre-signed owner/session config changes (carried in sequence order),
-  // phase-0 installs / payer pre-calls, and the user calls (wrapped through the
-  // PolicyManager when a session key signs). Returns the signed tx + the config
-  // sequence it advances to.
+  // optional payer pre-calls, and the user calls (wrapped through the
+  // PolicyManager when a session key signs — every execute carries the full
+  // committed binding, so there is no separate install phase). Returns the
+  // signed tx + the config sequence it advances to.
   const signComposed = async (
     a: StoredAccount,
     signerWS: WalletSigner,
@@ -1298,7 +1297,6 @@ export function AccountDemo() {
     changeSeq: number | null,
     meta: Hex | undefined,
     sessionPolicy?: AppPolicy,
-    installCalls?: { to: Address; value: bigint; data: Hex }[],
     payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[] },
   ): Promise<{ serialized: Hex; nextSeq: number }> => {
     const signer = await buildSigner(signerWS);
@@ -1337,7 +1335,6 @@ export function AccountDemo() {
       /* RPC unavailable — keep the stored flag */
     }
     if (!effectivelyDeployed) accountChanges.push(firstDeployChange(a, account));
-    const installs = installCalls ?? [];
     if (presignedChanges.length > 0) {
       nextSeq = changeSeq ?? a.configSeq;
       accountChanges.push(...presignedChanges);
@@ -1347,9 +1344,9 @@ export function AccountDemo() {
     const phases: { to: Address; value?: bigint; data?: Hex }[][] = [];
     if (sessionPolicy) {
       // A gated session key may only reach the PolicyManager, so wrap every user
-      // call as `PolicyManager.execute`. On first use the install runs in phase 0
-      // (before any execute), plus any payer USDV payment (also wrapped).
-      const sessionPhase0: { to: Address; value?: bigint; data?: Hex }[] = [...installs];
+      // call as `PolicyManager.execute` (each execute carries the full committed
+      // binding — no install phase). Any payer USDV payment is also wrapped.
+      const sessionPhase0: { to: Address; value?: bigint; data?: Hex }[] = [];
       if (payerOpt?.phase0 && payerOpt.phase0.length > 0)
         sessionPhase0.push(
           ...wrapSessionCalls(
@@ -1361,19 +1358,17 @@ export function AccountDemo() {
       if (sessionPhase0.length > 0) phases.push(sessionPhase0);
       phases.push(wrapSessionCalls([...userPhase0, ...userPhase1], sessionPolicy, account.address));
     } else {
-      // [installs?, payerPreCalls?, userPhase0?, userPhase1]
-      if (installs.length > 0) phases.push(installs);
+      // [payerPreCalls?, userPhase0?, userPhase1]
       if (payerOpt?.phase0 && payerOpt.phase0.length > 0)
         phases.push(payerOpt.phase0.map((c) => ({ to: c.to, value: 0n, data: c.data })));
       if (userPhase0.length > 0) phases.push(userPhase0);
       phases.push(userPhase1);
     }
 
-    // Structural gas-floor accounting: installs + wrapped session calls are
-    // "heavy" (PolicyManager frames + first-use SSTOREs); everything else plain.
+    // Structural gas-floor accounting: wrapped session calls are "heavy"
+    // (PolicyManager frames + first-use SSTOREs); everything else plain.
     const totalCalls = phases.reduce((n, p) => n + p.length, 0);
-    const heavyCallCount =
-      installs.length + (sessionPolicy ? userPhase0.length + userPhase1.length : 0);
+    const heavyCallCount = sessionPolicy ? userPhase0.length + userPhase1.length : 0;
     const plainCallCount = Math.max(totalCalls - heavyCallCount, 1);
     const wire = encodeWalletCalls({ account: account.address, calls: phases });
 
@@ -1387,10 +1382,11 @@ export function AccountDemo() {
       nonceSequence = effectivelyDeployed ? 1n : 0n;
     }
 
-    // Verifier hint so estimateGas8130 shapes the senderAuth stub for the actual
-    // signer. A delegate-signed sub-account acts via the parent's delegate actor,
-    // whose senderAuth is the longer delegate blob — hint the delegate verifier.
-    const senderAuthVerifier: Address = isDelegateSub
+    // Authenticator hint so estimateGas8130 shapes the senderAuth stub for the
+    // actual signer. A delegate-signed sub-account acts via the parent's delegate
+    // actor, whose senderAuth is the longer delegate blob — hint the delegate
+    // authenticator.
+    const senderAuthAuthenticator: Address = isDelegateSub
       ? canonicalAuthenticators.delegate
       : signerWS.kind === 'p256'
         ? canonicalAuthenticators.p256
@@ -1429,7 +1425,7 @@ export function AccountDemo() {
           accountChanges,
           calls: phases,
           nonceSequence: Number(nonceSequence),
-          senderAuthVerifier,
+          senderAuthAuthenticator,
           // The delegate authenticator has no fixed default auth-payload length,
           // so hand the estimator the exact senderAuth size (delegate blob).
           ...(isDelegateSub ? { senderAuthSize: delegateAuthSize() } : {}),
@@ -1587,7 +1583,6 @@ export function AccountDemo() {
         hasOwner: bundle.some((i) => i.resultingOwners),
       };
       const presigned = bundle.map((i) => i.change);
-      const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
       const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
       const extra = sendExtraChanges();
       const { serialized, nextSeq } = await signComposed(
@@ -1598,7 +1593,6 @@ export function AccountDemo() {
         changeSeq,
         metadataHex,
         sessionPolicy,
-        installs,
         undefined,
       );
       let txHash: Hex;
@@ -1696,7 +1690,6 @@ export function AccountDemo() {
         hasOwner: bundle.some((i) => i.resultingOwners),
       };
       const presigned = bundle.map((i) => i.change);
-      const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
       const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
       const extra = sendExtraChanges();
       const { serialized, nextSeq } = await signComposed(
@@ -1707,7 +1700,6 @@ export function AccountDemo() {
         changeSeq,
         metadataHex,
         sessionPolicy,
-        installs,
         { address: option.payer, phase0 },
       );
       const cosigned = await payerClient.signTransaction({
@@ -1933,7 +1925,6 @@ export function AccountDemo() {
       return;
     }
     const presigned = bundle.map((i) => i.change);
-    const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
     const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : signedChange.sequence;
     const summary = signedChange.summary;
     setApplying(true);
@@ -1948,7 +1939,6 @@ export function AccountDemo() {
         changeSeq,
         undefined,
         undefined,
-        installs,
         undefined,
       );
       const txHash = await broadcast8130(serialized, setSubmitStatus);
@@ -2015,7 +2005,7 @@ export function AccountDemo() {
     setSkScopes((ss) => ss.map((s) => (s.id === id ? { ...s, all: true, selectors: [] } : s)));
 
   // Mint the owner-signed authorization for a session key. `defer` captures it
-  // without broadcasting — the key installs on its first transaction (or via
+  // without broadcasting — the key authorizes on its first transaction (or via
   // "Apply now"). Returns the stored key.
   const doAuthorizeSession = async (
     target: WalletSigner,
@@ -2027,10 +2017,11 @@ export function AccountDemo() {
       chainShort: string;
       // `true` (default): capture the owner-signed authorization and install on
       // the key's first use. `false`: sign an immediate authorize+install tx now
-      // (the caller broadcasts the returned `serialized`).
+      // (the caller broadcasts the returned `serialized`, then calls `commit()`
+      // to persist the key + `deployed` state ONLY once the tx has landed).
       defer?: boolean;
     },
-  ): Promise<AppSessionKey | null> => {
+  ): Promise<(AppSessionKey & { commit?: () => void }) | null> => {
     const defer = opts.defer ?? true;
     if (!acct || !activeSigner) return null;
     const skChain = resolveChain(opts.chainShort);
@@ -2057,14 +2048,17 @@ export function AccountDemo() {
       validUntil: expiry,
     });
     const actorPolicy = session.actorPolicy;
-    const call = session.installCall(target.actorId);
-    const installCall = { to: call.to, value: call.value ?? 0n, data: (call.data ?? '0x') as Hex };
     const policy: AppPolicy = {
       type: session.actorPolicy.type,
       label: opts.policyLabel,
       manager: session.manager,
       policy: session.policy,
       policyConfig,
+      // Persist the full binding so every later execute (see `sessionFor`)
+      // recomputes the same commitment the account authorized.
+      validAfter: session.binding.validAfter,
+      validUntil: session.binding.validUntil,
+      salt: session.binding.salt,
       commitment: session.commitment,
       params: summary,
       limits,
@@ -2117,7 +2111,7 @@ export function AccountDemo() {
     const configChange = await account.change(configChanges, { chainId, sequence: nextSeq });
     accountChanges.push(configChange);
 
-    // Defer: hold the owner-signed authorization on the key; it installs on the
+    // Defer: hold the owner-signed authorization on the key; it authorizes on the
     // key's first transaction (or via "Apply now"). Nothing is broadcast now.
     if (defer) {
       const deferredKey: AppSessionKey = {
@@ -2132,7 +2126,7 @@ export function AccountDemo() {
         chainId,
         policy,
         createdAt: Date.now(),
-        pendingAuth: { change: configChange, sequence: nextSeq, registeredManager, installCall },
+        pendingAuth: { change: configChange, sequence: nextSeq, registeredManager },
       };
       updateAccount(acct.id, (a) => ({ ...a, sessionKeys: [...a.sessionKeys, deferredKey] }));
       pushActivity({
@@ -2143,7 +2137,7 @@ export function AccountDemo() {
           `authorize ${opts.label}`,
           ...(registeredManager ? ['register manager as external caller'] : []),
           `policy: ${policy.label}`,
-          'installs on first use',
+          'authorizes on first use',
           expiry ? formatExpiry(expiry) : 'no expiry',
         ],
         network: skChain.name,
@@ -2153,9 +2147,9 @@ export function AccountDemo() {
       return deferredKey;
     }
 
-    // Immediate: sign the authorize + install tx now (owner-signed). The install
-    // runs as phase-0 call 0 before any use; the caller broadcasts `serialized`.
-    const wire = encodeWalletCalls({ account: account.address, calls: [[installCall]] });
+    // Immediate: sign the authorize tx now (owner-signed). There is no install
+    // call — the policy binding is committed entirely by the actor change; the
+    // caller broadcasts `serialized`.
     let nonceSeqSk: bigint;
     try {
       nonceSeqSk = await getTransactionCount8130(makeRpcClient(), {
@@ -2165,7 +2159,7 @@ export function AccountDemo() {
     } catch {
       nonceSeqSk = acct.deployed ? 1n : 0n;
     }
-    const skSenderAuthVerifier: Address =
+    const skSenderAuthAuthenticator: Address =
       activeSigner.kind === 'p256'
         ? canonicalAuthenticators.p256
         : activeSigner.kind === 'passkey'
@@ -2176,20 +2170,20 @@ export function AccountDemo() {
       try {
         const estimated = await estimateGas8130(makeRpcClient(), {
           sender: account.address as Address,
-          // Owner signs this authorize+install tx, so name the owner's actor for
-          // full node simulation (resolves the new actor's scope + policy install).
+          // Owner signs this authorize tx, so name the owner's actor for full
+          // node simulation (resolves the new actor's scope + policy binding).
           senderActorId: activeSigner.actorId,
           accountChanges,
-          calls: [[installCall]],
+          calls: [],
           nonceSequence: Number(nonceSeqSk),
-          senderAuthVerifier: skSenderAuthVerifier,
+          senderAuthAuthenticator: skSenderAuthAuthenticator,
         });
         skGas = safeGasLimit(
           estimated,
           estimateTxGas({
             mode: chain.mode,
             deploy: !acct.deployed,
-            calls: 1,
+            calls: 0,
             keyChanges: accountChanges.filter((c) => c.type === 'config').length,
           }),
         );
@@ -2200,7 +2194,7 @@ export function AccountDemo() {
     const serialized = await account.signTransaction({
       chainId,
       accountChanges,
-      calls: wire,
+      calls: [],
       metadata: toHex(`authorize:${opts.label}`),
       nonceKey: 0n,
       nonceSequence: nonceSeqSk,
@@ -2222,29 +2216,36 @@ export function AccountDemo() {
       createdAt: Date.now(),
       serialized,
     };
-    updateAccount(acct.id, (a) => ({
-      ...a,
-      deployed: true,
-      configSeq: nextSeq,
-      sessionKeys: [...a.sessionKeys, sk],
-    }));
-    pushActivity({
-      kind: 'session',
-      title: `Session key authorized · ${opts.label}`,
-      detail: scopeChips(scope).join(' · '),
-      changes: [
-        `authorize ${opts.label}`,
-        ...(registeredManager ? ['register manager as external caller'] : []),
-        `policy: ${policy.label}`,
-        `install ${short(policy.commitment, 6, 4)}`,
-        expiry ? formatExpiry(expiry) : 'no expiry',
-      ],
-      network: skChain.name,
-      mode: skChain.mode,
-      serialized,
-      account: acct.address,
-    });
-    return sk;
+    // Don't persist the key, flip `deployed`, or advance `configSeq` yet: the
+    // subscribed/"Deployed" UI is derived from this local state, so committing
+    // before the tx lands would leave the account looking subscribed/deployed
+    // even if the authorize+install reverts. The caller broadcasts `serialized`
+    // and calls `commit()` only after the tx has landed successfully.
+    const commit = () => {
+      updateAccount(acct.id, (a) => ({
+        ...a,
+        deployed: true,
+        configSeq: nextSeq,
+        sessionKeys: [...a.sessionKeys, sk],
+      }));
+      pushActivity({
+        kind: 'session',
+        title: `Session key authorized · ${opts.label}`,
+        detail: scopeChips(scope).join(' · '),
+        changes: [
+          `authorize ${opts.label}`,
+          ...(registeredManager ? ['register manager as external caller'] : []),
+          `policy: ${policy.label}`,
+          `binding ${short(policy.commitment, 6, 4)}`,
+          expiry ? formatExpiry(expiry) : 'no expiry',
+        ],
+        network: skChain.name,
+        mode: skChain.mode,
+        serialized,
+        account: acct.address,
+      });
+    };
+    return { ...sk, commit };
   };
 
   const registerSessionKey = async () => {
@@ -2301,7 +2302,6 @@ export function AccountDemo() {
       activeSigner;
     const bundle = pendingBundleFor({ mode: 'session-send', sessionId: sk.id });
     const presigned = bundle.map((i) => i.change);
-    const installs = bundle.flatMap((i) => (i.installCall ? [i.installCall] : []));
     const changeSeq = bundle.length
       ? bundle[bundle.length - 1].sequence
       : (sk.pendingAuth?.sequence ?? sk.pendingRevoke?.sequence ?? null);
@@ -2318,7 +2318,6 @@ export function AccountDemo() {
         changeSeq,
         undefined,
         undefined,
-        installs,
         undefined,
       );
       const txHash = await broadcast8130(serialized, setSubmitStatus);
@@ -2359,10 +2358,15 @@ export function AccountDemo() {
   // per-chain LOCAL counter, STAGED (not broadcast): it rides the next session-key
   // tx or an explicit "Apply now", and the key record is removed only once it
   // lands. The PolicyManager is intentionally never revoked (other keys share it).
-  const revokeSessionKey = async (id: string) => {
-    if (!acct) return;
+  // Returns how the revoke resolved so callers can react: `'discarded'` (removed
+  // locally, nothing to apply), `'staged'` (an on-chain revoke is now pending and
+  // must be applied), `'noop'` (already staged), or `'error'`.
+  const revokeSessionKey = async (
+    id: string,
+  ): Promise<'discarded' | 'staged' | 'noop' | 'error'> => {
+    if (!acct) return 'error';
     const sk = acct.sessionKeys.find((x) => x.id === id);
-    if (!sk) return;
+    if (!sk) return 'error';
 
     // Never-landed or undeployed → nothing on-chain to revoke; discard locally.
     if (sk.pendingAuth || !acct.deployed) {
@@ -2373,17 +2377,17 @@ export function AccountDemo() {
         detail: scopeChips(sk.scope).join(' · '),
         account: acct.address,
       });
-      return;
+      return 'discarded';
     }
 
     // Already staged — no-op (use "Apply now" to land it, or "Undo" to discard).
-    if (sk.pendingRevoke) return;
+    if (sk.pendingRevoke) return 'noop';
 
     const changeWS =
       ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
     if (!changeWS) {
       setError('Select an owner key to sign the revoke.');
-      return;
+      return 'error';
     }
     setSkRevokingId(id);
     setError('');
@@ -2413,11 +2417,26 @@ export function AccountDemo() {
         changes: [`revoke ${sk.label}`, 'manager kept', 'applies on next tx'],
         account: acct.address,
       });
+      return 'staged';
     } catch (err) {
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      return 'error';
     } finally {
       setSkRevokingId(null);
+    }
+  };
+
+  // Unsubscribe from a session-key app card. Revoking a landed key is a config
+  // change that must be signed AND applied on-chain, so once it's staged we open
+  // the account modal on the Session Keys tab — making the required "Apply now"
+  // step obvious rather than silently leaving a pending revoke. (A never-landed
+  // key is just discarded, so there's nothing to apply and no modal to open.)
+  const unsubscribeApp = async (sk: AppSessionKey) => {
+    const outcome = await revokeSessionKey(sk.id);
+    if (outcome === 'staged' || outcome === 'noop') {
+      setCfgTab('session');
+      setDetailsOpen(true);
     }
   };
 
@@ -2493,7 +2512,7 @@ export function AccountDemo() {
         registeredInBatch.add(managerLc);
       }
       const change = await account.change(configChanges, { chainId: skChainId, sequence: seq });
-      updates.set(sk.id, { change, sequence: seq, registeredManager, installCall: sk.pendingAuth.installCall });
+      updates.set(sk.id, { change, sequence: seq, registeredManager });
       offset++;
     }
     updateAccount(acct.id, (a) => ({
@@ -2691,12 +2710,18 @@ export function AccountDemo() {
     if (!acct || !activeSigner) return;
     setAppBusy(app.id);
     setError('');
+    // Track the freshly minted app key so we can discard it if the authorize tx
+    // never lands — `mintAppKey` persists the signer up front, and `commit()`
+    // (below) is what actually marks the account subscribed/deployed. Cleared
+    // only once the tx has landed and been committed.
+    let mintedKeyId: string | null = null;
     try {
       const target = mintAppKey(app.name);
       if (!target) {
         setError("Couldn't mint an app key — try again.");
         return;
       }
+      mintedKeyId = target.id;
       const expirySecs = EXPIRY_PRESETS.find((p) => p.id === app.expiryId)?.seconds ?? 0;
       const sk = await doAuthorizeSession(target, {
         expirySecs,
@@ -2707,13 +2732,20 @@ export function AccountDemo() {
         defer: false,
       });
       if (sk?.serialized) {
+        // broadcast8130 throws on an on-chain/phase revert or timeout, so we only
+        // reach commit() when the authorize+install actually landed.
         const txHash = await broadcast8130(sk.serialized, setSubmitStatus);
+        sk.commit?.();
+        mintedKeyId = null;
         setConfigTx({ hash: txHash, label: `Connected: ${app.name}` });
       }
     } catch (err) {
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
+      // Revert/timeout/dismiss (or a null sign result): drop the orphaned app key
+      // so the card stays on "Subscribe" and no stray signer lingers.
+      if (mintedKeyId) setSigners((prev) => prev.filter((s) => s.id !== mintedKeyId));
       setAppBusy(null);
       setSubmitStatus('');
     }
@@ -2739,10 +2771,11 @@ export function AccountDemo() {
     : VIBENET_EXPLORER_PATH;
 
   return (
-    <div className="relative -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-10 pb-4 text-black dark:text-white">
+    <div className="relative -mb-20 flex flex-1 flex-col gap-10 pb-4 text-black dark:text-white">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left column */}
         <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6">{renderAccount()}</div>
           <DemoKeys
             signers={signers}
             busy={busy}
@@ -2751,15 +2784,6 @@ export function AccountDemo() {
             createSigner={createSigner}
             renameSigner={renameSigner}
           />
-          <div className="flex flex-col gap-6">{renderAccount()}</div>
-          <div className="flex items-center gap-4 text-[12px]">
-            <a href={SPEC_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
-              Spec ↗
-            </a>
-            <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
-              Contracts ↗
-            </a>
-          </div>
         </div>
 
         {/* Right column */}
@@ -2778,6 +2802,15 @@ export function AccountDemo() {
             </motion.div>
           </AnimatePresence>
         </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-[12px]">
+        <a href={SPEC_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
+          Spec ↗
+        </a>
+        <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
+          Contracts ↗
+        </a>
       </div>
 
       {error && !estimateBlocked ? (
@@ -2860,9 +2893,12 @@ export function AccountDemo() {
         </p>
       ) : null}
 
-      {/* Activity — full main-panel width, sticky bottom */}
+      {/* Activity — full main-panel width, sticky bottom.
+          `mt-auto` pushes the bar to the bottom of the (full-height) flex column
+          so it rests at the true viewport bottom on short/zoomed-out pages, while
+          `sticky bottom-0` keeps it pinned once the content is tall enough to scroll. */}
       <div
-        className="activity-full-width sticky bottom-0 z-10"
+        className="activity-full-width sticky bottom-0 z-10 mt-auto"
       >
         <div className="border-t border-bds-gray-10 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/5">
           <button
@@ -3214,7 +3250,7 @@ export function AccountDemo() {
         subAccountFor={subAccountFor}
         connectSessionApp={connectSessionApp}
         connectVault={connectVault}
-        revokeSessionKey={revokeSessionKey}
+        unsubscribeApp={unsubscribeApp}
       />
     );
   }
@@ -3878,7 +3914,13 @@ function CreateAccountModal(props: CreateAccountModalProps) {
           <Button variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" size="sm" onClick={createAccount} disabled={!modalAddress}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={createAccount}
+            disabled={!modalAddress}
+            className="disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Create Account
           </Button>
         </>

@@ -6,7 +6,6 @@
 import {
   type Address,
   defineSessionPolicy,
-  encodeSessionPolicyAction,
   type encodeSessionPolicyConfig,
   type Hex,
   parseEther,
@@ -202,13 +201,21 @@ export async function buildSessionConfig(
   return { config: { tokenLimits, callScopes }, summary: summaryParts.join(' · '), limits };
 }
 
-/** Re-derive the viem SessionPolicy bundle for a stored AppPolicy. */
+/**
+ * Re-derive the viem SessionPolicy bundle for a stored AppPolicy. The binding
+ * fields (validAfter/validUntil/salt) MUST be re-passed: every `execute` carries
+ * the full committed binding, so an omitted field changes the recomputed
+ * commitment and the PolicyManager rejects the call.
+ */
 export function sessionFor(policy: AppPolicy, account: Address) {
   return defineSessionPolicy({
     account,
     policy: policy.policy,
     policyConfig: policy.policyConfig,
     manager: policy.manager,
+    validAfter: policy.validAfter,
+    validUntil: policy.validUntil,
+    salt: policy.salt,
   });
 }
 
@@ -220,9 +227,7 @@ export function wrapSessionCalls(
 ): { to: Address; value: bigint; data: Hex }[] {
   const session = sessionFor(policy, account);
   return calls.map((c) => {
-    const call = session.executeCall(
-      encodeSessionPolicyAction({ target: c.to, value: c.value, data: c.data }),
-    );
+    const call = session.executeCall({ target: c.to, value: c.value, data: c.data });
     return { to: call.to, value: call.value ?? 0n, data: (call.data ?? '0x') as Hex };
   });
 }
