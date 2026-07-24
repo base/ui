@@ -13,7 +13,7 @@ export const FEATURES: VibenetFeature[] = [
       'Built into the protocol. No bundler, no entrypoint. Powerful UX primitives in accounts that work on Base.',
     status: 'live',
     availability: 'Coming soon in ',
-    availabilityHref: '/upgrades/cobalt',
+    availabilityHref: '/upgrades/upgrade/cobalt',
     highlights: [
       { title: 'Authorize How You Want', detail: 'Support for secp256k1, P-256, and WebAuthn passkeys.' },
       { title: 'Portable Everywhere', detail: 'Same account and address on any EVM chain.' },

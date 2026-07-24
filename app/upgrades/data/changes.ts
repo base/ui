@@ -291,7 +291,7 @@ export const changes: Change[] = [
     upstreamUrl: eipUrl('8130'),
     ethereumFork: 'Not scheduled',
     title: 'Native Account Abstraction',
-    category: 'wallet',
+    category: 'accounts',
     upgrade: 'cobalt',
     summary:
       "<p class='pb-4'>EIP-8130 will bring Native Account Abstraction to Base and allow us to keep transactions opinionated and optimizable. Compared to the previous generation of Smart Accounts, we’ve been able to dramatically reduce the per transaction cost to end users by over 2x, while not compromising on our scaling goals. <br/><br/>Native Account Abstraction makes the following features native to the chain:</p><p class='mt-2 pb-4'><strong>Batch calls:</strong> Group multiple actions into a single transaction</p><p class='mt-2 pb-4'><strong>Sponsorship:</strong> Applications can pay for their users’ gas fees or allow them to pay in any token.</p><p class='mt-2 pb-4'><strong>Portability:</strong> Use the same account on any chain, even those that don’t support Native AA.</p><p class='mt-2 pb-4'><strong>Quantum Ready:</strong> Key rotation and multiple authentication schemes allow users to upgrade to post quantum authentication.</p><p class='mt-2 pb-4'><strong>High-throughput:</strong> Parallel nonces and large sender limits unlock high levels of concurrency.</p><p class='mt-2 pb-4'><strong>Session keys:</strong> Applications can act on your behalf with bounded and revocable permissions or create</p><p class='mt-2 pb-4'><strong>Sub-accounts:</strong> Fully isolated account owned by you and controllable by an application.</p><p class='mt-2'><strong>Metadata:</strong> Add memos and attributions to your transactions.</p>",

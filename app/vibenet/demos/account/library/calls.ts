@@ -32,7 +32,9 @@ export function isAddressStr(v: string): boolean {
 }
 
 export function rowToValid(r: CallRow): boolean {
-  if (r.to.trim() && !ADDR_RE.test(r.to.trim())) return false;
+  // A call must have a valid 20-byte "to" address — an empty destination leaves
+  // the send button disabled (mirrors the recipient requirement in the UI).
+  if (!ADDR_RE.test(r.to.trim())) return false;
   if (!HEX_RE.test(r.data.trim() || '0x')) return false;
   const v = r.value.trim();
   if (v && !/^\d*\.?\d*$/.test(v)) return false;

@@ -34,6 +34,8 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
   const upgrade = getUpgradeForChange(change);
   const lifecycle = getLifecycleForChange(change);
   const vibenetChange = getVibenetChangeById(change.id);
+  const vibenetDemo =
+    vibenetChange && vibenetChange.vibenet.status === 'live' ? vibenetChange.vibenet.demo : undefined;
   const relatedEips = changeRefs(change);
 
   const handleTabClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -155,6 +157,20 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             ) : null}
           </div>
           <aside className="space-y-4">
+            {vibenetDemo ? (
+              <LabeledCard label="Vibenet">
+                <Text variant="headline">Available for testing on Vibenet now.</Text>
+                <Button
+                  href={vibenetDemo}
+                  variant="secondary"
+                  size="sm"
+                  className="mt-4"
+                >
+                  Test Now
+                </Button>
+              </LabeledCard>
+            ) : null}
+
             <LabeledCard label="Lifecycle" labelSpacing={lifecycle ? 'mb-5' : 'mb-3'}>
               {lifecycle ? (
                 <div className="space-y-3">

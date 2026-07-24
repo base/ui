@@ -17,9 +17,6 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Home', href: '/', icon: 'home', enabled: true },
-  { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
-  { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
-  { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
   {
     label: 'Vibenet',
     href: '/vibenet',
@@ -32,6 +29,9 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'Explorer', href: '/vibenet/explorer', icon: 'explorer' },
     ],
   },
+  { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
+  { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
+  { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
 ];
 
 export function titleForPath(pathname: string): string {
