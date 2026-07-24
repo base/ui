@@ -14,9 +14,9 @@ type SurfaceCardProps = {
 
 const SURFACES: Surface[] = [
   {
-    label: 'Snapshots',
-    href: '/snapshots',
-    description: 'Download and configure Reth v2 snapshots to sync a Base node faster.',
+    label: 'Vibenet',
+    href: '/vibenet',
+    description: 'An ephemeral Base developer network for testing in-flight features.',
     enabled: true,
   },
   {
@@ -26,9 +26,9 @@ const SURFACES: Surface[] = [
     enabled: true,
   },
   {
-    label: 'Vibenet',
-    href: '/vibenet',
-    description: 'An ephemeral Base developer network for testing in-flight features.',
+    label: 'Snapshots',
+    href: '/snapshots',
+    description: 'Download and configure Reth v2 snapshots to sync a Base node faster.',
     enabled: true,
   },
 ];
