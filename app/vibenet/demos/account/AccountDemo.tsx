@@ -930,6 +930,10 @@ export function AccountDemo() {
     }
   };
 
+  // Generate a throwaway EVM address and copy it — a convenience for filling a
+  // recipient field when experimenting in the transaction modal.
+  const copyRandomAddress = () => copy(privateKeyToAccount(generatePrivateKey()).address, 'randaddr');
+
   const pushActivity = (e: Omit<Persisted['activity'][number], 'id' | 'ts'>) =>
     setActivity((prev) => [{ id: crypto.randomUUID(), ts: Date.now(), ...e }, ...prev]);
 
@@ -2985,7 +2989,13 @@ export function AccountDemo() {
             <Button variant="secondary" size="sm" onClick={() => { setReviewOpen(false); setError(''); }} disabled={signing}>
               Cancel
             </Button>
-            <Button variant="primary" size="sm" onClick={confirmSend} disabled={signing}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={confirmSend}
+              disabled={signing}
+              className="disabled:cursor-not-allowed disabled:opacity-50"
+            >
               {signing ? (submitStatus || 'Signing…') : error ? 'Retry' : 'Sign & Send'}
             </Button>
           </>
@@ -3291,7 +3301,12 @@ export function AccountDemo() {
                     : ' · first use deploys your account'
                   : ''}
               </span>
-              <Button size="sm" onClick={startSend} disabled={!callsValid || !txSigner || signing}>
+              <Button
+                size="sm"
+                onClick={startSend}
+                disabled={!callsValid || !txSigner || signing}
+                className="disabled:cursor-not-allowed disabled:opacity-50"
+              >
                 {submitStatus === 'submitting'
                   ? 'Submitting…'
                   : submitStatus === 'confirming'
@@ -3398,6 +3413,8 @@ export function AccountDemo() {
               setUsdvAmountDrafts={setUsdvAmountDrafts}
               callsValid={callsValid}
               addRow={addRow}
+              copyRandomAddress={copyRandomAddress}
+              randCopied={copied === 'randaddr'}
             />
           </div>
 
@@ -3459,6 +3476,8 @@ type CallsEditorProps = {
   setUsdvAmountDrafts: (fn: (d: Record<string, string>) => Record<string, string>) => void;
   callsValid: boolean;
   addRow: (partial?: Partial<CallRow>) => void;
+  copyRandomAddress: () => void;
+  randCopied: boolean;
 };
 
 const INPUT_CLS =
@@ -3479,6 +3498,8 @@ function CallsEditor(props: CallsEditorProps) {
     setUsdvAmountDrafts,
     callsValid,
     addRow,
+    copyRandomAddress,
+    randCopied,
   } = props;
 
   return (
@@ -3608,6 +3629,14 @@ function CallsEditor(props: CallsEditorProps) {
             </Button>
             <Button variant="secondary" size="sm" onClick={addUsdvRow}>
               Send USDV
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={copyRandomAddress}
+              title="Generate a random address and copy it to the clipboard"
+            >
+              {randCopied ? 'Copied ✓' : '⧉ Random address'}
             </Button>
           </div>
         </>

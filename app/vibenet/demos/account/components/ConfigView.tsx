@@ -635,13 +635,10 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
 
       <div>
         <Button variant="secondary" size="sm" onClick={() => {
-          if (!p.sessionAdding) {
-            const avail = p.signers.find((s) =>
-              !acct.owners.some((o) => o.actorId === s.actorId) &&
-              !acct.sessionKeys.some((sk) => sk.actorId === s.actorId)
-            );
-            if (avail) p.setSkSignerId(avail.id);
-          }
+          // Require an explicit signer choice: clear any prior/auto selection on
+          // open so "Sign Authorization" stays disabled (via `!skSignerId`) until
+          // the user picks which signer to authorize as a session key.
+          if (!p.sessionAdding) p.setSkSignerId('');
           p.setSessionAdding(!p.sessionAdding);
         }}>
           {p.sessionAdding ? 'Cancel' : 'Add Session Key'}
@@ -853,6 +850,7 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
           size="sm"
           onClick={p.registerSessionKey}
           disabled={p.skBusy || !p.skSignerId || p.formPolicyEmpty}
+          className="disabled:cursor-not-allowed disabled:opacity-50"
         >
           {p.skBusy ? 'Signing Authorization…' : 'Sign Authorization'}
         </Button>
