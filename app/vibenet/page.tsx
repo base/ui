@@ -16,7 +16,15 @@ import { FEATURES, featuresFromConfig } from './data/features';
 import type { ConfigResponse } from './library/api-types';
 import { vibenetApi } from './library/client';
 import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from './library/config';
-import { addEthereumChain, getEthereum, walletErrorMessage } from './library/wallet';
+import {
+  addEthereumChain,
+  getChainId,
+  getEthereum,
+  isUnrecognizedChain,
+  isUserRejection,
+  switchEthereumChain,
+  walletErrorMessage,
+} from './library/wallet';
 
 export default function VibenetHomePage() {
   const [config, setConfig] = useState<Partial<ConfigResponse>>({});
@@ -58,15 +66,37 @@ export default function VibenetHomePage() {
         setWalletStatus('No browser wallet detected on this page.');
         return;
       }
+      const target = Number(chainId);
+      // Already on vibenet — nothing to do, and no prompt to dismiss.
+      if ((await getChainId(eth)) === target) {
+        setWalletStatus('Already connected to base vibenet.');
+        return;
+      }
       try {
-        await addEthereumChain(eth, {
-          chainId: Number(chainId),
-          chainName: config.title ?? 'base vibenet',
-          rpcUrl: VIBENET_RPC_URL,
-          explorerUrl: `${window.location.origin}${VIBENET_EXPLORER_PATH}`,
-        });
-        setWalletStatus('Network added. Your wallet should now be on base vibenet.');
+        // Prefer switching (works when the chain is already added); only add it
+        // when the wallet reports it's unrecognized (EIP-3326 4902).
+        try {
+          await switchEthereumChain(eth, target);
+          setWalletStatus('Switched to base vibenet.');
+        } catch (err) {
+          if (isUserRejection(err)) {
+            setWalletStatus('Request dismissed — no changes made.');
+            return;
+          }
+          if (!isUnrecognizedChain(err)) throw err;
+          await addEthereumChain(eth, {
+            chainId: target,
+            chainName: config.title ?? 'base vibenet',
+            rpcUrl: VIBENET_RPC_URL,
+            explorerUrl: `${window.location.origin}${VIBENET_EXPLORER_PATH}`,
+          });
+          setWalletStatus('Network added. Your wallet should now be on base vibenet.');
+        }
       } catch (err) {
+        if (isUserRejection(err)) {
+          setWalletStatus('Request dismissed — no changes made.');
+          return;
+        }
         setWalletStatus(`Wallet did not add the network: ${walletErrorMessage(err)}`);
       }
     }
