@@ -99,6 +99,7 @@ import {
   safeGasLimit,
   tryDecodeUsdvTransfer,
   USDV_DECIMALS,
+  valueBearingCallCount,
 } from './library/calls';
 import {
   type AccountType,
@@ -775,8 +776,9 @@ export function AccountDemo() {
       deploy: !acct.deployed,
       calls: calls.length,
       keyChanges: keyChangeCount,
+      valueCalls: valueBearingCallCount(calls),
     });
-  }, [acct, chain.mode, calls.length, keyChangeCount]);
+  }, [acct, chain.mode, calls, keyChangeCount]);
 
   // Re-sync owner draft + stale results when the active account changes.
   useEffect(() => {
@@ -1421,6 +1423,9 @@ export function AccountDemo() {
         calls: plainCallCount,
         keyChanges: accountChanges.filter((c) => c.type === 'config').length,
         policyCalls: heavyCallCount,
+        // Value-bearing user calls carry the stipend + cold-account cost the node
+        // estimate misses (policy-wrapped sends still forward the ETH value).
+        valueCalls: valueBearingCallCount(rows),
         fallback,
       });
     let gasLimit: bigint;

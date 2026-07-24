@@ -64,6 +64,28 @@ export function buildCalls(rows: CallRow[], fallback: Address) {
   return rows.map((r) => rowToCall(r, fallback));
 }
 
+/**
+ * Count call rows that transfer a non-zero native ETH value. Each such inner
+ * CALL needs the ~9k value-transfer surcharge (G_callvalue) and, for a
+ * not-yet-existent recipient, the ~25k new-account creation cost (G_newaccount)
+ * — gas the node's EIP-8130 `eth_estimateGas`
+ * omits (a phase whose inner CALL OOGs is still a valid inclusion, so the
+ * estimator converges below what the transfer actually needs to SUCCEED). The
+ * structural floor budgets these via `estimateTxGas`'s `valueCalls`. Rows whose
+ * value is empty, zero, or unparseable count as non-value-bearing.
+ */
+export function valueBearingCallCount(rows: CallRow[]): number {
+  return rows.reduce((n, r) => {
+    const v = r.value.trim();
+    if (!v) return n;
+    try {
+      return parseEther(v) > 0n ? n + 1 : n;
+    } catch {
+      return n;
+    }
+  }, 0);
+}
+
 // --- USDV (ERC-20 transfer) helpers -----------------------------------------
 
 export const ERC20_TRANSFER_SELECTOR = '0xa9059cbb';
