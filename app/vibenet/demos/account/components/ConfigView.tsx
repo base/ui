@@ -873,7 +873,7 @@ function SubAccountsTab({ p }: { p: ConfigViewProps }) {
         <div className="flex flex-col gap-3">
           {acct.subAccounts.map((sa) => (
             <div key={sa.id} className="flex items-center gap-3 rounded-lg border border-bds-gray-10 p-3 dark:border-white/10">
-              <AccountIdentity label={sa.label} address={sa.address} variant="spending" />
+              <AccountIdentity label={sa.label} address={sa.address} variant="spending" className="min-w-0 flex-1" />
               <Badge>delegate → {short(sa.delegateTo, 6, 4)}</Badge>
             </div>
           ))}

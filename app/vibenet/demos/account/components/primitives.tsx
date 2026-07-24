@@ -104,8 +104,8 @@ export function AccountIdentity({
       {!hideAvatar && <AccountAvatar variant={variant} />}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {label ? (
-          <span className="flex items-center gap-2">
-            <Text as="span" variant="label.medium" className="truncate">{label}</Text>
+          <span className="flex min-w-0 items-center gap-2">
+            <Text as="span" variant="label.medium" className="min-w-0 truncate">{label}</Text>
             {badges}
           </span>
         ) : null}
