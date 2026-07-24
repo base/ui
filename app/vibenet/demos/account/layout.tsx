@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 // The account demo page is a client component; this passthrough layout carries
-// its title/description. The nested /build route sets its own metadata.
+// its title/description.
 export const metadata: Metadata = {
   title: 'EIP-8130 · Vibenet',
   description:
