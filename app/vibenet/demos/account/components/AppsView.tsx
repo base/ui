@@ -37,7 +37,7 @@ export function AppsView(p: AppsViewProps) {
   return (
     <Card className="flex flex-col gap-4 bg-white p-5 dark:bg-white/5">
       <Text variant="headline">Apps</Text>
-      <Text variant="label.regular" tone="muted" className="-mt-2">
+      <Text variant="label.regular" tone="muted" className="-mt-2" style={{ overflowWrap: 'break-word' }}>
         Connect apps to {acct.label} via scoped grants you can revoke anytime.
       </Text>
 
