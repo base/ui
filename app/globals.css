@@ -312,14 +312,15 @@ button {
 .animate-slide-down { animation: slide-down-fade 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 
 /* Detail page entrance */
+/* Transform only, deliberately no opacity: these entrances play as the previous page
+   or its loading skeleton is removed, so fading up from transparent left the content
+   column blank for the first ~65ms of every navigation. Sliding into place reads as an
+   entrance without ever painting nothing. */
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(8px); }
+  to { transform: translateY(0); }
 }
 
-/* Entrance for content that paints over nothing. Routes that hand off from a
-   loading.tsx skeleton should not use it: fading up from opacity 0 leaves the column
-   blank for the first frames once the skeleton is gone (see app/snapshots). */
 .animate-in { animation: fade-in-up 0.35s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .animate-in-delay-1 { animation-delay: 50ms; }
 .animate-in-delay-2 { animation-delay: 100ms; }
@@ -330,7 +331,9 @@ button {
     from { opacity: 0; }
     to { opacity: 1; }
   }
-  .animate-in { animation: fade-in 0.2s ease both; }
+  /* No entrance at all rather than a fade: an opacity ramp would reintroduce the blank
+     frames the transform-only keyframe exists to avoid. */
+  .animate-in { animation: none; }
   .animate-in-delay-1,
   .animate-in-delay-2,
   .animate-in-delay-3 { animation-delay: 0ms; }

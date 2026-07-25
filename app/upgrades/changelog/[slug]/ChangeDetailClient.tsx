@@ -87,7 +87,8 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
+      {/* `initial={false}`: the crossfade is for switching, not first paint. */}
+      <AnimatePresence mode="wait" initial={false}>
       {tab === 'overview' ? (
         <motion.div
           key="overview"
