@@ -355,13 +355,22 @@ function xmlTextValues(xml: string, tagName: string): string[] {
   return Array.from(matches, (match) => decodeXml(match[1] ?? ''));
 }
 
-function decodeXml(value: string): string {
-  return value
-    .replaceAll('&amp;', '&')
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&apos;', "'");
+const XML_ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&apos;': "'",
+};
+
+/**
+ * Decodes each entity exactly once, in a single pass. Chained replacements would
+ * double-unescape: expanding `&amp;` first turns the literal text `&amp;lt;` into
+ * `&lt;`, which the next replacement then turns into `<` — inventing markup that was
+ * never in the document (CodeQL js/double-escaping).
+ */
+export function decodeXml(value: string): string {
+  return value.replace(/&(?:amp|lt|gt|quot|apos);/g, (entity) => XML_ENTITIES[entity]);
 }
 
 function hashHex(value: string): string {
