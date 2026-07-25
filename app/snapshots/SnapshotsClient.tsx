@@ -38,9 +38,17 @@ function InlineCommand({ command }: { command: string }) {
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (textRef.current && containerRef.current) {
-      setOverflowPx(Math.max(0, textRef.current.scrollWidth - containerRef.current.clientWidth));
-    }
+    const measure = () => {
+      if (textRef.current && containerRef.current) {
+        setOverflowPx(Math.max(0, textRef.current.scrollWidth - containerRef.current.clientWidth));
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [command]);
+
+  useEffect(() => {
     if (prevCommand.current !== command) {
       prevCommand.current = command;
       if (!reducedMotion) {
@@ -57,7 +65,7 @@ function InlineCommand({ command }: { command: string }) {
   }, [command]);
 
   return (
-    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+    <div className="flex flex-col gap-3">
       <div className="shrink-0">
         <Text as="span" variant="label.medium" className="block">
           Sync Your Base Node
@@ -67,11 +75,11 @@ function InlineCommand({ command }: { command: string }) {
         </Text>
       </div>
       <div
-        className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-white px-3 py-2 xl:max-w-[420px]"
+        className="flex w-full items-center gap-2 rounded-lg border border-bds-gray-10 bg-white px-3 py-2"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div ref={containerRef} className="relative overflow-hidden">
+        <div ref={containerRef} className="relative min-w-0 flex-1 overflow-hidden">
           <motion.span
             ref={textRef}
             animate={{ x: hovered && overflowPx > 0 ? -overflowPx : 0 }}
