@@ -210,8 +210,11 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
     PRESETS.find((p) => p.name === 'minimal')?.components ?? [],
   );
 
-  // `network` is only ever set from `snapshots`, so this always resolves.
+  // `network` is the requested network; everything below renders from the snapshot it
+  // resolves to, so a `snapshots` prop that no longer contains it can't leave the
+  // command and the selected card describing different networks.
   const activeSnapshot = snapshots.find((s) => s.network === network) ?? snapshots[0];
+  const activeNetwork = activeSnapshot.network;
 
   function selectPreset(name: PresetName) {
     setPreset(name);
@@ -266,7 +269,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
     if (value) toggleComponent(value);
   }
 
-  const chainName = CHAIN_NAME_BY_NETWORK[network] ?? network;
+  const chainName = CHAIN_NAME_BY_NETWORK[activeNetwork] ?? activeNetwork;
   const command = buildDownloadCommand(chainName, preset, selectedComponents);
 
   // Group the two changesets into a single "State History" row for display.
@@ -316,7 +319,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
             </div>
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
               {snapshots.map((snap) => {
-                const selected = snap.network === network;
+                const selected = snap.network === activeNetwork;
                 return (
                   <button
                     key={snap.network}

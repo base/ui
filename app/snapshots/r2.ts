@@ -86,15 +86,29 @@ export class SnapshotLoadError extends Error {
   }
 }
 
+const ALL_NETWORKS = 'all';
+
 /**
- * The newest snapshot per network, cached for `SNAPSHOT_CACHE_SECONDS` so page
- * renders and API hits share one set of R2 round trips. Fails closed: throws
- * rather than returning a partial list a caller would read as complete success,
- * which also keeps failures out of the cache.
+ * The newest snapshot per network, cached for `SNAPSHOT_CACHE_SECONDS` so page renders
+ * and API hits share one set of R2 round trips.
+ *
+ * Throws `SnapshotLoadError` rather than returning a partial list a caller would read
+ * as a complete success, so a partial result is never cached or rendered. Note that a
+ * complete list already in the cache keeps being served while R2 is failing (Next
+ * returns the stale value when revalidation throws), so this bounds staleness, not
+ * error visibility.
  */
-export const getSnapshots = unstable_cache(
-  async (networkId?: string): Promise<Snapshot[]> => {
-    const { snapshots, failures } = await loadSnapshots(networkId);
+export function getSnapshots(networkId?: string): Promise<Snapshot[]> {
+  // Normalized to a required argument: unstable_cache keys on JSON.stringify(args),
+  // so getSnapshots() and getSnapshots(undefined) would otherwise be separate entries.
+  return loadSnapshotsCached(networkId ?? ALL_NETWORKS);
+}
+
+const loadSnapshotsCached = unstable_cache(
+  async (networkKey: string): Promise<Snapshot[]> => {
+    const { snapshots, failures } = await loadSnapshots(
+      networkKey === ALL_NETWORKS ? undefined : networkKey,
+    );
     if (failures.length > 0) {
       throw new SnapshotLoadError(failures);
     }
