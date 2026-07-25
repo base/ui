@@ -217,6 +217,13 @@ export function estimateTxGas(params: {
   // adds the PolicyManager.execute frame, policy validation, spend-tracking
   // SSTOREs, and the callback into executeBatch on top of the inner call.
   policyCalls?: number;
+  // Number of calls that transfer a non-zero native ETH value. Each needs the
+  // ~9k value stipend plus (for a not-yet-existent recipient) the ~25k
+  // new-account creation cost. The node's `eth_estimateGas` misses this — it
+  // converges to the tx-envelope cost, ignoring that the inner value transfer
+  // must actually succeed — so the floor must carry it or a send to a cold
+  // recipient OOG-reverts on-chain (unused gas is refunded, an OOG is not).
+  valueCalls?: number;
   // When true, this value is the SOLE gas source (the node's `eth_estimateGas`
   // is unavailable, reverted, or the user chose "Send anyway"), so it is scaled
   // up by {@link FALLBACK_SAFETY} to over-provision on purpose — unused gas is
@@ -226,7 +233,15 @@ export function estimateTxGas(params: {
   // node's accurate estimate and permanently over-price every transaction.
   fallback?: boolean;
 }): number {
-  const { mode, deploy, calls, keyChanges, policyCalls = 0, fallback = false } = params;
+  const {
+    mode,
+    deploy,
+    calls,
+    keyChanges,
+    policyCalls = 0,
+    valueCalls = 0,
+    fallback = false,
+  } = params;
   // ERC-4337: EntryPoint overhead (unchanged — different execution path).
   // EIP-8130 native: base covers intrinsic gas for authenticator dispatch,
   // AccountConfiguration lookup, and RLP calldata.
@@ -247,6 +262,12 @@ export function estimateTxGas(params: {
   // node's estimate can be low when the simulated inner call reverts (an 8130
   // reverting phase is still a valid inclusion), so the floor is the backstop.
   const perPolicyCall = 55_000;
+  // Headroom for a value-bearing inner CALL the node estimate can't see: the 9k
+  // value-transfer surcharge (G_callvalue, which itself includes the 2,300 callee
+  // stipend) + 25k creation of a cold recipient account (G_newaccount). Additive
+  // on top of `perCall` (a value call is still a call). Both native and 4337 pay
+  // it — the EVM cost is the same regardless of execution path.
+  const perValueCall = 34_000;
   // 2x safety multiplier, applied ONLY in fallback mode (see `fallback` above):
   // when the node's `eth_estimateGas` is unavailable or reverts (staged config +
   // policy bundles, cold-account creation on a value transfer to a fresh
@@ -263,6 +284,7 @@ export function estimateTxGas(params: {
       calls * perCall +
       keyChanges * perKeyChange +
       policyCalls * perPolicyCall +
+      valueCalls * perValueCall +
       wrap)
   );
 }
