@@ -205,9 +205,9 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
     snapshots.some((s) => s.network === DEFAULT_NETWORK) ? DEFAULT_NETWORK : snapshots[0].network,
   );
   const [configMode, setConfigMode] = useState<'preset' | 'custom'>('preset');
-  const [preset, setPreset] = useState<PresetName | null>('minimal');
+  const [preset, setPreset] = useState<PresetName | null>('archive');
   const [selectedComponents, setSelectedComponents] = useState<string[]>(
-    PRESETS.find((p) => p.name === 'minimal')?.components ?? [],
+    PRESETS.find((p) => p.name === 'archive')?.components ?? [],
   );
 
   // `network` is the requested network; everything below renders from the snapshot it
