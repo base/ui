@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { ChangelogClient } from './ChangelogClient';
 
 export const metadata: Metadata = {
-  title: 'Changelog | Base Upgrades',
+  title: 'Changelog · Base Upgrades',
   description: 'Search and filter Base protocol changes across upgrades and Vibenet testing.',
   alternates: {
     canonical: '/upgrades/changelog',

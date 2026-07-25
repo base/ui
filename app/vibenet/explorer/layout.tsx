@@ -1,4 +1,11 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+
+export const metadata: Metadata = {
+  title: 'Explorer · Vibenet',
+  description:
+    'Browse blocks, transactions, and addresses on the Vibenet devnet.',
+};
 
 type ExplorerLayoutProps = {
   children: ReactNode;

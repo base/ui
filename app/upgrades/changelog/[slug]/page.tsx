@@ -21,13 +21,13 @@ export async function generateMetadata(props: ChangePageProps): Promise<Metadata
   const change = getChangeBySlug(slug);
   if (!change) return {};
   return {
-    title: `${change.title} | Base Upgrades`,
+    title: `${change.title} · Base Upgrades`,
     description: toPlainText(change.summary),
     alternates: {
       canonical: `/upgrades/changelog/${change.slug}`,
     },
     openGraph: {
-      title: `${change.title} | Base Upgrades`,
+      title: `${change.title} · Base Upgrades`,
       description: toPlainText(change.summary),
       url: `/upgrades/changelog/${change.slug}`,
     },

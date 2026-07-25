@@ -40,20 +40,6 @@ export type Preset = {
 
 export const PRESETS: Preset[] = [
   {
-    name: 'minimal',
-    displayName: 'Minimal',
-    description: 'State and headers only. Smallest download for validators and light usage.',
-    components: ['state', 'headers'],
-    capabilities: ['Sync', 'Validate'],
-  },
-  {
-    name: 'full',
-    displayName: 'Full',
-    description: 'Adds transactions, receipts, and state history. Suitable for dApp backends and general RPC.',
-    components: ['state', 'headers', 'transactions', 'receipts', 'account_changesets', 'storage_changesets'],
-    capabilities: ['Sync', 'Validate', 'Query', 'Trace'],
-  },
-  {
     name: 'archive',
     displayName: 'Archive',
     description: 'Everything included. Full historical data for indexers and RPC providers.',
@@ -68,6 +54,20 @@ export const PRESETS: Preset[] = [
       'rocksdb_indices',
     ],
     capabilities: ['Sync', 'Validate', 'Query', 'Trace', 'Debug', 'Index'],
+  },
+  {
+    name: 'full',
+    displayName: 'Full',
+    description: 'Adds transactions, receipts, and state history. Suitable for dApp backends and general RPC.',
+    components: ['state', 'headers', 'transactions', 'receipts', 'account_changesets', 'storage_changesets'],
+    capabilities: ['Sync', 'Validate', 'Query', 'Trace'],
+  },
+  {
+    name: 'minimal',
+    displayName: 'Minimal',
+    description: 'State and headers only. Smallest download for validators and light usage.',
+    components: ['state', 'headers'],
+    capabilities: ['Sync', 'Validate'],
   },
 ];
 

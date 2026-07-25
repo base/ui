@@ -1,6 +1,16 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { MaintenanceBanner } from './components/MaintenanceBanner';
+
+// Default metadata for the Vibenet section; the overview route (/vibenet) uses
+// it directly, and nested routes override title/description in their own
+// segments.
+export const metadata: Metadata = {
+  title: 'Vibenet · Base Chain',
+  description:
+    'Explore Vibenet, the Base devnet for testing in-flight protocol features.',
+};
 
 type VibenetLayoutProps = {
   children: ReactNode;
