@@ -248,12 +248,34 @@ button {
   background: rgba(0, 0, 0, 0.3);
 }
 
-.nav-row-hover {
-  transition: background-color 0.15s ease;
+/* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below
+   the selected pill at -1 and below every label — so the pill can animate *over*
+   the hover surface of the row it lands on (light gray deepens to the selected
+   gray) instead of being hidden by it, and the hover fill never has to blink away
+   while the pill is in flight. The sub-nav back header never hosts the pill and
+   sits outside the nav's `isolation: isolate`, where a negative layer would escape
+   to the root stacking context, so it fills its own background instead. */
+.nav-row-hover::before {
+  content: '';
+  position: absolute; /* anchored by styles.navRow's position: relative */
+  inset: 0;
+  z-index: -2;
+  border-radius: 8px;
+  background-color: transparent;
+  pointer-events: none;
+}
+
+.nav-header-hover {
   border-radius: 8px;
 }
 
-.nav-row-hover:hover {
+.nav-row-hover::before,
+.nav-header-hover {
+  transition: background-color 0.15s ease;
+}
+
+.nav-row-hover:hover::before,
+.nav-header-hover:hover {
   background-color: var(--bds-gray-5);
 }
 
@@ -290,9 +312,13 @@ button {
 .animate-slide-down { animation: slide-down-fade 0.2s cubic-bezier(0.23, 1, 0.32, 1) both; }
 
 /* Detail page entrance */
+/* Transform only, deliberately no opacity: these entrances play as the previous page
+   or its loading skeleton is removed, so fading up from transparent left the content
+   column blank for the first ~65ms of every navigation. Sliding into place reads as an
+   entrance without ever painting nothing. */
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(8px); }
+  to { transform: translateY(0); }
 }
 
 .animate-in { animation: fade-in-up 0.35s cubic-bezier(0.23, 1, 0.32, 1) both; }
@@ -305,7 +331,9 @@ button {
     from { opacity: 0; }
     to { opacity: 1; }
   }
-  .animate-in { animation: fade-in 0.2s ease both; }
+  /* No entrance at all rather than a fade: an opacity ramp would reintroduce the blank
+     frames the transform-only keyframe exists to avoid. */
+  .animate-in { animation: none; }
   .animate-in-delay-1,
   .animate-in-delay-2,
   .animate-in-delay-3 { animation-delay: 0ms; }

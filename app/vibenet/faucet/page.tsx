@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { Spinner } from '../../components/ui/Spinner';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
@@ -128,10 +129,15 @@ export default function FaucetPage() {
       </Text>
     );
   } else if (!status) {
+    // Placeholder chips, not a line of text: the loaded row is 36px tall, so a 20px
+    // "Loading status…" line shifted the whole page down 16px when status arrived.
+    // Same geometry as ./loading.tsx.
     summaryBody = (
-      <Text variant="label.regular" tone="muted">
-        Loading status…
-      </Text>
+      <div className="flex flex-wrap gap-3" aria-busy="true" aria-label="Loading faucet status">
+        {FAUCET_TOKENS.map((token) => (
+          <Skeleton key={token.id} className="h-9 w-28 rounded-lg" />
+        ))}
+      </div>
     );
   } else {
     const loaded = status;

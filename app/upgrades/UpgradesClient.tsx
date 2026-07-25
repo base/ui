@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
-import { FadeInUp } from '../components/ui/FadeInUp';
+import { SlideInUp } from '../components/ui/SlideInUp';
 
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -127,17 +127,17 @@ function TimelineView({ nowMs }: { nowMs: number }) {
 
         {planningUpgrades.length > 0 && (
           <div className="mb-12">
-            <FadeInUp offset={6} duration={0.3}>
+            <SlideInUp offset={6} duration={0.3}>
               <Text variant="headline" tone="muted" className="mb-8 pl-[111px]">
                 Upcoming
               </Text>
-            </FadeInUp>
+            </SlideInUp>
             <div className="flex flex-col gap-10">
               {planningUpgrades.map((upgrade) => {
                 const count = changes.filter((c) => c.upgrade === upgrade.id).length;
                 const i = entryIndex++;
                 return (
-                  <FadeInUp
+                  <SlideInUp
                     key={upgrade.id}
                     index={i}
                     className="relative flex items-start gap-3"
@@ -168,7 +168,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                         </Text>
                       </div>
                     </Link>
-                  </FadeInUp>
+                  </SlideInUp>
                 );
               })}
             </div>
@@ -177,17 +177,17 @@ function TimelineView({ nowMs }: { nowMs: number }) {
 
         {months.map((month, mi) => (
           <div key={month.label} className={mi > 0 ? 'mt-12' : ''}>
-            <FadeInUp index={entryIndex} offset={6} duration={0.3}>
+            <SlideInUp index={entryIndex} offset={6} duration={0.3}>
               <Text variant="headline" tone="muted" className="mb-8 pl-[111px]">
                 {month.label}
               </Text>
-            </FadeInUp>
+            </SlideInUp>
 
             <div className="flex flex-col gap-10">
               {month.entries.map((entry) => {
                 const i = entryIndex++;
                 return (
-                  <FadeInUp
+                  <SlideInUp
                     key={`${entry.upgradeId}-${entry.network}`}
                     index={i}
                     className="relative flex items-start gap-3"
@@ -226,7 +226,7 @@ function TimelineView({ nowMs }: { nowMs: number }) {
                         </Text>
                       </div>
                     </Link>
-                  </FadeInUp>
+                  </SlideInUp>
                 );
               })}
             </div>
@@ -241,7 +241,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
     <div className="grid gap-4 lg:grid-cols-2">
         {[...upgrades].reverse().map((upgrade, idx) => {
           return (
-            <FadeInUp
+            <SlideInUp
               key={upgrade.id}
               index={idx}
               offset={10}
@@ -283,7 +283,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
               </div>
               </div>
             </Card>
-            </FadeInUp>
+            </SlideInUp>
           );
         })}
       </div>
@@ -306,7 +306,9 @@ export function UpgradesClient() {
         />
       </header>
 
-      <AnimatePresence mode="wait">
+      {/* `initial={false}`: the crossfade is for switching views, not for first paint —
+          on mount it fades up over a just-removed skeleton, leaving the column blank. */}
+      <AnimatePresence mode="wait" initial={false}>
         {view === 'timeline' ? (
           <motion.div
             key="timeline"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -124,6 +124,12 @@ export function ChangelogClient() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const reducedMotion = useReducedMotion();
+  // Rows fade in when the filters change, but not on first paint: on mount that plays
+  // over a just-removed loading skeleton, leaving the table blank for ~180ms.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+  }, []);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -351,7 +357,7 @@ export function ChangelogClient() {
             {filtered.map((change, idx) => (
               <motion.tr
                 key={change.id}
-                initial={{ opacity: 0 }}
+                initial={mountedRef.current ? { opacity: 0 } : false}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1], delay: Math.min(idx * 0.02, 0.15) }}
                 aria-label={changeDisplayTitle(change)}

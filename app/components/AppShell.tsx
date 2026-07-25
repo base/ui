@@ -1,6 +1,6 @@
 'use client';
 
-import { CSSProperties, PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
@@ -65,7 +65,10 @@ const styles: Record<string, CSSProperties> = {
     position: 'relative',
   },
   brandMark: { width: 22, height: 22, display: 'inline-block' },
-  nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative' },
+  // `isolation` makes the nav a stacking context so the active-row pill (which
+  // renders at z-index -1 and travels across rows while animating) paints behind
+  // every row's label instead of on top of the rows it passes over.
+  nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative', isolation: 'isolate' },
   navLink: { textDecoration: 'none', color: 'inherit' },
   navRow: {
     display: 'flex',
@@ -74,6 +77,9 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     fontSize: 14,
+    // Anchors the selected pill and the `.nav-row-hover` fill, both of which are
+    // absolutely positioned within the row.
+    position: 'relative',
   },
   navIcon: { display: 'inline-flex', width: 20, height: 20 },
   soon: {
@@ -208,10 +214,9 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
 
   const row = (
     <div
-      className={`${hasChildren ? 'group ' : ''}${enabled && !active ? 'nav-row-hover' : ''}`}
+      className={`${hasChildren ? 'group ' : ''}${enabled ? 'nav-row-hover' : ''}`}
       style={{
         ...styles.navRow,
-        position: 'relative',
         color,
         fontWeight: active ? 500 : 400,
         cursor: enabled ? 'pointer' : 'default',
@@ -224,20 +229,25 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
             position: 'absolute',
             inset: 0,
             borderRadius: 8,
-            background: spectrum.gray[5],
+            // SELECTED (gray-10), a step darker than the SURFACE (gray-5) hover
+            // fill, so the pill reads as landing on the hovered row rather than
+            // dissolving into it.
+            background: SELECTED,
+            zIndex: -1,
+            pointerEvents: 'none',
           }}
           transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
         />
       )}
       {icon && (
-        <span style={{ ...styles.navIcon, position: 'relative' }}>
+        <span style={styles.navIcon}>
           <NavGlyph name={icon} />
         </span>
       )}
-      <Text as="span" variant="label.medium" tone="inherit" style={{ position: 'relative' }}>{label}</Text>
-      {!enabled && <span style={{ ...styles.soon, position: 'relative' }}>Soon</span>}
+      <Text as="span" variant="label.medium" tone="inherit">{label}</Text>
+      {!enabled && <span style={styles.soon}>Soon</span>}
       {hasChildren && (
-        <span style={{ marginLeft: 'auto', marginRight: -8, position: 'relative', color: spectrum.gray[50] }}>
+        <span style={{ marginLeft: 'auto', marginRight: -8, color: spectrum.gray[50] }}>
           <AnimatedArrowIcon size={16} strokeWidth={1.5} />
         </span>
       )}
@@ -249,11 +259,22 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
     <Link
       href={href}
       style={styles.navLink}
-      onClick={onNavigate}
+      onClick={(event) => {
+        if (opensInNewTab(event)) return;
+        onNavigate?.();
+      }}
     >
       {row}
     </Link>
   );
+}
+
+/**
+ * True for clicks the browser handles itself (new tab/window), which navigate
+ * nothing here — so they must not move the nav's active state.
+ */
+function opensInNewTab(event: ReactMouseEvent): boolean {
+  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
 }
 
 function isChildActive(child: NavChild, pathname: string): boolean {
@@ -269,9 +290,20 @@ const slideVariants = {
 
 const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
 
+// How long the nav trusts a tapped href before falling back to the router. Only
+// reached if a navigation never commits (aborted, failed, or a modified click that
+// slipped through), so it just has to be longer than a slow route.
+const PENDING_PATH_TIMEOUT_MS = 5000;
+
 function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { onNavigate?: () => void; hideBrand?: boolean; layoutScope?: string }) {
   const pathname = usePathname() || '/';
-  const activeParent = getActiveParent(pathname);
+  // The nav follows the tapped href immediately instead of waiting for the router:
+  // usePathname() only updates once the route commits, which left the pill and the
+  // sub-nav slide sitting still for the whole navigation — the tap felt dead, then
+  // everything moved at once.
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const activePath = pendingPath ?? pathname;
+  const activeParent = getActiveParent(activePath);
   const directionRef = useRef(1);
   const prevParentRef = useRef<string | null>(activeParent?.href ?? null);
 
@@ -283,6 +315,23 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
       prevParentRef.current = curr;
     }
   }, [activeParent]);
+
+  // Any commit hands control back to the router, including a Back that lands
+  // somewhere other than the tapped href.
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!pendingPath) return;
+    const timer = setTimeout(() => setPendingPath(null), PENDING_PATH_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [pendingPath]);
+
+  const selectPath = (href: string) => {
+    setPendingPath(href);
+    onNavigate?.();
+  };
 
   const direction = directionRef.current;
 
@@ -311,9 +360,12 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
             >
               <Link
                 href="/"
-                className="nav-row-hover group"
+                className="nav-header-hover group"
                 style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: spectrum.gray[50] }}
-                onClick={onNavigate}
+                onClick={(event) => {
+                  if (opensInNewTab(event)) return;
+                  selectPath('/');
+                }}
               >
                 <svg
                   width={16}
@@ -337,7 +389,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
               </Link>
               <nav style={styles.nav}>
                 {activeParent.children!.map((child) => {
-                  const active = isChildActive(child, pathname);
+                  const active = isChildActive(child, activePath);
                   return (
                     <NavRow
                       key={child.href}
@@ -346,7 +398,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
                       href={child.href}
                       active={active}
                       enabled={true}
-                      onNavigate={onNavigate}
+                      onNavigate={() => selectPath(child.href)}
                       layoutScope={`${layoutScope}-sub`}
                     />
                   );
@@ -368,11 +420,11 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
                 {NAV_ITEMS.filter((item) => item.icon).map((item) => {
                   let active: boolean;
                   if (item.href === '/') {
-                    active = pathname === '/';
+                    active = activePath === '/';
                   } else {
-                    const isMatch = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const isMatch = activePath === item.href || activePath.startsWith(`${item.href}/`);
                     const hasMoreSpecific = NAV_ITEMS.some(
-                      (other) => other.href !== item.href && other.href.startsWith(item.href) && (pathname === other.href || pathname.startsWith(`${other.href}/`)),
+                      (other) => other.href !== item.href && other.href.startsWith(item.href) && (activePath === other.href || activePath.startsWith(`${other.href}/`)),
                     );
                     active = isMatch && !hasMoreSpecific;
                   }
@@ -385,7 +437,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
                       active={active}
                       enabled={item.enabled}
                       hasChildren={!!item.children}
-                      onNavigate={onNavigate}
+                      onNavigate={() => selectPath(item.href)}
                       layoutScope={layoutScope}
                     />
                   );

@@ -2813,7 +2813,8 @@ export function AccountDemo() {
 
         {/* Right column */}
         <div className="flex flex-col gap-6">
-          <AnimatePresence mode="wait">
+          {/* `initial={false}`: the crossfade is for switching, not first paint. */}
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={activeAccountId ?? 'empty'}
               initial={{ opacity: 0 }}
