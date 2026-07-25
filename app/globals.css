@@ -248,12 +248,34 @@ button {
   background: rgba(0, 0, 0, 0.3);
 }
 
-.nav-row-hover {
-  transition: background-color 0.15s ease;
+/* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below
+   the selected pill at -1 and below every label — so the pill can animate *over*
+   the hover surface of the row it lands on (light gray deepens to the selected
+   gray) instead of being hidden by it, and the hover fill never has to blink away
+   while the pill is in flight. The sub-nav back header never hosts the pill and
+   sits outside the nav's `isolation: isolate`, where a negative layer would escape
+   to the root stacking context, so it fills its own background instead. */
+.nav-row-hover::before {
+  content: '';
+  position: absolute; /* anchored by styles.navRow's position: relative */
+  inset: 0;
+  z-index: -2;
+  border-radius: 8px;
+  background-color: transparent;
+  pointer-events: none;
+}
+
+.nav-header-hover {
   border-radius: 8px;
 }
 
-.nav-row-hover:hover {
+.nav-row-hover::before,
+.nav-header-hover {
+  transition: background-color 0.15s ease;
+}
+
+.nav-row-hover:hover::before,
+.nav-header-hover:hover {
   background-color: var(--bds-gray-5);
 }
 
@@ -295,6 +317,9 @@ button {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Entrance for content that paints over nothing. Routes that hand off from a
+   loading.tsx skeleton should not use it: fading up from opacity 0 leaves the column
+   blank for the first frames once the skeleton is gone (see app/snapshots). */
 .animate-in { animation: fade-in-up 0.35s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .animate-in-delay-1 { animation-delay: 50ms; }
 .animate-in-delay-2 { animation-delay: 100ms; }

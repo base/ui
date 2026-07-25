@@ -65,7 +65,10 @@ const styles: Record<string, CSSProperties> = {
     position: 'relative',
   },
   brandMark: { width: 22, height: 22, display: 'inline-block' },
-  nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative' },
+  // `isolation` makes the nav a stacking context so the active-row pill (which
+  // renders at z-index -1 and travels across rows while animating) paints behind
+  // every row's label instead of on top of the rows it passes over.
+  nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative', isolation: 'isolate' },
   navLink: { textDecoration: 'none', color: 'inherit' },
   navRow: {
     display: 'flex',
@@ -74,6 +77,9 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     fontSize: 14,
+    // Anchors the selected pill and the `.nav-row-hover` fill, both of which are
+    // absolutely positioned within the row.
+    position: 'relative',
   },
   navIcon: { display: 'inline-flex', width: 20, height: 20 },
   soon: {
@@ -208,10 +214,9 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
 
   const row = (
     <div
-      className={`${hasChildren ? 'group ' : ''}${enabled && !active ? 'nav-row-hover' : ''}`}
+      className={`${hasChildren ? 'group ' : ''}${enabled ? 'nav-row-hover' : ''}`}
       style={{
         ...styles.navRow,
-        position: 'relative',
         color,
         fontWeight: active ? 500 : 400,
         cursor: enabled ? 'pointer' : 'default',
@@ -224,20 +229,25 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
             position: 'absolute',
             inset: 0,
             borderRadius: 8,
-            background: spectrum.gray[5],
+            // SELECTED (gray-10), a step darker than the SURFACE (gray-5) hover
+            // fill, so the pill reads as landing on the hovered row rather than
+            // dissolving into it.
+            background: SELECTED,
+            zIndex: -1,
+            pointerEvents: 'none',
           }}
           transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
         />
       )}
       {icon && (
-        <span style={{ ...styles.navIcon, position: 'relative' }}>
+        <span style={styles.navIcon}>
           <NavGlyph name={icon} />
         </span>
       )}
-      <Text as="span" variant="label.medium" tone="inherit" style={{ position: 'relative' }}>{label}</Text>
-      {!enabled && <span style={{ ...styles.soon, position: 'relative' }}>Soon</span>}
+      <Text as="span" variant="label.medium" tone="inherit">{label}</Text>
+      {!enabled && <span style={styles.soon}>Soon</span>}
       {hasChildren && (
-        <span style={{ marginLeft: 'auto', marginRight: -8, position: 'relative', color: spectrum.gray[50] }}>
+        <span style={{ marginLeft: 'auto', marginRight: -8, color: spectrum.gray[50] }}>
           <AnimatedArrowIcon size={16} strokeWidth={1.5} />
         </span>
       )}
@@ -311,7 +321,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
             >
               <Link
                 href="/"
-                className="nav-row-hover group"
+                className="nav-header-hover group"
                 style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: spectrum.gray[50] }}
                 onClick={onNavigate}
               >
