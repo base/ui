@@ -13,20 +13,17 @@ import { getChangeBySlug } from '../upgrades/data/changes';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 import { titleForPath } from '../navigation';
 
+import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
 import { cn } from './ui/cn';
 import { AnimatedArrowIcon, CloseIcon } from './ui/icons';
 import { Text } from './ui/Text';
 
-function BaseLogo() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 450 450" fill="none">
-      <path d="M0 35.55C0 23.3732 0 17.2848 2.29438 12.6014C4.49116 8.11719 8.11719 4.49116 12.6014 2.29438C17.2848 0 23.3732 0 35.55 0H414.45C426.627 0 432.715 0 437.399 2.29438C441.883 4.49116 445.509 8.11719 447.706 12.6014C450 17.2848 450 23.3732 450 35.55V414.45C450 426.627 450 432.715 447.706 437.399C445.509 441.883 441.883 445.509 437.399 447.706C432.715 450 426.627 450 414.45 450H35.55C23.3732 450 17.2848 450 12.6014 447.706C8.11719 445.509 4.49116 441.883 2.29438 437.399C0 432.715 0 426.627 0 414.45V35.55Z" fill="#0000FF"/>
-    </svg>
-  );
-}
-
 const SIDEBAR_WIDTH = 248;
+/** Matches base.org's nav logo size, which the animation timings are tuned for. */
+const BRAND_MARK_SIZE = 28;
+/** Sized down to sit comfortably in the 56px-tall mobile header. */
+const MOBILE_BRAND_MARK_SIZE = 24;
 
 type NavRowProps = {
   icon?: NavIcon;
@@ -64,7 +61,7 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
     position: 'relative',
   },
-  brandMark: { width: 22, height: 22, display: 'inline-block' },
+  brandLink: { display: 'inline-block', lineHeight: 0 },
   // `isolation` makes the nav a stacking context so the active-row pill (which
   // renders at z-index -1 and travels across rows while animating) paints behind
   // every row's label instead of on top of the rows it passes over.
@@ -339,9 +336,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
     <>
       {!hideBrand && (
         <div style={styles.brand}>
-          <span style={styles.brandMark}>
-            <BaseLogo />
-          </span>
+          <AnimatedBaseLogo size={BRAND_MARK_SIZE} />
         </div>
       )}
 
@@ -554,9 +549,11 @@ export function AppShell({ children }: PropsWithChildren) {
 
         {/* Mobile header (logo + hamburger) */}
         <header className="mobile-header">
-          <span style={styles.brandMark}>
-            <BaseLogo />
-          </span>
+          {/* Static on touch: the morph is hover-driven, so base.org leaves its
+              mobile mark static too. */}
+          <Link href="/" aria-label="Base home" style={styles.brandLink}>
+            <BaseMark size={MOBILE_BRAND_MARK_SIZE} />
+          </Link>
           <button
             className="hamburger-btn"
             onClick={() => setMenuOpen(!menuOpen)}

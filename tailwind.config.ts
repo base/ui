@@ -70,6 +70,7 @@ const config: Config = {
         mono: ['var(--font-base-sans-mono)', 'monospace'],
         'base-sans': ['var(--font-base-sans)', 'sans-serif'],
         'base-text': ['var(--font-base-sans-text)', 'var(--font-base-sans)', 'sans-serif'],
+        doto: ['var(--font-doto)', 'monospace'],
       },
     },
   },

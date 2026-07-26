@@ -50,6 +50,16 @@ const baseSans = localFont({
   adjustFontFallback: 'Arial',
 });
 
+// Dot-matrix face used only by the animated Base logo, where the wordmark first
+// spells out in dots before resolving into Base Sans. Same binary base.org ships
+// (a variable TTF instanced to Doto Black), so the two render identically.
+const doto = localFont({
+  src: '../public/fonts/Doto/Doto-Black.ttf',
+  variable: '--font-doto',
+  display: 'swap',
+  adjustFontFallback: false,
+});
+
 export const metadata = {
   metadataBase: new URL('https://chain.base.org'),
   title: 'Base Chain',
@@ -72,7 +82,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html
       lang="en"
-      className={`${baseSans.variable} ${baseSansText.variable} ${baseSansMono.variable}`}
+      className={`${baseSans.variable} ${baseSansText.variable} ${baseSansMono.variable} ${doto.variable}`}
     >
       <body>
         <AppShell>{children}</AppShell>
