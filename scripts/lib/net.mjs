@@ -48,13 +48,13 @@ export async function mapLimit(items, limit, fn) {
 
 function decodeEntities(text) {
   return text
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#0?39;/g, "'")
     .replace(/&#x27;/gi, "'")
-    .replace(/&nbsp;/g, ' ');
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
 }
 
 /** Pull <title> and <meta name="description"> out of rendered HTML. */
