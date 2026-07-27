@@ -6,6 +6,9 @@
 //
 // Prefer these named helpers over calling track() inline so event names and
 // property shapes stay consistent.
+//
+// These emit only when a component calls them, so keep the call sites wired when
+// refactoring a surface. The call sites are listed in AGENTS.md ("Analytics").
 
 import { track } from '@vercel/analytics';
 

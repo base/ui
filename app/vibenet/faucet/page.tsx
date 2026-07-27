@@ -5,6 +5,7 @@ import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from 'react';
 
 import Link from 'next/link';
 
+import { trackFaucetRequest } from '../../analytics/events';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -83,14 +84,15 @@ export default function FaucetPage() {
       }
       setBusy(true);
       setDrip({ phase: 'pending', tokenId });
-      
+      trackFaucetRequest(tokenId, 'submitted');
+
       try {
         const outcome = await token.drip(address);
         setDrip({ phase: 'success', tokenId, outcome });
-        
+        trackFaucetRequest(tokenId, 'success');
       } catch (err) {
         setDrip({ phase: 'error', tokenId, message: dripErrorMessage(err) });
-        
+        trackFaucetRequest(tokenId, 'error');
       } finally {
         setBusy(false);
         refreshStatus();

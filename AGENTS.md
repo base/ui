@@ -63,6 +63,29 @@ of a single commit, use `SKIP_DOCS_HOOK=1` or put `[skip-docs]` in the message.
 - Run the llms-kit suite: `node --test tests/`
 - Include liveness checks against the deployed site: `LLMS_LIVE=1 node --test tests/`
 
+## Analytics
+
+This app uses Vercel Web Analytics. Two things must stay in place:
+
+1. **Page views** — render `<Analytics />` from `@vercel/analytics/next` in
+   `app/layout.tsx`. Removing it stops all analytics (page views and events).
+2. **Custom events** — typed helpers in `app/analytics/events.ts` emit only when
+   a component calls them. When you refactor or rewrite a wired surface, carry
+   the `track()` call over. Current wiring:
+
+   | Helper | Call site |
+   |---|---|
+   | `trackNavClick(label)` | `app/components/AppShell.tsx` — `NavRow` `<Link onClick>` |
+   | `trackSnapshotNetworkSelect(network)` | `app/snapshots/SnapshotsClient.tsx` — network button `onClick` |
+   | `trackSnapshotPresetSelect(name)` | `app/snapshots/SnapshotsClient.tsx` — `selectPreset()` |
+   | `trackSnapshotCommandCopy(network, preset)` | `app/snapshots/SnapshotsClient.tsx` — `InlineCommand` `onCopy` |
+   | `trackFaucetRequest(token, status)` | `app/vibenet/faucet/page.tsx` — `runDrip()` |
+
+   Add a helper (and a row here) for a new key journey; remove the helper if you
+   remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.
+   Custom events collect on Vercel deployments only (not local `npm run dev`);
+   Vercel auto-discovers event names.
+
 ## Pull requests
 
 - Keep the generated-file commit separate from your own work — the hook already

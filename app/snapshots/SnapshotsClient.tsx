@@ -10,6 +10,12 @@ import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
 import {
+  trackSnapshotCommandCopy,
+  trackSnapshotNetworkSelect,
+  trackSnapshotPresetSelect,
+} from '../analytics/events';
+
+import {
   CHAIN_NAME_BY_NETWORK,
   formatBytes,
   formatDate,
@@ -27,7 +33,7 @@ const NETWORK_LABELS: Record<string, string> = {
 const SHIMMER_GRADIENT =
   'linear-gradient(90deg, currentColor 0%, currentColor 30%, #0000FF 50%, currentColor 70%, currentColor 100%)';
 
-function InlineCommand({ command }: { command: string }) {
+function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => void }) {
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
   const textRef = useRef<HTMLSpanElement>(null);
@@ -60,9 +66,10 @@ function InlineCommand({ command }: { command: string }) {
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(command).then(() => {
       setCopied(true);
+      onCopy?.();
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [command]);
+  }, [command, onCopy]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -228,6 +235,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
     setPreset(name);
     const def = PRESETS.find((p) => p.name === name);
     if (def) setSelectedComponents([...def.components]);
+    trackSnapshotPresetSelect(name);
   }
 
   function toggleComponent(name: string) {
@@ -313,7 +321,10 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
       <div className="flex flex-col gap-3 rounded-xl border border-bds-gray-10 bg-bds-gray-5 pt-5">
         <div className="px-4 pb-2 sm:px-6">
-          <InlineCommand command={command} />
+          <InlineCommand
+            command={command}
+            onCopy={() => trackSnapshotCommandCopy(activeNetwork, preset)}
+          />
         </div>
 
         <div className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 sm:p-6">
@@ -332,7 +343,10 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                   <button
                     key={snap.network}
                     type="button"
-                    onClick={() => setNetwork(snap.network)}
+                    onClick={() => {
+                      trackSnapshotNetworkSelect(snap.network);
+                      setNetwork(snap.network);
+                    }}
                     className={cn(
                       'rounded-xl border border-bds-gray-10 px-4 py-3 text-left transition-[color,box-shadow] duration-150 ease-out',
                       selected

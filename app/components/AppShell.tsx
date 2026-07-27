@@ -13,6 +13,7 @@ import { getChangeBySlug } from '../upgrades/data/changes';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 import { titleForPath } from '../navigation';
 
+import { trackNavClick } from '../analytics/events';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
 import { cn } from './ui/cn';
@@ -258,6 +259,7 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
       style={styles.navLink}
       onClick={(event) => {
         if (opensInNewTab(event)) return;
+        trackNavClick(label);
         onNavigate?.();
       }}
     >
