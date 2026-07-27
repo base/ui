@@ -1,0 +1,37 @@
+{
+  "_comment": "Trigger registry for githooks/post-commit and post-merge. Add an entry to wire a new commit-message keyword to your own script; the hook logic never changes. Keep githooks/_lib.sh's _use_defaults() in sync — a test asserts they match.",
+
+  "skipToken": "[skip-docs]",
+
+  "_watchGlobsComment": "Paths whose ADDITION, DELETION, or RENAME auto-triggers every generator. Modifications do not — a content-only edit should use the commit-message keyword instead. Both app/ and src/app/ are listed because either may be the real one; a non-matching pathspec simply yields nothing.",
+  "watchGlobs": [
+    "app/**/page.tsx",
+    "app/**/page.jsx",
+    "app/**/page.js",
+    "app/**/page.mdx",
+    "app/**/layout.tsx",
+    "app/sitemap.ts",
+    "src/app/**/page.tsx",
+    "src/app/**/page.jsx",
+    "src/app/**/page.js",
+    "src/app/**/page.mdx",
+    "src/app/**/layout.tsx",
+    "src/app/sitemap.ts",
+    "llms.config.mjs"
+  ],
+
+  "generators": [
+    {
+      "name": "agents",
+      "trigger": "agents.md",
+      "script": "scripts/agents.mjs",
+      "outputs": ["public/AGENTS.md"]
+    },
+    {
+      "name": "llms",
+      "trigger": "llms.txt",
+      "script": "scripts/llms.mjs",
+      "outputs": ["public/llms.txt", "public/llms-full.txt"]
+    }
+  ]
+}

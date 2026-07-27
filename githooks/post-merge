@@ -1,0 +1,71 @@
+#!/bin/sh
+# Warns when a merge or pull brought in structural route changes (add / delete /
+# rename of a watched file) that may have left the generated indexes stale.
+#
+# By design this hook NEVER modifies the working tree and never commits.
+# Regenerating mid-pull would hand the user surprise uncommitted changes on top
+# of a merge they are still reading. It only prints a heads-up.
+#
+# Triggers and outputs come from githooks/config.json, the same source as
+# post-commit, so adding a generator there extends this hook automatically.
+#
+# Bypass once: SKIP_DOCS_HOOK=1 git pull ...
+# Debug:       DEBUG_DOCS_HOOK=1 git pull ...
+
+log() {
+  [ -n "$DEBUG_DOCS_HOOK" ] && echo "[post-merge] $*" >&2
+}
+
+log "fired (pid=$$)"
+
+if [ -n "$SKIP_DOCS_HOOK" ]; then
+  log "SKIP_DOCS_HOOK set; exiting"
+  exit 0
+fi
+
+REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
+cd "$REPO_ROOT" || exit 0
+
+# shellcheck source=githooks/_lib.sh
+. "$REPO_ROOT/githooks/_lib.sh"
+load_hooks_config
+
+# ORIG_HEAD is the pre-merge tip; diffing it against HEAD shows what arrived.
+if ! git rev-parse --verify ORIG_HEAD >/dev/null 2>&1; then
+  log "no ORIG_HEAD; nothing to compare; exiting"
+  exit 0
+fi
+
+if [ -z "$WATCH_GLOBS" ]; then
+  log "no watchGlobs configured; exiting"
+  exit 0
+fi
+
+# `set -f` so the shell passes the globs to git verbatim instead of expanding
+# them against the working tree — see the same guard in post-commit.
+set -f
+# shellcheck disable=SC2086
+structural=$(git diff --name-status --diff-filter=ADR ORIG_HEAD HEAD -- $WATCH_GLOBS \
+  | filter_structural)
+set +f
+
+if [ -z "$structural" ]; then
+  log "no structural route changes in this merge; exiting quietly"
+  exit 0
+fi
+
+suggest=$(echo "$GENERATORS_TSV" | awk -F'\t' '{ printf "/%s ", $1 }' | sed 's/ $//')
+
+{
+  echo
+  echo "[llms-kit] heads-up: this merge added, deleted, or renamed route files:"
+  echo "$structural" | sed 's/^/    /'
+  echo
+  echo "    Generated indexes ($ALL_OUTPUTS) may now be stale."
+  echo "    Check with:       npm run llms -- --check"
+  if [ -n "$suggest" ]; then
+    echo "    Regenerate with:  $suggest"
+  fi
+  echo "    (Or just make your next commit — post-commit regenerates automatically.)"
+  echo
+} >&2
