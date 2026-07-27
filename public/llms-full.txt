@@ -1,0 +1,47 @@
+# Base Chain — Full Context
+
+> Full context for agents working with Base Chain. Hand-written network, freshness, and
+> routing guides sit above an exhaustive per-route index.
+
+<!-- LLMS_EXTRAS_START -->
+
+<!-- Add hand-written cross-cutting guides here. This region is preserved on regeneration. -->
+
+<!-- LLMS_EXTRAS_END -->
+
+<!-- LLMS_AUTOGEN_START -->
+
+## Network state
+- [Base Chain](https://chain.base.org/): Dashboards and tools for Base Chain, in one place.
+- [Upgrades · Base Chain](https://chain.base.org/upgrades): Track Base network upgrades and their activation status across Base Sepolia and Mainnet. (changes per release; re-fetch before relying on it)
+- [Changelog · Base Upgrades](https://chain.base.org/upgrades/changelog): Search and filter Base protocol changes across upgrades and Vibenet testing. (changes per release; re-fetch before relying on it)
+- [Snapshots · Base Chain](https://chain.base.org/snapshots): Download the latest Base node snapshots for Mainnet and Base Sepolia to sync a node quickly. (changes daily; re-fetch before relying on it)
+
+## Vibenet developer network
+- [Vibenet · Base Chain](https://chain.base.org/vibenet): Explore Vibenet, the Base devnet for testing in-flight protocol features.
+- [Demos · Vibenet](https://chain.base.org/vibenet/demos): Interactive demos of in-flight Base features running on the vibenet developer network.
+- [EIP-8130 · Vibenet](https://chain.base.org/vibenet/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet..
+- [Explorer · Vibenet](https://chain.base.org/vibenet/explorer): Browse blocks, transactions, and addresses on the Vibenet devnet. (changes daily; re-fetch before relying on it)
+- [Faucet · Vibenet](https://chain.base.org/vibenet/faucet): Request testnet tokens on Vibenet to fund accounts and try in-flight Base features. (changes monthly; re-fetch before relying on it)
+
+## Machine-readable endpoints
+- [Chain health](https://chain.base.org/api/health): JSON liveness probe for the chain.base.org service. Call this instead of parsing the homepage.
+- [Snapshots manifest](https://chain.base.org/api/snapshots): JSON array of the latest node snapshots per chain: chainId, chainName, block height, timestamp, client version, profile, total byte size, and a per-component breakdown. Call this instead of scraping /snapshots.
+
+## Network reference
+- [Base Mainnet — chain ID 8453](https://docs.base.org/base-chain/quickstart/connecting-to-base): RPC https://mainnet.base.org, explorer https://basescan.org.
+- [Base Sepolia — chain ID 84532](https://docs.base.org/base-chain/quickstart/connecting-to-base): RPC https://sepolia.base.org, explorer https://sepolia.basescan.org.
+- [Vibenet (ephemeral devnet)](https://chain.base.org/vibenet): Chain ID and RPC are not stable and are deliberately not listed here. Read them from https://chain.base.org/vibenet at request time. State may be wiped without notice.
+- [Base Sepolia faucets](https://docs.base.org/base-chain/network-information/network-faucets): Testnet funds for Base Sepolia.
+
+## Optional
+- [Base documentation index](https://docs.base.org/llms.txt): Every Base documentation page with titles and summaries. Go here for implementation detail.
+- [Base documentation full context](https://docs.base.org/llms-full.txt): Full static documentation bundle for long-context runs.
+- [Base docs AGENTS.md](https://docs.base.org/AGENTS.md): Compact directory-grouped index of Base documentation.
+- [Base docs MCP](https://docs.base.org/mcp): Model Context Protocol endpoint for querying Base documentation directly.
+- [Base website AGENTS.md](https://www.base.org/AGENTS.md): Product, ecosystem, and use-case routing for base.org.
+- [Base Chain routing rules](https://chain.base.org/AGENTS.md): Full agent routing document for this site, including freshness and volatility guidance.
+
+<!-- LLMS_AUTOGEN_END -->
+
+<!-- drift: 0 only-in-app, 0 only-in-sitemap -->

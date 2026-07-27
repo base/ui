@@ -1,0 +1,188 @@
+#!/bin/sh
+# Regenerates llms.txt / llms-full.txt / AGENTS.md after a commit.
+#
+# Two trigger paths:
+#
+#   OPT-IN — the commit message mentions a generator's trigger keyword
+#            ("llms.txt" or "agents.md", case-insensitive). This is the one
+#            you use day to day:
+#                git commit -m "feat: add snapshots page; updates llms.txt"
+#
+#   AUTO   — the commit added, deleted, or renamed a watched route file. A
+#            modification is NOT structural: editing a page's body does not
+#            change the site's shape, so content-only edits use the keyword.
+#
+# Triggers, watched paths, and outputs all live in githooks/config.json. Add an
+# entry there to wire your own keyword to your own script; this file stays put.
+#
+# If anything actually changed, ONE follow-up commit is created. Post-commit
+# rather than pre-commit is deliberate: the hook never silently mutates the
+# commit you just wrote.
+#
+# Bypass once:         SKIP_DOCS_HOOK=1 git commit ...
+# Bypass via message:  include the skipToken from config (default "[skip-docs]")
+# Debug:               DEBUG_DOCS_HOOK=1 git commit ...
+
+log() {
+  [ -n "$DEBUG_DOCS_HOOK" ] && echo "[post-commit] $*" >&2
+}
+
+log "fired (pid=$$)"
+
+# User-facing skip — for when you legitimately need to write "agents.md" in a
+# commit message ("fix broken link to agents.md") without regenerating.
+if [ -n "$SKIP_DOCS_HOOK" ]; then
+  log "SKIP_DOCS_HOOK set; exiting"
+  exit 0
+fi
+
+# Recursion guard: our own follow-up commit below re-fires this hook.
+if [ -n "$DOCS_HOOK_RUNNING" ]; then
+  log "recursion guard hit; exiting"
+  exit 0
+fi
+export DOCS_HOOK_RUNNING=1
+
+REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
+cd "$REPO_ROOT" || exit 0
+log "repo root: $REPO_ROOT"
+
+# shellcheck source=githooks/_lib.sh
+. "$REPO_ROOT/githooks/_lib.sh"
+load_hooks_config
+
+# Capture the triggering SHA before we create any commits of our own.
+TRIGGER_SHA=$(git rev-parse --short HEAD)
+MSG=$(git log -1 --pretty=%B)
+log "last commit msg: $MSG"
+
+if printf '%s' "$MSG" | grep -qiF -- "$SKIP_TOKEN"; then
+  log "skip token '$SKIP_TOKEN' in commit message; exiting"
+  exit 0
+fi
+
+# Which generators does the message ask for? -F keeps the trigger literal so a
+# keyword containing '.' or '[' cannot behave as a regex.
+WANTED=$(
+  i=0
+  echo "$GENERATORS_TSV" | while IFS=$(printf '\t') read -r _name trigger _script _outputs; do
+    i=$((i + 1))
+    if [ -n "$trigger" ] && printf '%s' "$MSG" | grep -qiF -- "$trigger"; then
+      echo "$i"
+    fi
+  done | tr '\n' ' '
+)
+
+# AUTO path: added / deleted / renamed watched files, excluding the generated
+# outputs themselves so hand-editing public/llms.txt never auto-fires a regen.
+if [ -z "$WANTED" ] && [ -n "$WATCH_GLOBS" ]; then
+  if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+    # `set -f` disables pathname expansion so the shell hands the glob patterns
+    # to git verbatim. Without it the shell expands them against the WORKING
+    # TREE first, which silently breaks deletion detection: a file that was just
+    # removed no longer exists on disk, so it expands to nothing and git is
+    # asked about the wrong paths. Additions happened to work, which is exactly
+    # what makes this the kind of bug that ships.
+    set -f
+    # shellcheck disable=SC2086
+    structural=$(git diff-tree -r --no-commit-id --name-status --diff-filter=ADR HEAD~1 HEAD -- $WATCH_GLOBS \
+      | filter_structural)
+    set +f
+    if [ -n "$structural" ]; then
+      log "structural route changes detected; auto-triggering all generators"
+      log "$structural"
+      # PORT FIX (d): `seq` is not POSIX and is missing from a minimal PATH,
+      # which the no-jq / no-node tests build deliberately. Count with a loop.
+      n=$(echo "$GENERATORS_TSV" | wc -l | tr -d ' ')
+      i=1
+      WANTED=''
+      while [ "$i" -le "$n" ]; do
+        WANTED="$WANTED$i "
+        i=$((i + 1))
+      done
+    fi
+  fi
+fi
+
+if [ -z "$WANTED" ]; then
+  log "no trigger (keyword or structural); exiting"
+  exit 0
+fi
+
+# A missing node must never break someone's commit. The commit already
+# succeeded by the time this hook runs; we just decline to do extra work.
+if ! command -v node >/dev/null 2>&1; then
+  echo "post-commit: node not found; skipping index regeneration." >&2
+  exit 0
+fi
+
+regenerated_files=""
+
+for idx in $WANTED; do
+  line=$(echo "$GENERATORS_TSV" | sed -n "${idx}p")
+  name=$(printf '%s' "$line" | awk -F'\t' '{print $1}')
+  script=$(printf '%s' "$line" | awk -F'\t' '{print $3}')
+  outputs=$(printf '%s' "$line" | awk -F'\t' '{print $4}')
+
+  if [ ! -f "$script" ]; then
+    log "[$name] $script NOT FOUND; skipping"
+    continue
+  fi
+  log "[$name] running: node $script"
+  if [ -n "$DEBUG_DOCS_HOOK" ]; then
+    node "$script"
+  else
+    node "$script" >/dev/null 2>&1
+  fi
+  rc=$?
+  if [ $rc -ne 0 ]; then
+    echo "post-commit: [$name] $script failed (exit $rc); skipping" >&2
+    continue
+  fi
+  regenerated_files="$regenerated_files $outputs"
+done
+
+regenerated_files=$(echo "$regenerated_files" | sed 's/^ *//;s/ *$//')
+if [ -z "$regenerated_files" ]; then
+  log "no generators ran successfully; nothing to commit"
+  exit 0
+fi
+
+# PORT FIX (a): on a FRESH INSTALL the outputs do not exist in HEAD and are
+# untracked, so `git diff HEAD -- <untracked>` prints nothing and the hook would
+# conclude "nothing changed" — silently never committing the very first
+# generation. --intent-to-add registers them so the diff sees them. Upstream
+# never hit this because its outputs were already tracked.
+# shellcheck disable=SC2086
+git add --intent-to-add -- $regenerated_files 2>/dev/null || true
+
+# Compare against HEAD rather than the index, so a pre-staged generated file
+# cannot fool the check into thinking nothing changed.
+# shellcheck disable=SC2086
+changed_files=$(git diff --name-only HEAD -- $regenerated_files)
+if [ -z "$changed_files" ]; then
+  log "regenerated files unchanged; nothing to commit"
+  exit 0
+fi
+log "regenerated files changed: $(echo "$changed_files" | tr '\n' ' ')"
+
+files_one_line=$(echo "$changed_files" | tr '\n' ',' | sed 's/,$//;s/,/, /g')
+if [ -z "$files_one_line" ]; then
+  subject="chore: regenerate agent indexes (post-commit of $TRIGGER_SHA)"
+else
+  subject="chore: regenerate $files_one_line (post-commit of $TRIGGER_SHA)"
+fi
+
+echo "$changed_files" | xargs git add --
+
+# --no-verify is intentional: this commit is generated content, not human work.
+# It avoids (a) re-running linters and formatters over generated files and
+# (b) a conventional-commit or sign-off hook rejecting our "chore:" subject.
+# The DOCS_HOOK_RUNNING guard above is what stops it re-firing THIS hook.
+git commit -m "$subject" --no-verify >/dev/null
+
+log "follow-up commit created: $subject"
+
+# Visible signal, so the user sees the hook did something without turning on
+# DEBUG_DOCS_HOOK or scrolling through git log.
+echo "[llms-kit] $subject" >&2

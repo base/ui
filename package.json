@@ -12,7 +12,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "llms": "node scripts/llms.mjs",
+    "agents": "node scripts/agents.mjs",
+    "docs:check": "node scripts/llms.mjs --check && node scripts/agents.mjs --check"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.3.3",
