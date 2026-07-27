@@ -3098,7 +3098,7 @@ export function AccountDemo() {
           onClick={() => setActiveAccountId(a.id)}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveAccountId(a.id); } }}
           className={cn(
-            'flex w-full cursor-pointer items-center gap-3 rounded-xl border-[1.5px] p-4 text-left transition-colors',
+            'flex w-full cursor-pointer flex-col gap-3 rounded-xl border-[1.5px] p-4 text-left transition-colors sm:flex-row sm:items-center',
             a.id === activeAccountId
               ? 'border-black dark:border-white'
               : 'border-bds-gray-10 bg-white hover:border-black dark:border-white/10 dark:bg-white/5 dark:hover:border-white',
@@ -3112,7 +3112,7 @@ export function AccountDemo() {
             className="min-w-0 flex-1"
           />
           {a.id === activeAccountId && (
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
