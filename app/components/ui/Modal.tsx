@@ -55,7 +55,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
           exit={{ opacity: 0 }}
           transition={BACKDROP_TRANSITION}
           onClick={onClose}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px] dark:bg-black/60"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px] dark:bg-black/60"
         >
           <motion.div
             layout
