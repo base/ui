@@ -447,6 +447,17 @@ button {
     width: 100vw;
     margin-left: calc(-1 * (100vw - 100%) / 2);
   }
+
+  /* iOS Safari auto-zooms the page when a focused input's font-size is < 16px,
+     which shrinks the visual viewport and pushes fixed modals (and their close
+     button) off-screen. Force >=16px on mobile so focusing a field never zooms.
+     !important is needed to beat per-input Tailwind text-[13px]/[14px] utilities;
+     the smaller visual sizing is preserved on >=768px. */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 @media (min-width: 768px) {
