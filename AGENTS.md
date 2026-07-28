@@ -80,6 +80,7 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackSnapshotPresetSelect(name)` | `app/snapshots/SnapshotsClient.tsx` — `selectPreset()` |
    | `trackSnapshotCommandCopy(network, preset)` | `app/snapshots/SnapshotsClient.tsx` — `InlineCommand` `onCopy` |
    | `trackFaucetRequest(token, status)` | `app/vibenet/faucet/page.tsx` — `runDrip()` |
+   | `trackTipsChainSelect(chain)` | `app/tips/components/ChainToggle.tsx` — chain toggle |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.

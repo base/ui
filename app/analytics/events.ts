@@ -39,3 +39,10 @@ export type FaucetStatus = 'submitted' | 'success' | 'error';
 export function trackFaucetRequest(token: string, status: FaucetStatus): void {
   track('faucet_request', { token, status });
 }
+
+// --- TIPS: chain selection ---
+
+// Fired when the user switches the TIPS chain (Mainnet / Sepolia / Zeronet).
+export function trackTipsChainSelect(chain: string): void {
+  track('tips_chain_select', { chain });
+}
