@@ -1,6 +1,8 @@
 import { resolveTipsChain } from '../../../tips/chains';
 import { getRpcUrl } from '../config';
 
+import { tipsDisabledResponse } from '../guard';
+
 export const runtime = 'nodejs';
 
 export interface BlockSummary {
@@ -74,6 +76,8 @@ async function fetchBlockByNumber(
 }
 
 export async function GET(request: Request) {
+  const disabled = tipsDisabledResponse();
+  if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
   const rpcUrl = getRpcUrl(chain);
 

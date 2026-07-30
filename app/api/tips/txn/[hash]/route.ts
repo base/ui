@@ -1,6 +1,8 @@
 import { resolveTipsChain } from '../../../../tips/chains';
 import { type BundleEvent, getBundleHistory, getTransactionMetadataByHash } from '../../s3';
 
+import { tipsDisabledResponse } from '../../guard';
+
 export const runtime = 'nodejs';
 
 export interface TransactionEvent {
@@ -33,6 +35,8 @@ export interface TransactionHistoryResponse {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
+  const disabled = tipsDisabledResponse();
+  if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
 
   try {

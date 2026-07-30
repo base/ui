@@ -5,6 +5,8 @@ import {
   type RejectedTransaction,
 } from '../s3';
 
+import { tipsDisabledResponse } from '../guard';
+
 export const runtime = 'nodejs';
 
 export interface RejectedTransactionsResponse {
@@ -12,6 +14,8 @@ export interface RejectedTransactionsResponse {
 }
 
 export async function GET(request: Request) {
+  const disabled = tipsDisabledResponse();
+  if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
 
   try {

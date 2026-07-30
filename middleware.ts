@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { TIPS_ENABLED } from './app/tips/flag';
+
 // TEMPORARY site-wide password gate.
 //
 // Active only when SITE_PASSWORD is set. Set it in Vercel's Production
@@ -16,6 +18,17 @@ import { NextRequest, NextResponse } from 'next/server';
 const COOKIE = 'site_gate';
 
 export function middleware(req: NextRequest) {
+  // TIPS is internal-only. In the public build (flag off) 404 the whole /tips
+  // subtree at the edge. This is the authoritative status block: /tips is
+  // statically prerendered, so the layout's notFound() serves 404 content but a
+  // 200 status — enforcing the real 404 here, before the static asset is served.
+  if (!TIPS_ENABLED) {
+    const { pathname } = req.nextUrl;
+    if (pathname === '/tips' || pathname.startsWith('/tips/')) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
+  }
+
   const password = process.env.SITE_PASSWORD;
 
   // No password configured (local dev / preview) -> no gate.

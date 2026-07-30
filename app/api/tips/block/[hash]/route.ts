@@ -9,6 +9,8 @@ import {
   getTransactionMetadataByHash,
 } from '../../s3';
 
+import { tipsDisabledResponse } from '../../guard';
+
 export const runtime = 'nodejs';
 
 function serializeBlockData(block: BlockData) {
@@ -248,6 +250,8 @@ async function refetchMissingTransactionSimulations(
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
+  const disabled = tipsDisabledResponse();
+  if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
   const rpcUrl = getRpcUrl(chain);
 
