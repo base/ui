@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { TIPS_ENABLED } from './app/tips/flag';
+import { disabledRoutePrefixes } from './deploy.config.mjs';
 
 // TEMPORARY site-wide password gate.
 //
@@ -18,13 +18,14 @@ import { TIPS_ENABLED } from './app/tips/flag';
 const COOKIE = 'site_gate';
 
 export function middleware(req: NextRequest) {
-  // TIPS is internal-only. In the public build (flag off) 404 the whole /tips
-  // subtree at the edge. This is the authoritative status block: /tips is
-  // statically prerendered, so the layout's notFound() serves 404 content but a
-  // 200 status — enforcing the real 404 here, before the static asset is served.
-  if (!TIPS_ENABLED) {
-    const { pathname } = req.nextUrl;
-    if (pathname === '/tips' || pathname.startsWith('/tips/')) {
+  // Surfaces not shipped to this build target (deploy.config.mjs) 404 at the
+  // edge. This is the authoritative status block: a disabled section's page may
+  // be statically prerendered, so its layout notFound() serves 404 content with
+  // a 200 status — enforcing the real 404 here, before the static asset is
+  // served. Prefixes are build-time constant (target is inlined).
+  const { pathname } = req.nextUrl;
+  for (const prefix of disabledRoutePrefixes()) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
       return new NextResponse('Not Found', { status: 404 });
     }
   }

@@ -34,7 +34,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
   { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
   { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
-  // TIPS is internal-only; present only when the build sets NEXT_PUBLIC_ENABLE_TIPS=1.
+  // TIPS is internal-only; present only in the internal build target
+  // (deploy.config.mjs). See app/tips/flag.ts.
   ...(TIPS_ENABLED
     ? [{ label: 'TIPS', href: '/tips', icon: 'tips', enabled: true } as NavItem]
     : []),

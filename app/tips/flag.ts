@@ -1,12 +1,10 @@
-// Build-time flag gating the TIPS section.
+// Whether the TIPS section is included in this build. Derived from the
+// deployment matrix (deploy.config.mjs) — TIPS ships to the internal target
+// only. Consumers import this named constant; the matrix is the source of truth.
 //
-// TIPS is internal-only. The public (Vercel) build leaves NEXT_PUBLIC_ENABLE_TIPS
-// unset, so TIPS is absent: no sidebar entry, the /tips route and its API 404,
-// and it's kept out of the sitemap and the generated llms/agents artifacts. The
-// internal Coinbase build (cb/ui Dockerfile.ui) sets NEXT_PUBLIC_ENABLE_TIPS=1
-// at `next build` time to include it.
-//
-// NEXT_PUBLIC_* is inlined at build, so this is a compile-time constant, not a
-// runtime toggle — when it is off, the TIPS code paths are dead-code-eliminated
-// and cannot be reached in the built artifact.
-export const TIPS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_TIPS === '1';
+// NEXT_PUBLIC_DEPLOY_TARGET is inlined at `next build`, so this is a compile-time
+// constant: when TIPS is disabled its code paths are dead-code-eliminated and
+// cannot be reached in the built artifact.
+import { surfaceEnabled } from '../../deploy.config.mjs';
+
+export const TIPS_ENABLED: boolean = surfaceEnabled('tips');
