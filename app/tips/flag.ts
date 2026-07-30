@@ -2,9 +2,9 @@
 // deployment matrix (deploy.config.mjs) — TIPS ships to the internal target
 // only. Consumers import this named constant; the matrix is the source of truth.
 //
-// NEXT_PUBLIC_DEPLOY_TARGET is inlined at `next build`, so this is a compile-time
-// constant: when TIPS is disabled its code paths are dead-code-eliminated and
-// cannot be reached in the built artifact.
+// The target is fixed for a given build, so when TIPS is disabled it is
+// unreachable in that build: the nav entry is dropped, middleware 404s /tips and
+// its subtree, and the API routes 404 via app/api/tips/guard.ts.
 import { surfaceEnabled } from '../../deploy.config.mjs';
 
 export const TIPS_ENABLED: boolean = surfaceEnabled('tips');

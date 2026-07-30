@@ -11,10 +11,13 @@
 //   npm run build:internal   -> internal (Coinbase EKS via cb/ui)
 //
 // Authored as .mjs so both the TypeScript app and the plain-node scripts
-// (scripts/llms.mjs, llms.config.mjs) can import it. NEXT_PUBLIC_DEPLOY_TARGET
-// is inlined at `next build`, so surfaceEnabled() is a compile-time constant in
-// bundled code — a disabled surface's code is dead-code-eliminated, not just
-// hidden.
+// (scripts/llms.mjs, llms.config.mjs) can import it.
+//
+// The target is fixed for a given build, so a disabled surface is unreachable in
+// it: middleware 404s its routes, its API guard 404s, and it is dropped from the
+// nav, sitemap, and generated llms artifacts. Note this is a reachability
+// guarantee, not a bundling one — the surface's client chunks may still be
+// emitted (this repo is public, so that is not a disclosure concern).
 
 /** @typedef {'external' | 'internal'} DeployTarget */
 

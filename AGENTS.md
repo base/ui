@@ -99,9 +99,13 @@ This one repo builds two deployables from the same source:
 
 Which sections ship to which target is declared in `deploy.config.mjs` — the
 `SURFACES` map (section → `{ routePrefixes, apiPrefixes, targets }`). A section
-absent from the map ships everywhere. `NEXT_PUBLIC_DEPLOY_TARGET` is inlined at
-build, so a disabled surface is dead-code-eliminated, not merely hidden. **TIPS**
-is internal-only today.
+absent from the map ships everywhere — the map is an exception list, so **an
+internal-only page with no entry will fail open and publish**. A disabled surface
+is *unreachable* in that build (routes + API 404, dropped from nav/sitemap/llms);
+its client chunks may still be emitted, so treat this as a reachability
+guarantee, not secrecy. **TIPS** is internal-only today, and the
+`public-build-excludes-internal` CI job enforces its absence from the public
+build — extend that job's path list when you add another internal-only surface.
 
 When you add or change an environment-specific section:
 

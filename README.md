@@ -31,7 +31,19 @@ to run the **internal** build locally with those sections visible. See
 - `npm run typecheck` — `tsc --noEmit`
 - `npm test` — vitest
 - `npm run llms` / `npm run agents` — regenerate the agent index files
-- `npm run docs:check` — verify the agent index is current (CI gate)
+- `npm run docs:check` — verify the agent index is current
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+
+- **verify** — `typecheck`, `lint`, `test`, `docs:check`
+- **public build excludes internal-only surfaces** — builds the default
+  (external) target and asserts that internal-only routes 404 and never appear
+  in the nav or sitemap, so the deployment matrix can't silently regress
+
+CodeQL, StepSecurity, Heimdall, and the Vercel preview build are configured
+outside this repo at the org/platform level.
 
 ## Structure
 
@@ -78,10 +90,17 @@ The same source builds two deployables, chosen by the build/dev script:
   sections.
 
 `deploy.config.mjs` declares which sections ship to which target (the `SURFACES`
-map). The scripts set `NEXT_PUBLIC_DEPLOY_TARGET`, which is inlined at build time,
-so a section that isn't in a target is **fully absent** there — its routes and
-API return 404 and it's dropped from the nav, sitemap, and llms files, not just
-hidden. **TIPS** is internal-only today.
+map). The scripts set `NEXT_PUBLIC_DEPLOY_TARGET`. A section not included in a
+target is **unreachable** there: its routes and API return 404, and it's dropped
+from the nav, sitemap, and llms files. (Its client chunks may still be built —
+this repo is public, so the guarantee is unreachability, not omission from the
+bundle.) **TIPS** is internal-only today, and CI enforces its absence from the
+public build.
+
+To run the other variant locally you can either use the `*:internal` scripts or
+set `NEXT_PUBLIC_DEPLOY_TARGET` in `.env.local` to pin a default. The scripts take
+precedence over `.env.local`, so a pinned value never locks you out of either
+variant. Vercel sets no value, so the public deploy is always external.
 
 To add an environment-specific page, add one `SURFACES` entry (middleware and the
 llms generator pick it up automatically) and gate its nav entry / layout / API
