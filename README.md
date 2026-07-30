@@ -11,13 +11,21 @@ internal Nx template so it builds and ships with the standard Next toolchain.
 ```bash
 npm install
 cp .env.example .env.local   # fill in values as needed
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3000  (external — public site)
+npm run dev:internal         # http://localhost:3000  (internal — includes TIPS)
 ```
+
+`npm run dev` runs the **external** build (what ships to Vercel); internal-only
+sections like TIPS are absent (their routes/API 404). Use `npm run dev:internal`
+to run the **internal** build locally with those sections visible. See
+[Deployment targets](#deployment-targets).
 
 ## Scripts
 
-- `npm run dev` — dev server
-- `npm run build` — production build
+- `npm run dev` — dev server (external target)
+- `npm run dev:internal` — dev server with internal-only sections (e.g. TIPS)
+- `npm run build` — production build (external target)
+- `npm run build:internal` — production build with internal-only sections
 - `npm run start` — serve the production build
 - `npm run lint` — eslint (next/core-web-vitals)
 - `npm run typecheck` — `tsc --noEmit`
@@ -59,7 +67,28 @@ Bypass a single commit with `SKIP_DOCS_HOOK=1 git commit …` or a `[skip-docs]`
 message. To disable: `./githooks/uninstall.sh`. See `githooks/README.md` for
 details.
 
+## Deployment targets
+
+The same source builds two deployables, chosen by the build/dev script:
+
+- `npm run build` / `npm run dev` — **external**: the public site on Vercel
+  (default).
+- `npm run build:internal` / `npm run dev:internal` — **internal**: Coinbase EKS
+  via the `protocols/ui` shell repo (cb/ui), which includes internal-only
+  sections.
+
+`deploy.config.mjs` declares which sections ship to which target (the `SURFACES`
+map). The scripts set `NEXT_PUBLIC_DEPLOY_TARGET`, which is inlined at build time,
+so a section that isn't in a target is **fully absent** there — its routes and
+API return 404 and it's dropped from the nav, sitemap, and llms files, not just
+hidden. **TIPS** is internal-only today.
+
+To add an environment-specific page, add one `SURFACES` entry (middleware and the
+llms generator pick it up automatically) and gate its nav entry / layout / API
+guard on `surfaceEnabled(...)`. `deploy.config.test.mjs` covers the matrix logic.
+
 ## Deployment
 
-Deployed on Vercel. Push to the default branch to ship; pull requests get
-preview deployments.
+Deployed on Vercel (external target). Push to the default branch to ship; pull
+requests get preview deployments. The internal target is built and deployed
+separately by the `protocols/ui` (cb/ui) shell repo.
