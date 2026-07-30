@@ -15,28 +15,53 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: typecheck · lint · test · docs
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
       - run: npm ci
-
       - run: npm run typecheck
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - run: npm run lint
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - run: npm test
 
-      # Fails if public/llms.txt, llms-full.txt, or AGENTS.md are stale. These
-      # are generated from the route tree and committed, so a new or renamed
-      # route must come with a regeneration (npm run llms && npm run agents).
+  # public/llms.txt, llms-full.txt, and AGENTS.md are generated from the route
+  # tree and committed. They go stale whenever a route is added, renamed, or
+  # removed, so this fails if they differ from a fresh generation (it also
+  # reports sitemap drift). Fix with: npm run llms && npm run agents
+  docs:
+    name: docs (generated agent index)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - run: npm run docs:check
 
   public-build-excludes-internal:
@@ -44,12 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
       - run: npm ci
 
       # The default (external) build is what ships to Vercel. Deliberately no

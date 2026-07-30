@@ -37,7 +37,12 @@ to run the **internal** build locally with those sections visible. See
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-- **verify** — `typecheck`, `lint`, `test`, `docs:check`
+- **typecheck** — `tsc --noEmit`
+- **lint** — eslint
+- **test** — vitest
+- **docs (generated agent index)** — fails if the committed `public/llms.txt`,
+  `llms-full.txt`, or `AGENTS.md` are stale relative to the route tree. Fix with
+  `npm run llms && npm run agents`.
 - **public build excludes internal-only surfaces** — builds the default
   (external) target and asserts that internal-only routes 404 and never appear
   in the nav or sitemap, so the deployment matrix can't silently regress
