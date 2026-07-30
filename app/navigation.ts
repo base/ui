@@ -1,4 +1,6 @@
-export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer';
+import { TIPS_ENABLED } from './tips/flag';
+
+export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'tips';
 
 export type NavChild = {
   label: string;
@@ -32,6 +34,11 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
   { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
   { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
+  // TIPS is internal-only; present only in the internal build target
+  // (deploy.config.mjs). See app/tips/flag.ts.
+  ...(TIPS_ENABLED
+    ? [{ label: 'TIPS', href: '/tips', icon: 'tips', enabled: true } as NavItem]
+    : []),
 ];
 
 export function titleForPath(pathname: string): string {

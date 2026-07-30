@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { disabledRoutePrefixes } from './deploy.config.mjs';
+
 // TEMPORARY site-wide password gate.
 //
 // Active only when SITE_PASSWORD is set. Set it in Vercel's Production
@@ -16,6 +18,18 @@ import { NextRequest, NextResponse } from 'next/server';
 const COOKIE = 'site_gate';
 
 export function middleware(req: NextRequest) {
+  // Surfaces not shipped to this build target (deploy.config.mjs) 404 at the
+  // edge. This is the authoritative status block: a disabled section's page may
+  // be statically prerendered, so its layout notFound() serves 404 content with
+  // a 200 status — enforcing the real 404 here, before the static asset is
+  // served. Prefixes are build-time constant (target is inlined).
+  const { pathname } = req.nextUrl;
+  for (const prefix of disabledRoutePrefixes()) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
+  }
+
   const password = process.env.SITE_PASSWORD;
 
   // No password configured (local dev / preview) -> no gate.

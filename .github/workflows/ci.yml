@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Cancel superseded runs on the same PR/branch.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  # public/llms.txt, llms-full.txt, and AGENTS.md are generated from the route
+  # tree and committed. They go stale whenever a route is added, renamed, or
+  # removed, so this fails if they differ from a fresh generation (it also
+  # reports sitemap drift). Fix with: npm run llms && npm run agents
+  docs:
+    name: docs (generated agent index)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run docs:check
+
+  public-build-excludes-internal:
+    name: public build excludes internal-only surfaces
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      # The default (external) build is what ships to Vercel. Deliberately no
+      # NEXT_PUBLIC_DEPLOY_TARGET here, so this reproduces the public build.
+      - run: npm run build
+
+      # Guards the deployment matrix in deploy.config.mjs: a surface that is not
+      # shipped to the external target must be unreachable on the public site.
+      # Without this, dropping the middleware rule — or adding an internal-only
+      # page and forgetting its SURFACES entry — would silently publish it.
+      - name: Assert internal-only surfaces are absent
+        run: |
+          set -euo pipefail
+
+          npx next start -p 3000 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:3000/; then break; fi
+            if [ "$i" -eq 60 ]; then echo "server never became ready"; exit 1; fi
+            sleep 1
+          done
+
+          fail=0
+
+          # Internal-only routes must 404 on the public build.
+          for route in /tips /tips/block/0x1 /tips/bundles/0x1 /api/tips/blocks; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000${route}")
+            if [ "${code}" != "404" ]; then
+              echo "FAIL: ${route} returned ${code}, expected 404"
+              fail=1
+            fi
+          done
+
+          # Pages that must stay public.
+          for route in / /snapshots; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000${route}")
+            if [ "${code}" != "200" ]; then
+              echo "FAIL: ${route} returned ${code}, expected 200"
+              fail=1
+            fi
+          done
+
+          # No nav link to, or sitemap entry for, an internal-only section.
+          if curl -s http://localhost:3000/ | grep -q 'href="/tips"'; then
+            echo "FAIL: public homepage links to /tips"
+            fail=1
+          fi
+          if curl -s http://localhost:3000/sitemap.xml | grep -q '/tips'; then
+            echo "FAIL: public sitemap lists /tips"
+            fail=1
+          fi
+
+          if [ "${fail}" -ne 0 ]; then exit 1; fi
+          echo "OK: internal-only surfaces are absent from the public build"

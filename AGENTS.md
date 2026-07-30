@@ -80,11 +80,48 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackSnapshotPresetSelect(name)` | `app/snapshots/SnapshotsClient.tsx` — `selectPreset()` |
    | `trackSnapshotCommandCopy(network, preset)` | `app/snapshots/SnapshotsClient.tsx` — `InlineCommand` `onCopy` |
    | `trackFaucetRequest(token, status)` | `app/vibenet/faucet/page.tsx` — `runDrip()` |
+   | `trackTipsChainSelect(chain)` | `app/tips/components/ChainToggle.tsx` — chain toggle |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.
    Custom events collect on Vercel deployments only (not local `npm run dev`);
    Vercel auto-discovers event names.
+
+## Deployment targets (internal vs external)
+
+This one repo builds two deployables from the same source:
+
+- **external** — the public site on Vercel (`npm run build` / `npm run dev`).
+  The default target.
+- **internal** — Coinbase EKS via the `protocols/ui` (cb/ui) shell repo
+  (`npm run build:internal` / `npm run dev:internal`, which set
+  `NEXT_PUBLIC_DEPLOY_TARGET=internal`).
+
+Which sections ship to which target is declared in `deploy.config.mjs` — the
+`SURFACES` map (section → `{ routePrefixes, apiPrefixes, targets }`). A section
+absent from the map ships everywhere — the map is an exception list, so **an
+internal-only page with no entry will fail open and publish**. A disabled surface
+is *unreachable* in that build (routes + API 404, dropped from nav/sitemap/llms);
+its client chunks may still be emitted, so treat this as a reachability
+guarantee, not secrecy. **TIPS** is internal-only today, and the
+`public-build-excludes-internal` CI job enforces its absence from the public
+build — extend that job's path list when you add another internal-only surface.
+
+When you add or change an environment-specific section:
+
+1. Add/edit its `deploy.config.mjs` entry. That alone makes middleware 404 its
+   routes (`disabledRoutePrefixes()`) and drops it from the generated
+   llms/agents artifacts (`llms.config.mjs` uses `disabledRouteGlobs()`).
+2. Gate the per-section surfaces that aren't automatic: the nav entry
+   (`app/tips/flag.ts` → `app/navigation.ts`), a layout `notFound()` backstop,
+   and the API routes (`app/api/tips/guard.ts` pattern). Use `surfaceEnabled(...)`.
+3. Select the target only via the build/dev script, never a hand-set env var. The
+   internal image sets it in cb/ui's `Dockerfile.ui` (`npm run build:internal`).
+4. Regenerate the agent index with the **external** (default) target so the
+   committed public artifacts never leak an internal-only section:
+   `npm run llms && npm run agents`.
+
+The matrix logic is covered by `deploy.config.test.mjs`.
 
 ## Pull requests
 
