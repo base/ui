@@ -24,9 +24,6 @@
 - [Explorer · Vibenet](https://chain.base.org/vibenet/explorer): Browse blocks, transactions, and addresses on the Vibenet devnet. (changes daily; re-fetch before relying on it)
 - [Faucet · Vibenet](https://chain.base.org/vibenet/faucet): Request testnet tokens on Vibenet to fund accounts and try in-flight Base features. (changes monthly; re-fetch before relying on it)
 
-## Other
-- [TIPS · Base Chain](https://chain.base.org/tips): Inspect TIPS blocks, bundles, transactions, and rejected transactions across Base chains.
-
 ## Machine-readable endpoints
 - [Chain health](https://chain.base.org/api/health): JSON liveness probe for the chain.base.org service. Call this instead of parsing the homepage.
 - [Snapshots manifest](https://chain.base.org/api/snapshots): JSON array of the latest node snapshots per chain: chainId, chainName, block height, timestamp, client version, profile, total byte size, and a per-component breakdown. Call this instead of scraping /snapshots.
