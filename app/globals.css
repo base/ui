@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Overlay layer scale. These all portal or `fixed` into the root stacking
+ * context, so they compare directly against each other — keep them in order
+ * and bump the whole scale rather than one layer in isolation:
+ *
+ *   100  mobile drawer            (.drawer, below)
+ *   110  mobile header            (.mobile-header, below)
+ *   120  modals                   (components/ui/Modal.tsx)
+ *   130  poppers over modals      (components/ui/Select.tsx)
+ *
+ * A popper below the modal layer still opens, but paints behind the panel —
+ * which reads as "the dropdown does nothing". */
+
 /* BDS Spectrum CSS variables — full palette available as var(--bds-*).
  * Semantic tokens live in theme.ts; these vars are here for future use
  * in CSS modules, animations, or any non-TS context.
