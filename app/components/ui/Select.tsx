@@ -72,7 +72,11 @@ export function Select({
         <RadixSelect.Content
           position="popper"
           sideOffset={6}
-          className="z-50 max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-bds-gray-10 bg-white shadow-lg dark:border-white/10 dark:bg-[#1a1a1a]"
+          // z-[130] — popper layer, above Modal's z-[120]. Radix portals this to
+          // <body>, so it competes with the modal in the root stacking context;
+          // anything lower renders behind the panel when a Select sits in a Modal.
+          // See the layer scale in globals.css.
+          className="z-[130] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-bds-gray-10 bg-white shadow-lg dark:border-white/10 dark:bg-[#1a1a1a]"
         >
           <RadixSelect.Viewport className="p-1">
             {options.map((option) => (
