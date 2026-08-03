@@ -2,6 +2,10 @@ MIT License
 
 Copyright (c) 2026 Base
 
+NOTE: Some files in this repository are excluded from this license. See NOTICE
+for the exceptions, which include the Base Sans brand typefaces under
+public/fonts/, and for third-party attribution.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
