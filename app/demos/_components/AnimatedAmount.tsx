@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 
-import { cn } from '../../../components/ui/cn';
+import { cn } from '../../components/ui/cn';
 
 type AnimatedAmountProps = {
   text: string;

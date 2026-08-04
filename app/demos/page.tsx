@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 
-import { Card, LinkCard } from '../../components/ui/Card';
-import { Text } from '../../components/ui/Text';
+import { Card, LinkCard } from '../components/ui/Card';
+import { Text } from '../components/ui/Text';
 import { Badge } from './account/components/primitives';
 
 export const metadata: Metadata = {
-  title: 'Demos · Vibenet',
+  title: 'Demos · Base Chain',
   description: 'Interactive demos of in-flight Base features running on the vibenet developer network.',
 };
 
@@ -23,7 +23,7 @@ type DemoEntry = {
 // roadmap — matching how the home/features surfaces handle staged work.
 const DEMOS: DemoEntry[] = [
   {
-    href: '/vibenet/demos/account',
+    href: '/demos/account',
     eyebrow: 'EIP-8130',
     title: 'Native Account Abstraction',
     summary:

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Text } from '../../../components/ui/Text';
+import { Text } from '../../components/ui/Text';
 
 type DemoHeaderProps = {
   eyebrow?: string;

@@ -31,7 +31,7 @@ export const FEATURES: VibenetFeature[] = [
     // The account demo has shipped, so the card links straight to it and shows
     // as `live` (which hides the "coming-soon" badge). "Build your own" points at
     // the EIP-8130 build guide.
-    cta: { label: 'Try It Out', href: '/vibenet/demos/account' },
+    cta: { label: 'Try It Out', href: '/demos/account' },
     secondaryCta: { label: 'Build Your Own', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/eip-8130', external: true },
     links: [{ label: 'EIP-8130', href: 'https://eip.tools/eip/8130', external: true }],
   },

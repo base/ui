@@ -70,7 +70,7 @@ export function isDynamicSegment(name) {
  * @returns {{routes: Route[], endpoints: string[], warnings: string[]}}
  *
  * Route = { urlPath, filePath, segments, layoutChain, dynamic }
- *   urlPath     '/vibenet/demos/account' (root is '/')
+ *   urlPath     '/demos/account' (root is '/')
  *   filePath    repo-relative path to the page file
  *   layoutChain repo-relative layout.tsx paths, nearest ancestor LAST
  */

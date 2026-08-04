@@ -26,11 +26,11 @@ export const NAV_ITEMS: NavItem[] = [
     enabled: true,
     children: [
       { label: 'Overview', href: '/vibenet', icon: 'overview', exact: true },
-      { label: 'Demos', href: '/vibenet/demos', icon: 'demos' },
       { label: 'Faucet', href: '/vibenet/faucet', icon: 'faucet' },
       { label: 'Explorer', href: '/vibenet/explorer', icon: 'explorer' },
     ],
   },
+  { label: 'Demos', href: '/demos', icon: 'demos', enabled: true },
   { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
   { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
   { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
