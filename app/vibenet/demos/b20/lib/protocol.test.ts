@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { decodeAbiParameters } from 'viem';
 
-import { b20Variant, encodeDeploymentParams, memoToBytes32, saltFor } from './protocol';
+import { b20Variant, encodeDeploymentParams, memoToBytes32, ROLES, saltFor } from './protocol';
 
 describe('B20 demo protocol helpers', () => {
   it('reads the variant byte from a B20-shaped address', () => {
@@ -20,8 +21,21 @@ describe('B20 demo protocol helpers', () => {
 
   it('uses canonical ABI tuple encodings for both Factory variants', () => {
     const account = '0x1111111111111111111111111111111111111111' as const;
-    expect(encodeDeploymentParams('asset', 'Asset', 'AST', account, 18, '')).toMatch(/^0x/);
-    expect(encodeDeploymentParams('stablecoin', 'Dollar', 'USD', account, 6, 'USD')).toMatch(/^0x/);
+    const asset = decodeAbiParameters(
+      [{ type: 'tuple', components: [{ type: 'uint8' }, { type: 'string' }, { type: 'string' }, { type: 'address' }, { type: 'uint8' }] }],
+      encodeDeploymentParams('asset', 'Asset', 'AST', account, 18, ''),
+    );
+    const stablecoin = decodeAbiParameters(
+      [{ type: 'tuple', components: [{ type: 'uint8' }, { type: 'string' }, { type: 'string' }, { type: 'address' }, { type: 'string' }] }],
+      encodeDeploymentParams('stablecoin', 'Dollar', 'USD', account, 6, 'USD'),
+    );
+    expect(asset[0]).toEqual([1, 'Asset', 'AST', account, 18]);
+    expect(stablecoin[0]).toEqual([1, 'Dollar', 'USD', account, 'USD']);
     expect(saltFor('issuer-salt')).toEqual(saltFor('issuer-salt'));
+  });
+
+  it('uses the current B20 role taxonomy', () => {
+    expect(ROLES).toContain('BURN_BLOCKED_ROLE');
+    expect(ROLES).not.toContain('SEIZE_ROLE' as never);
   });
 });

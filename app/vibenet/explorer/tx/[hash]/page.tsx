@@ -14,12 +14,14 @@ import type { DecodedB20MemoCall, DecodedCall } from '../../../library/explorer'
 import {
   callSelector,
   decodeB20MemoCalldata,
+  decodeB20Event,
   decodeErc20TransferCalldata,
   decodeErc20TransferLog,
   decodeExecuteBatch,
   decodeMetadata,
   EXECUTE_BATCH_SELECTOR,
   fmtHexInt,
+  fmtTokenAmount,
   hexToInt,
   phaseOk,
   scopeLabel,
@@ -252,6 +254,7 @@ type LogViewProps = {
 
 function LogView({ log }: LogViewProps) {
   const transfer = decodeErc20TransferLog(log);
+  const b20Event = decodeB20Event(log);
   const hasData = Boolean(log.data && log.data !== '0x');
   return (
     <Card className="bg-white p-4 dark:bg-white/5">
@@ -259,8 +262,27 @@ function LogView({ log }: LogViewProps) {
         <span className={`text-[12px] ${DIM}`}>#{log.logIndex}</span>
         <ExplorerLink kind="address" value={log.address} />
         {transfer ? <span className={BADGE}>Transfer</span> : null}
+        {b20Event ? <span className={BADGE}>{b20Event.eventName}</span> : null}
         {log.decoded ? <span className={BADGE}>{log.decoded.eventName}</span> : null}
       </div>
+      {b20Event?.eventName === 'Announcement' ? (
+        <DetailList className="mt-3 rounded-lg border border-bds-blue-20 bg-bds-blue-0 p-3 dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+          <DetailRow label="Announcement ID"><code className="font-mono">{b20Event.id}</code></DetailRow>
+          <DetailRow label="Description">{b20Event.description}</DetailRow>
+          <DetailRow label="Caller"><ExplorerLink kind="address" value={b20Event.caller} label={b20Event.caller} className="break-all" /></DetailRow>
+          <DetailRow label="Disclosure URI">{b20Event.uri ? <a href={b20Event.uri} target="_blank" rel="noreferrer" className="break-all text-base-blue hover:underline">{b20Event.uri} ↗</a> : <em className={DIM}>(none)</em>}</DetailRow>
+        </DetailList>
+      ) : null}
+      {b20Event?.eventName === 'UIMultiplierUpdated' ? (
+        <DetailList className="mt-2">
+          <DetailRow label="Previous multiplier"><code className="font-mono">{b20Event.previousMultiplier.toString()}</code></DetailRow>
+          <DetailRow label="New multiplier"><code className="font-mono">{b20Event.newMultiplier.toString()}</code></DetailRow>
+          <DetailRow label="Effective at">{new Date(Number(b20Event.effectiveAt) * 1000).toLocaleString()} <span className={DIM}>({b20Event.effectiveAt.toString()})</span></DetailRow>
+        </DetailList>
+      ) : null}
+      {b20Event?.eventName === 'EndAnnouncement' ? (
+        <DetailList className="mt-2"><DetailRow label="Announcement ID"><code className="font-mono">{b20Event.id}</code></DetailRow></DetailList>
+      ) : null}
       {log.decoded ? (
         <DetailList className="mt-2">
           {Object.entries(log.decoded.args).map(([k, v]) => (
@@ -337,6 +359,10 @@ function TxBody({ tx }: TxBodyProps) {
   const inputBytes = tx.input && tx.input !== '0x' ? (tx.input.length - 2) / 2 : 0;
   const callCount = (tx.aa?.calls ?? []).reduce((sum, phase) => sum + phase.length, 0);
   const phaseCount = tx.aa?.calls.length ?? 0;
+  const b20Events = tx.logs.map(decodeB20Event).filter((event) => event !== null);
+  const announcement = b20Events.find((event) => event.eventName === 'Announcement');
+  const multiplierUpdate = b20Events.find((event) => event.eventName === 'UIMultiplierUpdated');
+  const announcementClosed = b20Events.some((event) => event.eventName === 'EndAnnouncement');
 
   let gasUsedNote: string | null = null;
   if (tx.gasUsed && tx.gas) {
@@ -479,6 +505,32 @@ function TxBody({ tx }: TxBodyProps) {
           ) : null}
         </DetailList>
       </Card>
+
+      {announcement?.eventName === 'Announcement' ? (
+        <section className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Text variant="headline">Announcement</Text>
+            <span className={announcementClosed ? 'text-[12px] text-bds-green-60' : `text-[12px] ${DIM}`}>
+              {announcementClosed ? '✓ Complete event bracket' : 'Open event bracket'}
+            </span>
+          </div>
+          <Card className="border-bds-blue-20 bg-bds-blue-0 p-5 dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <code className="text-[11px] text-base-blue">{announcement.id}</code>
+                <Text className="mt-2" variant="headline">{announcement.description}</Text>
+              </div>
+              {tx.to ? <ExplorerLink kind="address" value={tx.to} label="B20 token" /> : null}
+            </div>
+            <DetailList className="mt-5 border-t border-bds-blue-20 pt-4 dark:border-bds-blue-80">
+              <DetailRow label="Publisher"><ExplorerLink kind="address" value={announcement.caller} label={announcement.caller} className="break-all" /></DetailRow>
+              <DetailRow label="Disclosure">{announcement.uri ? <a href={announcement.uri} target="_blank" rel="noreferrer" className="break-all text-base-blue hover:underline">{announcement.uri} ↗</a> : <em className={DIM}>(none)</em>}</DetailRow>
+              {multiplierUpdate?.eventName === 'UIMultiplierUpdated' ? <DetailRow label="Included update"><span>UI multiplier <strong>{fmtTokenAmount(multiplierUpdate.previousMultiplier, 18)} → {fmtTokenAmount(multiplierUpdate.newMultiplier, 18)}</strong></span></DetailRow> : null}
+              {multiplierUpdate?.eventName === 'UIMultiplierUpdated' ? <DetailRow label="Effective at">{new Date(Number(multiplierUpdate.effectiveAt) * 1000).toLocaleString()}</DetailRow> : null}
+            </DetailList>
+          </Card>
+        </section>
+      ) : null}
 
       {tx.isAa && tx.aa ? (
         <>

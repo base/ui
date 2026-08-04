@@ -2,6 +2,8 @@
 // page components so the four explorer routes stay presentational. Consumes the
 // API wire types directly (api-types.ts); no separate view models needed.
 
+import { decodeAbiParameters, type Hex } from 'viem';
+
 import type { ExplorerTxLog } from './api-types';
 
 // --- Time -----------------------------------------------------------------
@@ -257,6 +259,52 @@ export function decodeExecuteBatch(data: string): DecodedCall[] | null {
 
 export const ERC20_TRANSFER_TOPIC =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+export const B20_ANNOUNCEMENT_TOPIC =
+  '0xccebf8218a62875909564adef86a6f4df81503cb617221e793357d62f8e813f7';
+export const B20_UI_MULTIPLIER_UPDATED_TOPIC =
+  '0x2205df4534432b2f60654a3fdb48737ffdaf3e9edb1a498bd985bc026b15b055';
+export const B20_END_ANNOUNCEMENT_TOPIC =
+  '0x96d64dafe2c790596430196b982ad1da3221cb3b0f4e6e2df77f2e4f71a90037';
+
+export type DecodedB20Event =
+  | { eventName: 'Announcement'; caller: string; id: string; description: string; uri: string }
+  | { eventName: 'UIMultiplierUpdated'; previousMultiplier: bigint; newMultiplier: bigint; effectiveAt: bigint }
+  | { eventName: 'EndAnnouncement'; id: string };
+
+/** Decode the B20 Asset events that form an announcement bracket. */
+export function decodeB20Event(log: ExplorerTxLog): DecodedB20Event | null {
+  const topic = log.topics[0]?.toLowerCase();
+  try {
+    if (topic === B20_ANNOUNCEMENT_TOPIC && log.topics[1]) {
+      const [id, description, uri] = decodeAbiParameters(
+        [{ type: 'string' }, { type: 'string' }, { type: 'string' }],
+        log.data as Hex,
+      );
+      return {
+        eventName: 'Announcement',
+        caller: `0x${log.topics[1].slice(-40)}`,
+        id,
+        description,
+        uri,
+      };
+    }
+    if (topic === B20_UI_MULTIPLIER_UPDATED_TOPIC) {
+      const [previousMultiplier, newMultiplier, effectiveAt] = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }],
+        log.data as Hex,
+      );
+      return { eventName: 'UIMultiplierUpdated', previousMultiplier, newMultiplier, effectiveAt };
+    }
+    if (topic === B20_END_ANNOUNCEMENT_TOPIC) {
+      const [id] = decodeAbiParameters([{ type: 'string' }], log.data as Hex);
+      return { eventName: 'EndAnnouncement', id };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 export type Erc20TransferLog = {
   token: string;

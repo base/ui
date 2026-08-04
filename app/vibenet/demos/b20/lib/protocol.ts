@@ -21,7 +21,7 @@ export const factoryAbi = [
   { type: 'function', name: 'isB20', stateMutability: 'view', inputs: [{ name: 'token', type: 'address' }], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'isB20Initialized', stateMutability: 'view', inputs: [{ name: 'token', type: 'address' }], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'getB20Address', stateMutability: 'view', inputs: [{ name: 'variant', type: 'uint8' }, { name: 'sender', type: 'address' }, { name: 'salt', type: 'bytes32' }], outputs: [{ type: 'address' }] },
-  { type: 'function', name: 'createB20', stateMutability: 'nonpayable', inputs: [{ name: 'variant', type: 'uint8' }, { name: 'salt', type: 'bytes32' }, { name: 'params', type: 'bytes' }, { name: 'initCalls', type: 'bytes[]' }], outputs: [{ type: 'address' }] },
+  { type: 'function', name: 'createB20', stateMutability: 'payable', inputs: [{ name: 'variant', type: 'uint8' }, { name: 'salt', type: 'bytes32' }, { name: 'params', type: 'bytes' }, { name: 'initCalls', type: 'bytes[]' }], outputs: [{ type: 'address' }] },
 ] as const;
 
 export const activationAbi = [
@@ -57,20 +57,21 @@ export const b20Abi = [
 
 export const assetAbi = [
   { type: 'function', name: 'announce', stateMutability: 'nonpayable', inputs: [{ type: 'bytes[]', name: 'internalCalls' }, { type: 'string', name: 'id' }, { type: 'string', name: 'description' }, { type: 'string', name: 'uri' }], outputs: [] },
+  { type: 'function', name: 'isAnnouncementIdUsed', stateMutability: 'view', inputs: [{ type: 'string', name: 'id' }], outputs: [{ type: 'bool' }] },
+  { type: 'function', name: 'effectiveAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { type: 'function', name: 'setUIMultiplier', stateMutability: 'nonpayable', inputs: [{ type: 'uint256' }, { type: 'uint256' }], outputs: [] },
   { type: 'function', name: 'cancelScheduledMultiplier', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { type: 'function', name: 'batchMint', stateMutability: 'nonpayable', inputs: [{ type: 'address[]' }, { type: 'uint256[]' }], outputs: [] },
 ] as const;
 
 export const POLICY_SCOPES = [
-  ['MINT_RECEIVER_POLICY', 'Mint recipient'],
   ['TRANSFER_SENDER_POLICY', 'Transfer sender'],
   ['TRANSFER_RECEIVER_POLICY', 'Transfer receiver'],
   ['TRANSFER_EXECUTOR_POLICY', 'Transfer executor'],
-  ['SEIZE_HOLDER_POLICY', 'Seize holder'],
+  ['MINT_RECEIVER_POLICY', 'Mint recipient'],
 ] as const;
 
-export const ROLES = ['MINT_ROLE', 'BURN_ROLE', 'SEIZE_ROLE', 'PAUSE_ROLE', 'UNPAUSE_ROLE', 'METADATA_ROLE', 'OPERATOR_ROLE'] as const;
+export const ROLES = ['MINT_ROLE', 'BURN_ROLE', 'BURN_BLOCKED_ROLE', 'PAUSE_ROLE', 'UNPAUSE_ROLE', 'METADATA_ROLE', 'OPERATOR_ROLE'] as const;
 
 export function roleId(role: string): Hex {
   return keccak256(stringToHex(role));
