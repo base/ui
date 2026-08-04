@@ -5,7 +5,7 @@ import {
   vibenetDevnetDeployment,
 } from "@aa";
 
-import { isAddress } from "../../../library/format";
+import { isAddress } from "../../../vibenet/library/format";
 
 /**
  * Last-known-good vibenet EIP-8130 system contracts — a STATIC FALLBACK only.
@@ -94,7 +94,7 @@ export function deploymentFromContracts(
 import {
   ACCOUNT_BUNDLER_URL,
   ACCOUNT_PAYER_URL,
-} from "../../../library/config";
+} from "../../../vibenet/library/config";
 
 /**
  * How EIP-8130 accounts execute on a given chain:

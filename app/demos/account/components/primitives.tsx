@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { cn } from '../../../../components/ui/cn';
-import { Text } from '../../../../components/ui/Text';
+import { cn } from '../../../components/ui/cn';
+import { Text } from '../../../components/ui/Text';
 import type { SignerKind } from '../library/model';
 import { KIND_LABEL, short } from '../shared';
 

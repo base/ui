@@ -21,7 +21,7 @@ const vibenetAvailability = [
     timestamp: '2026-07-02',
     featured: true,
     image: '/images/upgrades/layered-squares.png',
-    demo: '/vibenet/demos/account'
+    demo: '/demos/account'
   },
 ] as const satisfies VibenetAvailability[];
 

@@ -1,9 +1,9 @@
 'use client';
 
-import { Button } from '../../../../components/ui/Button';
-import { Card } from '../../../../components/ui/Card';
-import { cn } from '../../../../components/ui/cn';
-import { Text } from '../../../../components/ui/Text';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { cn } from '../../../components/ui/cn';
+import { Text } from '../../../components/ui/Text';
 import type { DemoApp } from '../library/apps';
 import type { DemoChain } from '../library/chains';
 import { formatExpiry, type AppSessionKey, type AppSubAccount, type StoredAccount } from '../library/model';

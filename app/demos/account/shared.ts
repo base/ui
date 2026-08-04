@@ -2,7 +2,7 @@
 
 import type { Address, Hex } from '@aa';
 
-import type { AccountBalancesResponse } from '../../library/api-types';
+import type { AccountBalancesResponse } from '../../vibenet/library/api-types';
 import type { ActivityEntry, SignerKind, StoredAccount } from './library/model';
 
 /** An in-browser signer key held in the demo wallet. */

@@ -12,7 +12,7 @@ import {
   parseUnits,
 } from '@aa';
 
-import { vibenetApi } from '../../../library/client';
+import { vibenetApi } from '../../../vibenet/library/client';
 import { BASE_SEPOLIA_USDC } from './chains';
 import { SCOPE, scopeChips } from './model';
 import { short } from '../shared';
