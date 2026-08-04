@@ -8,6 +8,11 @@ export type DemoEntry = {
   href: string;
   /** Short tag shown beside the title on the card, usually the spec or network. */
   eyebrow: string;
+  /**
+   * Full name of the demo. Also the page title, which by convention reads
+   * `{title} · Demos` — set it in the demo's own layout metadata, since this
+   * catalogue is data and does not drive `<head>`.
+   */
   title: string;
   /** Compact label for the breadcrumb; falls back to `title` when unset. */
   shortTitle?: string;
