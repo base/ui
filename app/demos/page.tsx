@@ -3,40 +3,13 @@ import type { Metadata } from 'next';
 import { Card, LinkCard } from '../components/ui/Card';
 import { Text } from '../components/ui/Text';
 import { Badge } from './account/components/primitives';
+import { DEMOS, type DemoEntry } from './catalogue';
 
 export const metadata: Metadata = {
   title: 'Demos · Base Chain',
   description:
     'Interactive demos of in-flight Base features. Each demo runs on the test network that carries the feature it shows.',
 };
-
-type DemoEntry = {
-  href: string;
-  eyebrow: string;
-  title: string;
-  summary: string;
-  points: string[];
-  available: boolean;
-};
-
-// Demo catalogue. The account demo is the first (and, for now, only live)
-// entry; further demos are listed as upcoming so the surface reflects the
-// roadmap — matching how the home/features surfaces handle staged work.
-const DEMOS: DemoEntry[] = [
-  {
-    href: '/demos/account',
-    eyebrow: 'EIP-8130',
-    title: 'Native Account Abstraction',
-    summary:
-      'Create portable account-abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances across networks.',
-    points: [
-      'Smart & EOA accounts — deterministic addresses',
-      'K1 / P-256 / passkey signers',
-      'Live balances on Vibenet + Base Sepolia',
-    ],
-    available: true,
-  },
-];
 
 export default function DemosIndexPage() {
   return (

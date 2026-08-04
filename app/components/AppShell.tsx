@@ -10,6 +10,7 @@ import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { spectrum } from '../spectrum';
 import { getChangeBySlug } from '../upgrades/data/changes';
+import { demoLabel } from '../demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 import { titleForPath } from '../navigation';
 
@@ -632,12 +633,12 @@ export function AppShell({ children }: PropsWithChildren) {
               }
               const demoMatch = pathname.match(/^\/demos\/(.+)$/);
               if (demoMatch) {
-                const first = demoMatch[1].split('/')[0];
+                const slug = demoMatch[1].split('/')[0];
                 return (
                   <Breadcrumb
                     parentLabel="Demos"
                     parentHref="/demos"
-                    childLabel={first.charAt(0).toUpperCase() + first.slice(1)}
+                    childLabel={demoLabel(slug)}
                   />
                 );
               }
