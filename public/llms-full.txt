@@ -25,6 +25,7 @@
 ## Other
 - [Demos · Base Chain](https://chain.base.org/demos): Interactive demos of in-flight Base features. Each demo runs on the test network that carries the feature it shows.
 - [Native Account Abstraction · Demos](https://chain.base.org/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
+- [Native Token Issuance · Demos](https://chain.base.org/demos/b20): Inspect, configure, and issue Base-native B20 tokens on Vibenet.
 
 ## Machine-readable endpoints
 - [Chain health](https://chain.base.org/api/health): JSON liveness probe for the chain.base.org service. Call this instead of parsing the homepage.

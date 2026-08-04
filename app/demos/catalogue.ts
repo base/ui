@@ -23,6 +23,20 @@ export type DemoEntry = {
 
 export const DEMOS: DemoEntry[] = [
   {
+    href: '/demos/b20',
+    eyebrow: 'B20',
+    title: 'Native Token Issuance',
+    shortTitle: 'Token Issuance',
+    summary:
+      'Inspect policy scopes, attach transaction memos, publish Asset announcements, and create Base-native B20 tokens.',
+    points: [
+      'Asset and Stablecoin factory flows',
+      'Policy Registry inspection and address checks',
+      'Memo operations and Asset announcements',
+    ],
+    available: true,
+  },
+  {
     href: '/demos/account',
     eyebrow: 'EIP-8130',
     title: 'Native Account Abstraction',

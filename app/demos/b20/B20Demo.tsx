@@ -12,14 +12,14 @@ import {
   type Hex,
 } from 'viem';
 
-import { trackB20Action, trackB20ModuleSelect, trackB20WalletConnection } from '../../../analytics/events';
-import { Button } from '../../../components/ui/Button';
-import { Card } from '../../../components/ui/Card';
-import { cn } from '../../../components/ui/cn';
-import { Tabs } from '../../../components/ui/Tabs';
-import { Text, textVariantClasses } from '../../../components/ui/Text';
-import { CopyableValue } from '../../components/CopyableValue';
-import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from '../../library/config';
+import { trackB20Action, trackB20ModuleSelect, trackB20WalletConnection } from '../../analytics/events';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { cn } from '../../components/ui/cn';
+import { Tabs } from '../../components/ui/Tabs';
+import { Text, textVariantClasses } from '../../components/ui/Text';
+import { CopyableValue } from '../../vibenet/components/CopyableValue';
+import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from '../../vibenet/library/config';
 import {
   addEthereumChain,
   getChainId,
@@ -28,7 +28,7 @@ import {
   isUserRejection,
   switchEthereumChain,
   walletErrorMessage,
-} from '../../library/wallet';
+} from '../../vibenet/library/wallet';
 import {
   ACTIVATION_REGISTRY,
   activationAbi,
