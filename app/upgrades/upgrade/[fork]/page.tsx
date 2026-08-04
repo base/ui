@@ -26,13 +26,13 @@ export async function generateMetadata(props: UpgradePageProps): Promise<Metadat
   if (!upgrade) return {};
 
   return {
-    title: `${upgrade.name} | Base Upgrades`,
+    title: `${upgrade.name} · Base Upgrades`,
     description: upgrade.summary,
     alternates: {
       canonical: `/upgrades/upgrade/${upgrade.id}`,
     },
     openGraph: {
-      title: `${upgrade.name} | Base Upgrades`,
+      title: `${upgrade.name} · Base Upgrades`,
       description: upgrade.summary,
       url: `/upgrades/upgrade/${upgrade.id}`,
     },

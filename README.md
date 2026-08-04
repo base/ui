@@ -116,3 +116,10 @@ guard on `surfaceEnabled(...)`. `deploy.config.test.mjs` covers the matrix logic
 Deployed on Vercel (external target). Push to the default branch to ship; pull
 requests get preview deployments. The internal target is built and deployed
 separately by the `protocols/ui` (cb/ui) shell repo.
+
+## License
+
+MIT — see [LICENSE](LICENSE), with the exceptions in [NOTICE](NOTICE). The Base
+Sans brand typefaces under `public/fonts/` are **not** MIT licensed and may not
+be reused outside this project; `NOTICE` also carries third-party attribution
+for the bundled code in `vendor/aa/`.

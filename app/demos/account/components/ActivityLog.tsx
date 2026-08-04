@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 
-import { Button } from '../../../../components/ui/Button';
-import { cn } from '../../../../components/ui/cn';
-import { Text } from '../../../../components/ui/Text';
-import { VIBENET_EXPLORER_PATH } from '../../../library/config';
+import { Button } from '../../../components/ui/Button';
+import { cn } from '../../../components/ui/cn';
+import { Text } from '../../../components/ui/Text';
+import { VIBENET_EXPLORER_PATH } from '../../../vibenet/library/config';
 import { type ActivityEntry, type StoredAccount, formatTime } from '../library/model';
 import { short } from '../shared';
 import { AccountIdentity, Badge } from './primitives';

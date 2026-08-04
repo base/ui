@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 
-import { cn } from '../../../components/ui/cn';
+import { cn } from '../../components/ui/cn';
 
 export type DemoTabItem = {
   value: string;

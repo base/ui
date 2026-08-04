@@ -5,14 +5,14 @@ import type { Address, Hex } from '@aa';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { Button } from '../../../../components/ui/Button';
-import { Card } from '../../../../components/ui/Card';
-import { cn } from '../../../../components/ui/cn';
-import { CloseIcon } from '../../../../components/ui/icons';
-import { Spinner } from '../../../../components/ui/Spinner';
-import { Select } from '../../../../components/ui/Select';
-import { Text } from '../../../../components/ui/Text';
-import { VIBENET_EXPLORER_PATH } from '../../../library/config';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { cn } from '../../../components/ui/cn';
+import { CloseIcon } from '../../../components/ui/icons';
+import { Spinner } from '../../../components/ui/Spinner';
+import { Select } from '../../../components/ui/Select';
+import { Text } from '../../../components/ui/Text';
+import { VIBENET_EXPLORER_PATH } from '../../../vibenet/library/config';
 import { AnimatedAmount } from '../../_components/AnimatedAmount';
 import {
   DEMO_CHAINS,

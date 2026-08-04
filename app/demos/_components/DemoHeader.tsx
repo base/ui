@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Text } from '../../../components/ui/Text';
+import { Text } from '../../components/ui/Text';
 
 type DemoHeaderProps = {
   eyebrow?: string;
@@ -10,7 +10,9 @@ type DemoHeaderProps = {
 };
 
 export function DemoHeader({
-  eyebrow = 'Base Vibenet · Demo',
+  // Network-neutral default: demos run on whichever test network carries the
+  // feature they show. A demo names its own network by passing `eyebrow`.
+  eyebrow = 'Base · Demo',
   title,
   description,
   actions,
