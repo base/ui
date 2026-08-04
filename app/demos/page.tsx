@@ -6,7 +6,8 @@ import { Badge } from './account/components/primitives';
 
 export const metadata: Metadata = {
   title: 'Demos · Base Chain',
-  description: 'Interactive demos of in-flight Base features running on the vibenet developer network.',
+  description:
+    'Interactive demos of in-flight Base features. Each demo runs on the test network that carries the feature it shows.',
 };
 
 type DemoEntry = {

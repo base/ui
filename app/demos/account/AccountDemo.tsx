@@ -69,7 +69,6 @@ import { toast } from 'sonner';
 import { vibenetApi } from '../../vibenet/library/client';
 import { ACCOUNT_RPC_URL, VIBENET_EXPLORER_PATH } from '../../vibenet/library/config';
 import { AnimatedAmount } from '../_components/AnimatedAmount';
-import { DemoHeader } from '../_components/DemoHeader';
 import { Spinner } from '../../components/ui/Spinner';
 import { Tabs } from '../../components/ui/Tabs';
 import { Stat } from '../_components/Stat';
