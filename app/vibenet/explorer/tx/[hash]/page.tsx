@@ -10,9 +10,10 @@ import { DetailList, DetailRow } from '../../../components/DetailList';
 import { ExplorerLink } from '../../../components/ExplorerLink';
 import type { ExplorerAaCall, ExplorerTxLog, ExplorerTxResponse } from '../../../library/api-types';
 import { vibenetApi, VibenetApiError } from '../../../library/client';
-import type { DecodedCall } from '../../../library/explorer';
+import type { DecodedB20MemoCall, DecodedCall } from '../../../library/explorer';
 import {
   callSelector,
+  decodeB20MemoCalldata,
   decodeErc20TransferCalldata,
   decodeErc20TransferLog,
   decodeExecuteBatch,
@@ -74,8 +75,42 @@ type SubCallProps = {
   call: DecodedCall;
 };
 
+function B20MemoDetails({ call }: { call: DecodedB20MemoCall }) {
+  return (
+    <DetailList>
+      <DetailRow label="operation">
+        <code className="font-mono">{call.operation}</code>
+      </DetailRow>
+      {call.from ? (
+        <DetailRow label="from">
+          <ExplorerLink kind="address" value={call.from} label={call.from} className="break-all" />
+        </DetailRow>
+      ) : null}
+      {call.recipient ? (
+        <DetailRow label="recipient">
+          <ExplorerLink kind="address" value={call.recipient} label={call.recipient} className="break-all" />
+        </DetailRow>
+      ) : null}
+      <DetailRow label="amount">
+        <code className="font-mono">{call.rawAmount.toString()}</code>{' '}
+        <span className={DIM}>raw units</span>
+      </DetailRow>
+      <DetailRow label="memo">
+        {call.memoText ? (
+          <span>
+            {call.memoText} <span className={DIM}>(decoded bytes32)</span>
+          </span>
+        ) : (
+          <code className="break-all font-mono">{call.memo}</code>
+        )}
+      </DetailRow>
+    </DetailList>
+  );
+}
+
 function SubCall({ call }: SubCallProps) {
   const selector = callSelector(call.data);
+  const b20Memo = decodeB20MemoCalldata(call.data);
   const erc20 = decodeErc20TransferCalldata(call.data);
   const value = call.value ? BigInt(call.value) : 0n;
   const hasData = Boolean(call.data && call.data !== '0x');
@@ -92,7 +127,13 @@ function SubCall({ call }: SubCallProps) {
       {selector ? (
         <DetailRow label="selector">
           <code className="font-mono">{selector}</code>
+          {b20Memo ? <span className={DIM}> · {b20Memo.operation}</span> : null}
           {erc20 ? <span className={DIM}> · transfer</span> : null}
+        </DetailRow>
+      ) : null}
+      {b20Memo ? (
+        <DetailRow label="B20 memo">
+          <B20MemoDetails call={b20Memo} />
         </DetailRow>
       ) : null}
       {erc20 ? (
@@ -114,7 +155,7 @@ function SubCall({ call }: SubCallProps) {
           <span className={DIM}>raw units</span>
         </DetailRow>
       ) : null}
-      {!erc20 && hasData ? (
+      {!b20Memo && !erc20 && hasData ? (
         <DetailRow label="data">
           <span className={DIM}>{(call.data.length - 2) / 2} bytes</span>
         </DetailRow>
@@ -131,11 +172,18 @@ function TxCall({ call }: TxCallProps) {
   const selector = callSelector(call.data);
   const isExecuteBatch = selector === EXECUTE_BATCH_SELECTOR;
   const innerCalls = isExecuteBatch ? decodeExecuteBatch(call.data) : null;
-  const erc20 = isExecuteBatch ? null : decodeErc20TransferCalldata(call.data);
+  const b20Memo = isExecuteBatch ? null : decodeB20MemoCalldata(call.data);
+  const erc20 = isExecuteBatch || b20Memo ? null : decodeErc20TransferCalldata(call.data);
   const hasData = Boolean(call.data && call.data !== '0x');
 
   let decoded: ReactNode = null;
-  if (erc20) {
+  if (b20Memo) {
+    decoded = (
+      <DetailRow label="B20 memo">
+        <B20MemoDetails call={b20Memo} />
+      </DetailRow>
+    );
+  } else if (erc20) {
     decoded = (
       <DetailRow label="Decoded">
         <DetailList>
@@ -189,6 +237,7 @@ function TxCall({ call }: TxCallProps) {
         <DetailRow label="Selector">
           <code className="font-mono">{selector}</code>
           {isExecuteBatch ? <span className={DIM}> · executeBatch</span> : null}
+          {b20Memo ? <span className={DIM}> · {b20Memo.operation}</span> : null}
           {erc20 ? <span className={DIM}> · transfer(address,uint256)</span> : null}
         </DetailRow>
       ) : null}
@@ -284,6 +333,7 @@ function TxBody({ tx }: TxBodyProps) {
   const memo = decodeMetadata(tx.metadata);
   const hasMetadata = Boolean(tx.metadata && tx.metadata !== '0x');
   const selector = tx.input && tx.input.length >= 10 ? tx.input.slice(0, 10) : null;
+  const b20Memo = tx.isAa ? null : decodeB20MemoCalldata(tx.input);
   const inputBytes = tx.input && tx.input !== '0x' ? (tx.input.length - 2) / 2 : 0;
   const callCount = (tx.aa?.calls ?? []).reduce((sum, phase) => sum + phase.length, 0);
   const phaseCount = tx.aa?.calls.length ?? 0;
@@ -405,6 +455,12 @@ function TxBody({ tx }: TxBodyProps) {
           {!tx.isAa && selector ? (
             <DetailRow label="Selector">
               <code className="font-mono">{selector}</code>
+              {b20Memo ? <span className={DIM}> · {b20Memo.operation}</span> : null}
+            </DetailRow>
+          ) : null}
+          {b20Memo ? (
+            <DetailRow label="B20 memo">
+              <B20MemoDetails call={b20Memo} />
             </DetailRow>
           ) : null}
           {!tx.isAa ? (

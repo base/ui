@@ -40,6 +40,24 @@ export function trackFaucetRequest(token: string, status: FaucetStatus): void {
   track('faucet_request', { token, status });
 }
 
+// --- B20 issuer demo ---
+
+export function trackB20ModuleSelect(module: string): void {
+  track('b20_module_select', { module });
+}
+
+export function trackB20WalletConnection(status: 'started' | 'success' | 'error'): void {
+  track('b20_wallet_connection', { status });
+}
+
+export function trackB20Action(
+  module: string,
+  action: string,
+  status: 'submitted' | 'success' | 'error',
+): void {
+  track('b20_action', { module, action, status });
+}
+
 // --- TIPS: chain selection ---
 
 // Fired when the user switches the TIPS chain (Mainnet / Sepolia / Zeronet).

@@ -293,6 +293,68 @@ export function decodeErc20TransferCalldata(
   }
 }
 
+export type DecodedB20MemoCall = {
+  operation: 'transferWithMemo' | 'transferFromWithMemo' | 'mintWithMemo' | 'burnWithMemo';
+  from?: string;
+  recipient?: string;
+  rawAmount: bigint;
+  memo: string;
+  memoText: string | null;
+};
+
+const B20_MEMO_CALLS = {
+  '0x95777d59': { operation: 'transferWithMemo', amount: 1, memo: 2, recipient: 0 },
+  '0x929c2539': { operation: 'transferFromWithMemo', amount: 2, memo: 3, from: 0, recipient: 1 },
+  '0xe44f0b12': { operation: 'mintWithMemo', amount: 1, memo: 2, recipient: 0 },
+  '0x38f23b0b': { operation: 'burnWithMemo', amount: 0, memo: 1 },
+} as const;
+
+function decodeBytes32Text(value: string): string | null {
+  const unpadded = value.replace(/(?:00)+$/, '');
+  if (!unpadded) return null;
+  try {
+    const bytes = unpadded.match(/.{2}/g)?.map((byte) => Number.parseInt(byte, 16));
+    if (!bytes?.length) return null;
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+    return [...text].every((character) => character >= ' ' && character !== '\u007f') ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Decode the four B20 operations that carry a fixed-size `bytes32` memo. */
+export function decodeB20MemoCalldata(data: string): DecodedB20MemoCall | null {
+  if (!data || data.length < 10) return null;
+  const signature = data.slice(0, 10).toLowerCase() as keyof typeof B20_MEMO_CALLS;
+  const shape = B20_MEMO_CALLS[signature];
+  if (!shape) return null;
+
+  try {
+    const payload = data.slice(10);
+    const words = payload.match(/.{64}/g) ?? [];
+    const requiredWords = Math.max(shape.amount, shape.memo, 'from' in shape ? shape.from : 0, 'recipient' in shape ? shape.recipient : 0) + 1;
+    if (words.length < requiredWords) return null;
+
+    const word = (index: number) => {
+      const value = words[index];
+      if (!value) throw new Error('Missing calldata word');
+      return value;
+    };
+    const memoWord = word(shape.memo);
+    const memo = `0x${memoWord}`;
+    return {
+      operation: shape.operation,
+      ...('from' in shape ? { from: `0x${word(shape.from).slice(24)}` } : {}),
+      ...('recipient' in shape ? { recipient: `0x${word(shape.recipient).slice(24)}` } : {}),
+      rawAmount: BigInt(`0x${word(shape.amount)}`),
+      memo,
+      memoText: decodeBytes32Text(memoWord),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** EIP-8130 per-phase execution status: `0x01`/`0x1` = ok. */
 export function phaseOk(status: string): boolean {
   return status === '0x1' || status === '0x01';
