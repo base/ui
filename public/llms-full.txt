@@ -23,8 +23,8 @@
 - [Faucet · Vibenet](https://chain.base.org/vibenet/faucet): Request testnet tokens on Vibenet to fund accounts and try in-flight Base features. (changes monthly; re-fetch before relying on it)
 
 ## Other
-- [Demos · Base Chain](https://chain.base.org/demos): Interactive demos of in-flight Base features running on the vibenet developer network.
-- [EIP-8130 · Base Chain](https://chain.base.org/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet..
+- [Demos · Base Chain](https://chain.base.org/demos): Interactive demos of in-flight Base features. Each demo runs on the test network that carries the feature it shows.
+- [EIP-8130 · Base Chain](https://chain.base.org/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
 
 ## Machine-readable endpoints
 - [Chain health](https://chain.base.org/api/health): JSON liveness probe for the chain.base.org service. Call this instead of parsing the homepage.

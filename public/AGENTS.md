@@ -91,8 +91,8 @@ Discovered from the Next.js app directory.
 
 **Other**
 
-- [/demos](https://chain.base.org/demos) — Interactive demos of in-flight Base features running on the vibenet developer network.
-- [/demos/account](https://chain.base.org/demos/account) — Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet..
+- [/demos](https://chain.base.org/demos) — Interactive demos of in-flight Base features. Each demo runs on the test network that carries the feature it shows.
+- [/demos/account](https://chain.base.org/demos/account) — Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
 
 ## Generation
 
