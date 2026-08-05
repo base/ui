@@ -2,6 +2,7 @@ const ILLO_MAP: Record<string, string> = {
   azul: '/azul-illo.svg',
   beryl: '/beryl-illo.svg',
   cobalt: '/cobalt-illo.svg',
+  denim: '/denim-illo.svg',
 };
 
 type UpgradeIllustrationProps = {
