@@ -1,17 +1,19 @@
-import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * Parser and key-handling coverage for the TIPS S3 layer.
+ * Coverage for the TIPS block cache.
  *
- * Only ./config is stubbed — the S3 client and bucket name. Every function under
- * test runs its real body, so the JSON parsing, bigint coercion, S3 key parsing,
- * and error handling are genuinely exercised rather than reimplemented here.
+ * Deliberately scoped: the transaction-observability work moves transaction and
+ * bundle history to Postgres and retires the rejected view, so getBundleHistory,
+ * getTransactionMetadataByHash, listRejectedTransactions, getRejectedTransaction,
+ * and formatRejectionReason are all on their way out and are left uncovered
+ * rather than pinned in place. What remains here is the block cache — this app's
+ * own read-through cache of RPC block data, which the migration does not touch.
  *
- * These paths matter because the module is deliberately forgiving: a read that
- * fails for ANY reason resolves to null and the caller renders an empty state.
- * That is what made the placeholder-credentials outage look like "no data" instead
- * of "misconfigured", so the swallowing is pinned below as current behaviour.
+ * Only ./config is stubbed (the S3 client and bucket name), so the functions run
+ * their real bodies and the JSON parsing and bigint coercion are genuinely
+ * exercised rather than reimplemented in the test.
  */
 
 const send = vi.fn();
@@ -22,25 +24,13 @@ vi.mock('./config', () => ({
   getRpcUrl: () => 'http://rpc.test',
 }));
 
-/** Back the fake client with a key→body map and a listing. */
+/** Back the fake client with a key→body map. */
 function givenS3({
   objects = {},
-  listing = [],
   failWith,
-}: {
-  objects?: Record<string, string>;
-  listing?: string[];
-  failWith?: Error;
-} = {}) {
+}: { objects?: Record<string, string>; failWith?: Error } = {}) {
   send.mockImplementation(async (command: unknown) => {
     if (failWith) throw failWith;
-
-    if (command instanceof ListObjectsV2Command) {
-      const prefix = command.input.Prefix ?? '';
-      const keys = listing.filter((key) => key.startsWith(prefix));
-      const max = command.input.MaxKeys ?? keys.length;
-      return { Contents: keys.slice(0, max).map((Key) => ({ Key })) };
-    }
 
     if (command instanceof GetObjectCommand) {
       const body = objects[command.input.Key as string];
@@ -65,24 +55,6 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-// Also on the way out with the rejected view — see the note above
-// listRejectedTransactions.
-describe('formatRejectionReason', () => {
-  it('renders an execution-time rejection with both bounds', () => {
-    expect(
-      s3.formatRejectionReason({ executionTimeExceeded: { tx_time_us: 1234567, limit_us: 2000 } }),
-    ).toBe('Execution time exceeded: 1,234,567μs > 2,000μs limit');
-  });
-
-  it('passes a plain string reason through', () => {
-    expect(s3.formatRejectionReason('nonce too low')).toBe('nonce too low');
-  });
-
-  it('falls back for a shape it does not recognise', () => {
-    expect(s3.formatRejectionReason({})).toBe('Unknown reason');
-  });
 });
 
 describe('getBlockFromCache', () => {
@@ -150,171 +122,6 @@ describe('getBlockFromCache', () => {
   });
 });
 
-describe('getTransactionMetadataByHash', () => {
-  // Shape taken from the producer: TransactionMetadata in base/base
-  // crates/infra/audit/src/storage.rs serializes bundle_ids and nothing else.
-  it('reads transactions/by_hash/<hash> and parses it', async () => {
-    givenS3({
-      objects: {
-        'transactions/by_hash/0xtx': JSON.stringify({ bundle_ids: ['b1', 'b2'] }),
-      },
-    });
-
-    const metadata = await s3.getTransactionMetadataByHash('mainnet', '0xtx');
-    expect(metadata?.bundle_ids).toEqual(['b1', 'b2']);
-
-    const command = send.mock.calls[0][0] as GetObjectCommand;
-    expect(command.input.Key).toBe('transactions/by_hash/0xtx');
-  });
-
-  it('accepts a UUID bundle id, as older objects carry', async () => {
-    givenS3({
-      objects: {
-        'transactions/by_hash/0xtx': JSON.stringify({
-          bundle_ids: ['e24ea758-0000-4000-8000-000000000000'],
-        }),
-      },
-    });
-
-    const metadata = await s3.getTransactionMetadataByHash('mainnet', '0xtx');
-    expect(metadata?.bundle_ids[0]).toMatch(/^[0-9a-f-]{36}$/);
-  });
-
-  it('reads an object carrying no bundles', async () => {
-    givenS3({ objects: { 'transactions/by_hash/0xtx': JSON.stringify({ bundle_ids: [] }) } });
-    const metadata = await s3.getTransactionMetadataByHash('mainnet', '0xtx');
-    expect(metadata?.bundle_ids).toEqual([]);
-  });
-
-  it('returns null for malformed JSON', async () => {
-    givenS3({ objects: { 'transactions/by_hash/0xtx': 'nope' } });
-    await expect(s3.getTransactionMetadataByHash('mainnet', '0xtx')).resolves.toBeNull();
-  });
-
-  it('returns null when the object is absent', async () => {
-    givenS3();
-    await expect(s3.getTransactionMetadataByHash('mainnet', '0xtx')).resolves.toBeNull();
-  });
-});
-
-// BundleHistoryEvent in base/base crates/infra/audit/src/storage.rs is
-// #[serde(tag = "event", content = "data")], so each object on the wire is
-// { "event": "<Variant>", "data": { ... } } with per-variant contents.
-const RECEIVED_EVENT = JSON.stringify({
-  event: 'Received',
-  data: {
-    key: 'b1',
-    timestamp: 1785270239,
-    bundle: { uuid: 'b1', txs: [], block_number: '49240446' },
-  },
-});
-
-const BUILDER_INCLUDED_EVENT = JSON.stringify({
-  event: 'BuilderIncluded',
-  data: {
-    key: 'b1',
-    timestamp: 1785270241,
-    builder: 'sequencer-0',
-    block_number: 49240446,
-    flashblock_index: 2,
-  },
-});
-
-// DEPRECATION (wlawt, PR #47): the transaction-observability work moves full
-// transaction history to Postgres and retires S3-backed bundle history, so this
-// path has an end date. Kept because it is still what production serves, and
-// getBundleHistory currently feeds four routes — bundle/[hash], txn/[hash],
-// block/[hash] metering enrichment, and rejected. Delete these tests in the same
-// change that removes the S3 path; don't build on them and don't extend them.
-describe('getBundleHistory', () => {
-  it('lists under bundles/<key>/ and collects the events', async () => {
-    givenS3({
-      listing: ['bundles/b1/1-received', 'bundles/b1/2-included'],
-      objects: {
-        'bundles/b1/1-received': RECEIVED_EVENT,
-        'bundles/b1/2-included': BUILDER_INCLUDED_EVENT,
-      },
-    });
-
-    const history = await s3.getBundleHistory('mainnet', 'b1');
-    expect(history?.history.map((e) => e.event)).toEqual(['Received', 'BuilderIncluded']);
-    // The tagged-enum payload must survive parsing — the block route reaches into
-    // data.bundle.meter_bundle_response off the Received event.
-    expect(history?.history[0].data.bundle).toBeDefined();
-    expect(history?.history[1].data.builder).toBe('sequencer-0');
-
-    const list = send.mock.calls[0][0] as ListObjectsV2Command;
-    expect(list.input.Prefix).toBe('bundles/b1/');
-  });
-
-  it('keeps the readable events when one is corrupt', async () => {
-    givenS3({
-      listing: ['bundles/b1/1-received', 'bundles/b1/2-broken'],
-      objects: {
-        'bundles/b1/1-received': RECEIVED_EVENT,
-        'bundles/b1/2-broken': '{{{',
-      },
-    });
-
-    const history = await s3.getBundleHistory('mainnet', 'b1');
-    // One bad event must not discard the bundle's whole history.
-    expect(history?.history).toHaveLength(1);
-    expect(history?.history[0].event).toBe('Received');
-  });
-
-  it('returns null when the bundle has no objects', async () => {
-    givenS3({ listing: [] });
-    await expect(s3.getBundleHistory('mainnet', 'nope')).resolves.toBeNull();
-  });
-});
-
-// DEPRECATION (wlawt, PR #47): the rejected-transactions view is being replaced
-// by Niran's transaction-observability rollout. Same terms as getBundleHistory
-// above — these cover what production serves today and should be deleted
-// alongside the code, not carried forward or extended.
-describe('listRejectedTransactions', () => {
-  it('parses rejected/<block>/<hash> and sorts newest block first', async () => {
-    givenS3({ listing: ['rejected/100/0xa', 'rejected/300/0xc', 'rejected/200/0xb'] });
-
-    const rejected = await s3.listRejectedTransactions('mainnet');
-    expect(rejected).toEqual([
-      { blockNumber: 300, txHash: '0xc' },
-      { blockNumber: 200, txHash: '0xb' },
-      { blockNumber: 100, txHash: '0xa' },
-    ]);
-  });
-
-  it('skips keys that are not exactly rejected/<block>/<hash>', async () => {
-    givenS3({
-      listing: [
-        'rejected/100/0xa',
-        'rejected/', // prefix marker
-        'rejected/200', // missing hash
-        'rejected/300/0xc/extra', // too deep
-        'rejected/notanumber/0xd', // unparseable block
-      ],
-    });
-
-    const rejected = await s3.listRejectedTransactions('mainnet');
-    expect(rejected).toEqual([{ blockNumber: 100, txHash: '0xa' }]);
-  });
-
-  it('honours the limit as MaxKeys', async () => {
-    givenS3({ listing: ['rejected/1/0xa', 'rejected/2/0xb'] });
-    await s3.listRejectedTransactions('mainnet', 25);
-
-    const list = send.mock.calls[0][0] as ListObjectsV2Command;
-    expect(list.input.MaxKeys).toBe(25);
-    expect(list.input.Prefix).toBe('rejected/');
-  });
-
-  it('returns an empty list when S3 fails', async () => {
-    // Pins current behaviour: an outage is indistinguishable from "nothing rejected".
-    givenS3({ failWith: new Error('AccessDenied') });
-    await expect(s3.listRejectedTransactions('mainnet')).resolves.toEqual([]);
-  });
-});
-
 describe('cacheBlockData', () => {
   it('serialises bigints as strings so the cache round-trips', async () => {
     givenS3();
@@ -344,7 +151,8 @@ describe('cacheBlockData', () => {
     expect(body.number).toBe('1');
     expect(body.transactions[0].gasLimit).toBe('21000');
 
-    // The round trip is the point: what we write must parse back to the same bigints.
+    // The round trip is the point: what we write must parse back to the same
+    // bigints, and nothing else asserts that the two halves agree.
     givenS3({ objects: { 'blocks/0xabc': put.input.Body as string } });
     const restored = await s3.getBlockFromCache('mainnet', '0xabc');
     expect(restored?.number).toBe(1n);

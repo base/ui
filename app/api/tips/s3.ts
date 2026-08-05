@@ -3,13 +3,15 @@
 // S3 client + bucket from config.ts instead of a module-level singleton, so one
 // deployment can serve all chains.
 //
-// PLANNED REMOVAL: the transaction-observability work moves full transaction
-// history to Postgres and retires S3-backed bundle history, and the rejected
-// view is being replaced along with it. That covers getBundleHistory (used by
-// bundle/[hash], txn/[hash], and block/[hash] metering enrichment) plus
-// listRejectedTransactions / getRejectedTransaction / formatRejectionReason.
-// Prefer not to extend those; s3.test.ts carries matching notes so the tests
-// come out with the code.
+// PLANNED REMOVAL: the transaction-observability work moves transaction and
+// bundle history to Postgres and retires the rejected view. That covers
+// getBundleHistory (used by bundle/[hash], txn/[hash], and block/[hash] metering
+// enrichment), getTransactionMetadataByHash (which exists only to resolve a tx to
+// its bundle_ids), listRejectedTransactions, getRejectedTransaction, and
+// formatRejectionReason. Those are deliberately left untested — see s3.test.ts —
+// so nothing has to be unpicked when they go. The block cache below
+// (getBlockFromCache / cacheBlockData) is this app's own cache of RPC data and
+// is unaffected.
 import {
   GetObjectCommand,
   ListObjectsV2Command,
