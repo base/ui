@@ -38,6 +38,30 @@ describe('upgrades route helpers', () => {
     expect(getUpgradeById('missing')).toBeUndefined();
   });
 
+  it('includes Denim with its November 2026 estimate', () => {
+    const denim = getUpgradeById('denim');
+    expect(denim?.estimate).toEqual({
+      sepolia: 'November 2026',
+      mainnet: 'November 2026',
+    });
+    expect(denim?.lifecycle).toEqual({ sepolia: {}, mainnet: {} });
+  });
+
+  it('lists 200ms Blocks as a Denim execution feature', () => {
+    const change = getChangeBySlug('200ms-blocks');
+    expect(change).toMatchObject({
+      id: 'base-0010',
+      title: '200ms Blocks',
+      category: 'execution',
+      upgrade: 'denim',
+    });
+
+    const execution = categoryGroupsForUpgrade('denim').find(
+      (group) => group.category === 'execution',
+    );
+    expect(execution?.changeIds).toEqual(['base-0010']);
+  });
+
   it('looks up changelog entries by slug', () => {
     const change = getChangeBySlug('native-account-abstraction');
     expect(change?.id).toBe('eip-8130');

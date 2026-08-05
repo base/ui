@@ -59,6 +59,24 @@ export const upgrades: Upgrade[] = [
     specUrl: '',
     blog: '',
   },
+  {
+    id: 'denim',
+    name: 'Denim',
+    summary:
+      'Denim introduces 200ms canonical blocks, millisecond-resolution RPC timestamps, and onchain millisecond time through BaseTime.',
+    lifecycle: {
+      sepolia: { },
+      mainnet: { },
+    },
+    estimate: {
+      sepolia: 'November 2026',
+      mainnet: 'November 2026',
+    },
+    categories: categoryGroupsForUpgrade('denim'),
+    migrationGuide: [],
+    specUrl: '',
+    blog: '',
+  },
 ];
 
 let reversedUpgrades: Upgrade[] | null = null;
