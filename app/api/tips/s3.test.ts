@@ -67,6 +67,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Also on the way out with the rejected view — see the note above
+// listRejectedTransactions.
 describe('formatRejectionReason', () => {
   it('renders an execution-time rejection with both bounds', () => {
     expect(
@@ -218,6 +220,12 @@ const BUILDER_INCLUDED_EVENT = JSON.stringify({
   },
 });
 
+// DEPRECATION (wlawt, PR #47): the transaction-observability work moves full
+// transaction history to Postgres and retires S3-backed bundle history, so this
+// path has an end date. Kept because it is still what production serves, and
+// getBundleHistory currently feeds four routes — bundle/[hash], txn/[hash],
+// block/[hash] metering enrichment, and rejected. Delete these tests in the same
+// change that removes the S3 path; don't build on them and don't extend them.
 describe('getBundleHistory', () => {
   it('lists under bundles/<key>/ and collects the events', async () => {
     givenS3({
@@ -260,6 +268,10 @@ describe('getBundleHistory', () => {
   });
 });
 
+// DEPRECATION (wlawt, PR #47): the rejected-transactions view is being replaced
+// by Niran's transaction-observability rollout. Same terms as getBundleHistory
+// above — these cover what production serves today and should be deleted
+// alongside the code, not carried forward or extended.
 describe('listRejectedTransactions', () => {
   it('parses rejected/<block>/<hash> and sorts newest block first', async () => {
     givenS3({ listing: ['rejected/100/0xa', 'rejected/300/0xc', 'rejected/200/0xb'] });
