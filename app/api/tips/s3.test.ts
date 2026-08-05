@@ -149,22 +149,39 @@ describe('getBlockFromCache', () => {
 });
 
 describe('getTransactionMetadataByHash', () => {
+  // Shape taken from the producer: TransactionMetadata in base/base
+  // crates/infra/audit/src/storage.rs serializes bundle_ids and nothing else.
   it('reads transactions/by_hash/<hash> and parses it', async () => {
     givenS3({
       objects: {
+        'transactions/by_hash/0xtx': JSON.stringify({ bundle_ids: ['b1', 'b2'] }),
+      },
+    });
+
+    const metadata = await s3.getTransactionMetadataByHash('mainnet', '0xtx');
+    expect(metadata?.bundle_ids).toEqual(['b1', 'b2']);
+
+    const command = send.mock.calls[0][0] as GetObjectCommand;
+    expect(command.input.Key).toBe('transactions/by_hash/0xtx');
+  });
+
+  it('accepts a UUID bundle id, as older objects carry', async () => {
+    givenS3({
+      objects: {
         'transactions/by_hash/0xtx': JSON.stringify({
-          bundle_ids: ['b1'],
-          sender: '0xs',
-          nonce: '1',
+          bundle_ids: ['e24ea758-0000-4000-8000-000000000000'],
         }),
       },
     });
 
     const metadata = await s3.getTransactionMetadataByHash('mainnet', '0xtx');
-    expect(metadata?.bundle_ids).toEqual(['b1']);
+    expect(metadata?.bundle_ids[0]).toMatch(/^[0-9a-f-]{36}$/);
+  });
 
-    const command = send.mock.calls[0][0] as GetObjectCommand;
-    expect(command.input.Key).toBe('transactions/by_hash/0xtx');
+  it('reads an object carrying no bundles', async () => {
+    givenS3({ objects: { 'transactions/by_hash/0xtx': JSON.stringify({ bundle_ids: [] }) } });
+    const metadata = await s3.getTransactionMetadataByHash('mainnet', '0xtx');
+    expect(metadata?.bundle_ids).toEqual([]);
   });
 
   it('returns null for malformed JSON', async () => {
@@ -178,18 +195,45 @@ describe('getTransactionMetadataByHash', () => {
   });
 });
 
+// BundleHistoryEvent in base/base crates/infra/audit/src/storage.rs is
+// #[serde(tag = "event", content = "data")], so each object on the wire is
+// { "event": "<Variant>", "data": { ... } } with per-variant contents.
+const RECEIVED_EVENT = JSON.stringify({
+  event: 'Received',
+  data: {
+    key: 'b1',
+    timestamp: 1785270239,
+    bundle: { uuid: 'b1', txs: [], block_number: '49240446' },
+  },
+});
+
+const BUILDER_INCLUDED_EVENT = JSON.stringify({
+  event: 'BuilderIncluded',
+  data: {
+    key: 'b1',
+    timestamp: 1785270241,
+    builder: 'sequencer-0',
+    block_number: 49240446,
+    flashblock_index: 2,
+  },
+});
+
 describe('getBundleHistory', () => {
   it('lists under bundles/<key>/ and collects the events', async () => {
     givenS3({
       listing: ['bundles/b1/1-received', 'bundles/b1/2-included'],
       objects: {
-        'bundles/b1/1-received': JSON.stringify({ event: 'Received' }),
-        'bundles/b1/2-included': JSON.stringify({ event: 'Included' }),
+        'bundles/b1/1-received': RECEIVED_EVENT,
+        'bundles/b1/2-included': BUILDER_INCLUDED_EVENT,
       },
     });
 
     const history = await s3.getBundleHistory('mainnet', 'b1');
-    expect(history?.history.map((e) => e.event)).toEqual(['Received', 'Included']);
+    expect(history?.history.map((e) => e.event)).toEqual(['Received', 'BuilderIncluded']);
+    // The tagged-enum payload must survive parsing — the block route reaches into
+    // data.bundle.meter_bundle_response off the Received event.
+    expect(history?.history[0].data.bundle).toBeDefined();
+    expect(history?.history[1].data.builder).toBe('sequencer-0');
 
     const list = send.mock.calls[0][0] as ListObjectsV2Command;
     expect(list.input.Prefix).toBe('bundles/b1/');
@@ -199,7 +243,7 @@ describe('getBundleHistory', () => {
     givenS3({
       listing: ['bundles/b1/1-received', 'bundles/b1/2-broken'],
       objects: {
-        'bundles/b1/1-received': JSON.stringify({ event: 'Received' }),
+        'bundles/b1/1-received': RECEIVED_EVENT,
         'bundles/b1/2-broken': '{{{',
       },
     });

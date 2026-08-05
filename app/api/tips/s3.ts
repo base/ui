@@ -11,10 +11,19 @@ import {
 import type { TipsChain } from '../../tips/chains';
 import { getBucketName, getS3Client } from './config';
 
+/**
+ * Contents of `transactions/by_hash/<hash>`.
+ *
+ * Matches the producer, `TransactionMetadata` in base/base
+ * crates/infra/audit/src/storage.rs, which serializes `bundle_ids` and nothing
+ * else. This type previously also declared `sender` and `nonce` as required —
+ * inherited from tips-ui — but the writer emits neither, so both were always
+ * `undefined` at runtime while the type claimed otherwise.
+ *
+ * `bundle_ids` holds UUIDs in older objects and B256 hex hashes in newer ones.
+ */
 export interface TransactionMetadata {
   bundle_ids: string[];
-  sender: string;
-  nonce: string;
 }
 
 async function getObjectContent(chain: TipsChain, key: string): Promise<string | null> {
