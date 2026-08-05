@@ -17,6 +17,12 @@ type NetworkConfig = {
   bucket: string;
   publicBaseUrl: string;
   envPrefix: string;
+  /**
+   * Served by the API but omitted from the snapshots page. For a network that
+   * nodes still sync from while we don't want to advertise it publicly —
+   * visibility only, never a reason to stop serving the data.
+   */
+  hiddenFromUi?: boolean;
 };
 
 type R2Config = {
@@ -69,6 +75,14 @@ const NETWORKS: NetworkConfig[] = [
     publicBaseUrl: 'https://sepolia-v2-snapshots.base.org',
     envPrefix: 'BASE_SEPOLIA',
   },
+  {
+    id: 'zeronet',
+    chainName: 'Base Zeronet',
+    bucket: 'base-zeronet-reth-v2-snapshots',
+    publicBaseUrl: 'https://zeronet-v2-snapshots.base.org',
+    envPrefix: 'BASE_ZERONET',
+    hiddenFromUi: true,
+  },
 ];
 
 export type SnapshotLoadFailure = { network: string; error: string };
@@ -77,6 +91,19 @@ export type SnapshotLoadFailure = { network: string; error: string };
 export const SNAPSHOT_CACHE_SECONDS = 300;
 
 export const NETWORK_IDS = NETWORKS.map((network) => network.id);
+
+const UI_HIDDEN_NETWORK_IDS = new Set(
+  NETWORKS.filter((network) => network.hiddenFromUi).map((network) => network.id),
+);
+
+/**
+ * Whether a network should be listed on the snapshots page. The API serves every
+ * network in NETWORKS regardless — nodes sync from buckets we don't advertise —
+ * so filter with this at the render boundary, never in the data layer.
+ */
+export function isNetworkVisibleInUi(networkId: string): boolean {
+  return !UI_HIDDEN_NETWORK_IDS.has(networkId);
+}
 
 /** Thrown when any configured network failed, carrying the per-network detail. */
 export class SnapshotLoadError extends Error {

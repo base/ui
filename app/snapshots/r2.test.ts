@@ -1,4 +1,26 @@
-import { decodeXml } from './r2';
+import { decodeXml, isNetworkVisibleInUi, NETWORK_IDS } from './r2';
+
+describe('network visibility', () => {
+  // Zeronet was removed outright in "Cobalt and fixes" (#14) to hide it from the
+  // page, which also stopped the API serving it — so zeronet nodes could no
+  // longer sync from a snapshot. It must stay served and merely unlisted.
+  it('serves zeronet from the API', () => {
+    expect(NETWORK_IDS).toContain('zeronet');
+  });
+
+  it('hides zeronet from the snapshots page', () => {
+    expect(isNetworkVisibleInUi('zeronet')).toBe(false);
+  });
+
+  it('keeps the public networks visible', () => {
+    expect(isNetworkVisibleInUi('mainnet')).toBe(true);
+    expect(isNetworkVisibleInUi('sepolia')).toBe(true);
+  });
+
+  it('treats an unknown network as visible, so a new network is not hidden by accident', () => {
+    expect(isNetworkVisibleInUi('some-future-net')).toBe(true);
+  });
+});
 
 describe('decodeXml', () => {
   it('decodes the XML entities R2 listings use', () => {

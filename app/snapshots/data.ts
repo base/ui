@@ -11,7 +11,7 @@ export type SnapshotComponent = {
 export type Snapshot = {
   chainId: string;
   chainName: string;
-  network: string; // "mainnet" | "sepolia"
+  network: string; // "mainnet" | "sepolia" | "zeronet"
   block: number;
   timestamp: string;
   date: string;
@@ -74,6 +74,7 @@ export const PRESETS: Preset[] = [
 export const CHAIN_NAME_BY_NETWORK: Record<string, string> = {
   mainnet: 'base',
   sepolia: 'base-sepolia',
+  zeronet: 'base-zeronet',
 };
 
 export function formatBytes(bytes: number): string {
@@ -174,5 +175,17 @@ export const SAMPLE_SNAPSHOTS: Snapshot[] = [
     account_changesets: 40,
     storage_changesets: 90,
     rocksdb_indices: 35,
+  }),
+  // Hidden from the page (see isNetworkVisibleInUi) but still served by the API,
+  // so the dev fallback mirrors what /api/snapshots returns.
+  sampleSnapshot('zeronet', 'Base Zeronet', '84530', 512000, {
+    state: 12,
+    headers: 1,
+    transactions: 3,
+    transaction_senders: 1,
+    receipts: 4,
+    account_changesets: 2,
+    storage_changesets: 5,
+    rocksdb_indices: 2,
   }),
 ];
