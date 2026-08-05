@@ -77,8 +77,10 @@ export function FeatureCard({ feature }: FeatureCardProps) {
             {feature.availability}
             {feature.availabilityHref ? (
               <Link href={feature.availabilityHref} className="text-black hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20">
-                Base Cobalt
+                {feature.availabilityLabel ?? 'Base Cobalt'}
               </Link>
+            ) : feature.availabilityLabel ? (
+              <span className="text-black dark:text-white">{feature.availabilityLabel}</span>
             ) : null}
           </Text>
         ) : null}

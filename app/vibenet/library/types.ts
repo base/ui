@@ -36,6 +36,8 @@ export type VibenetFeature = {
   status: FeatureStatus;
   /** Optional availability note, e.g. "Coming in Base Cobalt". */
   availability?: string;
+  /** Emphasized release name appended to the availability note. */
+  availabilityLabel?: string;
   /** Optional link for the availability note. */
   availabilityHref?: string;
   /** Bullet highlights; when present the card renders the richer promo layout. */

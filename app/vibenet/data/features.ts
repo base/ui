@@ -6,6 +6,45 @@ import type { VibenetFeature } from '../library/types';
 // section keeps its `changes` in a data module.)
 export const FEATURES: VibenetFeature[] = [
   {
+    id: '200ms-canonical-blocks',
+    tag: '200ms',
+    title: '200ms Blocks',
+    summary:
+      'Five complete canonical blocks per second, each with its own hash, state, receipts, and finality lifecycle.',
+    status: 'preview',
+    availability: 'Coming soon in ',
+    availabilityLabel: 'Base Denim',
+    highlights: [
+      {
+        title: 'Canonical Every 200ms',
+        detail: 'Full blocks, not partial pending-state updates or Flashblocks.',
+      },
+      {
+        title: 'Millisecond RPC Timestamps',
+        detail: 'Read exact block time from timestampMs and blockTimestampMs fields.',
+      },
+      {
+        title: 'Onchain Millisecond Time',
+        detail: 'Contracts can read the current full timestamp from the BaseTime predeploy.',
+      },
+      {
+        title: 'Ethereum Compatible',
+        detail: 'Header timestamps and EVM block.timestamp remain in whole seconds.',
+      },
+    ],
+    cta: {
+      label: 'Explore Blocks',
+      href: '/vibenet/explorer',
+    },
+    links: [
+      {
+        label: 'Protocol source',
+        href: 'https://github.com/base/contracts/blob/4848ec70d8f1062fec59470d6e731e13ece8a728/src/L2/BaseTime.sol',
+        external: true,
+      },
+    ],
+  },
+  {
     id: 'eip-8130-account-abstraction',
     tag: 'EIP-8130',
     title: 'Native Account Abstraction',
