@@ -92,6 +92,12 @@ export const SNAPSHOT_CACHE_SECONDS = 300;
 
 export const NETWORK_IDS = NETWORKS.map((network) => network.id);
 
+/**
+ * Read-only view of the configured networks. Exported so the API contract test
+ * can assert every network stays served — see networks.contract.test.ts.
+ */
+export const NETWORK_CONFIGS: readonly Readonly<NetworkConfig>[] = NETWORKS;
+
 const UI_HIDDEN_NETWORK_IDS = new Set(
   NETWORKS.filter((network) => network.hiddenFromUi).map((network) => network.id),
 );

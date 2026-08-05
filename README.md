@@ -46,6 +46,10 @@ to run the **internal** build locally with those sections visible. See
 - **public build excludes internal-only surfaces** — builds the default
   (external) target and asserts that internal-only routes 404 and never appear
   in the nav or sitemap, so the deployment matrix can't silently regress
+- **snapshots API contract** — asserts every expected network stays served by
+  `/api/snapshots`. Nodes sync from these buckets, so a network must never be
+  dropped just to take it off the page — hide it with `hiddenFromUi` instead
+  (see `app/snapshots/networks.contract.test.ts`)
 
 CodeQL, StepSecurity, Heimdall, and the Vercel preview build are configured
 outside this repo at the org/platform level.

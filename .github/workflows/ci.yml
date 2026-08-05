@@ -63,6 +63,29 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  # Guards the snapshots API surface. #14 hid zeronet from the page by deleting
+  # its chain descriptor, which also stopped /api/snapshots serving it — zeronet
+  # nodes silently lost the ability to sync from a snapshot, and no check caught
+  # it. This asserts every expected network stays served and that hiding one from
+  # the UI is a flag rather than a deletion. Runs as its own check so it can be
+  # required in branch protection and is obvious in the PR list.
+  snapshots-api-contract:
+    name: snapshots API contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run app/snapshots/networks.contract.test.ts
+
   # public/llms.txt, llms-full.txt, and AGENTS.md are generated from the route
   # tree and committed. They go stale whenever a route is added, renamed, or
   # removed, so this fails if they differ from a fresh generation (it also
