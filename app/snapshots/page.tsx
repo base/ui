@@ -1,7 +1,7 @@
 import { EmptyState } from '../components/ui/EmptyState';
 
 import { SAMPLE_SNAPSHOTS, Snapshot } from './data';
-import { getSnapshots } from './r2';
+import { getSnapshots, isNetworkVisibleInUi } from './r2';
 import { SnapshotsClient } from './SnapshotsClient';
 
 // Statically rendered and revalidated, matching app/upgrades/page.tsx. This keeps the
@@ -13,7 +13,11 @@ import { SnapshotsClient } from './SnapshotsClient';
 export const revalidate = 300;
 
 export default async function SnapshotsPage() {
-  const snapshots = await loadSnapshots();
+  // Filtered at the render boundary, not in the data layer: /api/snapshots keeps
+  // serving every network so nodes can sync from buckets we don't advertise here.
+  const snapshots = (await loadSnapshots()).filter((snapshot) =>
+    isNetworkVisibleInUi(snapshot.network),
+  );
 
   if (snapshots.length === 0) {
     return (
