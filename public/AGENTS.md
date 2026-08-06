@@ -93,7 +93,7 @@ Discovered from the Next.js app directory.
 
 - [/demos](https://chain.base.org/demos) — Interactive demos of in-flight Base features. Each demo runs on the test network that carries the feature it shows.
 - [/demos/account](https://chain.base.org/demos/account) — Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
-- [/demos/b20](https://chain.base.org/demos/b20) — Inspect, configure, and issue Base-native B20 tokens on Vibenet.
+- [/demos/b20](https://chain.base.org/demos/b20) — Explore, configure, and issue Base-native B20 tokens on Vibenet.
 
 ## Generation
 

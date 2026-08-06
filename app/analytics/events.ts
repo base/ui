@@ -58,6 +58,11 @@ export function trackB20Action(
   track('b20_action', { module, action, status });
 }
 
+// Fired when a developer copies a ready-made AI prompt for a B20 read flow.
+export function trackB20PromptCopy(module: string, prompt: string): void {
+  track('b20_prompt_copy', { module, prompt });
+}
+
 // --- TIPS: chain selection ---
 
 // Fired when the user switches the TIPS chain (Mainnet / Sepolia / Zeronet).

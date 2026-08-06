@@ -5,8 +5,8 @@ import { MaintenanceBanner } from '../../vibenet/components/MaintenanceBanner';
 
 // Title convention: a page inside a section is "{Page} · {Section}".
 export const metadata: Metadata = {
-  title: 'Native Token Issuance · Demos',
-  description: 'Inspect, configure, and issue Base-native B20 tokens on Vibenet.',
+  title: 'B20 Playground · Demos',
+  description: 'Explore, configure, and issue Base-native B20 tokens on Vibenet.',
 };
 
 // This demo runs on Vibenet, so it carries Vibenet's maintenance notice — the

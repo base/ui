@@ -25,8 +25,8 @@ export const DEMOS: DemoEntry[] = [
   {
     href: '/demos/b20',
     eyebrow: 'B20',
-    title: 'Native Token Issuance',
-    shortTitle: 'Token Issuance',
+    title: 'B20 Playground',
+    shortTitle: 'B20 Playground',
     summary:
       'Inspect policy scopes, attach transaction memos, publish Asset announcements, and create Base-native B20 tokens.',
     points: [
