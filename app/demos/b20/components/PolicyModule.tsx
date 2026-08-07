@@ -49,9 +49,9 @@ export function PolicyModule({
         <div className="flex items-center gap-3">
           <span className="text-3xl">♢</span>
           <div>
-            <Text variant="title2">Policy Viewer</Text>
+            <Text variant="title2">Policies</Text>
             <Text variant="body" tone="muted">
-              Inspect any B20 token’s policies and check address authorization.
+              See who can send, receive, move, or mint this token before you use it.
             </Text>
           </div>
         </div>
@@ -62,9 +62,9 @@ export function PolicyModule({
             <span className="mb-3 w-fit rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
               No wallet required
             </span>
-            <Text variant="headline">Explore sample token</Text>
+            <Text variant="headline">Explore a sample token</Text>
             <Text variant="footnote" tone="muted">
-              Inspect a predeployed Asset B20 and learn how its policy scopes are configured.
+              See how token rules work without connecting a wallet.
             </Text>
             <Button
               className="mt-5 self-start"
@@ -72,7 +72,7 @@ export function PolicyModule({
               onClick={() => onInspect(SAMPLE_TOKEN)}
               disabled={busy === 'inspect'}
             >
-              {busy === 'inspect' ? 'Loading…' : 'Explore sample'}
+              {busy === 'inspect' ? 'Loading…' : 'Explore the sample'}
             </Button>
           </Card>
           <Card className="flex flex-col bg-white p-5 dark:bg-white/5">
@@ -81,31 +81,31 @@ export function PolicyModule({
             </span>
             <Text variant="headline">Create your own token</Text>
             <Text variant="footnote" tone="muted">
-              Deploy an Asset B20, receive its issuer roles, and sign announcements with your wallet.
+              Make a test token that your wallet can manage and use throughout this demo.
             </Text>
             <Button className="mt-5 self-start" onClick={onDeploy}>
-              Create token
+              Create a token
             </Button>
           </Card>
         </div>
       ) : null}
       <Card className="grid overflow-hidden bg-white md:grid-cols-[minmax(0,1fr)_250px] dark:bg-white/5">
         <div className="p-5">
-          <Field label="Token">
+          <Field label="Token address" hint="Paste the address of the B20 token you want to explore.">
             <div className="flex gap-2">
               <Input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Paste B20 token address"
+                placeholder="Paste a token address"
               />
               <Button size="sm" variant="outline" onClick={() => onInspect()} disabled={busy === 'inspect'}>
-                {busy === 'inspect' ? 'Checking…' : 'Check'}
+                {busy === 'inspect' ? 'Checking…' : 'Explore'}
               </Button>
             </div>
           </Field>
           {recent.length ? (
             <>
-              <p className="mt-4 text-[12px] text-bds-gray-50">or select a recent deployment</p>
+              <p className="mt-4 text-[12px] text-bds-gray-50">Or choose a token you recently created.</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {recent.map((entry) => (
                   <button
@@ -121,12 +121,12 @@ export function PolicyModule({
               </div>
             </>
           ) : (
-            <p className="mt-4 text-[12px] text-bds-gray-50">Recent B20 deployments from this wallet appear here.</p>
+            <p className="mt-4 text-[12px] text-bds-gray-50">Tokens you create with this wallet will appear here.</p>
           )}
         </div>
         <div className="border-t border-bds-gray-10 bg-bds-gray-5 p-5 md:border-l md:border-t-0 dark:border-white/10 dark:bg-white/[0.03]">
           <div className="flex items-center gap-1.5">
-            <Text variant="label">Variant</Text>
+            <Text variant="label">Token type</Text>
             <InfoTooltip label="About B20 variants">{B20_HELP.variant}</InfoTooltip>
           </div>
           {token ? (
@@ -140,13 +140,15 @@ export function PolicyModule({
                     : 'bg-bds-gray-10 text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30',
                 )}
               >
-                {tokenAccess === 'sample'
-                  ? 'Sample token · Read only'
-                  : tokenAccess === 'operator'
-                    ? 'Your token · OPERATOR_ROLE'
-                    : tokenAccess === 'external'
-                      ? 'External token · No operator access'
-                      : 'Connect wallet to check access'}
+                {token.variant === 'stablecoin'
+                  ? 'Announcements are not available on Stablecoin tokens. They are only available on Asset tokens.'
+                  : tokenAccess === 'sample'
+                    ? 'Sample token · Read only'
+                    : tokenAccess === 'operator'
+                      ? 'Your token · You can publish updates'
+                      : tokenAccess === 'external'
+                        ? 'Another token · You cannot publish updates'
+                        : 'Connect a wallet to check access'}
               </span>
               <Link
                 href="https://github.com/base/base-std/tree/main/docs/B20"
@@ -158,7 +160,7 @@ export function PolicyModule({
               </Link>
             </>
           ) : (
-            <p className="mt-3 text-[12px] text-bds-gray-50">Load a token to inspect its variant.</p>
+            <p className="mt-3 text-[12px] text-bds-gray-50">Explore a token to see which type it is.</p>
           )}
         </div>
       </Card>
@@ -168,11 +170,11 @@ export function PolicyModule({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5">
-                  <Text variant="headline">Policy scopes</Text>
+                  <Text variant="headline">Policies</Text>
                   <InfoTooltip label="About policy scopes">{B20_HELP.policyScopes}</InfoTooltip>
                 </div>
                 <Text variant="footnote" tone="muted">
-                  Each scope maps to a Policy Registry entry. Burn is role-gated, not policy-gated.
+                  These rules can limit who uses an action. Burning is managed separately.
                 </Text>
               </div>
               <a
@@ -193,11 +195,15 @@ export function PolicyModule({
                       <InfoTooltip label={`About ${policy.label}`}>{SCOPE_HELP[policy.scope]}</InfoTooltip>
                     ) : null}
                   </div>
-                  <div className="mt-4 flex items-center gap-1.5">
-                    <p className="text-[11px] text-bds-gray-50">Policy ID</p>
-                    <InfoTooltip label="About policy ID">{B20_HELP.policyId}</InfoTooltip>
-                  </div>
-                  <p className="text-[16px]">{policy.id.toString()}</p>
+                  {policy.id !== 0n ? (
+                    <>
+                      <div className="mt-4 flex items-center gap-1.5">
+                        <p className="text-[11px] text-bds-gray-50">Policy ID</p>
+                        <InfoTooltip label="About policy IDs">{B20_HELP.policyId}</InfoTooltip>
+                      </div>
+                      <p className="text-[16px]">{policy.id.toString()}</p>
+                    </>
+                  ) : null}
                   <span
                     className={cn(
                       'mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px]',
@@ -208,7 +214,7 @@ export function PolicyModule({
                           : 'bg-bds-red-0 text-bds-red-70 dark:bg-bds-red-100/40',
                     )}
                   >
-                    {policy.id === 0n ? 'Wide open' : policy.exists ? 'Configured' : 'Missing policy'}
+                    {policy.id === 0n ? 'No policy set' : policy.exists ? 'Policy active' : 'Policy unavailable'}
                     <InfoTooltip label="What this status means">
                       {policy.id === 0n
                         ? B20_HELP.statusWideOpen
@@ -217,16 +223,20 @@ export function PolicyModule({
                           : B20_HELP.statusMissing}
                     </InfoTooltip>
                   </span>
-                  <div className="mt-3 flex items-center gap-1.5">
-                    <p className="text-[11px] text-bds-gray-50">Admin</p>
-                    <InfoTooltip label="About the policy admin">{B20_HELP.policyAdmin}</InfoTooltip>
-                  </div>
-                  <p className="font-mono text-[12px]">{shortAddress(policy.admin)}</p>
+                  {policy.id !== 0n ? (
+                    <>
+                      <div className="mt-3 flex items-center gap-1.5">
+                        <p className="text-[11px] text-bds-gray-50">Policy manager</p>
+                        <InfoTooltip label="About the policy manager">{B20_HELP.policyAdmin}</InfoTooltip>
+                      </div>
+                      <p className="font-mono text-[12px]">{shortAddress(policy.admin)}</p>
+                    </>
+                  ) : null}
                   {checks ? (
                     <p
                       className={cn('mt-3 text-[12px]', checks[policy.scope] ? 'text-bds-green-60' : 'text-bds-red-60')}
                     >
-                      {checks[policy.scope] ? '◉ Authorized' : '⊗ Blocked'}
+                      {checks[policy.scope] ? '◉ Allowed' : '⊗ Not allowed'}
                     </p>
                   ) : null}
                 </div>
@@ -235,17 +245,17 @@ export function PolicyModule({
           </section>
           <Card className="bg-white p-5 dark:bg-white/5">
             <div className="flex items-center gap-1.5">
-              <Text variant="headline">Check an address</Text>
+              <Text variant="headline">Check a wallet</Text>
               <InfoTooltip label="How the check works">{B20_HELP.checkAddress}</InfoTooltip>
             </div>
             <Text variant="footnote" tone="muted">
-              Check the selected address against every displayed Policy Registry entry.
+              See what this wallet can do with the token you selected.
             </Text>
             <div className="mt-4 flex gap-2">
               <Input
                 value={checkAddress}
                 onChange={(e) => setCheckAddress(e.target.value)}
-                placeholder="Enter address (0x…)"
+                placeholder="Paste a wallet address"
               />
               <Button size="sm" variant="outline" onClick={onCheck}>
                 Check
@@ -275,9 +285,9 @@ export function PolicyModule({
             <Card className="bg-white p-5 dark:bg-white/5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Text variant="headline">Read from contract</Text>
+                  <Text variant="headline">Technical reference</Text>
                   <Text variant="footnote" tone="muted">
-                    Raw reads used by this viewer.
+                    These are the contract checks behind this screen.
                   </Text>
                 </div>
                 <CopyPromptButton prompt={READ_POLICY_PROMPT} module="policy" />

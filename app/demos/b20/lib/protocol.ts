@@ -232,6 +232,25 @@ export const POLICY_SCOPES = [
   ['MINT_RECEIVER_POLICY', 'Mint recipient'],
 ] as const;
 
+const MAX_POLICY_ID = (1n << 64n) - 1n;
+
+/**
+ * Convert optional form fields into policy updates. An empty field means the
+ * token remains open for that action; policy ID zero is intentionally not a
+ * form value because it has the same on-chain meaning and is easy to misread.
+ */
+export function normalizeInitialPolicyIds(values: Record<string, string>): Array<{ scope: string; id: bigint }> {
+  return POLICY_SCOPES.flatMap(([scope]) => {
+    const value = values[scope]?.trim();
+    if (!value) return [];
+    if (!/^[1-9]\d*$/.test(value))
+      throw new Error('Enter a positive whole-number policy ID, or leave the field blank.');
+    const id = BigInt(value);
+    if (id > MAX_POLICY_ID) throw new Error('Enter a policy ID that fits in the allowed range.');
+    return [{ scope, id }];
+  });
+}
+
 export const ROLES = [
   'MINT_ROLE',
   'BURN_ROLE',

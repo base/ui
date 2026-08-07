@@ -9,6 +9,7 @@ import {
   featureId,
   formatAmount,
   memoToBytes32,
+  normalizeInitialPolicyIds,
   ROLES,
   saltFor,
   shortAddress,
@@ -77,6 +78,24 @@ describe('B20 demo protocol helpers', () => {
   it('uses the current B20 role taxonomy', () => {
     expect(ROLES).toContain('BURN_BLOCKED_ROLE');
     expect(ROLES).not.toContain('SEIZE_ROLE' as never);
+  });
+
+  it('only turns entered positive policy IDs into deployment settings', () => {
+    expect(normalizeInitialPolicyIds({})).toEqual([]);
+    expect(
+      normalizeInitialPolicyIds({
+        TRANSFER_SENDER_POLICY: '124',
+        MINT_RECEIVER_POLICY: '491',
+      }),
+    ).toEqual([
+      { scope: 'TRANSFER_SENDER_POLICY', id: 124n },
+      { scope: 'MINT_RECEIVER_POLICY', id: 491n },
+    ]);
+    expect(() => normalizeInitialPolicyIds({ TRANSFER_SENDER_POLICY: '0' })).toThrow(/positive whole-number/);
+    expect(() => normalizeInitialPolicyIds({ TRANSFER_SENDER_POLICY: '12.5' })).toThrow(/positive whole-number/);
+    expect(() => normalizeInitialPolicyIds({ TRANSFER_SENDER_POLICY: '18446744073709551616' })).toThrow(
+      /allowed range/,
+    );
   });
 
   it('parses amounts and rejects empty or negative input', () => {

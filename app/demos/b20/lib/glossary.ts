@@ -7,68 +7,67 @@
 
 /** Keyed by the POLICY_SCOPES scope name in ./protocol.ts. */
 export const SCOPE_HELP: Record<string, string> = {
-  TRANSFER_SENDER_POLICY: 'Restricts which addresses may be the sender (the “from”) of a transfer.',
-  TRANSFER_RECEIVER_POLICY: 'Restricts which addresses may be the recipient (the “to”) of a transfer.',
+  TRANSFER_SENDER_POLICY: 'Use this rule when only approved wallets should be able to send this token.',
+  TRANSFER_RECEIVER_POLICY: 'Use this rule when only approved wallets should be able to receive this token.',
   TRANSFER_EXECUTOR_POLICY:
-    'Restricts who may call transferFrom — the spender moving someone else’s tokens via an allowance.',
-  MINT_RECEIVER_POLICY: 'Restricts which addresses may receive newly minted tokens.',
+    'Use this rule when only approved apps or wallets should be able to move tokens for someone else.',
+  MINT_RECEIVER_POLICY: 'Use this rule when new tokens should only go to approved wallets.',
 };
 
 export const B20_HELP = {
   variant:
-    'B20 has two variants. Asset supports configurable decimals (6–18), announcements, and UI multipliers. Stablecoin is fixed at 6 decimals with a self-declared currency code.',
+    'Choose Asset for flexible token settings and announcements. Choose Stablecoin for a token with six decimals and a currency code.',
 
   policyScopes:
-    'Each token operation checks a policy scope against the onchain Policy Registry to decide which addresses may take part. Every scope is wide open at creation unless the issuer sets one.',
+    'Rules can limit who sends, receives, moves, or mints tokens. Without a rule, anyone can take that action.',
 
   policyId:
-    'The Policy Registry entry this scope points to. ID 0 means no policy is set — the scope is wide open and allows everyone.',
+    'This number links the token action to a shared rule. When no rule is set, anyone can take the action.',
 
-  policyAdmin: 'The address allowed to change this policy’s membership in the Policy Registry.',
+  policyAdmin: 'This wallet can update who is included in the rule.',
 
   policyRegistry:
-    'A shared onchain registry of reusable allow/deny policies. Many tokens can point a scope at the same policy entry.',
+    'This shared list stores reusable access rules. More than one token can use the same rule.',
 
   checkAddress:
-    'Runs registry.isAuthorized for the address against every scope shown. A wide-open scope (policy ID 0) authorizes everyone.',
+    'Check whether this wallet can take each action. Actions without a rule allow everyone.',
 
-  burnNote: 'Burning is gated by a role (BURN_ROLE), not by a transfer policy, so it does not appear here.',
+  burnNote: 'Burning is controlled separately, so it does not appear in these token rules.',
 
   // Status badges on each policy card.
-  statusWideOpen: 'Policy ID 0 — no restriction. Anyone may take part in this operation.',
-  statusConfigured: 'Points to a live Policy Registry entry that restricts who may take part.',
-  statusMissing: 'Points to a policy ID that does not exist in the registry — usually a misconfiguration.',
+  statusWideOpen: 'No rule is set. Anyone may take this action.',
+  statusConfigured: 'This action uses an active rule to limit who can take part.',
+  statusMissing: 'This action points to a rule that cannot be found. Update the token before using it.',
 
-  operatorRole: 'A role on Asset tokens. Only a wallet holding OPERATOR_ROLE can publish announcements for the token.',
+  operatorRole: 'This permission lets a wallet publish announcements for an Asset token.',
 
   // Announcements
   announcementBracket:
-    'An announcement is an onchain event bracket: an Announcement event, then any included token-update calls, then EndAnnouncement — so indexers can tie a disclosure to the exact calls it made.',
+    'An announcement records your message and any related asset activity together, so people can see why it happened.',
 
   announcementDisclosure:
-    'Publishes a reference (ID, description, and URL) with no state-changing calls — a pure disclosure.',
+    'Publish an announcement and supporting link without changing the asset.',
 
   announcementMultiplier:
-    'Publishes the disclosure and, atomically in the same bracket, schedules a UI multiplier change.',
+    'Publish an announcement and schedule an asset split. Choose when wallets should reflect it.',
 
   uiMultiplier:
-    'A display-only scalar. 2 shows a 2:1 forward split: displayed balances double while raw onchain balances are unchanged. Only one multiplier update can be pending at a time.',
+    'This changes how many tokens wallets show, not the recorded balance or token price. A value of two shows a two-for-one split. Only one update can be scheduled at a time.',
 
-  effectiveAt: 'When the scheduled multiplier takes effect. Must be a time in the future.',
+  effectiveAt: 'Choose when wallets should reflect the scheduled asset split. It must be in the future.',
 
-  announcementId: 'A unique string identifying this announcement. An ID cannot be reused on the same token.',
+  announcementId: 'Give this announcement a unique reference so your team can find it later. You cannot reuse it for this asset.',
 
-  disclosureUrl:
-    'A link to an off-chain document the announcement references (for example a reserve attestation). Stored as a string on the event.',
+  disclosureUrl: 'Link to the document that explains this announcement, such as a reserve report.',
 
   // Memos
-  memo: 'An optional 32-byte tag attached to an operation — up to 32 UTF-8 characters of text, or a raw 0x… bytes32. It surfaces as a Memo event, not as contract state, and is handy for payment IDs or settlement references.',
+  memo: 'Add a short note, such as an invoice or settlement reference, to help your team find this transaction later. Notes can be up to 32 characters.',
 
   // Deploy
-  salt: 'A value that makes the token’s address deterministic: the same variant + your address + salt always produces the same address (CREATE2-style). Leave empty to auto-generate one.',
+  salt: 'A salt is a unique label that lets you know the token address before creating it. Leave it blank to create one automatically.',
 
-  supplyCap: 'The maximum total supply the token can ever reach. Leave empty for unlimited.',
+  supplyCap: 'Set the most tokens that can ever exist. Leave this blank when you do not need a limit.',
 
   deterministicAddress:
-    'The factory computes the token’s address before deployment from the variant, your address, and the salt.',
+    'Your token address can be worked out before creation from the token type, your wallet, and the unique label.',
 } as const;

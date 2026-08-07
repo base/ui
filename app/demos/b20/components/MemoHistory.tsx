@@ -107,7 +107,7 @@ export function MemoHistory({ address, decimals, symbol }: { address: Address; d
         <div>
           <Text variant="headline">Onchain memo history</Text>
           <Text variant="footnote" tone="muted">
-            Memos recorded for the token selected in Policy Viewer.
+            Memos recorded for the token you selected in Policies.
           </Text>
         </div>
         {state === 'ready' ? (
@@ -122,12 +122,12 @@ export function MemoHistory({ address, decimals, symbol }: { address: Address; d
           role="alert"
           className="mt-4 rounded-lg bg-bds-red-0 p-3 text-[13px] text-bds-red-70 dark:bg-bds-red-100/30 dark:text-bds-red-20"
         >
-          Could not load memo history. Try again after the transaction is indexed.
+          We could not load memo history yet. Try again after the transaction appears in the explorer.
         </p>
       ) : null}
       {state === 'ready' && !rows.length ? (
         <p className="mt-4 rounded-lg bg-bds-gray-5 p-3 text-[13px] text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30">
-          No memo events have been recorded for this token yet.
+          This token does not have any memo events yet.
         </p>
       ) : null}
       {state === 'ready' && rows.length ? (

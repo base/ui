@@ -112,7 +112,7 @@ export function B20Demo() {
     trackB20WalletConnection('started');
     if (!eth) {
       trackB20WalletConnection('error');
-      setInspectError('No injected browser wallet was found.');
+      setInspectError('We could not find a browser wallet. Install or unlock one, then try again.');
       return;
     }
     try {
@@ -153,7 +153,7 @@ export function B20Demo() {
   const inspect = useCallback(
     async (candidate = tokenAddress) => {
       if (!isAddress(candidate)) {
-        setInspectError('Enter a valid 0x token address.');
+        setInspectError('Paste a valid token address, then try again.');
         return;
       }
       setBusy('inspect');
@@ -178,9 +178,9 @@ export function B20Demo() {
             blockNumber,
           }),
         ]);
-        if (!isB20 || !initialized) throw new Error('This address is not an initialized B20 token.');
+        if (!isB20 || !initialized) throw new Error('This address is not a ready-to-use B20 token.');
         const variant = b20Variant(address);
-        if (!variant) throw new Error('The B20 variant byte could not be recognized.');
+        if (!variant) throw new Error('We could not identify this B20 token type.');
         const [name, symbol, decimals, supply, cap, contractURI, policyRows] = await Promise.all([
           client.readContract({ address, abi: b20Abi, functionName: 'name' }),
           client.readContract({ address, abi: b20Abi, functionName: 'symbol' }),
@@ -228,7 +228,7 @@ export function B20Demo() {
 
   const checkPolicies = useCallback(async () => {
     if (!token || !isAddress(checkAddress)) {
-      setInspectError('Select a token and enter an address to check.');
+      setInspectError('Choose a token and paste a wallet address to check.');
       return;
     }
     const result = await Promise.all(
@@ -252,7 +252,7 @@ export function B20Demo() {
     async (label: string, to: Address, data: Hex, action: string): Promise<Hex | null> => {
       const eth = getEthereum();
       if (!wallet || !eth) {
-        setInspectError('Connect a Vibenet wallet first.');
+        setInspectError('Connect a Vibenet wallet before you continue.');
         return null;
       }
       setBusy(action);
@@ -269,7 +269,7 @@ export function B20Demo() {
           params: [{ from: wallet, to, data, value: '0x0', ...(gas ? { gas } : {}) }],
         })) as Hex;
         const receipt = await client.waitForTransactionReceipt({ hash });
-        if (receipt.status !== 'success') throw new Error('Transaction reverted before the B20 operation completed.');
+        if (receipt.status !== 'success') throw new Error('The transaction did not complete. Check your wallet and try again.');
         setActivity((rows) => [
           { label, hash, state: 'success' },
           ...rows.filter((row) => row.label !== label || row.state !== 'pending'),

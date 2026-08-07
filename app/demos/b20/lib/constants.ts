@@ -21,8 +21,8 @@ export const INITIAL_ALLOCATION_MEMO = 'Initial deposit';
 export const INITIAL_ALLOCATION_MAX = 100n;
 
 export const MODULES: Array<{ value: Module; label: string }> = [
-  { value: 'policy', label: 'Policy Viewer' },
+  { value: 'policy', label: 'Policies' },
   { value: 'memos', label: 'Memos' },
   { value: 'announcements', label: 'Announcements' },
-  { value: 'deploy', label: 'Native Deployment' },
+  { value: 'deploy', label: 'Create a token' },
 ];

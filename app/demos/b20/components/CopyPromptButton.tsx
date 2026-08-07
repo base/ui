@@ -44,7 +44,7 @@ export function CopyPromptButton({ prompt, module, className }: CopyPromptButton
     <button
       type="button"
       onClick={handleCopy}
-      title={`Copy an AI prompt to ${prompt.title.toLowerCase()}`}
+      title={`Copy developer instructions to ${prompt.title.toLowerCase()}`}
       className={cn(
         'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-bds-gray-10 bg-white px-2.5 py-1.5 text-[12px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-bds-gray-30 dark:hover:text-white',
         className,
@@ -55,7 +55,7 @@ export function CopyPromptButton({ prompt, module, className }: CopyPromptButton
       ) : (
         <ClipboardIcon size={14} />
       )}
-      {copied ? 'Copied' : 'Copy prompt'}
+      {copied ? 'Copied' : 'Copy developer instructions'}
     </button>
   );
 }

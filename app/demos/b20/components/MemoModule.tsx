@@ -6,7 +6,6 @@ import { encodeFunctionData, isAddress, type Address, type Hex } from 'viem';
 
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
-import { cn } from '../../../components/ui/cn';
 import { Text } from '../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../vibenet/library/config';
 import { walletErrorMessage } from '../../../vibenet/library/wallet';
@@ -32,9 +31,7 @@ export function MemoModule({
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
   busy: string | null;
 }) {
-  const [kind, setKind] = useState<'transfer' | 'transferFrom' | 'mint' | 'burn'>('transfer');
   const [to, setTo] = useState('');
-  const [from, setFrom] = useState('');
   const [value, setValue] = useState('');
   const [memo, setMemo] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,21 +42,9 @@ export function MemoModule({
       const m = memoToBytes32(memo);
       const v = amount(value, token.decimals);
       if (v <= 0n) throw new Error('Enter an amount greater than zero.');
-      if ((kind !== 'burn' && !isAddress(to)) || (kind === 'transferFrom' && !isAddress(from)))
-        throw new Error('Enter valid B20 operation addresses.');
-      let data: Hex;
-      if (kind === 'transfer')
-        data = encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to as Address, v, m] });
-      else if (kind === 'transferFrom')
-        data = encodeFunctionData({
-          abi: b20Abi,
-          functionName: 'transferFromWithMemo',
-          args: [from as Address, to as Address, v, m],
-        });
-      else if (kind === 'mint')
-        data = encodeFunctionData({ abi: b20Abi, functionName: 'mintWithMemo', args: [to as Address, v, m] });
-      else data = encodeFunctionData({ abi: b20Abi, functionName: 'burnWithMemo', args: [v, m] });
-      await onSend(`${kind} with memo`, token.address, data, `memo_${kind}`);
+      if (!isAddress(to)) throw new Error('Paste a valid wallet address for the recipient.');
+      const data = encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, m] });
+      await onSend('Transfer with memo', token.address, data, 'memo_transfer');
     } catch (error) {
       setError(walletErrorMessage(error));
     }
@@ -71,7 +56,7 @@ export function MemoModule({
         <ModuleHeading
           icon="▤"
           title="Memos"
-          description="View bytes32 memos attached to B20 token operations."
+          description="See the short references attached to token activity."
           action={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
         />
         <Card className="bg-white p-5 dark:bg-white/5">
@@ -84,7 +69,7 @@ export function MemoModule({
                 Transfer with memo
               </Text>
               <Text variant="footnote" tone="muted">
-                A real transaction on the sample token, decoded by the Vibenet explorer.
+                A token transfer with a memo attached to help identify the transaction’s purpose.
               </Text>
             </div>
             <Link
@@ -97,7 +82,7 @@ export function MemoModule({
           <dl className="mt-5 grid gap-3 rounded-xl border border-bds-gray-10 p-4 text-[13px] sm:grid-cols-2 dark:border-white/10">
             <div>
               <dt className="text-[11px] text-bds-gray-50">Operation</dt>
-              <dd className="mt-1 font-mono">transferWithMemo</dd>
+              <dd className="mt-1">Transfer with a note</dd>
             </div>
             <div>
               <dt className="text-[11px] text-bds-gray-50">Amount</dt>
@@ -113,7 +98,7 @@ export function MemoModule({
             </div>
           </dl>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <p className="text-[12px] text-bds-gray-50">Deploy your own token to create memo transactions.</p>
+            <p className="text-[12px] text-bds-gray-50">Create a token to add memos to your own transactions.</p>
             <Button size="sm" onClick={onDeploy}>
               Create your own token
             </Button>
@@ -127,7 +112,7 @@ export function MemoModule({
       <ModuleHeading
         icon="▤"
         title="Memos"
-        description="Attach an indexed bytes32 memo to B20 transfers, mints, and burns."
+        description="Add a short reference to a token transfer so your team can find it later."
         action={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
       />
       <Card className="bg-white p-5 dark:bg-white/5">
@@ -135,39 +120,15 @@ export function MemoModule({
           <EmptyToken />
         ) : (
           <>
-            <div className="flex flex-wrap gap-2">
-              {(['transfer', 'transferFrom', 'mint', 'burn'] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setKind(item)}
-                  className={cn(
-                    'rounded-full px-3 py-1.5 text-[12px]',
-                    kind === item
-                      ? 'bg-base-blue text-white'
-                      : 'bg-bds-gray-5 text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30',
-                  )}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {kind === 'transferFrom' ? (
-                <Field label="From">
-                  <Input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="0x…" />
-                </Field>
-              ) : null}
-              {kind !== 'burn' ? (
-                <Field label={kind === 'mint' ? 'Recipient' : 'To'}>
-                  <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="0x…" />
-                </Field>
-              ) : null}
+              <Field label="Wallet receiving tokens">
+                <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Paste a wallet address" />
+              </Field>
               <Field label={`Amount (${token.symbol})`}>
                 <Input
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="25"
                   inputMode="decimal"
                 />
               </Field>
@@ -175,7 +136,7 @@ export function MemoModule({
                 <Input
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
-                  placeholder="Text up to 32 bytes, or 0x bytes32"
+                  placeholder="Invoice-1042"
                 />
               </Field>
             </div>
@@ -188,11 +149,11 @@ export function MemoModule({
                       return 'Memo is too long';
                     }
                   })()
-                : 'Memo preview appears here'}
+                : 'Your memo preview will appear here'}
             </p>
             <ErrorNote message={error} />
             <Button className="mt-5" onClick={() => void submit()} disabled={!!busy}>
-              {busy ? 'Waiting for wallet…' : `Submit ${kind} with memo`}
+              {busy ? 'Waiting for wallet…' : 'Submit transfer with memo'}
             </Button>
           </>
         )}

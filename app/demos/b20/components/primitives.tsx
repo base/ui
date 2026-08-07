@@ -106,7 +106,7 @@ export function ModuleHeading({
 export function EmptyToken() {
   return (
     <p className="rounded-lg bg-bds-gray-5 p-4 text-[13px] text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-40">
-      Select a B20 token in Policy Viewer first.
+      Choose a token in Policies first, then come back here to use this feature.
     </p>
   );
 }

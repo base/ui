@@ -12,13 +12,13 @@ export function Activity({ rows }: { rows: ActivityItem[] }) {
     <Card className="bg-white p-4 dark:bg-white/5">
       <div className="flex items-center justify-between">
         <div>
-          <Text variant="headline">Decoded events & errors</Text>
+          <Text variant="headline">Recent activity</Text>
           <Text variant="footnote" tone="muted">
-            Live results from this browser session.
+            See what this demo did during your current visit.
           </Text>
         </div>
         <span className="text-[12px] text-bds-gray-50">
-          {rows.length ? `${rows.length} activity item${rows.length === 1 ? '' : 's'}` : '● No activity yet'}
+          {rows.length ? `${rows.length} activity item${rows.length === 1 ? '' : 's'}` : '● Nothing has happened yet'}
         </span>
       </div>
       {rows.length ? (

@@ -26,6 +26,7 @@ import {
   featureId,
   formatAmount,
   memoToBytes32,
+  normalizeInitialPolicyIds,
   POLICY_SCOPES,
   ROLES,
   saltFor,
@@ -48,7 +49,7 @@ async function waitForB20Initialization(address: Address): Promise<void> {
     if (initialized) return;
     await new Promise((resolve) => window.setTimeout(resolve, 300));
   }
-  throw new Error('The deployment was mined, but the B20 token did not initialize at its predicted address.');
+  throw new Error('Your token transaction finished, but the token is not ready yet. Wait a moment and try again.');
 }
 
 const CONFETTI_PIECES = [
@@ -106,8 +107,8 @@ export function DeployModule({
   busy: string | null;
 }) {
   const [variant, setVariant] = useState<'asset' | 'stablecoin'>('asset');
-  const [name, setName] = useState('Demo Token');
-  const [symbol, setSymbol] = useState('DEMO');
+  const [name, setName] = useState('Example Rewards');
+  const [symbol, setSymbol] = useState('RWRD');
   const [decimals, setDecimals] = useState('18');
   const [currency, setCurrency] = useState('USD');
   const [salt, setSalt] = useState('');
@@ -115,17 +116,17 @@ export function DeployModule({
   const [uri, setUri] = useState('');
   const [initialMint, setInitialMint] = useState(INITIAL_ALLOCATION_MAX.toString());
   const [policyIds, setPolicyIds] = useState<Record<string, string>>({});
-  const [predicted, setPredicted] = useState('Connect wallet to preview');
+  const [predicted, setPredicted] = useState('Connect a wallet to see the address');
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (!wallet) {
-      setPredicted('Connect wallet to preview');
+      setPredicted('Connect a wallet to see the address');
       return;
     }
     if (!salt.trim()) {
-      setPredicted('A unique salt will be generated on submit');
+      setPredicted('A unique label will be created when you submit');
       return;
     }
     setPredicted('Calculating…');
@@ -140,7 +141,7 @@ export function DeployModule({
         if (!cancelled) setPredicted(address);
       })
       .catch(() => {
-        if (!cancelled) setPredicted('Could not predict address');
+        if (!cancelled) setPredicted('We could not calculate the address');
       });
     return () => {
       cancelled = true;
@@ -148,32 +149,33 @@ export function DeployModule({
   }, [salt, variant, wallet]);
   const submit = async () => {
     if (!wallet) {
-      setError('Connect a wallet first.');
+      setError('Connect a wallet before you create a token.');
       return;
     }
     setFinalizing(true);
     setError(null);
     try {
-      if (!name || !symbol) throw new Error('Name and symbol are required.');
+      if (!name || !symbol) throw new Error('Add a token name and symbol first.');
       if (variant === 'stablecoin' && !/^[A-Z]+$/.test(currency))
-        throw new Error('Stablecoin currency must use uppercase A–Z.');
+        throw new Error('Use uppercase letters for the stablecoin currency code.');
       const d = variant === 'asset' ? Number(decimals) : 6;
-      if (!Number.isInteger(d) || d < 6 || d > 18) throw new Error('Asset decimals must be between 6 and 18.');
+      if (!Number.isInteger(d) || d < 6 || d > 18) throw new Error('Choose between 6 and 18 decimal places for an Asset token.');
       const initialMintAmount = amount(initialMint, d);
       if (initialMintAmount <= 0n)
-        throw new Error('Enter an initial supply greater than zero for your connected wallet.');
+        throw new Error('Enter a starting amount greater than zero for your wallet.');
       if (initialMintAmount > amount(INITIAL_ALLOCATION_MAX.toString(), d))
-        throw new Error(`Initial token allocation is limited to ${INITIAL_ALLOCATION_MAX.toString()} tokens.`);
+        throw new Error(`The starting amount is limited to ${INITIAL_ALLOCATION_MAX.toString()} tokens.`);
       const capAmount = cap ? amount(cap, d) : null;
       if (capAmount !== null && initialMintAmount > capAmount)
-        throw new Error('Initial supply cannot exceed the supply cap.');
+        throw new Error('The starting amount cannot be greater than the maximum supply.');
+      const initialPolicies = normalizeInitialPolicyIds(policyIds);
       const active = await client.readContract({
         address: ACTIVATION_REGISTRY,
         abi: activationAbi,
         functionName: 'isActivated',
         args: [featureId(variant)],
       });
-      if (!active) throw new Error(`The B20 ${variant} feature is not activated on Vibenet.`);
+      if (!active) throw new Error(`Creating ${variant} tokens is not available on Vibenet right now.`);
       const saltValue = salt.trim() || crypto.randomUUID();
       if (!salt.trim()) setSalt(saltValue);
       const deploySalt = saltFor(saltValue);
@@ -191,28 +193,21 @@ export function DeployModule({
           args: [wallet, initialMintAmount, memoToBytes32(INITIAL_ALLOCATION_MEMO)],
         }),
       );
-      POLICY_SCOPES.forEach(([scope]) => {
-        const value = policyIds[scope];
-        if (value && value !== '0')
-          initCalls.push(
-            encodeFunctionData({ abi: b20Abi, functionName: 'updatePolicy', args: [scopeId(scope), BigInt(value)] }),
-          );
+      initialPolicies.forEach(({ scope, id }) => {
+        initCalls.push(encodeFunctionData({ abi: b20Abi, functionName: 'updatePolicy', args: [scopeId(scope), id] }));
       });
       const configured: string[] = [
         variant === 'asset'
-          ? 'Granted you the issuer roles (mint, burn, pause, metadata, operator)'
-          : 'Granted you the issuer roles (mint, burn, pause, metadata)',
+          ? 'Gave your wallet permissions to manage the token, including updates'
+          : 'Gave your wallet permissions to manage the token',
       ];
-      if (capAmount !== null) configured.push(`Set the supply cap to ${formatAmount(capAmount, d)} ${symbol}`);
-      if (uri) configured.push('Set the contract metadata URI');
+      if (capAmount !== null) configured.push(`Set the maximum supply to ${formatAmount(capAmount, d)} ${symbol}`);
+      if (uri) configured.push('Added the token information link');
       configured.push(
-        `Minted ${formatAmount(initialMintAmount, d)} ${symbol} to your connected wallet with the “${INITIAL_ALLOCATION_MEMO}” memo`,
+        `Sent ${formatAmount(initialMintAmount, d)} ${symbol} to your wallet with the “${INITIAL_ALLOCATION_MEMO}” memo`,
       );
-      const policyCount = POLICY_SCOPES.filter(([scope]) => {
-        const value = policyIds[scope];
-        return value && value !== '0';
-      }).length;
-      if (policyCount) configured.push(`Applied ${policyCount} initial ${policyCount === 1 ? 'policy' : 'policies'}`);
+      const policyCount = initialPolicies.length;
+      if (policyCount) configured.push(`Added ${policyCount} token ${policyCount === 1 ? 'rule' : 'rules'}`);
       const data = encodeFunctionData({
         abi: factoryAbi,
         functionName: 'createB20',
@@ -242,8 +237,8 @@ export function DeployModule({
     <div className="flex flex-col gap-5">
       <ModuleHeading
         icon="↗"
-        title="Native Deployment"
-        description="Create a B20 directly through the singleton Factory precompile."
+        title="Create a token"
+        description="Set up a test token, then use it to try the B20 features in this demo."
       />
       <Card className="bg-white p-5 dark:bg-white/5">
         <div className="flex gap-2">
@@ -261,75 +256,86 @@ export function DeployModule({
             </button>
           ))}
         </div>
+        <div className="mt-3 rounded-xl bg-bds-blue-0 p-3 text-[12px] text-bds-gray-70 dark:bg-bds-blue-100/30 dark:text-bds-gray-20">
+          <strong>{variant === 'asset' ? 'Asset' : 'Stablecoin'}: </strong>
+          {variant === 'asset'
+            ? 'Choose this for flexible decimals, announcements, and displayed-balance changes.'
+            : 'Choose this for a currency-linked token. It always uses six decimals and a currency code, helping wallets identify it consistently.'}
+        </div>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <Field label="Token name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="My Token" />
+          <Field label="Token name" hint="This is the name people will see in their wallet.">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Example Rewards" />
           </Field>
-          <Field label="Symbol">
-            <Input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="MYT" />
+          <Field label="Symbol" hint="Use the short label people will recognize.">
+            <Input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="RWRD" />
           </Field>
           {variant === 'asset' ? (
-            <Field label="Decimals">
+            <Field label="Decimals" hint="Most tokens use 18 decimal places.">
               <Input value={decimals} onChange={(e) => setDecimals(e.target.value)} inputMode="numeric" />
             </Field>
           ) : (
-            <Field label="Currency">
+            <Field label="Currency" hint="This tells people which currency the stablecoin represents.">
               <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} placeholder="USD" />
             </Field>
           )}
           <Field label="Salt (optional)" help={B20_HELP.salt}>
             <Input value={salt} onChange={(e) => setSalt(e.target.value)} placeholder="Auto-generated when empty" />
           </Field>
-          <Field label="Supply cap (optional)" help={B20_HELP.supplyCap}>
+          <Field label="Maximum supply (optional)" help={B20_HELP.supplyCap}>
             <Input value={cap} onChange={(e) => setCap(e.target.value)} placeholder="Unlimited" inputMode="decimal" />
           </Field>
-          <Field label="Initial token allocation" hint="Minted with the “Initial deposit” memo · Maximum 100 tokens">
+          <Field label="Starting amount" hint="Sent to your wallet with the “Initial deposit” note. Maximum 100 tokens.">
             <Input
               value={initialMint}
               onChange={(e) => setInitialMint(e.target.value)}
-              placeholder="0"
+              placeholder="100"
               inputMode="decimal"
             />
           </Field>
-          <Field label="Contract URI (optional)">
+          <Field label="Token information link (optional)" hint="Link to a page with more details about this token.">
             <Input value={uri} onChange={(e) => setUri(e.target.value)} placeholder="https://…" />
           </Field>
         </div>
-        <div className="mt-5">
-          <Text variant="label">Initial policy IDs</Text>
-          <Text variant="footnote" tone="muted" className="mt-1">
-            Policy IDs set who can use each token action at launch.
+        <details className="mt-5 rounded-xl border border-bds-gray-10 p-4 dark:border-white/10">
+          <summary className="cursor-pointer text-[13px] font-medium">Advanced policy settings</summary>
+          <Text variant="footnote" tone="muted" className="mt-2 max-w-2xl">
+            Optional. Add a rule only when you need to limit who can send, receive, move, or mint tokens.
           </Text>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            {POLICY_SCOPES.map(([scope, label]) => (
-              <Field key={scope} label={label}>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {POLICY_SCOPES.map(([scope, label], index) => (
+              <Field
+                key={scope}
+                label={label}
+                hint="Leave blank to keep this action open to everyone."
+              >
                 <Input
-                  value={policyIds[scope] ?? '0'}
+                  value={policyIds[scope] ?? ''}
                   onChange={(e) => setPolicyIds((current) => ({ ...current, [scope]: e.target.value }))}
+                  placeholder={`Example: ${[124, 245, 368, 491][index]}`}
                   inputMode="numeric"
                 />
               </Field>
             ))}
           </div>
-        </div>
+        </details>
         <div className="mt-5 rounded-xl border border-bds-gray-10 bg-bds-gray-5 p-4 dark:border-white/10 dark:bg-white/5">
           <div className="flex items-center gap-1.5">
-            <p className="text-[12px] text-bds-gray-50">Deterministic address preview</p>
+            <p className="text-[12px] text-bds-gray-50">Your token address</p>
             <InfoTooltip label="About the deterministic address">{B20_HELP.deterministicAddress}</InfoTooltip>
           </div>
           <p className="mt-1 font-mono text-[13px]">{predicted}</p>
           <p className="mt-3 text-[11px] text-bds-gray-50">
-            Bootstrap grants issuer roles, then configures cap/URI, mints initial supply, and applies restrictive
-            policies.
+            Creating the token gives your wallet the permissions it needs, sets your options, and sends the starting
+            amount to you in one transaction.
           </p>
         </div>
         <ErrorNote message={error} />
         <Button className="mt-5" onClick={() => void submit()} disabled={pending}>
-          {pending ? 'Creating your token…' : 'Create B20 token'}
+          {pending ? 'Creating your token…' : 'Create token'}
         </Button>
         {pending ? (
           <p className="mt-3 text-[12px] text-bds-gray-50">
-            Confirm in your wallet, then wait for the token to be mined and initialized. This can take a few seconds.
+            Confirm in your wallet, then wait a few seconds for your token to be ready.
           </p>
         ) : null}
       </Card>
@@ -353,20 +359,20 @@ function CreatedView({
   const nextSteps: Array<{ module: Module; title: string; body: string }> = [
     {
       module: 'policy',
-      title: 'Inspect policies',
-      body: 'See the token’s policy scopes and check which addresses are authorized.',
+      title: 'Explore policies',
+      body: 'See who can use each token action and check a wallet before you use it.',
     },
     {
       module: 'memos',
       title: 'View memo history',
-      body: 'See your initial allocation memo and send future memo-tagged operations.',
+      body: 'See your initial memo and add references to future token activity.',
     },
     ...(created.variant === 'asset'
       ? [
           {
             module: 'announcements' as Module,
-            title: 'Publish announcements',
-            body: 'Post a disclosure or schedule a UI multiplier update. You hold OPERATOR_ROLE.',
+            title: 'Share an update',
+            body: 'Publish information for token holders or schedule a displayed-balance change.',
           },
         ]
       : []),
@@ -385,8 +391,8 @@ function CreatedView({
           Token created
         </Text>
         <Text variant="body" tone="muted" className="max-w-md">
-          Your {created.variant} token {created.symbol} is live on Vibenet and fully initialized. Here’s what was set
-          up, and where to go next.
+          Your {created.variant} token {created.symbol} is ready on Vibenet. Here is what was set up and what you can
+          try next.
         </Text>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
@@ -441,7 +447,7 @@ function CreatedView({
         </Card>
         <Card className="bg-white p-5 dark:bg-white/5">
           <Text variant="label" tone="muted">
-            What the deployment did
+            What was set up
           </Text>
           <ul className="mt-4 space-y-2.5">
             {created.configured.map((item) => (
@@ -454,7 +460,7 @@ function CreatedView({
             ))}
           </ul>
           <p className="mt-4 text-[11px] text-bds-gray-50">
-            All applied atomically during initialization, so the token was fully configured in a single transaction.
+            Everything was applied together, so the token was ready in one transaction.
           </p>
         </Card>
       </div>
