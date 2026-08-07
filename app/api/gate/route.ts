@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
+
 import { NextResponse } from 'next/server';
 
 // Verifies the temporary site password (see middleware.ts) and, on success,
@@ -27,7 +29,22 @@ export async function POST(request: Request) {
     provided = '';
   }
 
-  if (provided !== password) {
+  // Use timingSafeEqual to prevent timing attacks: a naive string comparison
+  // (`provided !== password`) returns early on the first mismatched character,
+  // leaking information about how many leading characters are correct. An
+  // attacker can measure response latency across many requests and converge on
+  // the password one character at a time. timingSafeEqual always takes the same
+  // amount of time regardless of where the buffers differ.
+  //
+  // Buffers must be the same length for timingSafeEqual, so a length mismatch
+  // is checked first (and is itself not timing-sensitive).
+  const providedBuf = Buffer.from(provided);
+  const passwordBuf = Buffer.from(password);
+  const match =
+    providedBuf.length === passwordBuf.length &&
+    timingSafeEqual(providedBuf, passwordBuf);
+
+  if (!match) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
