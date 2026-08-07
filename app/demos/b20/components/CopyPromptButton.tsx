@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { trackB20PromptCopy } from '../../../analytics/events';
 import { CheckIcon, ClipboardIcon } from '../../../components/ui/icons';
@@ -20,6 +20,10 @@ type CopyPromptButtonProps = {
 // reusing the clipboard/check icons used elsewhere in the app.
 export function CopyPromptButton({ prompt, module, className }: CopyPromptButtonProps) {
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Clear a pending "Copied" reset if the button unmounts before it fires.
+  useEffect(() => () => clearTimeout(resetTimer.current), []);
 
   const handleCopy = useCallback(() => {
     async function copy() {
@@ -27,7 +31,8 @@ export function CopyPromptButton({ prompt, module, className }: CopyPromptButton
         await navigator.clipboard.writeText(prompt.prompt);
         setCopied(true);
         trackB20PromptCopy(module, prompt.id);
-        setTimeout(() => setCopied(false), 2000);
+        clearTimeout(resetTimer.current);
+        resetTimer.current = setTimeout(() => setCopied(false), 2000);
       } catch {
         // ignore clipboard failures
       }

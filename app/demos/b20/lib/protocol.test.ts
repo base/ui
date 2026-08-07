@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { decodeAbiParameters } from 'viem';
+import { decodeAbiParameters, keccak256, parseUnits, stringToHex } from 'viem';
 
-import { b20Variant, encodeDeploymentParams, memoToBytes32, ROLES, saltFor } from './protocol';
+import { amount, b20Variant, encodeDeploymentParams, featureId, memoToBytes32, ROLES, saltFor, shortAddress } from './protocol';
 
 describe('B20 demo protocol helpers', () => {
   it('reads the variant byte from a B20-shaped address', () => {
@@ -17,6 +17,13 @@ describe('B20 demo protocol helpers', () => {
     const raw = `0x${'ab'.repeat(32)}` as `0x${string}`;
     expect(memoToBytes32(raw)).toBe(raw);
     expect(() => memoToBytes32('x'.repeat(33))).toThrow(/32 UTF-8 bytes/);
+  });
+
+  it('handles the memo length boundary and the empty memo', () => {
+    // Exactly 32 bytes must be accepted (no truncation, no padding).
+    expect(memoToBytes32('x'.repeat(32))).toBe(`0x${'78'.repeat(32)}`);
+    // Empty memo encodes to the zero word.
+    expect(memoToBytes32('')).toBe(`0x${'0'.repeat(64)}`);
   });
 
   it('uses canonical ABI tuple encodings for both Factory variants', () => {
@@ -37,5 +44,24 @@ describe('B20 demo protocol helpers', () => {
   it('uses the current B20 role taxonomy', () => {
     expect(ROLES).toContain('BURN_BLOCKED_ROLE');
     expect(ROLES).not.toContain('SEIZE_ROLE' as never);
+  });
+
+  it('parses amounts and rejects empty or negative input', () => {
+    expect(amount('1.5', 18)).toBe(parseUnits('1.5', 18));
+    expect(amount('0', 18)).toBe(0n);
+    expect(amount('100', 6)).toBe(100_000_000n);
+    expect(() => amount('', 18)).toThrow(/non-negative/);
+    expect(() => amount('-1', 18)).toThrow(/non-negative/);
+  });
+
+  it('derives distinct, deterministic feature ids per variant', () => {
+    expect(featureId('asset')).toBe(keccak256(stringToHex('base.b20_asset')));
+    expect(featureId('stablecoin')).toBe(keccak256(stringToHex('base.b20_stablecoin')));
+    expect(featureId('asset')).not.toBe(featureId('stablecoin'));
+  });
+
+  it('shortens long addresses and leaves short values intact', () => {
+    expect(shortAddress('0x1234567890abcdef1234567890abcdef12345678')).toBe('0x1234…5678');
+    expect(shortAddress('short')).toBe('short');
   });
 });
