@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeAbiParameters, keccak256, parseUnits, stringToHex } from 'viem';
 
-import { amount, b20Variant, encodeDeploymentParams, featureId, memoToBytes32, ROLES, saltFor, shortAddress } from './protocol';
+import { amount, b20Variant, bytes32ToMemo, encodeDeploymentParams, featureId, formatAmount, memoToBytes32, ROLES, saltFor, shortAddress } from './protocol';
 
 describe('B20 demo protocol helpers', () => {
   it('reads the variant byte from a B20-shaped address', () => {
@@ -63,5 +63,22 @@ describe('B20 demo protocol helpers', () => {
   it('shortens long addresses and leaves short values intact', () => {
     expect(shortAddress('0x1234567890abcdef1234567890abcdef12345678')).toBe('0x1234…5678');
     expect(shortAddress('short')).toBe('short');
+  });
+
+  it('formats token amounts, grouping the whole part and trimming zeros', () => {
+    expect(formatAmount(0n, 18)).toBe('0');
+    expect(formatAmount(1_500_000_000_000_000_000n, 18)).toBe('1.5');
+    expect(formatAmount(1_234_000_000n, 6)).toBe('1,234');
+    // Fraction is capped at 6 places.
+    expect(formatAmount(1_123_456_789_000_000_000n, 18)).toBe('1.123456');
+  });
+
+  it('round-trips text memos through bytes32 and rejects non-text', () => {
+    expect(bytes32ToMemo(memoToBytes32('order-42'))).toBe('order-42');
+    expect(bytes32ToMemo(memoToBytes32('x'.repeat(32)))).toBe('x'.repeat(32));
+    // Empty memo (all-zero word) decodes to null, not an empty string.
+    expect(bytes32ToMemo(`0x${'0'.repeat(64)}`)).toBeNull();
+    // Non-printable bytes decode to null so callers can show the raw hex.
+    expect(bytes32ToMemo(`0x${'ff'.repeat(32)}`)).toBeNull();
   });
 });

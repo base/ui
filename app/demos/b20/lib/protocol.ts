@@ -103,6 +103,28 @@ export function memoToBytes32(value: string): Hex {
   return (`${encoded}${'0'.repeat(66 - encoded.length)}`) as Hex;
 }
 
+// Inverse of memoToBytes32: decode a bytes32 memo to its text when it is a clean,
+// printable ASCII string, else null so callers can fall back to the raw hex.
+export function bytes32ToMemo(memo: Hex): string | null {
+  const bytes = new Uint8Array((memo.length - 2) / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(memo.slice(2 + index * 2, 4 + index * 2), 16);
+  }
+  const end = bytes.indexOf(0);
+  const text = new TextDecoder().decode(end === -1 ? bytes : bytes.slice(0, end));
+  return text && /^[\x20-\x7E]+$/.test(text) ? text : null;
+}
+
+// Format a raw integer token amount for display: group the whole part, trim
+// trailing fractional zeros, and cap the fraction at 6 places. Assumes
+// decimals >= 1 (every B20 variant uses 6–18).
+export function formatAmount(value: bigint, decimals: number): string {
+  const raw = value.toString().padStart(decimals + 1, '0');
+  const whole = raw.slice(0, -decimals) || '0';
+  const fraction = raw.slice(-decimals).replace(/0+$/, '').slice(0, 6);
+  return `${Number(whole).toLocaleString()}${fraction ? `.${fraction}` : ''}`;
+}
+
 export function amount(value: string, decimals: number): bigint {
   if (!value || Number(value) < 0) throw new Error('Enter a valid non-negative amount.');
   return parseUnits(value, decimals);

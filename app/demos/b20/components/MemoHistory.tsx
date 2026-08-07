@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from '../../../vibenet/library/config';
-import { shortAddress } from '../lib/protocol';
+import { bytes32ToMemo, formatAmount, shortAddress } from '../lib/protocol';
 
 const client = createPublicClient({ transport: http(VIBENET_RPC_URL) });
 const MAX_BLOCK_RANGE = 100_000n;
@@ -41,21 +41,6 @@ type MemoRow = {
   value?: bigint;
   operation: 'mint' | 'transfer';
 };
-
-function decodeMemo(memo: Hex): string | null {
-  const bytes = new Uint8Array((memo.length - 2) / 2);
-  for (let index = 0; index < bytes.length; index += 1) bytes[index] = Number.parseInt(memo.slice(2 + index * 2, 4 + index * 2), 16);
-  const end = bytes.indexOf(0);
-  const text = new TextDecoder().decode(end === -1 ? bytes : bytes.slice(0, end));
-  return text && /^[\x20-\x7E]+$/.test(text) ? text : null;
-}
-
-function formatAmount(value: bigint, decimals: number): string {
-  const raw = value.toString().padStart(decimals + 1, '0');
-  const whole = raw.slice(0, -decimals) || '0';
-  const fraction = raw.slice(-decimals).replace(/0+$/, '').slice(0, 6);
-  return `${Number(whole).toLocaleString()}${fraction ? `.${fraction}` : ''}`;
-}
 
 export function MemoHistory({ address, decimals, symbol }: { address: Address; decimals: number; symbol: string }) {
   const [rows, setRows] = useState<MemoRow[]>([]);
@@ -91,7 +76,7 @@ export function MemoHistory({ address, decimals, symbol }: { address: Address; d
         return {
           caller,
           memo,
-          memoText: decodeMemo(memo),
+          memoText: bytes32ToMemo(memo),
           hash: memoLog.transactionHash,
           ...(transfer ? { from: transfer.args.from, to: transfer.args.to, value: transfer.args.value } : {}),
           operation: transfer?.args.from?.toLowerCase() === zeroAddress ? 'mint' : 'transfer',
