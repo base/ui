@@ -299,13 +299,16 @@ export function DeployModule({
         <details className="mt-5 rounded-xl border border-bds-gray-10 p-4 dark:border-white/10">
           <summary className="cursor-pointer text-[13px] font-medium">Advanced policy settings</summary>
           <Text variant="footnote" tone="muted" className="mt-2 max-w-2xl">
-            Optional. Add a rule only when you need to limit who can send, receive, move, or mint tokens.
+            Optional. Add a rule only when you need to limit who can send, receive, move, or mint tokens. Each field
+            takes a <strong>rule ID number</strong> from the shared Policy Registry — not a wallet address. The rule
+            itself holds the allowed addresses. Leave a field blank to keep that action open to everyone.
           </Text>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {POLICY_SCOPES.map(([scope, label], index) => (
               <Field
                 key={scope}
-                label={label}
+                label={`${label} rule`}
+                help={B20_HELP.policyId}
                 hint="Leave blank to keep this action open to everyone."
               >
                 <Input
