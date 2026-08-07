@@ -40,13 +40,13 @@ export const FEATURES: VibenetFeature[] = [
     tag: '200ms',
     title: '200ms Blocks',
     summary:
-      'Five complete canonical blocks per second, each with its own hash, state, receipts, and finality lifecycle.',
+      'Native blocks at a 200ms cadence, each with its own hash, state, receipts, and finality lifecycle.',
     status: 'preview',
     availability: 'Coming soon in ',
     availabilityLabel: 'Base Denim',
     highlights: [
       {
-        title: 'Canonical Every 200ms',
+        title: 'Native Blocks Every 200ms',
         detail: 'Full blocks, not partial pending-state updates or Flashblocks.',
       },
       {

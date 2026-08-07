@@ -63,7 +63,7 @@ export const upgrades: Upgrade[] = [
     id: 'denim',
     name: 'Denim',
     summary:
-      'Denim introduces 200ms canonical blocks, millisecond-resolution RPC timestamps, and onchain millisecond time through BaseTime.',
+      'Denim introduces native blocks at a 200ms cadence, millisecond-resolution RPC timestamps, and onchain millisecond time through BaseTime.',
     lifecycle: {
       sepolia: { },
       mainnet: { },
