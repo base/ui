@@ -115,9 +115,9 @@ function TimelineView({ nowMs }: { nowMs: number }) {
   const entries = useMemo(() => buildTimelineEntries(nowMs), [nowMs]);
   const months = useMemo(() => groupByMonth(entries), [entries]);
 
-  const planningUpgrades = upgrades.filter(
-    (u) => !u.lifecycle.sepolia.timestamp && !u.lifecycle.mainnet.timestamp,
-  );
+  const planningUpgrades = upgrades
+    .filter((u) => !u.lifecycle.sepolia.timestamp && !u.lifecycle.mainnet.timestamp)
+    .reverse();
 
   let entryIndex = 0;
 

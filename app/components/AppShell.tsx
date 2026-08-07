@@ -505,19 +505,31 @@ function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
         className,
       )}
     >
-      <span className="flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1">
-        <Text as="span" variant="label.medium">New!</Text>
-        <Text as="span" variant="label.medium">EIP-8130: Native Account Abstraction</Text>
-        <span className="inline-block h-3.5 w-px bg-bds-gray-20"></span>
-        <Link href="/demos/account" className="group flex items-center gap-1 no-underline">
-          <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
-          <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
-        </Link>
-      </span>
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 pb-2 min-[860px]:flex-nowrap min-[860px]:pb-0">
+          <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
+          <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Native Account Abstraction</Text>
+          <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
+          <Link href="/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
+            <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
+            <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
+          </Link>
+        </div>
+        <span className="hidden h-1 w-1 shrink-0 rounded-full bg-bds-gray-20 min-[860px]:block"></span>
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t border-bds-gray-20 pt-2 min-[860px]:flex-nowrap min-[860px]:border-t-0 min-[860px]:pt-0">
+          <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
+          <Text as="span" variant="label.medium" className="whitespace-nowrap">200ms Blocks</Text>
+          <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
+          <Link href="/vibenet/explorer" className="group flex shrink-0 items-center gap-1 no-underline">
+            <Text as="span" variant="label.medium" className="text-base-blue">Open Explorer</Text>
+            <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
+          </Link>
+        </div>
+      </div>
       <button
         type="button"
         onClick={onDismiss}
-        className="absolute right-4 top-2 flex h-5 w-5 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
+        className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
         aria-label="Dismiss banner"
       >
         <CloseIcon size={10} />

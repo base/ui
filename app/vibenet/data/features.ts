@@ -35,6 +35,45 @@ export const FEATURES: VibenetFeature[] = [
     secondaryCta: { label: 'Build Your Own', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/eip-8130', external: true },
     links: [{ label: 'EIP-8130', href: 'https://eip.tools/eip/8130', external: true }],
   },
+  {
+    id: '200ms-canonical-blocks',
+    tag: '200ms',
+    title: '200ms Blocks',
+    summary:
+      'Native blocks at a 200ms cadence, each with its own hash, state, receipts, and finality lifecycle.',
+    status: 'preview',
+    availability: 'Coming soon in ',
+    availabilityLabel: 'Base Denim',
+    highlights: [
+      {
+        title: 'Native Blocks Every 200ms',
+        detail: 'Full blocks, not partial pending-state updates or Flashblocks.',
+      },
+      {
+        title: 'Millisecond RPC Timestamps',
+        detail: 'Read exact block time from timestampMs and blockTimestampMs fields.',
+      },
+      {
+        title: 'Onchain Millisecond Time',
+        detail: 'Contracts can read the current full timestamp from the BaseTime predeploy.',
+      },
+      {
+        title: 'Ethereum Compatible',
+        detail: 'Header timestamps and EVM block.timestamp remain in whole seconds.',
+      },
+    ],
+    cta: {
+      label: 'Explore Blocks',
+      href: '/vibenet/explorer',
+    },
+    links: [
+      {
+        label: 'Protocol source',
+        href: 'https://github.com/base/contracts/blob/4848ec70d8f1062fec59470d6e731e13ece8a728/src/L2/BaseTime.sol',
+        external: true,
+      },
+    ],
+  },
 ];
 
 // Raw feature shape as it appears in the API `config` payload.

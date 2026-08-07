@@ -338,6 +338,27 @@ export const changes: Change[] = [
     githubIssues: [],
     specUrl: '',
   },
+  {
+    kind: 'base',
+    id: 'base-0010',
+    slug: '200ms-blocks',
+    baseNumber: '0010',
+    owner: 'Protocol team',
+    title: '200ms Blocks',
+    category: 'execution',
+    upgrade: 'denim',
+    summary:
+      '<p>Base will produce native L2 blocks at a 200ms cadence. Each block has its own number, hash, state root, receipts, and unsafe-to-finalized lifecycle.</p><p class="mt-4">Unlike Flashblocks, which expose sub-second updates while building one block, this change runs the full rollup block lifecycle every 200ms.</p><p class="mt-4">Ethereum block headers and <code>block.timestamp</code> remain in whole seconds. The BaseTime predeploy records the sub-second component before user transactions, while optional <code>timestampMs</code> and <code>blockTimestampMs</code> RPC fields expose the complete millisecond timestamp to applications and infrastructure.</p>',
+    migrationNotes:
+      '<p><strong>Application developers</strong></p><p class="mt-2 pb-4">Existing contracts and applications remain compatible. Use the BaseTime <code>timestampMs()</code> getter when contracts need same-block millisecond precision; continue using <code>block.timestamp</code> when second-level precision is sufficient.</p><p><strong>RPC and indexing providers</strong></p><p class="mt-2 pb-4">Support the optional <code>timestampMs</code> block and header field and <code>blockTimestampMs</code> on mined transactions and logs. Do not infer millisecond timestamps from the whole-second header value.</p><p><strong>Node operators</strong></p><p class="mt-2">Upgrade to a Denim-compatible release before activation. Plan capacity for the higher native block rate across execution, storage, RPC events, and peer-to-peer propagation.</p>',
+    lastUpdated: '2026-08-05',
+    relatedRepos: [
+      'https://github.com/base/base',
+      'https://github.com/base/contracts/blob/4848ec70d8f1062fec59470d6e731e13ece8a728/src/L2/BaseTime.sol',
+    ],
+    githubIssues: [],
+    specUrl: '',
+  },
 ];
 
 export function getChangeById(id: string): Change | undefined {
