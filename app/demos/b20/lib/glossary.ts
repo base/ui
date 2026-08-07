@@ -24,8 +24,7 @@ export const B20_HELP = {
   policyId:
     'The Policy Registry entry this scope points to. ID 0 means no policy is set — the scope is wide open and allows everyone.',
 
-  policyAdmin:
-    'The address allowed to change this policy’s membership in the Policy Registry.',
+  policyAdmin: 'The address allowed to change this policy’s membership in the Policy Registry.',
 
   policyRegistry:
     'A shared onchain registry of reusable allow/deny policies. Many tokens can point a scope at the same policy entry.',
@@ -33,17 +32,14 @@ export const B20_HELP = {
   checkAddress:
     'Runs registry.isAuthorized for the address against every scope shown. A wide-open scope (policy ID 0) authorizes everyone.',
 
-  burnNote:
-    'Burning is gated by a role (BURN_ROLE), not by a transfer policy, so it does not appear here.',
+  burnNote: 'Burning is gated by a role (BURN_ROLE), not by a transfer policy, so it does not appear here.',
 
   // Status badges on each policy card.
   statusWideOpen: 'Policy ID 0 — no restriction. Anyone may take part in this operation.',
   statusConfigured: 'Points to a live Policy Registry entry that restricts who may take part.',
-  statusMissing:
-    'Points to a policy ID that does not exist in the registry — usually a misconfiguration.',
+  statusMissing: 'Points to a policy ID that does not exist in the registry — usually a misconfiguration.',
 
-  operatorRole:
-    'A role on Asset tokens. Only a wallet holding OPERATOR_ROLE can publish announcements for the token.',
+  operatorRole: 'A role on Asset tokens. Only a wallet holding OPERATOR_ROLE can publish announcements for the token.',
 
   // Announcements
   announcementBracket:
@@ -60,19 +56,16 @@ export const B20_HELP = {
 
   effectiveAt: 'When the scheduled multiplier takes effect. Must be a time in the future.',
 
-  announcementId:
-    'A unique string identifying this announcement. An ID cannot be reused on the same token.',
+  announcementId: 'A unique string identifying this announcement. An ID cannot be reused on the same token.',
 
   disclosureUrl:
     'A link to an off-chain document the announcement references (for example a reserve attestation). Stored as a string on the event.',
 
   // Memos
-  memo:
-    'An optional 32-byte tag attached to an operation — up to 32 UTF-8 characters of text, or a raw 0x… bytes32. It surfaces as a Memo event, not as contract state, and is handy for payment IDs or settlement references.',
+  memo: 'An optional 32-byte tag attached to an operation — up to 32 UTF-8 characters of text, or a raw 0x… bytes32. It surfaces as a Memo event, not as contract state, and is handy for payment IDs or settlement references.',
 
   // Deploy
-  salt:
-    'A value that makes the token’s address deterministic: the same variant + your address + salt always produces the same address (CREATE2-style). Leave empty to auto-generate one.',
+  salt: 'A value that makes the token’s address deterministic: the same variant + your address + salt always produces the same address (CREATE2-style). Leave empty to auto-generate one.',
 
   supplyCap: 'The maximum total supply the token can ever reach. Leave empty for unlimited.',
 

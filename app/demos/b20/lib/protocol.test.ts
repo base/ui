@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { decodeAbiParameters, keccak256, parseUnits, stringToHex } from 'viem';
 
-import { amount, b20Variant, bytes32ToMemo, encodeDeploymentParams, featureId, formatAmount, memoToBytes32, ROLES, saltFor, shortAddress } from './protocol';
+import {
+  amount,
+  b20Variant,
+  bytes32ToMemo,
+  encodeDeploymentParams,
+  featureId,
+  formatAmount,
+  memoToBytes32,
+  ROLES,
+  saltFor,
+  shortAddress,
+} from './protocol';
 
 describe('B20 demo protocol helpers', () => {
   it('reads the variant byte from a B20-shaped address', () => {
@@ -29,11 +40,33 @@ describe('B20 demo protocol helpers', () => {
   it('uses canonical ABI tuple encodings for both Factory variants', () => {
     const account = '0x1111111111111111111111111111111111111111' as const;
     const asset = decodeAbiParameters(
-      [{ type: 'tuple', components: [{ type: 'uint8' }, { type: 'string' }, { type: 'string' }, { type: 'address' }, { type: 'uint8' }] }],
+      [
+        {
+          type: 'tuple',
+          components: [
+            { type: 'uint8' },
+            { type: 'string' },
+            { type: 'string' },
+            { type: 'address' },
+            { type: 'uint8' },
+          ],
+        },
+      ],
       encodeDeploymentParams('asset', 'Asset', 'AST', account, 18, ''),
     );
     const stablecoin = decodeAbiParameters(
-      [{ type: 'tuple', components: [{ type: 'uint8' }, { type: 'string' }, { type: 'string' }, { type: 'address' }, { type: 'string' }] }],
+      [
+        {
+          type: 'tuple',
+          components: [
+            { type: 'uint8' },
+            { type: 'string' },
+            { type: 'string' },
+            { type: 'address' },
+            { type: 'string' },
+          ],
+        },
+      ],
       encodeDeploymentParams('stablecoin', 'Dollar', 'USD', account, 6, 'USD'),
     );
     expect(asset[0]).toEqual([1, 'Asset', 'AST', account, 18]);
