@@ -338,6 +338,29 @@ button {
 .animate-in-delay-2 { animation-delay: 100ms; }
 .animate-in-delay-3 { animation-delay: 150ms; }
 
+@keyframes b20-confetti-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) rotate(0deg) scale(0.7);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--b20-confetti-x, 0px)),
+        var(--b20-confetti-y, 80px)
+      )
+      rotate(var(--b20-confetti-rotate, 45deg))
+      scale(1);
+  }
+}
+
+.b20-confetti-piece {
+  animation: b20-confetti-pop 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   @keyframes fade-in {
     from { opacity: 0; }
@@ -354,6 +377,7 @@ button {
   .animate-gentle-ping { animation: none; opacity: 0.75; }
   .animate-pulse { animation: none; }
   .animate-slide-down { animation: fade-in 0.2s ease both; }
+  .b20-confetti-piece { animation: none; opacity: 0; }
 }
 
 /* Loading spinner — slightly faster period for small-button contexts */

@@ -19,7 +19,7 @@ export const B20_HELP = {
     'B20 has two variants. Asset supports configurable decimals (6–18), announcements, and UI multipliers. Stablecoin is fixed at 6 decimals with a self-declared currency code.',
 
   policyScopes:
-    'Each token operation checks a policy scope against the on-chain Policy Registry to decide which addresses may take part. Every scope is wide open at creation unless the issuer sets one.',
+    'Each token operation checks a policy scope against the onchain Policy Registry to decide which addresses may take part. Every scope is wide open at creation unless the issuer sets one.',
 
   policyId:
     'The Policy Registry entry this scope points to. ID 0 means no policy is set — the scope is wide open and allows everyone.',
@@ -28,7 +28,7 @@ export const B20_HELP = {
     'The address allowed to change this policy’s membership in the Policy Registry.',
 
   policyRegistry:
-    'A shared on-chain registry of reusable allow/deny policies. Many tokens can point a scope at the same policy entry.',
+    'A shared onchain registry of reusable allow/deny policies. Many tokens can point a scope at the same policy entry.',
 
   checkAddress:
     'Runs registry.isAuthorized for the address against every scope shown. A wide-open scope (policy ID 0) authorizes everyone.',
@@ -47,7 +47,7 @@ export const B20_HELP = {
 
   // Announcements
   announcementBracket:
-    'An announcement is an on-chain event bracket: an Announcement event, then any included token-update calls, then EndAnnouncement — so indexers can tie a disclosure to the exact calls it made.',
+    'An announcement is an onchain event bracket: an Announcement event, then any included token-update calls, then EndAnnouncement — so indexers can tie a disclosure to the exact calls it made.',
 
   announcementDisclosure:
     'Publishes a reference (ID, description, and URL) with no state-changing calls — a pure disclosure.',
@@ -56,7 +56,7 @@ export const B20_HELP = {
     'Publishes the disclosure and, atomically in the same bracket, schedules a UI multiplier change.',
 
   uiMultiplier:
-    'A display-only scalar. 2 shows a 2:1 forward split: displayed balances double while raw on-chain balances are unchanged. Only one multiplier update can be pending at a time.',
+    'A display-only scalar. 2 shows a 2:1 forward split: displayed balances double while raw onchain balances are unchanged. Only one multiplier update can be pending at a time.',
 
   effectiveAt: 'When the scheduled multiplier takes effect. Must be a time in the future.',
 

@@ -350,6 +350,14 @@ export type DecodedB20MemoCall = {
   memoText: string | null;
 };
 
+export type DecodedB20MemoEvent = {
+  caller: string;
+  memo: string;
+  memoText: string | null;
+};
+
+const B20_MEMO_EVENT_TOPIC = '0x6989f5818dcfd11f8cd53b27c94cec33dae1589735f03e639cba54553a1825e8';
+
 const B20_MEMO_CALLS = {
   '0x95777d59': { operation: 'transferWithMemo', amount: 1, memo: 2, recipient: 0 },
   '0x929c2539': { operation: 'transferFromWithMemo', amount: 2, memo: 3, from: 0, recipient: 1 },
@@ -368,6 +376,19 @@ function decodeBytes32Text(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Decode the Memo event emitted after a B20 operation with a bytes32 memo. */
+export function decodeB20MemoEvent(log: ExplorerTxLog): DecodedB20MemoEvent | null {
+  const topic = log.topics[0]?.toLowerCase();
+  const caller = log.topics[1];
+  const memo = log.topics[2];
+  if (topic !== B20_MEMO_EVENT_TOPIC || !caller || !memo) return null;
+  return {
+    caller: `0x${caller.slice(-40)}`,
+    memo,
+    memoText: decodeBytes32Text(memo.slice(2)),
+  };
 }
 
 /** Decode the four B20 operations that carry a fixed-size `bytes32` memo. */

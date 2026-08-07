@@ -14,6 +14,7 @@ import type { DecodedB20MemoCall, DecodedCall } from '../../../library/explorer'
 import {
   callSelector,
   decodeB20MemoCalldata,
+  decodeB20MemoEvent,
   decodeB20Event,
   decodeErc20TransferCalldata,
   decodeErc20TransferLog,
@@ -255,6 +256,7 @@ type LogViewProps = {
 function LogView({ log }: LogViewProps) {
   const transfer = decodeErc20TransferLog(log);
   const b20Event = decodeB20Event(log);
+  const memoEvent = decodeB20MemoEvent(log);
   const hasData = Boolean(log.data && log.data !== '0x');
   return (
     <Card className="bg-white p-4 dark:bg-white/5">
@@ -263,6 +265,7 @@ function LogView({ log }: LogViewProps) {
         <ExplorerLink kind="address" value={log.address} />
         {transfer ? <span className={BADGE}>Transfer</span> : null}
         {b20Event ? <span className={BADGE}>{b20Event.eventName}</span> : null}
+        {memoEvent ? <span className={BADGE}>Memo</span> : null}
         {log.decoded ? <span className={BADGE}>{log.decoded.eventName}</span> : null}
       </div>
       {b20Event?.eventName === 'Announcement' ? (
@@ -282,6 +285,12 @@ function LogView({ log }: LogViewProps) {
       ) : null}
       {b20Event?.eventName === 'EndAnnouncement' ? (
         <DetailList className="mt-2"><DetailRow label="Announcement ID"><code className="font-mono">{b20Event.id}</code></DetailRow></DetailList>
+      ) : null}
+      {memoEvent ? (
+        <DetailList className="mt-2">
+          <DetailRow label="Caller"><ExplorerLink kind="address" value={memoEvent.caller} label={memoEvent.caller} className="break-all" /></DetailRow>
+          <DetailRow label="Memo">{memoEvent.memoText ? <span>{memoEvent.memoText} <span className={DIM}>(decoded bytes32)</span></span> : <code className="break-all font-mono">{memoEvent.memo}</code>}</DetailRow>
+        </DetailList>
       ) : null}
       {log.decoded ? (
         <DetailList className="mt-2">
