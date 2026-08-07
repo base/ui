@@ -14,7 +14,7 @@ type VibenetAvailability = FeaturedChangePresentation & {
   demo?: string;
 };
 
-const vibenetAvailability = [
+const vibenetAvailability: VibenetAvailability[] = [
   {
     changeId: 'eip-8130',
     status: 'live',
@@ -23,7 +23,12 @@ const vibenetAvailability = [
     image: '/images/upgrades/layered-squares.png',
     demo: '/demos/account'
   },
-] as const satisfies VibenetAvailability[];
+  {
+    changeId: 'base-0005',
+    status: 'live',
+    demo: '/demos/b20'
+  },
+];
 
 export type VibenetChange = Change &
   FeaturedChangePresentation & {

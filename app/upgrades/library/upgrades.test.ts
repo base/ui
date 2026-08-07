@@ -143,11 +143,20 @@ describe('upgrades route helpers', () => {
 
   it('exposes the featured Vibenet change', () => {
     const vibenetChanges = getVibenetChanges();
-    expect(vibenetChanges).toHaveLength(1);
+    expect(vibenetChanges).toHaveLength(2);
 
     const change = getVibenetChangeById('eip-8130');
     expect(change).toBeDefined();
     expect(change?.vibenet.featured).toBe(true);
     expect(change?.vibenet.status).toBe('live');
+  });
+
+  it('links the B20 changelog entry to its Vibenet demo', () => {
+    const b20 = getVibenetChangeById('base-0005');
+    expect(b20?.vibenet.status).toBe('live');
+    expect(b20?.vibenet.demo).toBe('/demos/b20');
+    // Not featured — the demo link surfaces on the changelog entry, not the
+    // featured-changes rail.
+    expect(b20?.vibenet.featured).toBe(false);
   });
 });
