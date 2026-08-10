@@ -10,15 +10,19 @@ import { DetailList, DetailRow } from '../../../components/DetailList';
 import { ExplorerLink } from '../../../components/ExplorerLink';
 import type { ExplorerAaCall, ExplorerTxLog, ExplorerTxResponse } from '../../../library/api-types';
 import { vibenetApi, VibenetApiError } from '../../../library/client';
-import type { DecodedCall } from '../../../library/explorer';
+import type { DecodedB20MemoCall, DecodedCall } from '../../../library/explorer';
 import {
   callSelector,
+  decodeB20MemoCalldata,
+  decodeB20MemoEvent,
+  decodeB20Event,
   decodeErc20TransferCalldata,
   decodeErc20TransferLog,
   decodeExecuteBatch,
   decodeMetadata,
   EXECUTE_BATCH_SELECTOR,
   fmtHexInt,
+  fmtTokenAmount,
   hexToInt,
   phaseOk,
   scopeLabel,
@@ -74,8 +78,42 @@ type SubCallProps = {
   call: DecodedCall;
 };
 
+function B20MemoDetails({ call }: { call: DecodedB20MemoCall }) {
+  return (
+    <DetailList>
+      <DetailRow label="operation">
+        <code className="font-mono">{call.operation}</code>
+      </DetailRow>
+      {call.from ? (
+        <DetailRow label="from">
+          <ExplorerLink kind="address" value={call.from} label={call.from} className="break-all" />
+        </DetailRow>
+      ) : null}
+      {call.recipient ? (
+        <DetailRow label="recipient">
+          <ExplorerLink kind="address" value={call.recipient} label={call.recipient} className="break-all" />
+        </DetailRow>
+      ) : null}
+      <DetailRow label="amount">
+        <code className="font-mono">{call.rawAmount.toString()}</code>{' '}
+        <span className={DIM}>raw units</span>
+      </DetailRow>
+      <DetailRow label="memo">
+        {call.memoText ? (
+          <span>
+            {call.memoText} <span className={DIM}>(decoded bytes32)</span>
+          </span>
+        ) : (
+          <code className="break-all font-mono">{call.memo}</code>
+        )}
+      </DetailRow>
+    </DetailList>
+  );
+}
+
 function SubCall({ call }: SubCallProps) {
   const selector = callSelector(call.data);
+  const b20Memo = decodeB20MemoCalldata(call.data);
   const erc20 = decodeErc20TransferCalldata(call.data);
   const value = call.value ? BigInt(call.value) : 0n;
   const hasData = Boolean(call.data && call.data !== '0x');
@@ -92,7 +130,13 @@ function SubCall({ call }: SubCallProps) {
       {selector ? (
         <DetailRow label="selector">
           <code className="font-mono">{selector}</code>
+          {b20Memo ? <span className={DIM}> · {b20Memo.operation}</span> : null}
           {erc20 ? <span className={DIM}> · transfer</span> : null}
+        </DetailRow>
+      ) : null}
+      {b20Memo ? (
+        <DetailRow label="B20 memo">
+          <B20MemoDetails call={b20Memo} />
         </DetailRow>
       ) : null}
       {erc20 ? (
@@ -114,7 +158,7 @@ function SubCall({ call }: SubCallProps) {
           <span className={DIM}>raw units</span>
         </DetailRow>
       ) : null}
-      {!erc20 && hasData ? (
+      {!b20Memo && !erc20 && hasData ? (
         <DetailRow label="data">
           <span className={DIM}>{(call.data.length - 2) / 2} bytes</span>
         </DetailRow>
@@ -131,11 +175,18 @@ function TxCall({ call }: TxCallProps) {
   const selector = callSelector(call.data);
   const isExecuteBatch = selector === EXECUTE_BATCH_SELECTOR;
   const innerCalls = isExecuteBatch ? decodeExecuteBatch(call.data) : null;
-  const erc20 = isExecuteBatch ? null : decodeErc20TransferCalldata(call.data);
+  const b20Memo = isExecuteBatch ? null : decodeB20MemoCalldata(call.data);
+  const erc20 = isExecuteBatch || b20Memo ? null : decodeErc20TransferCalldata(call.data);
   const hasData = Boolean(call.data && call.data !== '0x');
 
   let decoded: ReactNode = null;
-  if (erc20) {
+  if (b20Memo) {
+    decoded = (
+      <DetailRow label="B20 memo">
+        <B20MemoDetails call={b20Memo} />
+      </DetailRow>
+    );
+  } else if (erc20) {
     decoded = (
       <DetailRow label="Decoded">
         <DetailList>
@@ -189,6 +240,7 @@ function TxCall({ call }: TxCallProps) {
         <DetailRow label="Selector">
           <code className="font-mono">{selector}</code>
           {isExecuteBatch ? <span className={DIM}> · executeBatch</span> : null}
+          {b20Memo ? <span className={DIM}> · {b20Memo.operation}</span> : null}
           {erc20 ? <span className={DIM}> · transfer(address,uint256)</span> : null}
         </DetailRow>
       ) : null}
@@ -203,6 +255,8 @@ type LogViewProps = {
 
 function LogView({ log }: LogViewProps) {
   const transfer = decodeErc20TransferLog(log);
+  const b20Event = decodeB20Event(log);
+  const memoEvent = decodeB20MemoEvent(log);
   const hasData = Boolean(log.data && log.data !== '0x');
   return (
     <Card className="bg-white p-4 dark:bg-white/5">
@@ -210,8 +264,34 @@ function LogView({ log }: LogViewProps) {
         <span className={`text-[12px] ${DIM}`}>#{log.logIndex}</span>
         <ExplorerLink kind="address" value={log.address} />
         {transfer ? <span className={BADGE}>Transfer</span> : null}
+        {b20Event ? <span className={BADGE}>{b20Event.eventName}</span> : null}
+        {memoEvent ? <span className={BADGE}>Memo</span> : null}
         {log.decoded ? <span className={BADGE}>{log.decoded.eventName}</span> : null}
       </div>
+      {b20Event?.eventName === 'Announcement' ? (
+        <DetailList className="mt-3 rounded-lg border border-bds-blue-20 bg-bds-blue-0 p-3 dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+          <DetailRow label="Announcement ID"><code className="font-mono">{b20Event.id}</code></DetailRow>
+          <DetailRow label="Description">{b20Event.description}</DetailRow>
+          <DetailRow label="Caller"><ExplorerLink kind="address" value={b20Event.caller} label={b20Event.caller} className="break-all" /></DetailRow>
+          <DetailRow label="Disclosure URI">{b20Event.uri ? <a href={b20Event.uri} target="_blank" rel="noreferrer" className="break-all text-base-blue hover:underline">{b20Event.uri} ↗</a> : <em className={DIM}>(none)</em>}</DetailRow>
+        </DetailList>
+      ) : null}
+      {b20Event?.eventName === 'UIMultiplierUpdated' ? (
+        <DetailList className="mt-2">
+          <DetailRow label="Previous multiplier"><code className="font-mono">{b20Event.previousMultiplier.toString()}</code></DetailRow>
+          <DetailRow label="New multiplier"><code className="font-mono">{b20Event.newMultiplier.toString()}</code></DetailRow>
+          <DetailRow label="Effective at">{new Date(Number(b20Event.effectiveAt) * 1000).toLocaleString()} <span className={DIM}>({b20Event.effectiveAt.toString()})</span></DetailRow>
+        </DetailList>
+      ) : null}
+      {b20Event?.eventName === 'EndAnnouncement' ? (
+        <DetailList className="mt-2"><DetailRow label="Announcement ID"><code className="font-mono">{b20Event.id}</code></DetailRow></DetailList>
+      ) : null}
+      {memoEvent ? (
+        <DetailList className="mt-2">
+          <DetailRow label="Caller"><ExplorerLink kind="address" value={memoEvent.caller} label={memoEvent.caller} className="break-all" /></DetailRow>
+          <DetailRow label="Memo">{memoEvent.memoText ? <span>{memoEvent.memoText} <span className={DIM}>(decoded bytes32)</span></span> : <code className="break-all font-mono">{memoEvent.memo}</code>}</DetailRow>
+        </DetailList>
+      ) : null}
       {log.decoded ? (
         <DetailList className="mt-2">
           {Object.entries(log.decoded.args).map(([k, v]) => (
@@ -284,9 +364,14 @@ function TxBody({ tx }: TxBodyProps) {
   const memo = decodeMetadata(tx.metadata);
   const hasMetadata = Boolean(tx.metadata && tx.metadata !== '0x');
   const selector = tx.input && tx.input.length >= 10 ? tx.input.slice(0, 10) : null;
+  const b20Memo = tx.isAa ? null : decodeB20MemoCalldata(tx.input);
   const inputBytes = tx.input && tx.input !== '0x' ? (tx.input.length - 2) / 2 : 0;
   const callCount = (tx.aa?.calls ?? []).reduce((sum, phase) => sum + phase.length, 0);
   const phaseCount = tx.aa?.calls.length ?? 0;
+  const b20Events = tx.logs.map(decodeB20Event).filter((event) => event !== null);
+  const announcement = b20Events.find((event) => event.eventName === 'Announcement');
+  const multiplierUpdate = b20Events.find((event) => event.eventName === 'UIMultiplierUpdated');
+  const announcementClosed = b20Events.some((event) => event.eventName === 'EndAnnouncement');
 
   let gasUsedNote: string | null = null;
   if (tx.gasUsed && tx.gas) {
@@ -405,6 +490,12 @@ function TxBody({ tx }: TxBodyProps) {
           {!tx.isAa && selector ? (
             <DetailRow label="Selector">
               <code className="font-mono">{selector}</code>
+              {b20Memo ? <span className={DIM}> · {b20Memo.operation}</span> : null}
+            </DetailRow>
+          ) : null}
+          {b20Memo ? (
+            <DetailRow label="B20 memo">
+              <B20MemoDetails call={b20Memo} />
             </DetailRow>
           ) : null}
           {!tx.isAa ? (
@@ -423,6 +514,32 @@ function TxBody({ tx }: TxBodyProps) {
           ) : null}
         </DetailList>
       </Card>
+
+      {announcement?.eventName === 'Announcement' ? (
+        <section className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Text variant="headline">Announcement</Text>
+            <span className={announcementClosed ? 'text-[12px] text-bds-green-60' : `text-[12px] ${DIM}`}>
+              {announcementClosed ? '✓ Complete event bracket' : 'Open event bracket'}
+            </span>
+          </div>
+          <Card className="border-bds-blue-20 bg-bds-blue-0 p-5 dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <code className="text-[11px] text-base-blue">{announcement.id}</code>
+                <Text className="mt-2" variant="headline">{announcement.description}</Text>
+              </div>
+              {tx.to ? <ExplorerLink kind="address" value={tx.to} label="B20 token" /> : null}
+            </div>
+            <DetailList className="mt-5 border-t border-bds-blue-20 pt-4 dark:border-bds-blue-80">
+              <DetailRow label="Publisher"><ExplorerLink kind="address" value={announcement.caller} label={announcement.caller} className="break-all" /></DetailRow>
+              <DetailRow label="Disclosure">{announcement.uri ? <a href={announcement.uri} target="_blank" rel="noreferrer" className="break-all text-base-blue hover:underline">{announcement.uri} ↗</a> : <em className={DIM}>(none)</em>}</DetailRow>
+              {multiplierUpdate?.eventName === 'UIMultiplierUpdated' ? <DetailRow label="Included update"><span>UI multiplier <strong>{fmtTokenAmount(multiplierUpdate.previousMultiplier, 18)} → {fmtTokenAmount(multiplierUpdate.newMultiplier, 18)}</strong></span></DetailRow> : null}
+              {multiplierUpdate?.eventName === 'UIMultiplierUpdated' ? <DetailRow label="Effective at">{new Date(Number(multiplierUpdate.effectiveAt) * 1000).toLocaleString()}</DetailRow> : null}
+            </DetailList>
+          </Card>
+        </section>
+      ) : null}
 
       {tx.isAa && tx.aa ? (
         <>
