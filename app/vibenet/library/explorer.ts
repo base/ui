@@ -2,6 +2,8 @@
 // page components so the four explorer routes stay presentational. Consumes the
 // API wire types directly (api-types.ts); no separate view models needed.
 
+import { decodeAbiParameters, type Hex } from 'viem';
+
 import type { ExplorerTxLog } from './api-types';
 
 // --- Time -----------------------------------------------------------------
@@ -258,6 +260,52 @@ export function decodeExecuteBatch(data: string): DecodedCall[] | null {
 export const ERC20_TRANSFER_TOPIC =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
+export const B20_ANNOUNCEMENT_TOPIC =
+  '0xccebf8218a62875909564adef86a6f4df81503cb617221e793357d62f8e813f7';
+export const B20_UI_MULTIPLIER_UPDATED_TOPIC =
+  '0x2205df4534432b2f60654a3fdb48737ffdaf3e9edb1a498bd985bc026b15b055';
+export const B20_END_ANNOUNCEMENT_TOPIC =
+  '0x96d64dafe2c790596430196b982ad1da3221cb3b0f4e6e2df77f2e4f71a90037';
+
+export type DecodedB20Event =
+  | { eventName: 'Announcement'; caller: string; id: string; description: string; uri: string }
+  | { eventName: 'UIMultiplierUpdated'; previousMultiplier: bigint; newMultiplier: bigint; effectiveAt: bigint }
+  | { eventName: 'EndAnnouncement'; id: string };
+
+/** Decode the B20 Asset events that form an announcement bracket. */
+export function decodeB20Event(log: ExplorerTxLog): DecodedB20Event | null {
+  const topic = log.topics[0]?.toLowerCase();
+  try {
+    if (topic === B20_ANNOUNCEMENT_TOPIC && log.topics[1]) {
+      const [id, description, uri] = decodeAbiParameters(
+        [{ type: 'string' }, { type: 'string' }, { type: 'string' }],
+        log.data as Hex,
+      );
+      return {
+        eventName: 'Announcement',
+        caller: `0x${log.topics[1].slice(-40)}`,
+        id,
+        description,
+        uri,
+      };
+    }
+    if (topic === B20_UI_MULTIPLIER_UPDATED_TOPIC) {
+      const [previousMultiplier, newMultiplier, effectiveAt] = decodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }],
+        log.data as Hex,
+      );
+      return { eventName: 'UIMultiplierUpdated', previousMultiplier, newMultiplier, effectiveAt };
+    }
+    if (topic === B20_END_ANNOUNCEMENT_TOPIC) {
+      const [id] = decodeAbiParameters([{ type: 'string' }], log.data as Hex);
+      return { eventName: 'EndAnnouncement', id };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export type Erc20TransferLog = {
   token: string;
   from: string;
@@ -287,6 +335,89 @@ export function decodeErc20TransferCalldata(
     return {
       recipient: `0x${hex.slice(24, 64)}`,
       rawAmount: BigInt(`0x${hex.slice(64, 128)}`),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type DecodedB20MemoCall = {
+  operation: 'transferWithMemo' | 'transferFromWithMemo' | 'mintWithMemo' | 'burnWithMemo';
+  from?: string;
+  recipient?: string;
+  rawAmount: bigint;
+  memo: string;
+  memoText: string | null;
+};
+
+export type DecodedB20MemoEvent = {
+  caller: string;
+  memo: string;
+  memoText: string | null;
+};
+
+const B20_MEMO_EVENT_TOPIC = '0x6989f5818dcfd11f8cd53b27c94cec33dae1589735f03e639cba54553a1825e8';
+
+const B20_MEMO_CALLS = {
+  '0x95777d59': { operation: 'transferWithMemo', amount: 1, memo: 2, recipient: 0 },
+  '0x929c2539': { operation: 'transferFromWithMemo', amount: 2, memo: 3, from: 0, recipient: 1 },
+  '0xe44f0b12': { operation: 'mintWithMemo', amount: 1, memo: 2, recipient: 0 },
+  '0x38f23b0b': { operation: 'burnWithMemo', amount: 0, memo: 1 },
+} as const;
+
+function decodeBytes32Text(value: string): string | null {
+  const unpadded = value.replace(/(?:00)+$/, '');
+  if (!unpadded) return null;
+  try {
+    const bytes = unpadded.match(/.{2}/g)?.map((byte) => Number.parseInt(byte, 16));
+    if (!bytes?.length) return null;
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes));
+    return [...text].every((character) => character >= ' ' && character !== '\u007f') ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Decode the Memo event emitted after a B20 operation with a bytes32 memo. */
+export function decodeB20MemoEvent(log: ExplorerTxLog): DecodedB20MemoEvent | null {
+  const topic = log.topics[0]?.toLowerCase();
+  const caller = log.topics[1];
+  const memo = log.topics[2];
+  if (topic !== B20_MEMO_EVENT_TOPIC || !caller || !memo) return null;
+  return {
+    caller: `0x${caller.slice(-40)}`,
+    memo,
+    memoText: decodeBytes32Text(memo.slice(2)),
+  };
+}
+
+/** Decode the four B20 operations that carry a fixed-size `bytes32` memo. */
+export function decodeB20MemoCalldata(data: string): DecodedB20MemoCall | null {
+  if (!data || data.length < 10) return null;
+  const signature = data.slice(0, 10).toLowerCase() as keyof typeof B20_MEMO_CALLS;
+  const shape = B20_MEMO_CALLS[signature];
+  if (!shape) return null;
+
+  try {
+    const payload = data.slice(10);
+    const words = payload.match(/.{64}/g) ?? [];
+    const requiredWords = Math.max(shape.amount, shape.memo, 'from' in shape ? shape.from : 0, 'recipient' in shape ? shape.recipient : 0) + 1;
+    if (words.length < requiredWords) return null;
+
+    const word = (index: number) => {
+      const value = words[index];
+      if (!value) throw new Error('Missing calldata word');
+      return value;
+    };
+    const memoWord = word(shape.memo);
+    const memo = `0x${memoWord}`;
+    return {
+      operation: shape.operation,
+      ...('from' in shape ? { from: `0x${word(shape.from).slice(24)}` } : {}),
+      ...('recipient' in shape ? { recipient: `0x${word(shape.recipient).slice(24)}` } : {}),
+      rawAmount: BigInt(`0x${word(shape.amount)}`),
+      memo,
+      memoText: decodeBytes32Text(memoWord),
     };
   } catch {
     return null;
