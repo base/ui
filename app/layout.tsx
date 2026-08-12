@@ -60,9 +60,11 @@ const doto = localFont({
   adjustFontFallback: false,
 });
 
-// Runs before the first paint to stamp the resolved theme on <html>. Kept as a
-// constant so it stays a static literal — see the note at the injection site.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t!=='dark'&&t!=='light')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t}catch(e){}})()`;
+// Runs before the first paint to stamp the resolved theme on <html>. Light is
+// the default: dark applies only when the visitor has explicitly chosen it, so
+// the system preference is deliberately not consulted. Kept as a constant so it
+// stays a static literal — see the note at the injection site.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');document.documentElement.dataset.theme=t==='dark'?'dark':'light'}catch(e){}})()`;
 
 export const metadata = {
   metadataBase: new URL('https://chain.base.org'),
