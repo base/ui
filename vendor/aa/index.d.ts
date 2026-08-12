@@ -200,7 +200,7 @@ export const nonceManagerAbi: readonly any[]
  * Reads the current config-change sequences for an EIP-8130 account.
  * Use `local` as the `sequence` parameter when building the next AccountChange.
  */
-export function getConfigSequence8130(
+export function getConfigSequence(
   client: Client,
   parameters: {
     accountConfiguration: Address
@@ -210,42 +210,14 @@ export function getConfigSequence8130(
 
 // --- EIP-8130 account locking (elevated per-account rate limits) -----------
 
-/** Lock-change op for {@link hashLockChange8130} / {@link lockCall}. */
-export type LockChangeOp = 'lock' | 'unlock'
-
-/**
- * Digest an account's admin (`scope == 0`) actor signs to lock/unlock the
- * account. Sign it in `authenticator || data` form and pass the blob as `auth`
- * to {@link lockCall}. Binds `chainId` and the account's local change sequence
- * (from {@link getConfigSequence8130}).
- */
-export function hashLockChange8130(parameters: {
-  account: Address
-  chainId: number
-  op: LockChangeOp
-  unlockDelay: number
-  sequence: number
-}): Hex
-
-/**
- * Builds the account call that hard-locks the account
- * (`AccountConfiguration.applySignedLockChanges(account, LOCK_OP, unlockDelay, auth)`).
- */
-export function lockCall(parameters: {
-  account: Address
-  unlockDelay: number
-  auth: Hex
-  accountConfiguration?: Address
-}): AaCall
-
 /** Reads whether an EIP-8130 account is currently locked. */
-export function isLocked8130(
+export function isLocked(
   client: Client,
   parameters: { account: Address; accountConfiguration?: Address },
 ): Promise<boolean>
 
 /** Reads the full lock status of an EIP-8130 account. */
-export function getLockStatus8130(
+export function getLockStatus(
   client: Client,
   parameters: { account: Address; accountConfiguration?: Address },
 ): Promise<{
@@ -256,7 +228,7 @@ export function getLockStatus8130(
 }>
 
 /** Live SessionPolicy spend for one token limit (getCurrentSpend). */
-export function getSessionSpend8130(
+export function getSessionSpend(
   client: Client,
   parameters: {
     commitment: Hex
@@ -273,7 +245,7 @@ export function getSessionSpend8130(
 }>
 
 /** Read the EIP-8130 nonce via `eth_getTransactionCount` (2D channel-nonce). */
-export function getTransactionCount8130(
+export function getTransactionCount(
   client: Client,
   parameters: {
     address: Address
@@ -293,7 +265,7 @@ export function getTransactionCount8130(
  * default: configured k1 stub if `sender`/`from` names a configured account,
  * else the default-EOA bare k1 stub). Same for payer authentication.
  */
-export function estimateGas8130(
+export function estimateGas(
   client: Client,
   parameters: {
     /** Sender account. Interchangeable with `sender` (must agree if both set). */
@@ -342,13 +314,13 @@ export type Eip8130ReceiptFields = {
   metadata?: Hex
 }
 /** Parse the EIP-8130 fields off a raw JSON-RPC receipt (graceful if absent). */
-export function parseEip8130ReceiptFields(receipt: any): Eip8130ReceiptFields
+export function parseReceiptFields(receipt: any): Eip8130ReceiptFields
 /** Returns `true` when every reported call phase succeeded. */
 export function allPhasesSucceeded(fields: {
   phaseStatuses?: readonly Hex[]
 }): boolean
 /** Fetch a receipt and surface the EIP-8130 AA fields under `.eip8130`. */
-export function getTransactionReceipt8130(
+export function getTransactionReceipt(
   client: Client,
   parameters: { hash: Hex },
 ): Promise<(Record<string, any> & { eip8130: Eip8130ReceiptFields }) | null>
@@ -356,9 +328,9 @@ export function getTransactionReceipt8130(
 /**
  * Poll `eth_getTransactionReceipt` until an EIP-8130 tx is mined.
  * Unlike `waitForTransactionReceipt`, this skips replacement-detection (which
- * breaks on 2D nonces) and uses `getTransactionReceipt8130` internally.
+ * breaks on 2D nonces) and uses `getTransactionReceipt` internally.
  */
-export function waitForTransactionReceipt8130(
+export function waitForTransactionReceipt(
   client: Client,
   parameters: {
     hash: Hex
@@ -390,7 +362,7 @@ export type Transaction8130 = {
   blockNumber: bigint | null
   transactionIndex: number | null
 }
-export function getTransaction8130(
+export function getTransaction(
   client: Client,
   parameters: { hash: Hex },
 ): Promise<Transaction8130>
@@ -455,7 +427,7 @@ export const sessionPolicyAbi: readonly unknown[]
 export function erc1167Bytecode(implementation: Address): Hex
 export function upgradeableProxyBytecode(implementation: Address): Hex
 
-export function computeAddress8130(parameters: {
+export function computeAddress(parameters: {
   userSalt: Hex
   code: Hex
   initialActors: readonly AaActor[]
@@ -479,7 +451,7 @@ export type To8130AccountReturnType = {
  * - Smart account: supply userSalt + code + initialActors (address derived via CREATE2)
  * - Delegated EOA: supply address only (no salt/code/actors; use delegate(impl) in first tx)
  */
-export function to8130Account(parameters: (
+export function toAccount(parameters: (
   | {
       signer: Signer
       userSalt: Hex
@@ -511,7 +483,7 @@ export type NewSmartAccount8130ReturnType = To8130AccountReturnType & {
  *
  * Supports K1 (secp256k1), P-256, and WebAuthn signers (detected automatically).
  */
-export function newSmartAccount8130(parameters: {
+export function newSmartAccount(parameters: {
   signer: Signer & { publicKey?: Hex | { x: Hex; y: Hex } }
   salt?: Hex
   upgradeable?: boolean
@@ -525,12 +497,12 @@ export function newSmartAccount8130(parameters: {
  * Wraps a parent ADMIN signer into a `Signer` that authenticates a sub-account
  * through the DelegateAuthenticator (one hop). Its `sign` returns the delegate
  * `data` payload (`delegate(20) || nestedAuthenticator(20) || nestedSignature`),
- * so `to8130Account`'s configured-actor path serializes the full delegate
+ * so `toAccount`'s configured-actor path serializes the full delegate
  * `senderAuth` (`DELEGATE_AUTHENTICATOR || data`) automatically. Pass the result
- * as `signer` (and its `authenticator`) to `to8130Account` for an account whose
+ * as `signer` (and its `authenticator`) to `toAccount` for an account whose
  * only owner is `key.delegate(parent)`. The parent must be deployed.
  */
-export function toDelegate8130Signer(parameters: {
+export function toDelegateSigner(parameters: {
   delegateAccount: Address
   nestedSigner: Signer
   nestedAuthenticator?: Address
@@ -551,7 +523,7 @@ export function delegateAuthSize(nestedDataLength?: number): number
  * node recovers the sender via ecrecover. Use when the EOA address IS the account
  * and no smart-contract deployment is needed.
  */
-export function toEoa8130Account(signer: Signer): {
+export function toEoaAccount(signer: Signer): {
   readonly address: Address
   readonly signer: Signer
   /** EIP-7702 delegation change — include in first tx's accountChanges. */
@@ -585,14 +557,14 @@ export type TransactionSerializable8130 = {
   payerAuth?: Hex
 }
 
-export function parseTransaction8130(serialized: Hex): TransactionSerializable8130
+export function parseTransaction(serialized: Hex): TransactionSerializable8130
 
-export function serializeTransaction8130(
+export function serializeTransaction(
   transaction: TransactionSerializable8130,
 ): Hex
 
 /** Sender signature hash — fields through `payer`. */
-export function getSenderSignatureHash8130(
+export function getSenderSignatureHash(
   transaction: TransactionSerializable8130 & { to?: "hex" | "bytes" },
 ): Hex
 
@@ -600,12 +572,12 @@ export function getSenderSignatureHash8130(
  * Resolves the sender (`from`) of an EIP-8130 tx. Returns `transaction.from`
  * when set; otherwise (EOA path) recovers it via ecrecover over the sender hash.
  */
-export function recoverSenderAddress8130(parameters: {
+export function recoverSenderAddress(parameters: {
   transaction: TransactionSerializable8130;
 }): Promise<Address>
 
 /** Payer signature hash — fields through `calls`/`metadata`, excluding `payer`. */
-export function getPayerSignatureHash8130(
+export function getPayerSignatureHash(
   transaction: TransactionSerializable8130 & { to?: "hex" | "bytes" },
 ): Hex
 
@@ -618,7 +590,7 @@ export function encodeWalletCalls(parameters: {
   }) => AaCall
 }): readonly (readonly AaCall[])[]
 
-export function sendCalls8130(
+export function sendCalls(
   client: Client,
   parameters: {
     account: To8130AccountReturnType
@@ -635,7 +607,7 @@ export function sendCalls8130(
   },
 ): Promise<Hex>
 
-export function toSmartAccount8130(parameters: {
+export function toSmartAccount(parameters: {
   owner: Address | LocalAccount
   client: Client
   authenticator?: Address
