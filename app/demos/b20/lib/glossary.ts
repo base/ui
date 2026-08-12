@@ -61,7 +61,7 @@ export const B20_HELP = {
   disclosureUrl: 'Link to the document that explains this announcement, such as a reserve report.',
 
   // Memos
-  memo: 'Add a short note, such as an invoice or settlement reference, to help your team find this transaction later. Notes can be up to 32 characters.',
+  memo: 'Add a short note, such as an invoice or settlement reference, to help your team find this transaction later. Notes can be up to 32 UTF-8 bytes.',
 
   // Deploy
   salt: 'A salt is a unique label that lets you know the token address before creating it. Leave it blank to create one automatically.',
