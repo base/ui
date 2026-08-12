@@ -1,3 +1,5 @@
+import { type Hash } from 'viem';
+
 import { resolveTipsChain, type TipsChain } from '../../../../tips/chains';
 import {
   bundleHistoryFromAuditEvents,
@@ -5,9 +7,9 @@ import {
 } from '../../audit-events';
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
 import { tipsDisabledResponse } from '../../guard';
-import { rpcCall } from '../../rpc';
 import { getBundleHistory } from '../../s3';
 import type { BundleEvent, BundleHistory, BundleTransaction } from '../../transaction-data';
+import { publicClientFor, type TipsPublicClient } from '../../viem';
 
 export const runtime = 'nodejs';
 
@@ -16,50 +18,40 @@ export interface BundleHistoryResponse {
   history: BundleEvent[];
 }
 
-interface RpcBundleTransaction {
-  hash: string;
-  from: string;
-  to?: string | null;
-  type?: string;
-  chainId?: string;
-  nonce?: string;
-  gas?: string;
-  gasPrice?: string;
-  maxFeePerGas?: string;
-  maxPriorityFeePerGas?: string;
-  value?: string;
-  input?: string;
-  accessList?: unknown[];
-  r?: string;
-  s?: string;
-  v?: string;
-  yParity?: string;
+function bigintToHex(value: bigint | null | undefined): string {
+  return value === null || value === undefined ? '0x0' : `0x${value.toString(16)}`;
 }
 
-function bundleTransactionFromRpc(tx: RpcBundleTransaction): BundleTransaction {
+function numberToHex(value: number | null | undefined): string {
+  return value === null || value === undefined ? '0x0' : `0x${value.toString(16)}`;
+}
+
+function bundleTransactionFromViem(
+  tx: Awaited<ReturnType<TipsPublicClient['getTransaction']>>,
+): BundleTransaction {
   return {
     signer: tx.from,
-    type: tx.type ?? '',
-    chainId: tx.chainId ?? '0x0',
-    nonce: tx.nonce ?? '0x0',
-    gas: tx.gas ?? '0x0',
-    maxFeePerGas: tx.maxFeePerGas ?? tx.gasPrice ?? '0x0',
-    maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? '0x0',
-    to: tx.to ?? null,
-    value: tx.value ?? '0x0',
-    accessList: Array.isArray(tx.accessList) ? tx.accessList : [],
-    input: tx.input ?? '0x',
+    type: tx.typeHex ?? '',
+    chainId: numberToHex(tx.chainId),
+    nonce: numberToHex(tx.nonce),
+    gas: bigintToHex(tx.gas),
+    maxFeePerGas: bigintToHex(tx.maxFeePerGas ?? tx.gasPrice),
+    maxPriorityFeePerGas: bigintToHex(tx.maxPriorityFeePerGas),
+    to: tx.to,
+    value: bigintToHex(tx.value),
+    accessList: [...(tx.accessList ?? [])],
+    input: tx.input,
     r: tx.r ?? '',
     s: tx.s ?? '',
-    yParity: tx.yParity ?? '',
-    v: tx.v ?? '',
+    yParity: numberToHex(tx.yParity),
+    v: bigintToHex(tx.v),
     hash: tx.hash,
   };
 }
 
 // Fills in full transaction fields for each bundle tx hash from the execution RPC.
 // Audit/S3 bundle events only carry the tx hashes (and metering), so the on-chain
-// signer/value/gas come from eth_getTransactionByHash.
+// signer/value/gas come from getTransaction.
 async function enrichBundleTransactionsFromRpc(
   rpcUrl: string,
   history: BundleEvent[],
@@ -71,14 +63,16 @@ async function enrichBundleTransactionsFromRpc(
       ),
     ),
   );
+  const client = publicClientFor(rpcUrl);
   const transactions = new Map<string, BundleTransaction>();
 
   await Promise.all(
     hashes.map(async (hash) => {
-      const result = await rpcCall(rpcUrl, 'eth_getTransactionByHash', [hash]);
-      if (result && typeof result === 'object') {
-        const tx = result as RpcBundleTransaction;
-        transactions.set(hash, bundleTransactionFromRpc(tx));
+      try {
+        const tx = await client.getTransaction({ hash: hash as Hash });
+        transactions.set(hash, bundleTransactionFromViem(tx));
+      } catch (error) {
+        console.error(`Failed to fetch transaction ${hash} from RPC:`, error);
       }
     }),
   );

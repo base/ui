@@ -1,3 +1,5 @@
+import { type Hash } from 'viem';
+
 import { resolveTipsChain, type TipsChain } from '../../../../tips/chains';
 import { calculateTransactionFee } from '../../../../tips/library/explorer-format';
 import {
@@ -10,7 +12,6 @@ import {
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
 import { tipsDisabledResponse } from '../../guard';
 import { getTransactionReceiptSummaries } from '../../receipts';
-import { hexToBigInt, rpcCall, toBlockTag } from '../../rpc';
 import {
   cacheBlockData,
   getBlockFromCache,
@@ -18,6 +19,7 @@ import {
   getTransactionMetadataByHash,
 } from '../../s3';
 import type { BlockData, BlockTransaction, BundleEvent } from '../../transaction-data';
+import { publicClientFor } from '../../viem';
 
 export const runtime = 'nodejs';
 
@@ -65,9 +67,8 @@ function serializeBlockData(block: BlockData) {
   };
 }
 
-// Minimal parsed shape from a raw JSON-RPC eth_getBlockBy* result with full
-// transaction objects. Omni has no viem dependency, so blocks are fetched
-// directly and hex fields decoded to bigint here.
+// Parsed block shape consumed by buildBlockData. Fetched via viem getBlock,
+// which already decodes hex fields to bigint.
 interface ParsedFullTransaction {
   hash: string;
   from: string;
@@ -87,63 +88,68 @@ interface ParsedFullBlock {
   transactions: ParsedFullTransaction[];
 }
 
-function parseFullTransaction(value: unknown): ParsedFullTransaction | null {
-  if (!value || typeof value !== 'object') return null;
-  const tx = value as Record<string, unknown>;
-  if (typeof tx.hash !== 'string' || typeof tx.from !== 'string') return null;
-  return {
-    hash: tx.hash,
-    from: tx.from,
-    to: typeof tx.to === 'string' ? tx.to : null,
-    input: typeof tx.input === 'string' ? tx.input : '0x',
-    value: hexToBigInt(tx.value) ?? 0n,
-    gas: hexToBigInt(tx.gas) ?? 0n,
-  };
-}
-
-function parseFullBlock(value: unknown): ParsedFullBlock | null {
-  if (!value || typeof value !== 'object') return null;
-  const block = value as Record<string, unknown>;
-  const number = hexToBigInt(block.number);
-  const timestamp = hexToBigInt(block.timestamp);
-  const gasUsed = hexToBigInt(block.gasUsed);
-  const gasLimit = hexToBigInt(block.gasLimit);
-  if (
-    typeof block.hash !== 'string' ||
-    number === null ||
-    timestamp === null ||
-    gasUsed === null ||
-    gasLimit === null
-  ) {
-    return null;
-  }
-
-  const transactions = Array.isArray(block.transactions)
-    ? block.transactions.map(parseFullTransaction)
-    : [];
-
+// Structural mapper from a viem full block (includeTransactions: true) to the
+// shape buildBlockData needs.
+function toParsedFullBlock(block: {
+  hash: string | null;
+  number: bigint | null;
+  timestamp: bigint;
+  gasUsed: bigint;
+  gasLimit: bigint;
+  baseFeePerGas: bigint | null;
+  transactions: ReadonlyArray<{
+    hash: string;
+    from: string;
+    to: string | null;
+    input: string;
+    value: bigint;
+    gas: bigint;
+  }>;
+}): ParsedFullBlock | null {
+  if (!block.hash || block.number === null) return null;
   return {
     hash: block.hash,
-    number,
-    timestamp,
-    gasUsed,
-    gasLimit,
-    baseFeePerGas: hexToBigInt(block.baseFeePerGas),
-    transactions: transactions.filter((tx): tx is ParsedFullTransaction => tx !== null),
+    number: block.number,
+    timestamp: block.timestamp,
+    gasUsed: block.gasUsed,
+    gasLimit: block.gasLimit,
+    baseFeePerGas: block.baseFeePerGas,
+    transactions: block.transactions.map((tx) => ({
+      hash: tx.hash,
+      from: tx.from,
+      to: tx.to,
+      input: tx.input,
+      value: tx.value,
+      gas: tx.gas,
+    })),
   };
 }
 
 async function fetchBlockFromRpc(rpcUrl: string, blockHash: string): Promise<ParsedFullBlock | null> {
-  return parseFullBlock(await rpcCall(rpcUrl, 'eth_getBlockByHash', [blockHash, true]));
+  try {
+    const block = await publicClientFor(rpcUrl).getBlock({
+      blockHash: blockHash as Hash,
+      includeTransactions: true,
+    });
+    return toParsedFullBlock(block);
+  } catch {
+    return null;
+  }
 }
 
 async function fetchBlockFromRpcByNumber(
   rpcUrl: string,
   blockNumber: string,
 ): Promise<ParsedFullBlock | null> {
-  return parseFullBlock(
-    await rpcCall(rpcUrl, 'eth_getBlockByNumber', [toBlockTag(BigInt(blockNumber)), true]),
-  );
+  try {
+    const block = await publicClientFor(rpcUrl).getBlock({
+      blockNumber: BigInt(blockNumber),
+      includeTransactions: true,
+    });
+    return toParsedFullBlock(block);
+  } catch {
+    return null;
+  }
 }
 
 function isBlockNumber(identifier: string): boolean {

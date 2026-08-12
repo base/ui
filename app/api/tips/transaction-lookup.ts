@@ -4,6 +4,8 @@
 // URL; chain data is read with raw JSON-RPC (rpc.ts). Queries three independent
 // sources in parallel — audit events, on-chain tx+receipt, and the legacy S3
 // archive — and merges them, reporting per-source coverage. Server-only.
+import { type Hash } from 'viem';
+
 import type { TipsChain } from '../../tips/chains';
 import {
   type AuditTransactionEventRecord,
@@ -17,9 +19,9 @@ import {
   transactionHistoryFromAuditEvents,
 } from './audit-events';
 import { getAuditRpcUrl, getRpcUrl, isAuditConfigured } from './config';
-import { rpcCall } from './rpc';
 import { getBundleHistory, getTransactionMetadataByHash } from './s3';
 import type { BundleEvent, BundleHistory, TransactionMetadata } from './transaction-data';
+import { publicClientFor, type TipsPublicClient } from './viem';
 
 export type CoverageState = 'available' | 'empty' | 'disabled' | 'unavailable' | 'not_applicable';
 
@@ -395,106 +397,79 @@ async function loadArchiveHistories(
   ];
 }
 
-interface RpcChainTransaction {
-  hash: string;
-  blockHash?: string | null;
-  blockNumber?: string | null;
-  transactionIndex?: string | null;
-  from: string;
-  to?: string | null;
-  nonce?: string;
-  type?: string;
-  chainId?: string | null;
-  value?: string;
-  gas?: string;
-  gasPrice?: string | null;
-  maxFeePerGas?: string | null;
-  maxPriorityFeePerGas?: string | null;
-  input?: string;
-  accessList?: unknown[];
-  r?: string | null;
-  s?: string | null;
-  v?: string | null;
-  yParity?: string | null;
-}
-
-interface RpcChainReceipt {
-  transactionHash: string;
-  blockHash: string;
-  blockNumber?: string;
-  transactionIndex?: string;
-  status?: string;
-  gasUsed?: string;
-  cumulativeGasUsed?: string;
-  effectiveGasPrice?: string | null;
-  contractAddress?: string | null;
-}
-
 async function getChainDataFromRpc(rpcUrl: string, hash: string): Promise<ChainLookupResult> {
-  const transactionResult = await rpcCall(rpcUrl, 'eth_getTransactionByHash', [hash]);
-  if (transactionResult === null) {
-    // rpcCall swallows transport/RPC errors into null; treat as unavailable rather
-    // than "not found" so coverage reflects that the chain source was not reachable.
+  const client = publicClientFor(rpcUrl);
+  try {
+    const transaction = await client.getTransaction({ hash: hash as Hash });
+    if (!transaction) {
+      return { status: 'empty', data: null };
+    }
+
+    let receipt: ChainReceipt | null = null;
+    try {
+      receipt = serializeReceipt(await client.getTransactionReceipt({ hash: hash as Hash }));
+    } catch {
+      // The transaction itself is still useful while receipt indexing catches up.
+    }
+
+    return {
+      status: 'available',
+      data: {
+        transaction: serializeTransaction(transaction),
+        receipt,
+      },
+    };
+  } catch {
     return { status: 'unavailable', data: null };
   }
-  if (typeof transactionResult !== 'object') {
-    return { status: 'empty', data: null };
-  }
-
-  let receipt: ChainReceipt | null = null;
-  const receiptResult = await rpcCall(rpcUrl, 'eth_getTransactionReceipt', [hash]);
-  if (receiptResult && typeof receiptResult === 'object') {
-    receipt = serializeReceipt(receiptResult as RpcChainReceipt);
-  }
-
-  return {
-    status: 'available',
-    data: {
-      transaction: serializeTransaction(transactionResult as RpcChainTransaction),
-      receipt,
-    },
-  };
 }
 
-function serializeTransaction(transaction: RpcChainTransaction): ChainTransaction {
+function serializeTransaction(
+  transaction: Awaited<ReturnType<TipsPublicClient['getTransaction']>>,
+): ChainTransaction {
   return {
     hash: transaction.hash,
-    blockHash: transaction.blockHash ?? null,
-    blockNumber: transaction.blockNumber ?? null,
-    transactionIndex: transaction.transactionIndex ?? null,
+    blockHash: transaction.blockHash,
+    blockNumber: numericHex(transaction.blockNumber),
+    transactionIndex: numericHex(transaction.transactionIndex),
     from: transaction.from,
-    to: transaction.to ?? null,
-    nonce: transaction.nonce ?? '0x0',
-    type: transaction.type ?? '0x0',
-    chainId: transaction.chainId ?? null,
-    value: transaction.value ?? '0x0',
-    gas: transaction.gas ?? '0x0',
-    gasPrice: transaction.gasPrice ?? null,
-    maxFeePerGas: transaction.maxFeePerGas ?? null,
-    maxPriorityFeePerGas: transaction.maxPriorityFeePerGas ?? null,
-    input: transaction.input ?? '0x',
-    accessList: Array.isArray(transaction.accessList) ? transaction.accessList : [],
+    to: transaction.to,
+    nonce: numericHex(transaction.nonce) ?? '0x0',
+    type: transaction.typeHex ?? transaction.type,
+    chainId: numericHex(transaction.chainId),
+    value: numericHex(transaction.value) ?? '0x0',
+    gas: numericHex(transaction.gas) ?? '0x0',
+    gasPrice: numericHex(transaction.gasPrice),
+    maxFeePerGas: numericHex(transaction.maxFeePerGas),
+    maxPriorityFeePerGas: numericHex(transaction.maxPriorityFeePerGas),
+    input: transaction.input,
+    accessList: Array.from(transaction.accessList ?? []),
     r: transaction.r ?? null,
     s: transaction.s ?? null,
-    v: transaction.v ?? null,
-    yParity: transaction.yParity ?? null,
+    v: numericHex(transaction.v),
+    yParity: numericHex(transaction.yParity),
   };
 }
 
-function serializeReceipt(receipt: RpcChainReceipt): ChainReceipt {
+function serializeReceipt(
+  receipt: Awaited<ReturnType<TipsPublicClient['getTransactionReceipt']>>,
+): ChainReceipt {
   return {
     transactionHash: receipt.transactionHash,
     blockHash: receipt.blockHash,
-    blockNumber: receipt.blockNumber ?? '0x0',
-    transactionIndex: receipt.transactionIndex ?? '0x0',
-    // Normalize the raw JSON-RPC status quantity (0x1/0x0) to the semantic form
-    // the branch's viem client produced, so the UI can read a stable value.
-    status: receipt.status === '0x1' ? 'success' : 'reverted',
-    gasUsed: receipt.gasUsed ?? '0x0',
-    cumulativeGasUsed: receipt.cumulativeGasUsed ?? '0x0',
-    effectiveGasPrice: receipt.effectiveGasPrice ?? null,
+    blockNumber: numericHex(receipt.blockNumber) ?? '0x0',
+    transactionIndex: numericHex(receipt.transactionIndex) ?? '0x0',
+    // viem reports status as 'success' | 'reverted'; the UI reads this directly.
+    status: receipt.status,
+    gasUsed: numericHex(receipt.gasUsed) ?? '0x0',
+    cumulativeGasUsed: numericHex(receipt.cumulativeGasUsed) ?? '0x0',
+    effectiveGasPrice: numericHex(receipt.effectiveGasPrice),
     contractAddress: receipt.contractAddress ?? null,
   };
+}
+
+function numericHex(value: bigint | number | null | undefined): string | null {
+  return value === null || value === undefined ? null : `0x${value.toString(16)}`;
 }
 
 function mergeBundleEvents(eventGroups: BundleEvent[][]): BundleEvent[] {

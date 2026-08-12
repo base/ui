@@ -5,7 +5,7 @@
 // blockNumber:transactionIndex. Server-only.
 import { calculateTransactionFee } from '../../tips/library/explorer-format';
 import { getTransactionReceiptSummaries, type ReceiptSummary } from './receipts';
-import { hexToBigInt, rpcCall, toBlockTag } from './rpc';
+import { publicClientFor } from './viem';
 
 export const DEFAULT_TRANSACTION_PAGE_LIMIT = 50;
 export const MAX_TRANSACTION_PAGE_LIMIT = 100;
@@ -126,47 +126,38 @@ export function parseTransactionListQuery(searchParams: URLSearchParams): Transa
 }
 
 async function fetchLatestBlockNumber(rpcUrl: string): Promise<bigint | null> {
-  const result = await rpcCall(rpcUrl, 'eth_blockNumber', []);
-  return hexToBigInt(result);
-}
-
-function parseListTransaction(value: unknown): ParsedListTransaction | null {
-  if (!value || typeof value !== 'object') return null;
-  const tx = value as Record<string, unknown>;
-  if (typeof tx.hash !== 'string' || typeof tx.from !== 'string') return null;
-  return {
-    hash: tx.hash,
-    from: tx.from,
-    to: typeof tx.to === 'string' ? tx.to : null,
-    input: typeof tx.input === 'string' ? tx.input : '0x',
-    value: hexToBigInt(tx.value) ?? 0n,
-    gas: hexToBigInt(tx.gas) ?? 0n,
-  };
+  try {
+    return await publicClientFor(rpcUrl).getBlockNumber();
+  } catch {
+    return null;
+  }
 }
 
 async function fetchBlockWithTransactions(
   rpcUrl: string,
   blockNumber: bigint,
 ): Promise<ParsedListBlock | null> {
-  const result = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [toBlockTag(blockNumber), true]);
-  if (!result || typeof result !== 'object') return null;
-  const block = result as Record<string, unknown>;
-  const number = hexToBigInt(block.number);
-  const timestamp = hexToBigInt(block.timestamp);
-  if (typeof block.hash !== 'string' || number === null || timestamp === null) {
+  try {
+    const block = await publicClientFor(rpcUrl).getBlock({
+      blockNumber,
+      includeTransactions: true,
+    });
+    return {
+      hash: block.hash ?? '0x',
+      number: block.number ?? blockNumber,
+      timestamp: block.timestamp,
+      transactions: block.transactions.map((tx) => ({
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to,
+        input: tx.input,
+        value: tx.value,
+        gas: tx.gas,
+      })),
+    };
+  } catch {
     return null;
   }
-
-  const transactions = Array.isArray(block.transactions)
-    ? block.transactions.map(parseListTransaction)
-    : [];
-
-  return {
-    hash: block.hash,
-    number,
-    timestamp,
-    transactions: transactions.filter((tx): tx is ParsedListTransaction => tx !== null),
-  };
 }
 
 function serializeTransaction(
