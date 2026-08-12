@@ -185,7 +185,7 @@ export const canonicalAuthenticators: {
 /**
  * Representative auth-payload byte length (bytes after a prefixed blob's
  * 20-byte selector) for each canonical authenticator, keyed by *lowercased*
- * address. Used by `estimateGas8130`'s `senderAuthVerifier`/`payerAuthVerifier`
+ * address. Used by `estimateGas`'s `senderAuthVerifier`/`payerAuthVerifier`
  * hint to synthesize a stub blob without the caller specifying an exact size.
  */
 export const canonicalAuthDataLength: Record<string, number>
