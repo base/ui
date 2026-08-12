@@ -1,9 +1,9 @@
 // Canonical multi-source single-transaction lookup behind /api/tips/txn/[hash].
-// Ported from tips-ui src/lib/transaction-lookup.ts, but chain-aware and viem-free:
-// defaultDependencies(chain) binds the audit RPC URL, S3 chain, and execution RPC
-// URL; chain data is read with raw JSON-RPC (rpc.ts). Queries three independent
-// sources in parallel — audit events, on-chain tx+receipt, and the legacy S3
-// archive — and merges them, reporting per-source coverage. Server-only.
+// defaultDependencies(chain) binds the audit RPC URL, S3 chain, and execution-RPC
+// client; chain data is read with viem. Queries three independent sources in
+// parallel — audit events, on-chain tx+receipt, and the S3 archive — and merges
+// them, reporting per-source coverage. Dependency-injected for testability.
+// Server-only.
 import { type Hash } from 'viem';
 
 import type { TipsChain } from '../../tips/chains';

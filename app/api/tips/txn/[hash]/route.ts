@@ -8,9 +8,9 @@ import {
 
 export const runtime = 'nodejs';
 
-// The canonical transaction view is now multi-source (audit events + on-chain
-// tx/receipt + legacy S3 archive), merged and coverage-annotated by
-// lookupTransaction. See app/api/tips/transaction-lookup.ts.
+// The canonical transaction view is multi-source (audit events + on-chain
+// tx/receipt + S3 archive), merged and coverage-annotated by lookupTransaction.
+// See app/api/tips/transaction-lookup.ts.
 export type TransactionHistoryResponse = TransactionLookupResponse;
 
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {

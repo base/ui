@@ -1,6 +1,5 @@
-// Audit events JSON-RPC client + adapters. Ported from tips-ui src/lib/audit-events.ts,
-// but chain-aware: every query takes the resolved audit RPC URL (getAuditRpcUrl(chain)
-// from config.ts) instead of a module-level env read, so one deployment can serve all
+// Audit events JSON-RPC client + adapters. Chain-aware: every query takes the
+// resolved audit RPC URL (getAuditRpcUrl(chain)), so one deployment can serve all
 // chains. The pure adapter functions map raw audit records onto the shared
 // transaction-data types. Server-only. See config.ts isAuditConfigured() for the gate.
 import type {

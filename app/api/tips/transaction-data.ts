@@ -1,8 +1,6 @@
-// Source-agnostic TIPS domain types. Ported from tips-ui src/lib/transaction-data.ts.
-// These interfaces are shared by every data source — the S3 archive (s3.ts), the
-// audit events RPC (audit-events.ts), and direct execution-RPC reads (rpc.ts) — so
-// they live here rather than in any one source module. s3.ts re-exports them for
-// back-compat with existing importers.
+// Source-agnostic TIPS domain types, shared by every data source — the S3 archive
+// (s3.ts), the audit events RPC (audit-events.ts), and direct execution-RPC reads.
+// They live here rather than in any one source module; s3.ts re-exports them.
 
 export interface TransactionMetadata {
   bundle_ids: string[];

@@ -1,16 +1,10 @@
-// S3 data access for the TIPS API. Ported from tips-ui src/lib/s3.ts, but every
-// data function is chain-aware: it takes a TipsChain and resolves the per-chain
-// S3 client + bucket from config.ts instead of a module-level singleton, so one
-// deployment can serve all chains.
-//
-// With the observability migration, S3 is the *fallback* source: routes prefer
-// the audit events RPC (audit-events.ts) and fall back here when audit is not
-// configured or returns nothing. The block read-through cache (getBlockFromCache /
-// cacheBlockData) is this app's own cache of RPC block data and is intentionally
-// retained through the migration.
-//
-// Domain types live in transaction-data.ts and are re-exported here so existing
-// importers keep working. Server-only: never import from client.
+// S3 data access for the TIPS API. Every data function is chain-aware: it takes a
+// TipsChain and resolves the per-chain S3 client + bucket from config.ts, so one
+// deployment can serve all chains. S3 is the fallback source — routes prefer the
+// audit events RPC (audit-events.ts) and fall back here when audit is not
+// configured or returns nothing. getBlockFromCache / cacheBlockData are this app's
+// read-through cache of RPC block data. Domain types live in transaction-data.ts
+// and are re-exported here. Server-only: never import from client.
 import {
   GetObjectCommand,
   ListObjectsV2Command,

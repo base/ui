@@ -4,12 +4,11 @@ import { formatGasPrice, formatHexValue } from '../library/format';
 import type { MeterBundleResponse } from '../library/types';
 
 // Resource-metering summary for a bundle / rejected transaction. Shared by the
-// dashboard's Rejected tab and the bundle detail page (tips-ui's MeteringCard
-// and SimulationCard were identical, so they collapse into one here).
+// dashboard's Rejected tab and the bundle detail page.
 //
-// NOTE (from tips-ui): on node 0.6, meter.totalExecutionTimeUs is the wall-clock
-// total (setup + teardown + state root), which double-counts stateRootTimeUs, so
-// we sum the per-tx execution times instead.
+// NOTE: on node 0.6, meter.totalExecutionTimeUs is the wall-clock total (setup +
+// teardown + state root), which double-counts stateRootTimeUs, so we sum the
+// per-tx execution times instead.
 export function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
   const executionTimeUs = meter.results.reduce((sum, r) => sum + r.executionTimeUs, 0);
   const stateRootTimeUs = meter.stateRootTimeUs ?? 0;

@@ -1,6 +1,5 @@
-// Basescan-style shared tables for the blocks/txs explorer surfaces. Ported from
-// tips-ui src/components/explorer-tables.tsx, reskinned to the Base design-system
-// tokens and made chain-aware (internal links carry ?chain= via tipsHref).
+// Basescan-style shared tables for the blocks/txs explorer surfaces. Chain-aware:
+// internal links carry ?chain= via tipsHref.
 import Link from 'next/link';
 
 import { cn } from '../../components/ui/cn';

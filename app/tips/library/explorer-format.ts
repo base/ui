@@ -1,7 +1,6 @@
 // Pure, dependency-free formatters for the Basescan-style explorer surfaces
-// (blocks / txs / txn detail). Ported from tips-ui src/lib/explorer-format.ts.
-// Client-safe: no env, no server imports — usable from both the server list
-// modules and client components.
+// (blocks / txs / txn detail). Client-safe: no env, no server imports — usable
+// from both the server list modules and client components.
 
 export type NumericValue = bigint | number | string | null | undefined;
 

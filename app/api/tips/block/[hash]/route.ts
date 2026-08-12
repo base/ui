@@ -215,7 +215,7 @@ async function enrichTransactionWithBundleData(
       };
     }
   } catch {
-    // Audit is an optional read path; retain the S3-backed behavior on errors.
+    // Audit is an optional read path; fall back to the S3-backed enrichment on errors.
   }
 
   return enrichTransactionFromS3(chain, txHash);
@@ -290,8 +290,8 @@ async function buildBlockData(chain: TipsChain, rpcBlock: ParsedFullBlock): Prom
   };
 }
 
-// Build live from RPC (audit-first enrichment), retaining Omni's own block cache
-// as a write-through artifact + last-resort fallback when the RPC is unavailable.
+// Build live from RPC (audit-first enrichment), writing through to the block
+// cache, which also serves as a fallback when the RPC is unavailable.
 async function buildAndCacheBlockData(
   chain: TipsChain,
   rpcBlock: ParsedFullBlock,
@@ -323,7 +323,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
 
     const rpcBlock = await fetchBlockFromRpc(rpcUrl, identifier);
     if (!rpcBlock) {
-      // RPC could not serve the block; fall back to Omni's block cache.
+      // RPC could not serve the block; fall back to the block cache.
       const cachedBlock = await getBlockFromCache(chain, identifier);
       if (cachedBlock) {
         return Response.json(serializeBlockData(cachedBlock));

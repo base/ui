@@ -1,7 +1,6 @@
-// Per-chain server config for the TIPS API. Each chain used to be its own
-// tips-ui deployment (chain baked in via TIPS_UI_* env); here one deployment
-// serves all chains, so S3 client, bucket, and RPC URL are resolved per
-// TipsChain from TIPS_<CHAIN>_* env vars. Server-only: never import from client.
+// Per-chain server config for the TIPS API. One deployment serves all chains, so
+// the S3 client, bucket, and RPC/audit URLs are resolved per TipsChain from
+// TIPS_<CHAIN>_* env vars. Server-only: never import from client.
 import { S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
 
 import type { TipsChain } from '../../tips/chains';
@@ -38,9 +37,9 @@ function getS3Config(chain: TipsChain): ChainS3Config {
 
 const s3Clients = new Map<TipsChain, S3Client>();
 
-// Mirrors tips-ui's createS3Client (forcePathStyle + optional endpoint +
-// optional static credentials), but memoized per chain. With no endpoint or
-// credentials this behaves like the default AWS SDK config.
+// Path-style S3 client (optional endpoint + optional static credentials),
+// memoized per chain. With no endpoint or credentials this behaves like the
+// default AWS SDK config.
 export function getS3Client(chain: TipsChain): S3Client {
   const existing = s3Clients.get(chain);
   if (existing) {

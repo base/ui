@@ -1,8 +1,7 @@
-// Cursor-paginated confirmed-transaction listing from the execution RPC. Ported
-// from tips-ui src/lib/transaction-list.ts, but viem-free (raw JSON-RPC via rpc.ts)
-// and chain-aware: the caller passes the resolved rpcUrl (getRpcUrl(chain)). Walks
-// blocks newest→oldest, enriches with batched receipts for fees. Cursor format is
-// blockNumber:transactionIndex. Server-only.
+// Cursor-paginated confirmed-transaction listing from the execution RPC. Chain-
+// aware: the caller passes the resolved rpcUrl (getRpcUrl(chain)). Walks blocks
+// newest→oldest via viem and enriches with batched receipts for fees. Cursor
+// format is blockNumber:transactionIndex. Server-only.
 import { calculateTransactionFee } from '../../tips/library/explorer-format';
 import { getTransactionReceiptSummaries, type ReceiptSummary } from './receipts';
 import { publicClientFor } from './viem';

@@ -1,6 +1,6 @@
-// Cursor-paginated block listing straight from the execution RPC. Ported from
-// tips-ui src/lib/block-list.ts, but chain-aware: the caller passes the resolved
-// rpcUrl (getRpcUrl(chain)). Numeric cursor = block number. Server-only.
+// Cursor-paginated block listing straight from the execution RPC. Chain-aware:
+// the caller passes the resolved rpcUrl (getRpcUrl(chain)). Numeric cursor =
+// block number. Server-only.
 import { decimalQuantity, hexToNumber, rpcCall, toBlockTag } from './rpc';
 
 export const HOME_BLOCK_LIMIT = 10;

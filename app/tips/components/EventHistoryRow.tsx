@@ -1,8 +1,7 @@
 'use client';
 
 // Single timeline event for the audit/archive history on the block, bundle, and
-// transaction pages. Ported from tips-ui src/app/event-history-row.tsx, reskinned
-// to Base design-system tokens and made chain-aware (block links carry ?chain=).
+// transaction pages. Chain-aware: block links carry ?chain=.
 import Link from 'next/link';
 import { useState } from 'react';
 

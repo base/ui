@@ -1,6 +1,6 @@
-// Pure formatting helpers for the TIPS surface. Ported from tips-ui's page
-// components (formatHexValue / formatGasPrice / time-ago) so the pages stay
-// presentational. Dependency-free — safe to import from server or client.
+// Pure formatting helpers for the TIPS surface (formatHexValue / formatGasPrice /
+// time-ago) so the pages stay presentational. Dependency-free — safe to import
+// from server or client.
 
 const WEI_PER_GWEI = 10n ** 9n;
 const WEI_PER_ETH = 10n ** 18n;

@@ -490,7 +490,7 @@ function TipsDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('blocks');
   const [error, setError] = useState<string | null>(null);
 
-  // Preserve tips-ui's #rejected deep-link on first load.
+  // Support the #rejected deep-link on first load.
   useEffect(() => {
     if (window.location.hash.replace('#', '') === 'rejected') {
       setActiveTab('rejected');

@@ -1,7 +1,6 @@
-// Batched receipt lookup for fee enrichment. Ported from tips-ui src/lib/receipts.ts,
-// but chain-aware: the caller passes the resolved rpcUrl (getRpcUrl(chain)) instead
-// of a module-level env read. Best-effort — list and block queries stay usable
-// without receipts. Server-only.
+// Batched receipt lookup for fee enrichment. Chain-aware: the caller passes the
+// resolved rpcUrl (getRpcUrl(chain)). Best-effort — list and block queries stay
+// usable without receipts. Server-only.
 import { hexToBigInt, rpcBatch } from './rpc';
 
 export interface ReceiptSummary {

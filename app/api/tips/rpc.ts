@@ -1,7 +1,7 @@
-// Raw JSON-RPC helpers for TIPS execution-RPC reads. Omni has no viem dependency
-// (see app/api/tips/block/[hash]/route.ts), so chain data is fetched with
-// fetch() + JSON-RPC. Every function takes an explicit rpcUrl so callers stay
-// chain-aware — resolve it with getRpcUrl(chain) from config.ts. Server-only.
+// Raw JSON-RPC helpers used by block-list.ts and receipts.ts (the latest-block
+// walk and the batched eth_getTransactionReceipt call). Every function takes an
+// explicit rpcUrl so callers stay chain-aware — resolve it with getRpcUrl(chain).
+// Server-only.
 
 interface JsonRpcResult {
   result?: unknown;
