@@ -43,17 +43,17 @@ export function DemoTabs({ items, value, onChange, ariaLabel, layoutId = 'demo-t
             className={cn(
               'relative select-none rounded-full px-4 py-1.5 font-sans text-[14px] transition-colors',
               item.disabled
-                ? 'cursor-not-allowed text-bds-gray-40 dark:text-bds-gray-60'
+                ? 'cursor-not-allowed text-bds-gray-40'
                 : active
-                  ? 'text-black dark:text-white'
-                  : 'text-bds-gray-60 hover:text-black dark:text-bds-gray-40 dark:hover:text-white',
+                  ? 'text-foreground'
+                  : 'text-bds-gray-60 hover:text-foreground dark:text-bds-gray-40 dark:hover:text-white',
             )}
           >
             {active && (
               <motion.span
                 layoutId={layoutId}
                 transition={PILL_TRANSITION}
-                className="absolute inset-0 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:bg-white/15"
+                className="absolute inset-0 rounded-full bg-background shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:bg-white/15"
               />
             )}
             <span className="relative z-[1]">{item.label}</span>

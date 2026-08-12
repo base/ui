@@ -2795,7 +2795,7 @@ export function AccountDemo() {
     : VIBENET_EXPLORER_PATH;
 
   return (
-    <div className="relative -mb-20 flex flex-1 flex-col gap-10 pb-4 text-black dark:text-white">
+    <div className="relative -mb-20 flex flex-1 flex-col gap-10 pb-4 text-foreground">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left column */}
         <div className="flex flex-col gap-6">
@@ -2830,10 +2830,10 @@ export function AccountDemo() {
       </div>
 
       <div className="flex items-center gap-4 text-[12px]">
-        <a href={SPEC_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
+        <a href={SPEC_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40">
           Spec ↗
         </a>
-        <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40 dark:hover:text-bds-gray-30">
+        <a href={CONTRACTS_URL} target="_blank" rel="noopener" className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 dark:text-bds-gray-40">
           Contracts ↗
         </a>
       </div>
@@ -2841,14 +2841,14 @@ export function AccountDemo() {
       {error && !estimateBlocked ? (
         <div
           role="alert"
-          className="flex items-start justify-between gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
+          className="flex items-start justify-between gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
         >
           <span className="[line-break:anywhere]">{error}</span>
           <button
             type="button"
             onClick={() => setError('')}
             aria-label="Dismiss error"
-            className="shrink-0 text-[12px] text-bds-red-60 hover:text-bds-red-70 dark:text-bds-red-30"
+            className="shrink-0 text-[12px] text-bds-red-60 hover:text-bds-red-70"
           >
             Dismiss
           </button>
@@ -2858,7 +2858,7 @@ export function AccountDemo() {
       {estimateBlocked ? (
         <div
           role="alert"
-          className="flex flex-col gap-2 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
+          className="flex flex-col gap-2 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
         >
           <span className="[line-break:anywhere]">{conciseError(estimateBlocked)}</span>
           <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
@@ -2885,7 +2885,7 @@ export function AccountDemo() {
       {seqRecovery ? (
         <div
           role="alert"
-          className="flex flex-col gap-2 rounded-lg border border-bds-yellow-20 bg-bds-yellow-0 px-4 py-3 text-[13px] text-bds-yellow-70 dark:border-bds-yellow-80 dark:bg-bds-yellow-100/30"
+          className="flex flex-col gap-2 rounded-lg border border-bds-yellow-20 bg-bds-yellow-0 px-4 py-3 text-[13px] text-bds-yellow-70"
         >
           <span>
             This {seqRecovery.what} is out of sequence — the account&apos;s config changed since it was
@@ -2905,7 +2905,7 @@ export function AccountDemo() {
       {infoMsg ? (
         <p
           role="status"
-          className="flex items-center justify-between gap-3 rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-4 py-3 text-[13px] text-bds-gray-70 dark:border-white/10 dark:bg-white/5 dark:text-bds-gray-20"
+          className="flex items-center justify-between gap-3 rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-4 py-3 text-[13px] text-bds-gray-70 dark:border-white/10 dark:bg-white/5"
         >
           <span>{infoMsg}</span>
           <button
@@ -2925,7 +2925,7 @@ export function AccountDemo() {
       <div
         className="activity-full-width sticky bottom-0 z-10 mt-auto"
       >
-        <div className="border-t border-bds-gray-10 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/5">
+        <div className="border-t border-bds-gray-10 bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/5">
           <button
             type="button"
             onClick={() => setActivityOpen(!activityOpen)}
@@ -3099,8 +3099,8 @@ export function AccountDemo() {
           className={cn(
             'flex w-full cursor-pointer flex-col gap-3 rounded-xl border-[1.5px] p-4 text-left transition-colors sm:flex-row sm:items-center',
             a.id === activeAccountId
-              ? 'border-black dark:border-white'
-              : 'border-bds-gray-10 bg-white hover:border-black dark:border-white/10 dark:bg-white/5 dark:hover:border-white',
+              ? 'border-foreground'
+              : 'border-bds-gray-10 bg-background hover:border-foreground dark:border-white/10 dark:bg-white/5 dark:hover:border-white',
           )}
         >
           <AccountIdentity
@@ -3136,7 +3136,7 @@ export function AccountDemo() {
     return (
       <>
         {accounts.length === 0 ? (
-          <Card className="flex flex-col items-center gap-4 bg-white px-6 py-12 text-center dark:bg-white/5">
+          <Card className="flex flex-col items-center gap-4 bg-background px-6 py-12 text-center dark:bg-white/5">
             <Text variant="label.medium">No accounts yet</Text>
             <Text variant="label.regular" tone="muted" className="max-w-sm">
               Create an account from one or more signer keys. You&apos;ll get a portable address you
@@ -3146,7 +3146,7 @@ export function AccountDemo() {
           </Card>
         ) : (
           <>
-            <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
+            <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <Text variant="headline">Accounts</Text>
@@ -3260,7 +3260,7 @@ export function AccountDemo() {
 
   function renderApps() {
     if (!acct) return (
-      <Card className="flex flex-col items-center gap-3 bg-white px-6 py-12 text-center dark:bg-white/5">
+      <Card className="flex flex-col items-center gap-3 bg-background px-6 py-12 text-center dark:bg-white/5">
         <Text variant="headline">Apps</Text>
         <Text variant="label.regular" tone="muted">Create and select an account to connect apps.</Text>
       </Card>
@@ -3288,14 +3288,14 @@ export function AccountDemo() {
 
   function renderTransact() {
     if (!acct) return (
-      <Card className="flex flex-col items-center gap-3 bg-white px-6 py-12 text-center dark:bg-white/5">
+      <Card className="flex flex-col items-center gap-3 bg-background px-6 py-12 text-center dark:bg-white/5">
         <Text variant="headline">Transact</Text>
         <Text variant="label.regular" tone="muted">Create and select an account to transact.</Text>
       </Card>
     );
     return (
       <>
-        <Card className="flex flex-col gap-4 bg-white p-5 dark:bg-white/5">
+        <Card className="flex flex-col gap-4 bg-background p-5 dark:bg-white/5">
           <Text variant="headline">Transact</Text>
           <Text variant="label.regular" tone="muted" className="-mt-2">
             Compose and send EIP-8130 transactions from your account.
@@ -3450,7 +3450,7 @@ export function AccountDemo() {
               spellCheck={false}
               placeholder="Optional note / app data — e.g. invoice #4242"
               onChange={(e) => setMetaField(e.target.value)}
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
+              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
             />
             {metadataHex ? (
               <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
@@ -3511,7 +3511,7 @@ type CallsEditorProps = {
 };
 
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
 
 function CallsEditor(props: CallsEditorProps) {
   const {
@@ -3565,7 +3565,7 @@ function CallsEditor(props: CallsEditorProps) {
                 return (
                   <li key={r.id} className="flex items-center gap-2">
                     <label className="flex flex-1 flex-col">
-                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
                         <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">Recipient</span>
                         <input
                           className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
@@ -3587,7 +3587,7 @@ function CallsEditor(props: CallsEditorProps) {
                       </div>
                     </label>
                     <label className="flex w-28 flex-col">
-                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
                         <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">USDV</span>
                         <input
                           className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
@@ -3623,7 +3623,7 @@ function CallsEditor(props: CallsEditorProps) {
               return (
                 <li key={r.id} className="flex items-center gap-2">
                   <label className="flex flex-1 flex-col">
-                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
                       <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">To</span>
                       <input
                         className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
@@ -3635,7 +3635,7 @@ function CallsEditor(props: CallsEditorProps) {
                     </div>
                   </label>
                   <label className="flex w-28 flex-col">
-                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
                       <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">ETH</span>
                       <input
                         className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
@@ -3696,7 +3696,7 @@ function CallsEditor(props: CallsEditorProps) {
                   className={cn(
                     'w-12 shrink-0 rounded-md border py-2 text-[12px] font-normal',
                     r.phase === 0
-                      ? 'border-bds-orange-20 bg-bds-orange-0 text-bds-orange-70 dark:border-bds-orange-80 dark:bg-bds-orange-100/40 dark:text-bds-orange-20'
+                      ? 'border-bds-orange-20 bg-bds-orange-0 text-bds-orange-70'
                       : 'border-bds-gray-10 text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40',
                   )}
                 >
@@ -3776,9 +3776,9 @@ function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSig
   return (
     <div className="flex flex-col gap-4">
       {!acct.deployed ? (
-        <div className="flex items-start gap-2 rounded-lg border border-bds-blue-15 bg-bds-blue-0 p-3 text-[13px] dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+        <div className="flex items-start gap-2 rounded-lg border border-bds-blue-15 bg-bds-blue-0 p-3 text-[13px]">
           <Badge>{acct.type === 'eoa' ? 'Delegate' : 'Deploy'}</Badge>
-          <span className="text-bds-gray-70 dark:text-bds-gray-20">
+          <span className="text-bds-gray-70">
             {acct.type === 'eoa'
               ? 'First use — this also delegates your EOA to the account contract.'
               : 'First use — this also deploys your account on-chain.'}
@@ -3792,7 +3792,7 @@ function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSig
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-bds-gray-10 text-[11px] dark:bg-white/10">
               {i + 1}
             </span>
-            <span className="font-sans text-bds-gray-70 dark:text-bds-gray-20">
+            <span className="font-sans text-bds-gray-70">
               {short(r.to.trim() || acct.address)}
             </span>
             {r.value.trim() && r.value.trim() !== '0' ? (
@@ -3815,7 +3815,7 @@ function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSig
 
       <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-3 text-[13px] dark:border-white/10">
         {error ? (
-          <div className="flex items-start gap-2 py-1 text-[13px] text-bds-red-60 [line-break:anywhere] dark:text-bds-red-30">
+          <div className="flex items-start gap-2 py-1 text-[13px] text-bds-red-60 [line-break:anywhere]">
             <svg width={16} height={16} viewBox="0 0 40 40" fill="none" className="mt-px shrink-0" aria-hidden="true">
               <circle cx="20" cy="24.5" r="1" fill="currentColor" stroke="currentColor" />
               <path d="M20 15V20M30.5 20C30.5 25.799 25.799 30.5 20 30.5C14.201 30.5 9.5 25.799 9.5 20C9.5 14.201 14.201 9.5 20 9.5C25.799 9.5 30.5 14.201 30.5 20Z" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
@@ -3825,7 +3825,7 @@ function ReviewBody({ acct, calls, metaField, chain, gasMode, gasEstimate, txSig
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-bds-gray-60 dark:text-bds-gray-40">
-              <span className="text-black dark:text-white">
+              <span className="text-foreground">
                 {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'}
               </span>{' '}
               · 1 tx · ~{gasEstimate.toLocaleString()} gas · {gasLabel}
@@ -3855,7 +3855,7 @@ type DemoKeysProps = {
 
 function DemoKeys({ signers, busy, renameId, setRenameId, createSigner, renameSigner }: DemoKeysProps) {
   return (
-    <Card className="flex flex-col gap-4 overflow-hidden bg-white p-5 dark:bg-white/5">
+    <Card className="flex flex-col gap-4 overflow-hidden bg-background p-5 dark:bg-white/5">
       <Text variant="headline">
         Demo Keys
       </Text>
@@ -3885,7 +3885,7 @@ function DemoKeys({ signers, busy, renameId, setRenameId, createSigner, renameSi
                       if (e.key === 'Enter') renameSigner(s.id, (e.target as HTMLInputElement).value);
                       if (e.key === 'Escape') setRenameId(null);
                     }}
-                    className="min-w-0 flex-1 rounded border border-bds-gray-10 bg-bds-gray-0 px-1.5 py-0.5 text-[13px] outline-none focus:border-black dark:border-white/10 dark:bg-white/5"
+                    className="min-w-0 flex-1 rounded border border-bds-gray-10 bg-bds-gray-0 px-1.5 py-0.5 text-[13px] outline-none focus:border-foreground dark:border-white/10 dark:bg-white/5"
                   />
                 ) : (
                   <button
@@ -3991,7 +3991,7 @@ function CreateAccountModal(props: CreateAccountModalProps) {
           value={modalLabel}
           placeholder="E.g. Main account"
           onChange={(e) => setModalLabel(e.target.value)}
-          className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] font-normal outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
+          className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] font-normal outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
         />
       </label>
 
@@ -4011,8 +4011,8 @@ function CreateAccountModal(props: CreateAccountModalProps) {
               className={cn(
                 'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
                 modalType === type
-                  ? 'border-black dark:border-white'
-                  : 'border-bds-gray-10 hover:border-black dark:border-white/10 dark:hover:border-white',
+                  ? 'border-foreground'
+                  : 'border-bds-gray-10 hover:border-foreground dark:border-white/10 dark:hover:border-white',
               )}
             >
               <span className="text-[14px] font-normal">{title}</span>
@@ -4041,7 +4041,7 @@ function CreateAccountModal(props: CreateAccountModalProps) {
           />
           <label className="flex flex-col gap-2 text-[14px] font-normal">
             Salt
-            <div className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-black dark:border-white/10 dark:bg-white/5 dark:focus-within:border-bds-blue-40">
+            <div className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-bds-blue-40">
               <input
                 value={modalSalt}
                 spellCheck={false}
@@ -4082,7 +4082,7 @@ function CreateAccountModal(props: CreateAccountModalProps) {
           Address
         </span>
         {modalAddress ? (
-          <span className="break-all font-sans text-[13px] text-black dark:text-white">
+          <span className="break-all font-sans text-[13px] text-foreground">
             {modalAddress}
           </span>
         ) : modalType === 'eoa' ? (
@@ -4140,8 +4140,8 @@ function KeyPicker({ heading, empty, hint, signers, busy, mintKinds, isOn, onTog
                   className={cn(
                     'flex w-full items-center gap-2 rounded-lg border px-2 py-2.5 text-left transition-colors',
                     on
-                      ? 'border-black dark:border-white'
-                      : 'border-bds-gray-10 hover:border-black dark:border-white/10 dark:hover:border-white',
+                      ? 'border-foreground'
+                      : 'border-bds-gray-10 hover:border-foreground dark:border-white/10 dark:hover:border-white',
                   )}
                 >
                   <Text as="span" variant="label" className="truncate">{s.label}</Text>

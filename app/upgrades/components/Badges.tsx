@@ -11,16 +11,16 @@ import { getLifecycleState } from '../library/lifecycle';
 import type { ChangeCategory, ChangeKind, Lifecycle } from '../library/types';
 
 
+// Each pill reads a step-0 surface, a step-20 border and a step-70/80 label.
+// The spectrum inverts under `.dark`, so one set of classes covers both modes:
+// step 0 is always the quietest surface and step 70+ always the loudest text.
 const statusClassName: Record<StatusVariant, string> = {
-  live: 'border-bds-green-20 bg-bds-green-0 text-bds-green-70 dark:border-bds-green-80 dark:bg-bds-green-100 dark:text-bds-green-15',
-  scheduled:
-    'border-bds-yellow-20 bg-bds-yellow-0 text-bds-yellow-80 dark:border-bds-yellow-80 dark:bg-bds-yellow-100 dark:text-bds-yellow-15',
-  planning:
-    'border-bds-gray-15 bg-bds-gray-5 text-bds-gray-60 dark:border-bds-gray-80 dark:bg-bds-gray-100 dark:text-bds-gray-20',
-  draft:
-    'border-bds-orange-20 bg-bds-orange-0 text-bds-orange-80 dark:border-bds-orange-80 dark:bg-bds-orange-100 dark:text-bds-orange-15',
-  accepted:
-    'border-bds-blue-20 bg-bds-blue-0 text-bds-blue-70 dark:border-bds-blue-80 dark:bg-bds-blue-100 dark:text-bds-blue-15',
+  live: 'border-bds-green-20 bg-bds-green-0 text-bds-green-70',
+  scheduled: 'border-bds-yellow-20 bg-bds-yellow-0 text-bds-yellow-80',
+  planning: 'border-bds-gray-15 bg-bds-gray-5 text-bds-gray-60',
+  draft: 'border-bds-orange-20 bg-bds-orange-0 text-bds-orange-80',
+  // Base blue reads better than blue-70 against the deep-navy dark surface.
+  accepted: 'border-bds-blue-20 bg-bds-blue-0 text-bds-blue-70 dark:text-base-blue',
 };
 
 const dotClassName: Record<StatusVariant, string> = {

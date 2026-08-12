@@ -24,7 +24,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
                   <Text
                     variant="label"
                     tone="muted"
-                    className="transition-colors hover:text-black dark:hover:text-white"
+                    className="transition-colors hover:text-foreground"
                   >
                     {item.label}
                   </Text>

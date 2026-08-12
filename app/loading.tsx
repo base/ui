@@ -2,7 +2,7 @@ import { Skeleton } from './components/ui/Skeleton';
 
 export default function HomeLoading() {
   return (
-    <div className="flex flex-col gap-12 text-black">
+    <div className="flex flex-col gap-12 text-foreground">
       <header className="flex flex-col gap-8 border-b border-bds-gray-10 pb-12">
         <div className="max-w-3xl">
           <Skeleton className="mb-4 h-4 w-20" />
@@ -20,7 +20,7 @@ export default function HomeLoading() {
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="rounded-2xl border border-bds-gray-10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+              className="rounded-2xl border border-bds-gray-10 bg-background p-5 dark:border-white/10 dark:bg-white/5"
             >
               <Skeleton className="h-5 w-24" />
               <Skeleton className="mt-2 h-4 w-full" />

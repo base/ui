@@ -8,7 +8,7 @@ export default function BlockLoading() {
         <Skeleton className="mt-2 h-4 w-full max-w-md" />
       </div>
 
-      <div className="rounded-2xl border border-bds-gray-10 bg-white p-6 dark:border-white/10 dark:bg-white/5">
+      <div className="rounded-2xl border border-bds-gray-10 bg-background p-6 dark:border-white/10 dark:bg-white/5">
         <div className="flex flex-col gap-4">
           {[0, 1, 2, 3, 4].map((i) => (
             <div key={i} className="flex items-center gap-4">
@@ -25,7 +25,7 @@ export default function BlockLoading() {
           {[0, 1, 2, 3].map((i) => (
             <div
               key={i}
-              className="flex items-center gap-3 rounded-xl border border-bds-gray-10 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5"
+              className="flex items-center gap-3 rounded-xl border border-bds-gray-10 bg-background px-4 py-3 dark:border-white/10 dark:bg-white/5"
             >
               <Skeleton className="h-4 w-full max-w-xs" />
               <Skeleton className="h-4 w-20" />

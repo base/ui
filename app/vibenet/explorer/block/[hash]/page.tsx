@@ -59,7 +59,7 @@ export default function ExplorerBlockPage({ params }: PageProps) {
 
       {block ? (
         <>
-          <Card className="bg-white p-6 dark:bg-white/5">
+          <Card className="bg-background p-6 dark:bg-white/5">
             <DetailList>
               <DetailRow label="Number">{num?.toLocaleString() ?? '—'}</DetailRow>
               <DetailRow label="Timestamp">{timeFromHex(block.timestamp)?.human ?? '—'}</DetailRow>
@@ -94,13 +94,13 @@ export default function ExplorerBlockPage({ params }: PageProps) {
           <section className="flex flex-col gap-3">
             <Text variant="headline">Transactions ({block.transactions.length})</Text>
             {block.transactions.length === 0 ? (
-              <Card className="bg-white p-4 dark:bg-white/5">
+              <Card className="bg-background p-4 dark:bg-white/5">
                 <Text variant="label.regular" tone="muted">
                   No transactions in this block.
                 </Text>
               </Card>
             ) : (
-              <Card className="overflow-hidden bg-white dark:bg-white/5">
+              <Card className="overflow-hidden bg-background dark:bg-white/5">
                 <ul className="divide-y divide-bds-gray-10 dark:divide-white/10">
                   {block.transactions.map((txHash, index) => (
                     <li key={txHash} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
@@ -116,13 +116,13 @@ export default function ExplorerBlockPage({ params }: PageProps) {
           </section>
         </>
       ) : fetchError ? (
-        <Card className="bg-white p-6 dark:bg-white/5">
+        <Card className="bg-background p-6 dark:bg-white/5">
           <Text variant="label.regular" tone="muted">
             Failed to fetch block. Please try again.
           </Text>
         </Card>
       ) : (
-        <Card className="bg-white p-6 dark:bg-white/5">
+        <Card className="bg-background p-6 dark:bg-white/5">
           <Text variant="label.regular" tone="muted">
             Loading…
           </Text>

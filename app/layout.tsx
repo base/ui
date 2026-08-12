@@ -60,6 +60,10 @@ const doto = localFont({
   adjustFontFallback: false,
 });
 
+// Runs before the first paint to stamp the resolved theme on <html>. Kept as a
+// constant so it stays a static literal — see the note at the injection site.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t!=='dark'&&t!=='light')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t}catch(e){}})()`;
+
 export const metadata = {
   metadataBase: new URL('https://chain.base.org'),
   title: 'Base Chain',
@@ -83,7 +87,16 @@ export default function RootLayout({ children }: PropsWithChildren) {
     <html
       lang="en"
       className={`${baseSans.variable} ${baseSansText.variable} ${baseSansMono.variable} ${doto.variable}`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Applies the stored (or system) theme before first paint. Anything
+            later — even a layout effect — lands after the browser has already
+            painted the light spectrum, which reads as a white flash. The body
+            is a build-time constant with no interpolation, so nothing
+            user-controlled can reach it. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         <AppShell>{children}</AppShell>
         <Analytics />

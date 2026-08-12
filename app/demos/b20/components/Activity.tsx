@@ -9,7 +9,7 @@ import type { ActivityItem } from '../lib/types';
 // Session-local log of decoded B20 events and errors, shown beneath every module.
 export function Activity({ rows }: { rows: ActivityItem[] }) {
   return (
-    <Card className="bg-white p-4 dark:bg-white/5">
+    <Card className="bg-background p-4 dark:bg-white/5">
       <div className="flex items-center justify-between">
         <div>
           <Text variant="headline">Recent activity</Text>

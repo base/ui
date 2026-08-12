@@ -15,14 +15,18 @@
  * which reads as "the dropdown does nothing". */
 
 /* BDS Spectrum CSS variables — full palette available as var(--bds-*).
- * Semantic tokens live in theme.ts; these vars are here for future use
- * in CSS modules, animations, or any non-TS context.
- * Generated from the BDS Spectrum (Base Design System). Light theme only. */
+ * Semantic tokens live in theme.ts; these vars are here for Tailwind, CSS,
+ * and inline-style consumers. Generated from the BDS Spectrum (Base Design
+ * System). The light spectrum is the default; `data-theme="dark"` on <html>
+ * swaps it. Because every step is redefined rather than remapped, a component
+ * usually needs no `dark:` variant at all: step 0 is always the quietest
+ * surface and step 100 always the loudest ink, in both modes. */
 :root {
   color-scheme: light;
 
   --base-blue-p3: color(display-p3 0 0 1 / 1);
   --bds-brand: #0000FF;
+  --bds-blue-tint: rgba(0, 82, 255, 0.08);
 
   /* blue */
   --bds-blue-0: #f5f8ff;
@@ -190,6 +194,183 @@
   --bds-gray-100: #111111;
 }
 
+/* Dark spectrum from the Base Design System. The dark Base blue is
+ * intentionally softer than the light brand blue to preserve contrast on
+ * near-black surfaces. Every step is redefined here, so any `var(--bds-*)`
+ * consumer — Tailwind utility, inline style, or raw CSS — adapts on its own. */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --base-blue-p3: #5B8CFF;
+  --bds-brand: #5B8CFF;
+  --bds-blue-tint: rgba(91, 140, 255, 0.14);
+
+  /* blue */
+  --bds-blue-0: #001033;
+  --bds-blue-5: #011d5b;
+  --bds-blue-10: #012a82;
+  --bds-blue-15: #03339a;
+  --bds-blue-20: #053bb1;
+  --bds-blue-30: #0a48ce;
+  --bds-blue-40: #1354e1;
+  --bds-blue-50: #2162ee;
+  --bds-blue-60: #3773f5;
+  --bds-blue-70: #578bfa;
+  --bds-blue-80: #84aafd;
+  --bds-blue-90: #b9cfff;
+  --bds-blue-100: #f5f8ff;
+
+  /* teal */
+  --bds-teal-0: #001426;
+  --bds-teal-5: #00203b;
+  --bds-teal-10: #002d4f;
+  --bds-teal-15: #003a63;
+  --bds-teal-20: #004876;
+  --bds-teal-30: #006399;
+  --bds-teal-40: #007db6;
+  --bds-teal-50: #0095cd;
+  --bds-teal-60: #00aadf;
+  --bds-teal-70: #06beec;
+  --bds-teal-80: #45d9f5;
+  --bds-teal-90: #95effb;
+  --bds-teal-100: #f0feff;
+
+  /* green */
+  --bds-green-0: #001f12;
+  --bds-green-5: #00301d;
+  --bds-green-10: #01462a;
+  --bds-green-15: #025230;
+  --bds-green-20: #025c37;
+  --bds-green-30: #067044;
+  --bds-green-40: #0b8552;
+  --bds-green-50: #159962;
+  --bds-green-60: #27ad75;
+  --bds-green-70: #44c28d;
+  --bds-green-80: #6fd6ab;
+  --bds-green-90: #abebd0;
+  --bds-green-100: #f5fffb;
+
+  /* chartreuse */
+  --bds-chartreuse-0: #05160e;
+  --bds-chartreuse-5: #0e361d;
+  --bds-chartreuse-10: #154f22;
+  --bds-chartreuse-15: #1d6724;
+  --bds-chartreuse-20: #2d8028;
+  --bds-chartreuse-30: #499836;
+  --bds-chartreuse-40: #6bb049;
+  --bds-chartreuse-50: #7bc869;
+  --bds-chartreuse-60: #8cd188;
+  --bds-chartreuse-70: #9ed9a3;
+  --bds-chartreuse-80: #b2debc;
+  --bds-chartreuse-90: #d1eedc;
+  --bds-chartreuse-100: #f5fffa;
+
+  /* yellow */
+  --bds-yellow-0: #1b0600;
+  --bds-yellow-5: #311100;
+  --bds-yellow-10: #512800;
+  --bds-yellow-15: #603000;
+  --bds-yellow-20: #734000;
+  --bds-yellow-30: #936000;
+  --bds-yellow-40: #af8000;
+  --bds-yellow-50: #c79e00;
+  --bds-yellow-60: #debd17;
+  --bds-yellow-70: #e5cd30;
+  --bds-yellow-80: #f2de5e;
+  --bds-yellow-90: #fff091;
+  --bds-yellow-100: #fffcf1;
+
+  /* orange */
+  --bds-orange-0: #330d00;
+  --bds-orange-5: #4f1400;
+  --bds-orange-10: #6b1c01;
+  --bds-orange-15: #832402;
+  --bds-orange-20: #9b2c04;
+  --bds-orange-30: #bd3b09;
+  --bds-orange-40: #d54c12;
+  --bds-orange-50: #e66020;
+  --bds-orange-60: #f07836;
+  --bds-orange-70: #f89656;
+  --bds-orange-80: #fcb983;
+  --bds-orange-90: #fedbb9;
+  --bds-orange-100: #fffaf5;
+
+  /* red */
+  --bds-red-0: #330004;
+  --bds-red-5: #4f0007;
+  --bds-red-10: #6b010a;
+  --bds-red-15: #83040e;
+  --bds-red-20: #9b0713;
+  --bds-red-30: #bd1321;
+  --bds-red-40: #d52634;
+  --bds-red-50: #e6404e;
+  --bds-red-60: #f0616d;
+  --bds-red-70: #f88690;
+  --bds-red-80: #fcaeb5;
+  --bds-red-90: #fed5d8;
+  --bds-red-100: #fff5f6;
+
+  /* pink */
+  --bds-pink-0: #330a2c;
+  --bds-pink-5: #460e3d;
+  --bds-pink-10: #59134e;
+  --bds-pink-15: #6c185e;
+  --bds-pink-20: #7e1e6f;
+  --bds-pink-30: #9f2c8e;
+  --bds-pink-40: #bb40aa;
+  --bds-pink-50: #d058c1;
+  --bds-pink-60: #e175d6;
+  --bds-pink-70: #ed95e6;
+  --bds-pink-80: #f6b8f3;
+  --bds-pink-90: #fcd9fb;
+  --bds-pink-100: #fff5ff;
+
+  /* purple */
+  --bds-purple-0: #190d33;
+  --bds-purple-5: #2b1659;
+  --bds-purple-10: #491e89;
+  --bds-purple-15: #6125af;
+  --bds-purple-20: #7b2dd3;
+  --bds-purple-30: #8e33ea;
+  --bds-purple-40: #a454f4;
+  --bds-purple-50: #bc7bfb;
+  --bds-purple-60: #cd99fd;
+  --bds-purple-70: #d9b0fe;
+  --bds-purple-80: #e6c9ff;
+  --bds-purple-90: #edd9ff;
+  --bds-purple-100: #fbf7ff;
+
+  /* indigo */
+  --bds-indigo-0: #080f33;
+  --bds-indigo-5: #0e1b5b;
+  --bds-indigo-10: #152782;
+  --bds-indigo-15: #1b2f9a;
+  --bds-indigo-20: #2138b1;
+  --bds-indigo-30: #3049ce;
+  --bds-indigo-40: #445ce1;
+  --bds-indigo-50: #5c71ee;
+  --bds-indigo-60: #798af5;
+  --bds-indigo-70: #99a5fa;
+  --bds-indigo-80: #bbc2fd;
+  --bds-indigo-90: #dbdfff;
+  --bds-indigo-100: #f6f7ff;
+
+  /* gray */
+  --bds-gray-0: #111111;
+  --bds-gray-5: #262626;
+  --bds-gray-10: #3a3a3a;
+  --bds-gray-15: #525252;
+  --bds-gray-20: #5e5e5e;
+  --bds-gray-30: #6f6f6f;
+  --bds-gray-40: #9a9a9a;
+  --bds-gray-50: #b8b8b8;
+  --bds-gray-60: #c4c4c4;
+  --bds-gray-70: #dadada;
+  --bds-gray-80: #efefef;
+  --bds-gray-90: #f8f8f8;
+  --bds-gray-100: #ffffff;
+}
+
 *,
 *::before,
 *::after {
@@ -237,6 +418,10 @@ button {
   scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
 
+[data-theme='dark'] *:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -256,8 +441,16 @@ button {
   background: rgba(0, 0, 0, 0.15);
 }
 
+[data-theme='dark'] *:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 *:hover::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] *:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below
@@ -292,12 +485,12 @@ button {
 }
 
 .nav-back-icon {
-  color: #9a9a9a;
+  color: var(--bds-gray-40);
   transition: color 0.15s ease;
 }
 
 .nav-back-link:hover .nav-back-icon {
-  color: #3a3a3a;
+  color: var(--bds-gray-80);
 }
 
 .external-nav-arrow {

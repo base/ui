@@ -68,7 +68,7 @@ export function FilterSelect({ value, onChange, ariaLabel, options, minDropdownW
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex h-9 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-white px-3 text-[14px] text-black outline-none transition-colors hover:bg-bds-gray-5"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-background px-3 text-[14px] text-foreground outline-none transition-colors hover:bg-bds-gray-5"
       >
         <span className="whitespace-nowrap">
           {selected?.label ?? value}
@@ -100,7 +100,7 @@ export function FilterSelect({ value, onChange, ariaLabel, options, minDropdownW
           role="listbox"
           aria-label={ariaLabel}
           style={{ minWidth: Math.max(dropdownW ?? 0, minDropdownWidth ?? 0) || undefined }}
-          className="absolute left-0 top-full z-50 mt-1 max-h-64 min-w-full overflow-y-auto rounded-xl border border-bds-gray-10 bg-white py-1 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 max-h-64 min-w-full overflow-y-auto rounded-xl border border-bds-gray-10 bg-background py-1 shadow-lg"
         >
           {options.map((option) => (
             <button
@@ -111,7 +111,7 @@ export function FilterSelect({ value, onChange, ariaLabel, options, minDropdownW
               onClick={() => handleSelect(option.value)}
               className={cn(
                 'flex w-full items-center px-3 py-2 text-left text-[14px] transition-colors hover:bg-bds-gray-5',
-                option.value === value ? 'text-black' : 'text-bds-gray-60',
+                option.value === value ? 'text-foreground' : 'text-bds-gray-60',
               )}
             >
               {option.label}

@@ -43,10 +43,10 @@ import { AccountAvatar, AccountIdentity, Badge, CheckIcon, KindBadge } from './p
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
 const CHIP_CLS =
   'rounded-full border border-bds-gray-10 px-2.5 py-1 text-[12px] text-bds-gray-60 transition-colors hover:border-bds-gray-15 dark:border-white/10 dark:text-bds-gray-40';
-const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue dark:border-bds-blue-60 dark:bg-bds-blue-100/30 dark:text-bds-blue-20';
+const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue';
 
 type CfgTab = 'assets' | 'owners' | 'session' | 'subaccounts';
 
@@ -180,8 +180,8 @@ export function ConfigView(p: ConfigViewProps) {
               className={cn(
                 'relative -mb-px px-3 py-2 text-[14px] transition-colors',
                 active
-                  ? 'text-black dark:text-white'
-                  : 'text-bds-gray-60 hover:text-black dark:text-bds-gray-40 dark:hover:text-white',
+                  ? 'text-foreground'
+                  : 'text-bds-gray-60 hover:text-foreground dark:text-bds-gray-40 dark:hover:text-white',
               )}
             >
               {t.label}
@@ -193,7 +193,7 @@ export function ConfigView(p: ConfigViewProps) {
               {active ? (
                 <motion.div
                   layoutId="cfg-tab-underline"
-                  className="absolute right-0 bottom-0 left-0 h-0.5 bg-black dark:bg-white"
+                  className="absolute right-0 bottom-0 left-0 h-0.5 bg-foreground dark:bg-white"
                   transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
                 />
               ) : null}
@@ -262,7 +262,7 @@ function AssetsTab({ p }: { p: ConfigViewProps }) {
     <div className="-mt-2 flex flex-col gap-3">
       <ul className="flex flex-col">
         {assets.map((a) => (
-          <li key={a.key} className={cn('flex items-center gap-3 rounded-lg px-2 py-2 -mx-2 transition-colors duration-700', a.faucet && faucetDone && 'bg-bds-green-0 dark:bg-bds-green-100/20')}>
+          <li key={a.key} className={cn('flex items-center gap-3 rounded-lg px-2 py-2 -mx-2 transition-colors duration-700', a.faucet && faucetDone && 'bg-bds-green-0')}>
             <span aria-hidden="true" className="h-8 w-8 shrink-0 rounded-full bg-bds-gray-10 dark:bg-white/10" />
             <div className="flex flex-col">
               <span className="text-[14px] font-normal">{a.fullName}</span>
@@ -367,7 +367,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
                   className={cn(
                     'flex flex-wrap items-center gap-2 rounded-lg border p-3',
                     isNew
-                      ? 'border-bds-blue-20 bg-bds-blue-0 dark:border-bds-blue-80 dark:bg-bds-blue-100/20'
+                      ? 'border-bds-blue-20 bg-bds-blue-0'
                       : 'border-bds-gray-10 dark:border-white/10',
                   )}
                 >
@@ -430,7 +430,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
           className={cn(
             'flex flex-col gap-3 rounded-lg border p-4',
             p.keyChangeCount > 0 || p.ownerChangeSigned
-              ? 'border-bds-blue-20 bg-bds-blue-0 dark:border-bds-blue-80 dark:bg-bds-blue-100/20'
+              ? 'border-bds-blue-20 bg-bds-blue-0'
               : 'border-bds-gray-10 dark:border-white/10',
           )}
         >
@@ -460,7 +460,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
               {p.ownerChangeSigned ? (
                 <>
                   <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-                    <span className="inline-flex items-center gap-1 text-bds-green-70 dark:text-bds-green-20">Signed</span> — owner change authorized.
+                    <span className="inline-flex items-center gap-1 text-bds-green-70">Signed</span> — owner change authorized.
                     It rides your next Transact automatically, or apply it now.
                   </p>
                   <div className="flex gap-2">
@@ -499,7 +499,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
           {p.configTx && TX_HASH_RE.test(p.configTx.hash) ? (
             <Link
               href={`${VIBENET_EXPLORER_PATH}/tx/${p.configTx.hash}`}
-              className="flex items-center gap-2 font-sans text-[12px] text-base-blue hover:underline dark:text-bds-blue-20"
+              className="flex items-center gap-2 font-sans text-[12px] text-base-blue hover:underline"
             >
               <Badge tone="ok">{p.configTx.label} landed</Badge>
               <code>{short(p.configTx.hash, 14, 12)}</code>
@@ -556,7 +556,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                         {live.map(([token, b]) => (
                           <div key={token} className="flex items-center justify-between text-[13px]">
                             <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy!.label}</span>
-                            <span className="font-normal text-black dark:text-white">
+                            <span className="font-normal text-foreground">
                               {formatUnits(b.remaining, b.decimals)} / {formatUnits(b.allowance, b.decimals)} {b.symbol}{b.period ? ` ${periodLabel(b.period)}` : ''}
                             </span>
                           </div>
@@ -567,7 +567,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                         {sk.policy.limits.map((lim) => (
                           <div key={lim.token} className="flex items-center justify-between text-[13px]">
                             <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy!.label}</span>
-                            <span className="font-normal text-black dark:text-white">
+                            <span className="font-normal text-foreground">
                               ≤ {formatUnits(lim.allowance, lim.decimals)} {lim.symbol}{lim.period ? ` ${periodLabel(lim.period)}` : ''}
                             </span>
                           </div>
@@ -576,7 +576,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                     ) : (
                       <div className="flex items-center justify-between text-[13px]">
                         <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy.label}</span>
-                        <span className="font-normal text-black dark:text-white">{sk.policy.params}</span>
+                        <span className="font-normal text-foreground">{sk.policy.params}</span>
                       </div>
                     )}
                   </div>
@@ -584,7 +584,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                 {sk.pendingAuth ? (
                   <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-2 dark:border-white/10">
                     <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                      <span className="inline-flex items-center gap-1 text-bds-green-70 dark:text-bds-green-20">Signed</span> — installs on this key&apos;s
+                      <span className="inline-flex items-center gap-1 text-bds-green-70">Signed</span> — installs on this key&apos;s
                       first transaction, or apply it now.
                     </p>
                     <div className="flex gap-2">
@@ -606,7 +606,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
                 {sk.pendingRevoke ? (
                   <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-2 dark:border-white/10">
                     <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                      <span className="text-bds-red-60 dark:text-bds-red-40">Revoke signed</span> — applies on this account&apos;s
+                      <span className="text-bds-red-60">Revoke signed</span> — applies on this account&apos;s
                       next session-key transaction, or apply it now. The policy manager is kept.
                     </p>
                     <div className="flex gap-2">
@@ -774,7 +774,7 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
         {impliedScopes.map((imp) => (
           <div
             key={imp.key}
-            className="flex items-center justify-between gap-2 rounded-md border border-bds-gray-10 bg-white px-3 py-2 text-[12px] dark:border-white/10 dark:bg-white/5"
+            className="flex items-center justify-between gap-2 rounded-md border border-bds-gray-10 bg-background px-3 py-2 text-[12px] dark:border-white/10 dark:bg-white/5"
           >
             <span className="font-normal">{imp.label}</span>
             <span className="text-bds-gray-60 dark:text-bds-gray-40">{imp.note}</span>

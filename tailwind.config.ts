@@ -41,9 +41,13 @@ const bdsColors = Object.fromEntries(
 );
 
 const config: Config = {
-  // Light theme only in omni-ui; `dark:` variants port harmlessly but never
-  // activate since no `.dark` class is applied.
-  darkMode: 'class',
+  // `data-theme` is set on <html> by the inline script in layout.tsx and
+  // toggled/persisted by AppShell. It is an attribute rather than a class
+  // because React owns <html className> (the next/font variables live there)
+  // and reasserts it on render — which strips a `.dark` class on any route
+  // that re-renders the root on the client, notably not-found and error
+  // pages. React never touches attributes it does not render, so this sticks.
+  darkMode: ['selector', '[data-theme="dark"]'],
   content: ['./app/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function DemosIndexPage() {
   return (
-    <div className="animate-in flex flex-col gap-10 pb-4 text-black dark:text-white">
+    <div className="animate-in flex flex-col gap-10 pb-4 text-foreground">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {DEMOS.map((demo) =>
           demo.available ? (
@@ -21,14 +21,14 @@ export default function DemosIndexPage() {
               key={demo.href}
               href={demo.href}
               interactive={false}
-              className="group flex flex-col gap-4 bg-white p-6 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]"
+              className="group flex flex-col gap-4 bg-background p-6 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]"
             >
               <DemoCardBody demo={demo} />
             </LinkCard>
           ) : (
             <Card
               key={demo.href}
-              className="flex flex-col gap-4 bg-white p-6 opacity-60 dark:bg-white/5"
+              className="flex flex-col gap-4 bg-background p-6 opacity-60 dark:bg-white/5"
             >
               <DemoCardBody demo={demo} />
             </Card>
@@ -59,7 +59,7 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
       <ul className="mt-auto flex flex-col gap-2 border-t border-bds-gray-10 pt-4 dark:border-white/10">
         {demo.points.map((point) => (
           <li key={point} className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-[1px] bg-bds-gray-30 dark:bg-bds-gray-50" aria-hidden="true" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-[1px] bg-bds-gray-30" aria-hidden="true" />
             <Text as="span" variant="label.regular" tone="muted">{point}</Text>
           </li>
         ))}

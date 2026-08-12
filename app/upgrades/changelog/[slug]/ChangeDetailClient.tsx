@@ -66,8 +66,8 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             className={cn(
               'relative -mb-px px-1.5 py-2 text-[14px] capitalize transition-colors',
               tab === item
-                ? 'text-black'
-                : 'text-bds-gray-50 hover:text-black',
+                ? 'text-foreground'
+                : 'text-bds-gray-50 hover:text-foreground',
             )}
           >
             {item}
@@ -79,7 +79,7 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
             {tab === item ? (
               <motion.div
                 layoutId="tab-underline"
-                className="absolute right-0 bottom-0 left-0 h-0.5 bg-black"
+                className="absolute right-0 bottom-0 left-0 h-0.5 bg-foreground"
                 transition={reducedMotion ? { duration: 0 } : { type: 'spring', bounce: 0, duration: 0.3 }}
               />
             ) : null}

@@ -155,7 +155,7 @@ function CenterSquares() {
 
   return (
     <>
-      <rect ref={staticRef} x={CX} y={CY} width={SZ} height={SZ} rx="2" fill="#0000FF" />
+      <rect ref={staticRef} x={CX} y={CY} width={SZ} height={SZ} rx="2" fill="var(--bds-brand)" />
       <g ref={quadGroupRef} style={{ opacity: 0 }}>
         {[0, 1, 2, 3].map((qi) => (
           <rect
@@ -166,7 +166,7 @@ function CenterSquares() {
             width={HALF}
             height={HALF}
             rx="1.4"
-            fill="#0000FF"
+            fill="var(--bds-brand)"
           />
         ))}
       </g>
@@ -184,7 +184,7 @@ function CenterSquares() {
               width={cellW}
               height={cellW}
               rx="0.7"
-              fill="#0000FF"
+              fill="var(--bds-brand)"
             />
           );
         })}
@@ -293,8 +293,8 @@ export function DecentralizedV2() {
         ))}
 
         {/* Main curved connection paths */}
-        <path d="M36.4 182.75C36.4 195.121 46.4288 205.15 58.8 205.15H131.6H198.8" stroke="#0000FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M226.8 28.7501C226.8 16.3789 216.771 6.3501 204.4 6.3501H131.6H64.4" stroke="#0000FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M36.4 182.75C36.4 195.121 46.4288 205.15 58.8 205.15H131.6H198.8" stroke="var(--bds-brand)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M226.8 28.7501C226.8 16.3789 216.771 6.3501 204.4 6.3501H131.6H64.4" stroke="var(--bds-brand)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M64 6.75H36" stroke="#DDE3E9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M227 204.75H199" stroke="#DDE3E9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
 
@@ -307,7 +307,7 @@ export function DecentralizedV2() {
           animate={{ y: [0, 9.8, 9.8, 19.6, 19.6, 0, 0] }}
           transition={pillKeyframes}
         />
-        <motion.path d="M30.7999 31.55C30.7999 30.0036 32.0535 28.75 33.5999 28.75H39.1999C40.7463 28.75 41.9999 30.0036 41.9999 31.55C41.9999 33.0964 40.7463 34.35 39.1999 34.35H33.5999C32.0535 34.35 30.7999 33.0964 30.7999 31.55Z" fill="#0000FF"
+        <motion.path d="M30.7999 31.55C30.7999 30.0036 32.0535 28.75 33.5999 28.75H39.1999C40.7463 28.75 41.9999 30.0036 41.9999 31.55C41.9999 33.0964 40.7463 34.35 39.1999 34.35H33.5999C32.0535 34.35 30.7999 33.0964 30.7999 31.55Z" fill="var(--bds-brand)"
           animate={{ y: [0, 9.8, 9.8, -9.8, -9.8, 0, 0] }}
           transition={pillKeyframes}
         />
@@ -321,7 +321,7 @@ export function DecentralizedV2() {
           animate={{ y: [0, 19.6, 19.6, 9.8, 9.8, 0, 0] }}
           transition={pillKeyframes}
         />
-        <motion.path d="M221.2 179.95C221.2 178.404 222.454 177.15 224 177.15H229.6C231.146 177.15 232.4 178.404 232.4 179.95C232.4 181.496 231.146 182.75 229.6 182.75H224C222.454 182.75 221.2 181.496 221.2 179.95Z" fill="#0000FF"
+        <motion.path d="M221.2 179.95C221.2 178.404 222.454 177.15 224 177.15H229.6C231.146 177.15 232.4 178.404 232.4 179.95C232.4 181.496 231.146 182.75 229.6 182.75H224C222.454 182.75 221.2 181.496 221.2 179.95Z" fill="var(--bds-brand)"
           animate={{ y: [0, -9.8, -9.8, 9.8, 9.8, 0, 0] }}
           transition={pillKeyframes}
         />
@@ -410,7 +410,7 @@ export function DecentralizedV2() {
             />
           );
         })}
-        <rect x="141.4" y="147.75" width="19.6" height="5.6" rx="0.5" fill="#0000FF" />
+        <rect x="141.4" y="147.75" width="19.6" height="5.6" rx="0.5" fill="var(--bds-brand)" />
 
         {/* Top bars — R→L sweep, green highlight static */}
         {TOP_BARS_X.map((x, i) => {

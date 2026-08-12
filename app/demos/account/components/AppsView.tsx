@@ -35,14 +35,14 @@ export function AppsView(p: AppsViewProps) {
   const { acct } = p;
   const native = p.chain.mode === 'eip8130-native';
   return (
-    <Card className="flex flex-col gap-4 bg-white p-5 dark:bg-white/5">
+    <Card className="flex flex-col gap-4 bg-background p-5 dark:bg-white/5">
       <Text variant="headline">Apps</Text>
       <Text variant="label.regular" tone="muted" className="-mt-2" style={{ overflowWrap: 'break-word' }}>
         Connect apps to {acct.label} via scoped grants you can revoke anytime.
       </Text>
 
       {!native ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bds-orange-20 bg-bds-orange-0 px-4 py-3 dark:border-bds-orange-80 dark:bg-bds-orange-100/30">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-bds-orange-20 bg-bds-orange-0 px-4 py-3">
           <span className="flex items-center gap-2 text-[13px]">
             <Badge>Vibenet Only</Badge>
             <span className="text-bds-gray-60 dark:text-bds-gray-40">
@@ -184,7 +184,7 @@ function SpendingAccountLive({
         title="Copy account address"
         className="flex min-w-0 max-w-full items-center gap-2 text-left"
       >
-        <span className="font-sans text-[13px] text-base-blue dark:text-bds-blue-20">
+        <span className="font-sans text-[13px] text-base-blue">
           {short(sub.address)}
         </span>
         <span className="text-[11px] tracking-[0.4px] text-bds-gray-50">

@@ -36,7 +36,7 @@ const SURFACES: Surface[] = [
 function SurfaceCard({ surface }: SurfaceCardProps) {
   if (!surface.enabled) {
     return (
-      <Card className="bg-white p-5 opacity-60 dark:bg-white/5">
+      <Card className="bg-background p-5 opacity-60 dark:bg-white/5">
         <div className="flex items-center gap-2">
           <Text variant="headline">{surface.label}</Text>
           <span className="rounded-full border border-bds-gray-15 px-2.5 py-0.5 text-[13px] text-bds-gray-60">
@@ -51,7 +51,7 @@ function SurfaceCard({ surface }: SurfaceCardProps) {
   }
 
   return (
-    <LinkCard href={surface.href} interactive={false} className="group bg-white p-5 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]">
+    <LinkCard href={surface.href} interactive={false} className="group bg-background p-5 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]">
       <Text variant="headline">
         {surface.label}
       </Text>
@@ -65,7 +65,7 @@ function SurfaceCard({ surface }: SurfaceCardProps) {
 export default function Home() {
   return (
     <div className="flex flex-1 items-center justify-center">
-      <div className="animate-in flex w-full max-w-xl flex-col gap-4 px-6 py-12 text-black dark:text-white">
+      <div className="animate-in flex w-full max-w-xl flex-col gap-4 px-6 py-12 text-foreground">
         <Text variant="title2" className="mb-4">Monitor and test Base, all in one place.</Text>
         <Text variant="label.medium" tone="muted">Jump to...</Text>
         {SURFACES.map((surface) => (

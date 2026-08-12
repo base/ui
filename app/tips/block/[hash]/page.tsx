@@ -128,7 +128,7 @@ function BlockStats({ block }: { block: BlockDetailResponse }) {
   const bundleCount = block.transactions.filter((tx) => tx.bundleId !== null).length;
 
   return (
-    <Card className="overflow-hidden bg-white dark:bg-white/5">
+    <Card className="overflow-hidden bg-background dark:bg-white/5">
       <div className="p-5">
         <div className="grid grid-cols-2 gap-6 lg:grid-cols-5">
           <StatCell label="Block Number" value={`#${Number(block.number).toLocaleString()}`} />
@@ -147,19 +147,19 @@ function BlockStats({ block }: { block: BlockDetailResponse }) {
       <div className="grid grid-cols-1 gap-4 border-t border-bds-gray-10 bg-bds-gray-5/50 px-5 py-3 text-xs sm:grid-cols-3 dark:border-white/10 dark:bg-white/[0.03]">
         <div className="min-w-0">
           <span className="text-bds-gray-60 dark:text-bds-gray-40">Gas Used</span>{' '}
-          <span className="font-medium text-black dark:text-white">
+          <span className="font-medium text-foreground">
             {Number(block.gasUsed).toLocaleString()}
           </span>
         </div>
         <div className="min-w-0">
           <span className="text-bds-gray-60 dark:text-bds-gray-40">Gas Limit</span>{' '}
-          <span className="font-medium text-black dark:text-white">
+          <span className="font-medium text-foreground">
             {Number(block.gasLimit).toLocaleString()}
           </span>
         </div>
         <div className="min-w-0">
           <span className="text-bds-gray-60 dark:text-bds-gray-40">Timestamp</span>{' '}
-          <span className="font-medium text-black dark:text-white">
+          <span className="font-medium text-foreground">
             {new Date(Number(block.timestamp) * 1000).toLocaleString()}
           </span>
         </div>
@@ -185,7 +185,7 @@ function BlockToolbar({
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={tipsHref('/tips', chain)}
-          className="text-sm text-base-blue hover:underline dark:text-bds-blue-20"
+          className="text-sm text-base-blue hover:underline"
         >
           ← TIPS
         </Link>
@@ -195,7 +195,7 @@ function BlockToolbar({
             {blockNumber > 0 ? (
               <Link
                 href={tipsHref(`/tips/block/${blockNumber - 1}`, chain)}
-                className="rounded-md px-2 py-1 text-sm text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-black dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
+                className="rounded-md px-2 py-1 text-sm text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
                 title="Previous block"
               >
                 ← Prev
@@ -205,7 +205,7 @@ function BlockToolbar({
             )}
             <Link
               href={tipsHref(`/tips/block/${blockNumber + 1}`, chain)}
-              className="rounded-md px-2 py-1 text-sm text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-black dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
+              className="rounded-md px-2 py-1 text-sm text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
               title="Next block"
             >
               Next →
@@ -218,7 +218,7 @@ function BlockToolbar({
           {shortHash(displayHash)}
         </code>
         <CopyButton text={displayHash} />
-        <TipsExplorerLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white">
+        <TipsExplorerLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <title>View on block explorer</title>
             <path
@@ -315,7 +315,7 @@ function BlockContent({ params }: PageProps) {
 
           <section className="flex flex-col gap-4">
             <Text variant="headline">Transactions</Text>
-            <Card className="overflow-hidden bg-white dark:bg-white/5">
+            <Card className="overflow-hidden bg-background dark:bg-white/5">
               <div className="flex items-center gap-4 border-b border-bds-gray-10 bg-bds-gray-5/60 px-4 py-2 text-xs font-medium text-bds-gray-60 dark:border-white/10 dark:bg-white/[0.03] dark:text-bds-gray-40">
                 <div className="w-8 text-center">#</div>
                 <div className="flex-1">Transaction</div>

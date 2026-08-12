@@ -2,7 +2,7 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 
 export default function ChangeDetailLoading() {
   return (
-    <div className="mx-auto w-full max-w-5xl pb-4 text-black">
+    <div className="mx-auto w-full max-w-5xl pb-4 text-foreground">
       <header className="mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-start">
         <div className="max-w-3xl">
           <div className="mb-5 flex flex-wrap items-center gap-2">

@@ -35,7 +35,7 @@ export function TipsExplorerLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className={cn('text-base-blue hover:underline dark:text-bds-blue-20', className)}
+      className={cn('text-base-blue hover:underline', className)}
     >
       {children}
     </a>

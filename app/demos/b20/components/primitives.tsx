@@ -22,7 +22,7 @@ export function Input({ value, onChange, placeholder, className, ...props }: Inp
       onChange={onChange}
       placeholder={placeholder}
       className={cn(
-        'h-10 w-full rounded-lg border border-bds-gray-10 bg-white px-3 outline-none transition-colors placeholder:text-bds-gray-40 focus:border-base-blue dark:border-white/10 dark:bg-white/5 dark:text-white',
+        'h-10 w-full rounded-lg border border-bds-gray-10 bg-background px-3 outline-none transition-colors placeholder:text-bds-gray-40 focus:border-base-blue dark:border-white/10 dark:bg-white/5 dark:text-white',
         textVariantClasses['label.regular'],
         className,
       )}
@@ -67,7 +67,7 @@ export function Field({
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
-        <label htmlFor={id} className={cn(textVariantClasses.label, 'text-bds-gray-60 dark:text-bds-gray-30')}>
+        <label htmlFor={id} className={cn(textVariantClasses.label, 'text-bds-gray-60')}>
           {label}
         </label>
         <InfoTooltip label={`About ${label}`}>{help}</InfoTooltip>
@@ -117,7 +117,7 @@ export function ErrorNote({ message }: { message: string | null }) {
   return message ? (
     <p
       role="alert"
-      className="mt-4 rounded-lg bg-bds-red-0 p-3 text-[13px] text-bds-red-70 dark:bg-bds-red-100/30 dark:text-bds-red-20"
+      className="mt-4 rounded-lg bg-bds-red-0 p-3 text-[13px] text-bds-red-70"
     >
       {message}
     </p>
