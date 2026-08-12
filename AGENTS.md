@@ -107,9 +107,10 @@ absent from the map ships everywhere — the map is an exception list, so **an
 internal-only page with no entry will fail open and publish**. A disabled surface
 is *unreachable* in that build (routes + API 404, dropped from nav/sitemap/llms);
 its client chunks may still be emitted, so treat this as a reachability
-guarantee, not secrecy. **TIPS** is internal-only today, and the
-`public-build-excludes-internal` CI job enforces its absence from the public
-build — extend that job's path list when you add another internal-only surface.
+guarantee, not secrecy. **TIPS** and **Benchmark** are internal-only today, and
+the `public-build-excludes-internal` CI job enforces their absence from the
+public build — extend that job's path list when you add another internal-only
+surface.
 
 When you add or change an environment-specific section:
 
@@ -119,6 +120,9 @@ When you add or change an environment-specific section:
 2. Gate the per-section surfaces that aren't automatic: the nav entry
    (`app/tips/flag.ts` → `app/navigation.ts`), a layout `notFound()` backstop,
    and the API routes (`app/api/tips/guard.ts` pattern). Use `surfaceEnabled(...)`.
+   A section with no API routes of its own needs no guard and no `apiPrefixes`
+   entry — Benchmark is the example: its browser code calls the report API
+   directly via `NEXT_PUBLIC_BENCHMARK_API_BASE_URL`.
 3. Select the target only via the build/dev script, never a hand-set env var. The
    internal image sets it in its Dockerfile (`npm run build:internal`).
 4. Regenerate the agent index with the **external** (default) target so the

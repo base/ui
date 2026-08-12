@@ -1,6 +1,7 @@
+import { BENCHMARK_ENABLED } from './benchmark/flag';
 import { TIPS_ENABLED } from './tips/flag';
 
-export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'tips';
+export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'tips' | 'benchmark' | 'runs' | 'loadtest';
 
 export type NavChild = {
   label: string;
@@ -38,6 +39,23 @@ export const NAV_ITEMS: NavItem[] = [
   // (deploy.config.mjs). See app/tips/flag.ts.
   ...(TIPS_ENABLED
     ? [{ label: 'TIPS', href: '/tips', icon: 'tips', enabled: true } as NavItem]
+    : []),
+  // Benchmark is internal-only; present only in the internal build target
+  // (deploy.config.mjs). See app/benchmark/flag.ts. The two children were the
+  // report's own in-page tab bar upstream.
+  ...(BENCHMARK_ENABLED
+    ? [
+        {
+          label: 'Benchmark',
+          href: '/benchmark',
+          icon: 'benchmark',
+          enabled: true,
+          children: [
+            { label: 'Benchmarks', href: '/benchmark/run', icon: 'runs' },
+            { label: 'Load Tests', href: '/benchmark/load-tests', icon: 'loadtest' },
+          ],
+        } as NavItem,
+      ]
     : []),
 ];
 
