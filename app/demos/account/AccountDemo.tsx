@@ -1911,7 +1911,7 @@ export function AccountDemo() {
           ),
           ...pendingRevoke.map((o) => revokeActor(o.actorId)),
         ],
-        { chainId, sequence: nextSeq },
+        { chainId, sequence: BigInt(nextSeq) },
       );
       setSignedChange({
         accountId: acct.id,
@@ -2132,7 +2132,7 @@ export function AccountDemo() {
     }
     const accountChanges: AaAccountChange[] = [];
     if (!acct.deployed) accountChanges.push(firstDeployChange(acct, account));
-    const configChange = await account.change(configChanges, { chainId, sequence: nextSeq });
+    const configChange = await account.change(configChanges, { chainId, sequence: BigInt(nextSeq) });
     accountChanges.push(configChange);
 
     // Defer: hold the owner-signed authorization on the key; it authorizes on the
@@ -2426,7 +2426,7 @@ export function AccountDemo() {
       const nextSeq = local + seqOffset;
       const change = await changeAccount.change([revokeActor(sk.actorId)], {
         chainId,
-        sequence: nextSeq,
+        sequence: BigInt(nextSeq),
       });
       updateAccount(acct.id, (a) => ({
         ...a,
@@ -2535,7 +2535,7 @@ export function AccountDemo() {
         registeredManager = true;
         registeredInBatch.add(managerLc);
       }
-      const change = await account.change(configChanges, { chainId: skChainId, sequence: seq });
+      const change = await account.change(configChanges, { chainId: skChainId, sequence: BigInt(seq) });
       updates.set(sk.id, { change, sequence: seq, registeredManager });
       offset++;
     }
