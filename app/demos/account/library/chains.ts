@@ -27,19 +27,21 @@ import { isAddress } from "../../../vibenet/library/format";
  */
 const VIBENET_DEPLOYMENT = {
   ...vibenetDevnetDeployment,
-  accountConfiguration: "0x53648Cf00356fbAA1F2B531715c6B64AaBDE1555",
+  accountConfiguration: "0x81305d4f4976220D2af17E5Dc246848E235600AC",
   accounts: {
     ...vibenetDevnetDeployment.accounts,
-    default: "0x58da469ef71Dd4B092B010CdA37DE124C926EebD",
-    defaultHighRate: "0x23Fe6949d6370330Ae32e7c17E1265D65955C92a",
+    default: "0x813078f98b3eb214046C8Dc93A771ac9de5AaDEf",
+    defaultHighRate: "0x8130931874c894aC4963e128D6273AE520dAFa57",
   },
   authenticators: {
     ...vibenetDevnetDeployment.authenticators,
-    delegate: "0xbb73E3871FBaC8aef1a7Ee8A24E21139916f14C2",
+    p256: "0x8130C89F65750431b564A4730397552a11CeA256",
+    webAuthn: "0x813007b6b1b48E75D91dEc5927ab515d12a0F1d0",
+    delegate: "0x8130b7D430D041ED4050935814D493299980aDE1",
   },
   policies: {
-    manager: "0x6e9E627770C1c90371A2E4CB9474A7Af577a4306",
-    sessionPolicy: "0x58ef2d572a1bC528f0B9121d686B2618809604Dc",
+    manager: "0x813077055d1110F92191ccE13018f51820B40ac1",
+    sessionPolicy: "0x813070914C530d030f4Efd8Fa99C18e836435e55",
   },
 } satisfies Eip8130Deployment;
 
@@ -49,7 +51,8 @@ const VIBENET_DEPLOYMENT = {
  * refetches. Falls back to {@link VIBENET_DEPLOYMENT} per field for anything the
  * API omits (K1 precompile; `upgradeable`/`erc4337`, unused on the native path),
  * and returns `null` when the payload lacks the core address-derivation
- * contracts (AccountConfiguration + DefaultAccount) so callers keep the static set.
+ * contracts (Keystore/AccountConfiguration + DefaultAccount) so callers keep the
+ * static set.
  */
 export function deploymentFromContracts(
   contracts: Record<string, unknown> | null | undefined,
@@ -58,9 +61,12 @@ export function deploymentFromContracts(
     ?.eip8130;
   if (!eip8130 || typeof eip8130 !== "object") return null;
 
+  // The AccountConfiguration contract was renamed `Keystore` upstream; accept
+  // either key so the resolver survives both the old and new payload shapes.
+  const keystore = eip8130.Keystore ?? eip8130.AccountConfiguration;
+
   // Core derivation inputs — without both, the live payload is unusable.
-  if (!isAddress(eip8130.AccountConfiguration) || !isAddress(eip8130.DefaultAccount))
-    return null;
+  if (!isAddress(keystore) || !isAddress(eip8130.DefaultAccount)) return null;
 
   // Valid address by API key, else the static fallback.
   const addr = (key: string, fallback: Address): Address =>
@@ -68,7 +74,7 @@ export function deploymentFromContracts(
 
   const fb = VIBENET_DEPLOYMENT;
   return {
-    accountConfiguration: eip8130.AccountConfiguration as Address,
+    accountConfiguration: keystore as Address,
     accounts: {
       upgradeable: fb.accounts.upgradeable, // not deployed on native vibenet
       default: eip8130.DefaultAccount as Address,

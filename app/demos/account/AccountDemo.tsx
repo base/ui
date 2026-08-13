@@ -17,7 +17,7 @@ import {
   type Address,
   authorizeActor,
   canonicalAuthenticators,
-  computeAddress8130,
+  computeAddress,
   createPayerClient,
   createPublicClient,
   createWebAuthnCredential,
@@ -28,10 +28,10 @@ import {
   encodeSessionPolicyConfig,
   encodeTokenTransfer,
   encodeWalletCalls,
-  estimateGas8130,
+  estimateGas,
   generatePrivateKey,
-  getConfigSequence8130,
-  getTransactionCount8130,
+  getConfigSequence,
+  getTransactionCount,
   type Hex,
   http,
   isDeclinedOffer,
@@ -44,15 +44,15 @@ import {
   selectPaymentOption,
   sessionPolicyAbi,
   type Signer,
-  to8130Account,
-  toDelegate8130Signer,
-  toEoa8130Account,
+  toAccount,
+  toDelegateSigner,
+  toEoaAccount,
   toHex,
   toP256Signer,
   toWebAuthnAccount,
   toWebAuthnSigner,
   upgradeableProxyBytecode,
-  waitForTransactionReceipt8130,
+  waitForTransactionReceipt,
 } from '@aa';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -1106,7 +1106,7 @@ export function AccountDemo() {
     const ids = new Set(modalSigners.map((s) => s.actorId));
     if (ids.size !== modalSigners.length) return null;
     try {
-      return computeAddress8130({
+      return computeAddress({
         userSalt: modalSalt32,
         code,
         initialActors: sortActors(actorPairs(modalSigners)),
@@ -1185,9 +1185,9 @@ export function AccountDemo() {
       authenticator === ecrecoverAuthenticator &&
       !!signer.address &&
       signer.address.toLowerCase() === a.address.toLowerCase();
-    if (isDefaultEoaActor) return toEoa8130Account(signer);
+    if (isDefaultEoaActor) return toEoaAccount(signer);
     if (a.type === 'eoa') {
-      return to8130Account({ signer, address: a.address as Address, authenticator });
+      return toAccount({ signer, address: a.address as Address, authenticator });
     }
     // Sub-account controlled by a parent via `key.delegate(parent)`. When the
     // selected signer is NOT one of the sub's own direct owners (e.g. a minted
@@ -1205,12 +1205,12 @@ export function AccountDemo() {
           (o.authenticator ?? ecrecoverAuthenticator).toLowerCase() === ecrecoverAuthenticator.toLowerCase(),
       );
       if (parent && !isDirectOwner) {
-        const delegateSigner = toDelegate8130Signer({
+        const delegateSigner = toDelegateSigner({
           delegateAccount: parent.address as Address,
           nestedSigner: signer,
           nestedAuthenticator: authenticator,
         });
-        return to8130Account({
+        return toAccount({
           signer: delegateSigner,
           authenticator: delegateSigner.authenticator,
           userSalt: a.salt,
@@ -1220,7 +1220,7 @@ export function AccountDemo() {
         });
       }
     }
-    return to8130Account({
+    return toAccount({
       signer,
       userSalt: a.salt,
       code,
@@ -1236,7 +1236,7 @@ export function AccountDemo() {
   ): AaAccountChange =>
     a.type === 'eoa'
       ? account.delegate(a.delegate ?? chain.deployment.accounts.default)
-      : (account as ReturnType<typeof to8130Account>).create();
+      : (account as ReturnType<typeof toAccount>).create();
 
   // Broadcast a signed 8130 tx and wait for inclusion. Throws TxPendingError on
   // timeout (submitted but unconfirmed), a plain Error if any phase reverts.
@@ -1252,7 +1252,7 @@ export function AccountDemo() {
     })) as Hex;
     onStatus?.('confirming');
     try {
-      const receipt = await waitForTransactionReceipt8130(client as never, {
+      const receipt = await waitForTransactionReceipt(client as never, {
         hash: txHash,
         timeout: 30_000,
       });
@@ -1283,7 +1283,7 @@ export function AccountDemo() {
     address: Address,
   ): Promise<{ local: number; multichain: number }> => {
     try {
-      const { local, multichain } = await getConfigSequence8130(makeRpcClient(), {
+      const { local, multichain } = await getConfigSequence(makeRpcClient(), {
         accountConfiguration: chain.deployment.accountConfiguration as Address,
         account: address,
       });
@@ -1387,7 +1387,7 @@ export function AccountDemo() {
 
     let nonceSequence: bigint;
     try {
-      nonceSequence = await getTransactionCount8130(makeRpcClient(), {
+      nonceSequence = await getTransactionCount(makeRpcClient(), {
         address: account.address as Address,
         nonceKey: 0n,
       });
@@ -1395,7 +1395,7 @@ export function AccountDemo() {
       nonceSequence = effectivelyDeployed ? 1n : 0n;
     }
 
-    // Authenticator hint so estimateGas8130 shapes the senderAuth stub for the
+    // Authenticator hint so estimateGas shapes the senderAuth stub for the
     // actual signer. A delegate-signed sub-account acts via the parent's delegate
     // actor, whose senderAuth is the longer delegate blob — hint the delegate
     // authenticator.
@@ -1430,7 +1430,7 @@ export function AccountDemo() {
     let gasLimit: bigint;
     if (chain.mode === 'eip8130-native') {
       try {
-        const estimated = await estimateGas8130(makeRpcClient(), {
+        const estimated = await estimateGas(makeRpcClient(), {
           sender: account.address as Address,
           // Name the acting actor so the node can fully simulate the tx —
           // policy-gated session keys (resolving the actor's scope + PolicyManager
@@ -1911,7 +1911,7 @@ export function AccountDemo() {
           ),
           ...pendingRevoke.map((o) => revokeActor(o.actorId)),
         ],
-        { chainId, sequence: nextSeq },
+        { chainId, sequence: BigInt(nextSeq) },
       );
       setSignedChange({
         accountId: acct.id,
@@ -2132,7 +2132,7 @@ export function AccountDemo() {
     }
     const accountChanges: AaAccountChange[] = [];
     if (!acct.deployed) accountChanges.push(firstDeployChange(acct, account));
-    const configChange = await account.change(configChanges, { chainId, sequence: nextSeq });
+    const configChange = await account.change(configChanges, { chainId, sequence: BigInt(nextSeq) });
     accountChanges.push(configChange);
 
     // Defer: hold the owner-signed authorization on the key; it authorizes on the
@@ -2176,7 +2176,7 @@ export function AccountDemo() {
     // caller broadcasts `serialized`.
     let nonceSeqSk: bigint;
     try {
-      nonceSeqSk = await getTransactionCount8130(makeRpcClient(), {
+      nonceSeqSk = await getTransactionCount(makeRpcClient(), {
         address: account.address as Address,
         nonceKey: 0n,
       });
@@ -2192,7 +2192,7 @@ export function AccountDemo() {
     let skGas = 400_000n;
     if (chain.mode === 'eip8130-native') {
       try {
-        const estimated = await estimateGas8130(makeRpcClient(), {
+        const estimated = await estimateGas(makeRpcClient(), {
           sender: account.address as Address,
           // Owner signs this authorize tx, so name the owner's actor for full
           // node simulation (resolves the new actor's scope + policy binding).
@@ -2426,7 +2426,7 @@ export function AccountDemo() {
       const nextSeq = local + seqOffset;
       const change = await changeAccount.change([revokeActor(sk.actorId)], {
         chainId,
-        sequence: nextSeq,
+        sequence: BigInt(nextSeq),
       });
       updateAccount(acct.id, (a) => ({
         ...a,
@@ -2535,7 +2535,7 @@ export function AccountDemo() {
         registeredManager = true;
         registeredInBatch.add(managerLc);
       }
-      const change = await account.change(configChanges, { chainId: skChainId, sequence: seq });
+      const change = await account.change(configChanges, { chainId: skChainId, sequence: BigInt(seq) });
       updates.set(sk.id, { change, sequence: seq, registeredManager });
       offset++;
     }
@@ -2652,7 +2652,7 @@ export function AccountDemo() {
       }
     }
     const initialActors = sortActors(actors);
-    const subAddress = computeAddress8130({
+    const subAddress = computeAddress({
       userSalt: subSalt,
       code,
       initialActors,

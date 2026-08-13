@@ -30,13 +30,21 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
+  // Callers pass an inline `onClose` (new identity every render). Keep the latest
+  // in a ref so the focus/scroll-lock effect can depend on `open` alone — keying
+  // it on `onClose` re-runs the effect on every parent re-render, and the cleanup
+  // (`previouslyFocused?.focus?.()`) then steals focus out of the panel's inputs
+  // after a single keystroke.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
     // Remember what to return focus to, so closing doesn't dump the user at the
     // top of the page.
     const previouslyFocused = document.activeElement as HTMLElement | null;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     // Lock background scroll while the modal is open.
@@ -51,7 +59,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
       cancelAnimationFrame(raf);
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   const stop = useCallback((event: MouseEvent) => event.stopPropagation(), []);
   const reducedMotion = useReducedMotion();
