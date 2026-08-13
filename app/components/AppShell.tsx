@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
-import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
+import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { demoLabel } from '../demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
@@ -117,6 +117,40 @@ const styles: Record<string, CSSProperties> = {
     cursor: 'pointer',
     textAlign: 'left',
   },
+  // `marginLeft: auto` pins the switch to the sidebar's right edge, the same way
+  // the `soon` badge hangs off the end of a nav row.
+  //
+  // The switch state and the theme are the same thing, so the off state only ever
+  // renders on a light sidebar and the on state only on a dark one. Off therefore
+  // has to hold up against white specifically, and a pale track left the white
+  // thumb at 1.15:1 — invisible, against the 3:1 WCAG 1.4.11 asks of UI components.
+  // The fix is a gray-50 track rather than an outlined thumb: it puts the thumb and
+  // the track edge both at ~5:1 without ringing the icon in a second circle.
+  switchTrack: {
+    marginLeft: 'auto',
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    width: 34,
+    height: 20,
+    padding: 2,
+    borderRadius: 999,
+    background: 'var(--bds-gray-50)',
+    boxSizing: 'border-box',
+  },
+  switchTrackOn: { background: BRAND_BLUE },
+  switchThumb: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    // Reads against both the grey off-track and the blue on-track.
+    background: 'var(--bds-gray-0)',
+    color: 'var(--bds-gray-50)',
+  },
+  switchThumbOn: { transform: 'translateX(14px)', color: BRAND_BLUE },
   main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   topbar: {
     height: 65,
@@ -311,15 +345,17 @@ const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
 // slipped through), so it just has to be longer than a slow route.
 const PENDING_PATH_TIMEOUT_MS = 5000;
 
-function ThemeIcon({ dark }: { dark: boolean }) {
+function ThemeIcon({ dark, size = 18 }: { dark: boolean; size?: number }) {
+  // Heavier stroke at thumb size, where 1.8 nearly disappears.
+  const strokeWidth = size <= 12 ? 2.6 : 1.8;
   return dark ? (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
     </svg>
   ) : (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
     </svg>
   );
 }
@@ -519,15 +555,31 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
       </div>
 
       <div style={styles.themeFooter}>
+        {/* `role="switch"` rather than a plain button: the control reports a state
+            rather than firing an action, so screen readers announce "on"/"off"
+            against a stable label instead of the label itself changing. */}
         <button
           type="button"
+          role="switch"
+          aria-checked={dark}
           onClick={onToggleTheme}
-          className="nav-header-hover"
-          aria-label={`Switch to ${dark ? 'light' : 'dark'} mode`}
+          className="nav-header-hover theme-switch"
           style={{ ...styles.footerLink, ...styles.themeButton }}
         >
           <span style={styles.footerIcon}><ThemeIcon dark={dark} /></span>
-          <Text as="span" variant="label.medium" tone="inherit">{dark ? 'Light mode' : 'Dark mode'}</Text>
+          <Text as="span" variant="label.medium" tone="inherit">Dark mode</Text>
+          <span
+            aria-hidden
+            className="theme-switch-track"
+            style={{ ...styles.switchTrack, ...(dark ? styles.switchTrackOn : null) }}
+          >
+            <span
+              className="theme-switch-thumb"
+              style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
+            >
+              <ThemeIcon dark={dark} size={10} />
+            </span>
+          </span>
         </button>
       </div>
     </>
