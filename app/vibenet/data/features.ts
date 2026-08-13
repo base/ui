@@ -35,45 +35,11 @@ export const FEATURES: VibenetFeature[] = [
     secondaryCta: { label: 'Build Your Own', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/eip-8130', external: true },
     links: [{ label: 'EIP-8130', href: 'https://eip.tools/eip/8130', external: true }],
   },
-  {
-    id: '200ms-canonical-blocks',
-    tag: '200ms',
-    title: '200ms Blocks',
-    summary:
-      'Native blocks at a 200ms cadence, each with its own hash, state, receipts, and finality lifecycle.',
-    status: 'preview',
-    availability: 'Coming soon in ',
-    availabilityLabel: 'Base Denim',
-    highlights: [
-      {
-        title: 'Native Blocks Every 200ms',
-        detail: 'Full blocks, not partial pending-state updates or Flashblocks.',
-      },
-      {
-        title: 'Millisecond RPC Timestamps',
-        detail: 'Read exact block time from timestampMs and blockTimestampMs fields.',
-      },
-      {
-        title: 'Onchain Millisecond Time',
-        detail: 'Contracts can read the current full timestamp from the BaseTime predeploy.',
-      },
-      {
-        title: 'Ethereum Compatible',
-        detail: 'Header timestamps and EVM block.timestamp remain in whole seconds.',
-      },
-    ],
-    cta: {
-      label: 'Explore Blocks',
-      href: '/vibenet/explorer',
-    },
-    links: [
-      {
-        label: 'Protocol source',
-        href: 'https://github.com/base/contracts/blob/4848ec70d8f1062fec59470d6e731e13ece8a728/src/L2/BaseTime.sol',
-        external: true,
-      },
-    ],
-  },
+  // 200ms Blocks is intentionally absent: it is a Denim roadmap item that has
+  // not landed on vibenet yet (blocks are still ~2s, `timestampMs` is not on
+  // the RPC payload, and the BaseTime predeploy is an uninitialized proxy).
+  // It stays documented under /upgrades/changelog/200ms-blocks until it ships
+  // here — add the feature card back in the same PR that enables it.
 ];
 
 // Raw feature shape as it appears in the API `config` payload.
