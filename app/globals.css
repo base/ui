@@ -484,6 +484,23 @@ button {
   background-color: var(--bds-gray-5);
 }
 
+/* Pulled out of flow so the switch shares the sidebar's bottom row with the last
+   footer link, which lives inside the sliding nav pane the switch sits outside of.
+   The insets match each container's own bottom/right padding: the desktop sidebar
+   pads `0 12px 20px`, the mobile drawer `12px 8px 20px`. Both are already
+   positioned (`relative` and `fixed`), so each is its own containing block. */
+.theme-switch-footer {
+  position: absolute;
+  right: 12px;
+  bottom: 20px;
+}
+
+@media (max-width: 767px) {
+  .theme-switch-footer {
+    right: 8px;
+  }
+}
+
 /* Theme switch. The thumb is offset with a transform (see `switchThumbOn` in
    AppShell) so only the compositor is involved; the track recolours alongside it. */
 .theme-switch-track {

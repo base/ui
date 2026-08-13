@@ -109,7 +109,14 @@ const styles: Record<string, CSSProperties> = {
   // Sits outside the sliding nav container so the toggle stays pinned to the
   // bottom of the sidebar on sub-nav routes too, where `sidebarFooter` (which
   // lives inside the main-nav pane) has slid away.
-  themeFooter: { flexShrink: 0, position: 'relative', display: 'flex', justifyContent: 'flex-end' },
+  //
+  // Absolute rather than in flow so it shares a line with the last footer link:
+  // those links are inside the sliding pane and this is not, so as a flow sibling
+  // it could only ever stack below them. Taking it out of flow lets the pane occupy
+  // the full height, which drops the footer onto the bottom row beside the switch.
+  // Offsets live in `.theme-switch-footer` because they mirror the container's own
+  // padding, and the desktop sidebar and mobile drawer pad differently.
+  themeFooter: { display: 'flex', justifyContent: 'flex-end' },
   // Hugs the switch rather than filling the row: with no label beside it, a
   // full-width button would hover-fill a strip of empty sidebar. The inherited
   // footer-row padding keeps the hit target at 54×38, comfortably past the 24×24
@@ -562,7 +569,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
         </AnimatePresence>
       </div>
 
-      <div style={styles.themeFooter}>
+      <div className="theme-switch-footer" style={styles.themeFooter}>
         {/* `role="switch"` rather than a plain button: the control reports a state
             rather than firing an action, so screen readers announce "on"/"off"
             against a stable label instead of the label itself changing. The switch
