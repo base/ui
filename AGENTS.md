@@ -60,8 +60,8 @@ of a single commit, use `SKIP_DOCS_HOOK=1` or put `[skip-docs]` in the message.
 
 ## Testing
 
-- Run the llms-kit suite: `node --test tests/`
-- Include liveness checks against the deployed site: `LLMS_LIVE=1 node --test tests/`
+- Run the test suite: `npm test` (vitest)
+- Include liveness checks against the deployed site: `LLMS_LIVE=1 npm test`
 
 ## Analytics
 
