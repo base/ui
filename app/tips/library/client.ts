@@ -1,8 +1,8 @@
 // Chain-aware fetch client for the TIPS API.
 //
-// The API lives at /api/tips/* (same-origin route handlers, owned by another
-// agent) and is chain-aware: every request carries the currently selected chain
-// as `?chain=<id>`. Callers pass the resolved TipsChain from useTipsChain().
+// The API lives at /api/tips/* (same-origin route handlers) and is chain-aware:
+// every request carries the currently selected chain as `?chain=<id>`. Callers
+// pass the resolved TipsChain from useTipsChain().
 
 import type { TipsChain } from '../chains';
 import type {
@@ -11,6 +11,7 @@ import type {
   BundleHistoryResponse,
   RejectedTransactionsResponse,
   TransactionHistoryResponse,
+  TransactionsResponse,
 } from './types';
 
 /** Thrown when the API responds with a non-2xx status. */
@@ -45,11 +46,40 @@ async function get<T>(path: string, chain: TipsChain, signal?: AbortSignal): Pro
   return (await response.json()) as T;
 }
 
+function withQuery(path: string, params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
 // Typed endpoint helpers. Each takes the active chain so the caller never has to
 // remember to thread `?chain=` through by hand.
 export const tipsApi = {
   blocks: (chain: TipsChain, signal?: AbortSignal) =>
     get<BlocksResponse>('/api/tips/blocks', chain, signal),
+  blocksPage: (
+    chain: TipsChain,
+    options?: { cursor?: number; limit?: number },
+    signal?: AbortSignal,
+  ) =>
+    get<BlocksResponse>(
+      withQuery('/api/tips/blocks', { cursor: options?.cursor, limit: options?.limit }),
+      chain,
+      signal,
+    ),
+  txs: (
+    chain: TipsChain,
+    options?: { cursor?: string; limit?: number },
+    signal?: AbortSignal,
+  ) =>
+    get<TransactionsResponse>(
+      withQuery('/api/tips/txs', { cursor: options?.cursor, limit: options?.limit }),
+      chain,
+      signal,
+    ),
   block: (hash: string, chain: TipsChain, signal?: AbortSignal) =>
     get<BlockDetailResponse>(`/api/tips/block/${enc(hash)}`, chain, signal),
   txn: (hash: string, chain: TipsChain, signal?: AbortSignal) =>

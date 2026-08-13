@@ -6,7 +6,7 @@
 // self-contained ESM artifact (vendor/aa/index.js) with no external deps.
 //
 // Source: the sibling viem checkout (../viem) on branch
-// feat/eip-8130, built to src/_esm. Rebuild with:
+// feat/eip-8130-production, built to src/_esm. Rebuild with:
 // `bun run vendor/aa/build.mjs` (see build.mjs).
 
 // Core viem
@@ -45,9 +45,9 @@ export {
   toWebAuthnAccount,
 } from '../../../viem/src/_esm/account-abstraction/index.js'
 
-// EIP-8130 (native account abstraction) — includes toDelegate8130Signer /
+// EIP-8130 (native account abstraction) — includes toDelegateSigner /
 // delegateAuthSize (sub-account delegate signing).
-export * from '../../../viem/src/_esm/experimental/eip8130/index.js'
+export * from '../../../viem/src/_esm/eip8130/index.js'
 
 // ERC-8168 (payer / sponsorship)
 export {
@@ -64,4 +64,4 @@ export {
   selectPaymentOption,
   sendSponsoredCalls,
   sponsorshipDeclineCode,
-} from '../../../viem/src/_esm/experimental/eip8168/index.js'
+} from '../../../viem/src/_esm/eip8168/index.js'

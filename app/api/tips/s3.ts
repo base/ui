@@ -1,7 +1,10 @@
-// S3 data access for the TIPS API. Ported from tips-ui src/lib/s3.ts, but every
-// data function is chain-aware: it takes a TipsChain and resolves the per-chain
-// S3 client + bucket from config.ts instead of a module-level singleton, so one
-// deployment can serve all chains.
+// S3 data access for the TIPS API. Every data function is chain-aware: it takes a
+// TipsChain and resolves the per-chain S3 client + bucket from config.ts, so one
+// deployment can serve all chains. S3 is the fallback source — routes prefer the
+// audit events RPC (audit-events.ts) and fall back here when audit is not
+// configured or returns nothing. getBlockFromCache / cacheBlockData are this app's
+// read-through cache of RPC block data. Domain types live in transaction-data.ts
+// and are re-exported here. Server-only: never import from client.
 import {
   GetObjectCommand,
   ListObjectsV2Command,
@@ -10,12 +13,29 @@ import {
 
 import type { TipsChain } from '../../tips/chains';
 import { getBucketName, getS3Client } from './config';
+import type {
+  BlockData,
+  BundleEvent,
+  BundleHistory,
+  RejectedTransaction,
+  TransactionMetadata,
+} from './transaction-data';
 
-export interface TransactionMetadata {
-  bundle_ids: string[];
-  sender: string;
-  nonce: string;
-}
+export type {
+  BlockData,
+  BlockTransaction,
+  BundleData,
+  BundleEvent,
+  BundleEventData,
+  BundleHistory,
+  BundleTransaction,
+  MeterBundleResponse,
+  MeterBundleResult,
+  RejectedTransaction,
+  RejectionReason,
+  TransactionMetadata,
+} from './transaction-data';
+export { formatRejectionReason } from './transaction-data';
 
 async function getObjectContent(chain: TipsChain, key: string): Promise<string | null> {
   try {
@@ -51,84 +71,6 @@ export async function getTransactionMetadataByHash(
   }
 }
 
-export interface BundleTransaction {
-  signer: string;
-  type: string;
-  chainId: string;
-  nonce: string;
-  gas: string;
-  maxFeePerGas: string;
-  maxPriorityFeePerGas: string;
-  to: string | null;
-  value: string;
-  accessList: unknown[];
-  input: string;
-  r: string;
-  s: string;
-  yParity: string;
-  v: string;
-  hash: string;
-}
-
-export interface MeterBundleResult {
-  coinbaseDiff: string;
-  ethSentToCoinbase: string;
-  fromAddress: string;
-  gasFees: string;
-  gasPrice: string;
-  gasUsed: number;
-  toAddress: string;
-  txHash: string;
-  value: string;
-  executionTimeUs: number;
-}
-
-export interface MeterBundleResponse {
-  bundleGasPrice: string;
-  bundleHash: string;
-  coinbaseDiff: string;
-  ethSentToCoinbase: string;
-  gasFees: string;
-  results: MeterBundleResult[];
-  stateBlockNumber: number;
-  totalGasUsed: number;
-  totalExecutionTimeUs: number;
-  stateRootTimeUs: number;
-  stateRootAccountLeafCount: number;
-  stateRootAccountBranchCount: number;
-  stateRootStorageLeafCount: number;
-  stateRootStorageBranchCount: number;
-}
-
-export interface BundleData {
-  uuid: string;
-  txs: BundleTransaction[];
-  block_number: string;
-  max_timestamp: number;
-  reverting_tx_hashes: string[];
-  meter_bundle_response: MeterBundleResponse;
-}
-
-export interface BundleEventData {
-  key: string;
-  timestamp: number;
-  bundle?: BundleData;
-  block_number?: number;
-  block_hash?: string;
-  builder?: string;
-  flashblock_index?: number;
-  reason?: string;
-}
-
-export interface BundleEvent {
-  event: string;
-  data: BundleEventData;
-}
-
-export interface BundleHistory {
-  history: BundleEvent[];
-}
-
 export async function getBundleHistory(
   chain: TipsChain,
   bundleKey: string,
@@ -161,26 +103,6 @@ export async function getBundleHistory(
   return { history };
 }
 
-export interface BlockTransaction {
-  hash: string;
-  from: string;
-  to: string | null;
-  gasLimit: bigint;
-  bundleId: string | null;
-  index: number;
-  meterBundleResponse: Record<string, unknown> | null;
-}
-
-export interface BlockData {
-  hash: string;
-  number: bigint;
-  timestamp: bigint;
-  transactions: BlockTransaction[];
-  gasUsed: bigint;
-  gasLimit: bigint;
-  cachedAt: number;
-}
-
 export async function getBlockFromCache(
   chain: TipsChain,
   blockHash: string,
@@ -200,10 +122,29 @@ export async function getBlockFromCache(
       timestamp: BigInt(parsed.timestamp),
       gasUsed: BigInt(parsed.gasUsed),
       gasLimit: BigInt(parsed.gasLimit),
+      baseFeePerGas:
+        parsed.baseFeePerGas === null || parsed.baseFeePerGas === undefined
+          ? null
+          : BigInt(parsed.baseFeePerGas),
       transactions: parsed.transactions.map(
         (tx: { gasLimit?: string; [key: string]: unknown }) => ({
           ...tx,
+          blockHash: String(tx.blockHash ?? parsed.hash ?? blockHash),
+          blockNumber: BigInt((tx.blockNumber as string) ?? parsed.number),
+          blockTimestamp: BigInt((tx.blockTimestamp as string) ?? parsed.timestamp),
+          input: String(tx.input ?? '0x'),
+          value: BigInt(String(tx.value ?? '0')),
           gasLimit: BigInt(tx.gasLimit ?? '0'),
+          gasUsed:
+            tx.gasUsed === null || tx.gasUsed === undefined ? null : BigInt(tx.gasUsed as string),
+          effectiveGasPrice:
+            tx.effectiveGasPrice === null || tx.effectiveGasPrice === undefined
+              ? null
+              : BigInt(tx.effectiveGasPrice as string),
+          transactionFee:
+            tx.transactionFee === null || tx.transactionFee === undefined
+              ? null
+              : BigInt(tx.transactionFee as string),
           meterBundleResponse: tx.meterBundleResponse ?? null,
         }),
       ),
@@ -212,30 +153,6 @@ export async function getBlockFromCache(
     console.error(`Failed to parse block data for hash ${blockHash}:`, error);
     return null;
   }
-}
-
-export interface RejectionReason {
-  executionTimeExceeded?: {
-    tx_time_us: number;
-    limit_us: number;
-  };
-}
-
-export interface RejectedTransaction {
-  blockNumber: number;
-  txHash: string;
-  reason: RejectionReason;
-  timestamp: number;
-  metering: MeterBundleResponse;
-}
-
-export function formatRejectionReason(reason: RejectionReason | string): string {
-  if (typeof reason === 'string') return reason;
-  if (reason?.executionTimeExceeded) {
-    const { tx_time_us, limit_us } = reason.executionTimeExceeded;
-    return `Execution time exceeded: ${tx_time_us.toLocaleString()}μs > ${limit_us.toLocaleString()}μs limit`;
-  }
-  return 'Unknown reason';
 }
 
 export interface RejectedTransactionSummary {
