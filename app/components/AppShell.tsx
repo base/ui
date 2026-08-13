@@ -109,17 +109,16 @@ const styles: Record<string, CSSProperties> = {
   // Sits outside the sliding nav container so the toggle stays pinned to the
   // bottom of the sidebar on sub-nav routes too, where `sidebarFooter` (which
   // lives inside the main-nav pane) has slid away.
-  themeFooter: { flexShrink: 0, position: 'relative' },
+  themeFooter: { flexShrink: 0, position: 'relative', display: 'flex', justifyContent: 'flex-end' },
+  // Hugs the switch rather than filling the row: with no label beside it, a
+  // full-width button would hover-fill a strip of empty sidebar. The inherited
+  // footer-row padding keeps the hit target at 54×38, comfortably past the 24×24
+  // WCAG 2.5.8 floor even though the track itself is only 34×20.
   themeButton: {
-    width: '100%',
     border: 0,
     background: 'transparent',
     cursor: 'pointer',
-    textAlign: 'left',
   },
-  // `marginLeft: auto` pins the switch to the sidebar's right edge, the same way
-  // the `soon` badge hangs off the end of a nav row.
-  //
   // The switch state and the theme are the same thing, so the off state only ever
   // renders on a light sidebar and the on state only on a dark one. Off therefore
   // has to hold up against white specifically, and a pale track left the white
@@ -127,7 +126,6 @@ const styles: Record<string, CSSProperties> = {
   // The fix is a gray-50 track rather than an outlined thumb: it puts the thumb and
   // the track edge both at ~5:1 without ringing the icon in a second circle.
   switchTrack: {
-    marginLeft: 'auto',
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
@@ -345,15 +343,25 @@ const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
 // slipped through), so it just has to be longer than a slow route.
 const PENDING_PATH_TIMEOUT_MS = 5000;
 
-function ThemeIcon({ dark, size = 18 }: { dark: boolean; size?: number }) {
-  // Heavier stroke at thumb size, where 1.8 nearly disappears.
-  const strokeWidth = size <= 12 ? 2.6 : 1.8;
+// Rides inside the switch thumb. Stroke is heavier than the nav glyphs' 1.8
+// because at 10px that weight all but disappears.
+function ThemeIcon({ dark }: { dark: boolean }) {
+  const common = {
+    width: 10,
+    height: 10,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2.6,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
   return dark ? (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <svg {...common}>
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
     </svg>
   ) : (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <svg {...common}>
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
     </svg>
@@ -557,17 +565,18 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
       <div style={styles.themeFooter}>
         {/* `role="switch"` rather than a plain button: the control reports a state
             rather than firing an action, so screen readers announce "on"/"off"
-            against a stable label instead of the label itself changing. */}
+            against a stable label instead of the label itself changing. The switch
+            renders bare, so that name comes from `aria-label` — the visible track
+            is decorative and hidden from the tree. */}
         <button
           type="button"
           role="switch"
           aria-checked={dark}
+          aria-label="Dark mode"
           onClick={onToggleTheme}
           className="nav-header-hover theme-switch"
           style={{ ...styles.footerLink, ...styles.themeButton }}
         >
-          <span style={styles.footerIcon}><ThemeIcon dark={dark} /></span>
-          <Text as="span" variant="label.medium" tone="inherit">Dark mode</Text>
           <span
             aria-hidden
             className="theme-switch-track"
@@ -577,7 +586,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
               className="theme-switch-thumb"
               style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
             >
-              <ThemeIcon dark={dark} size={10} />
+              <ThemeIcon dark={dark} />
             </span>
           </span>
         </button>
