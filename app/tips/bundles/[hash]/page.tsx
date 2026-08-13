@@ -107,8 +107,19 @@ function TransactionDetails({
                   <td className="w-20 py-2 align-top text-bds-gray-60 dark:text-bds-gray-40">Hash</td>
                   <td className="py-2 text-right">
                     <span className="inline-flex items-center gap-1">
-                      <TipsExplorerLink chain={chain} type="tx" value={tx.hash} className="break-all font-mono">
+                      <Link
+                        href={tipsHref(`/tips/txn/${tx.hash}`, chain)}
+                        className="break-all font-mono text-base-blue hover:underline dark:text-bds-blue-20"
+                      >
                         {tx.hash}
+                      </Link>
+                      <TipsExplorerLink
+                        chain={chain}
+                        type="tx"
+                        value={tx.hash}
+                        className="shrink-0 text-bds-gray-50 hover:text-black dark:hover:text-white"
+                      >
+                        ↗
                       </TipsExplorerLink>
                       <CopyButton text={tx.hash} />
                     </span>
