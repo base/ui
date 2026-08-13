@@ -24,6 +24,21 @@ type TabsProps = {
 
 const PILL_TRANSITION = { type: 'spring', bounce: 0, duration: 0.3 } as const;
 
+// Breathing room left between a scrolled-into-view tab and the scroller edge.
+const SCROLL_MARGIN = 8;
+
+function findScrollParent(el: HTMLElement): HTMLElement | null {
+  let node = el.parentElement;
+  while (node) {
+    if (node.scrollWidth > node.clientWidth) {
+      const overflowX = getComputedStyle(node).overflowX;
+      if (overflowX === 'auto' || overflowX === 'scroll') return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
 export function Tabs({
   items,
   value,
@@ -47,6 +62,17 @@ export function Tabs({
     const cr = container.getBoundingClientRect();
     const br = btn.getBoundingClientRect();
     setPill({ x: br.left - cr.left, width: br.width });
+
+    // On narrow screens the tab row is wider than its scroll container, so the
+    // selected tab can sit off-screen. Nudge it into view horizontally only —
+    // scrollIntoView would also move the page vertically.
+    const scroller = findScrollParent(container);
+    if (!scroller) return;
+    const sr = scroller.getBoundingClientRect();
+    const overflowLeft = sr.left - br.left;
+    const overflowRight = br.right - sr.right;
+    if (overflowLeft > 0) scroller.scrollLeft -= overflowLeft + SCROLL_MARGIN;
+    else if (overflowRight > 0) scroller.scrollLeft += overflowRight + SCROLL_MARGIN;
   }, [value]);
 
   useEffect(() => {
@@ -66,7 +92,7 @@ export function Tabs({
       ref={containerRef}
       role="tablist"
       aria-label={ariaLabel}
-      className={cn('relative inline-flex rounded-full bg-bds-gray-5 p-1', className)}
+      className={cn('relative inline-flex w-max rounded-full bg-bds-gray-5 p-1', className)}
     >
       {pill && (
         <motion.span
@@ -90,7 +116,7 @@ export function Tabs({
             onClick={handleClick}
             disabled={item.disabled}
             className={cn(
-              'relative z-[1] flex select-none items-center gap-1.5 rounded-full font-sans transition-colors',
+              'relative z-[1] flex shrink-0 select-none items-center gap-1.5 rounded-full font-sans whitespace-nowrap transition-colors',
               size === 'sm' ? 'px-2.5 py-1 text-[12px]' : 'px-3 py-1.5 text-[14px]',
               item.disabled
                 ? 'cursor-not-allowed text-bds-gray-40 dark:text-bds-gray-60'
