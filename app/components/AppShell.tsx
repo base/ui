@@ -255,6 +255,25 @@ function NavGlyph({ name }: NavGlyphProps) {
           <path d="M4 19h4v2H4zM10 15h4v6h-4zM16 9h4v12h-4z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
+    case 'benchmark':
+      return (
+        <svg {...common} className="nav-benchmark-icon">
+          <path d="M3 3v15.5A2.5 2.5 0 0 0 5.5 21H21" />
+          <path d="m7 15 3.5-4.5 3 2.5L19 6" />
+        </svg>
+      );
+    case 'runs':
+      return (
+        <svg {...common} strokeWidth={1.8} className="nav-runs-icon">
+          <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+        </svg>
+      );
+    case 'loadtest':
+      return (
+        <svg {...common} strokeWidth={1.8} className="nav-loadtest-icon">
+          <path d="M3 12h3.5l2.5-6 4 12 2.5-6H21" />
+        </svg>
+      );
     default:
       return null;
   }

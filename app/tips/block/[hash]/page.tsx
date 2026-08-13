@@ -9,9 +9,11 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import { CopyButton } from '../../components/CopyButton';
+import { EventHistoryRow } from '../../components/EventHistoryRow';
 import { TipsExplorerLink } from '../../components/TipsExplorerLink';
 import type { TipsChain } from '../../chains';
 import { tipsApi, TipsApiError } from '../../library/client';
+import { formatGwei } from '../../library/explorer-format';
 import { shortHash } from '../../library/format';
 import { tipsHref } from '../../library/links';
 import type { BlockDetailResponse, BlockDetailTransaction } from '../../library/types';
@@ -144,7 +146,7 @@ function BlockStats({ block }: { block: BlockDetailResponse }) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 border-t border-bds-gray-10 bg-bds-gray-5/50 px-5 py-3 text-xs sm:grid-cols-3 dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="grid grid-cols-1 gap-4 border-t border-bds-gray-10 bg-bds-gray-5/50 px-5 py-3 text-xs sm:grid-cols-2 lg:grid-cols-4 dark:border-white/10 dark:bg-white/[0.03]">
         <div className="min-w-0">
           <span className="text-bds-gray-60 dark:text-bds-gray-40">Gas Used</span>{' '}
           <span className="font-medium text-foreground">
@@ -155,6 +157,12 @@ function BlockStats({ block }: { block: BlockDetailResponse }) {
           <span className="text-bds-gray-60 dark:text-bds-gray-40">Gas Limit</span>{' '}
           <span className="font-medium text-foreground">
             {Number(block.gasLimit).toLocaleString()}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <span className="text-bds-gray-60 dark:text-bds-gray-40">Base Fee</span>{' '}
+          <span className="font-medium text-black dark:text-white">
+            {formatGwei(block.baseFeePerGas)}
           </span>
         </div>
         <div className="min-w-0">
@@ -336,6 +344,24 @@ function BlockContent({ params }: PageProps) {
               )}
             </Card>
           </section>
+
+          {data.eventHistory && data.eventHistory.length > 0 ? (
+            <section className="flex flex-col gap-4">
+              <Text variant="headline">Event History</Text>
+              <Card className="bg-white p-6 dark:bg-white/5">
+                {data.eventHistory.map((event, index) => (
+                  <EventHistoryRow
+                    key={`${event.event}-${event.data.key ?? index}`}
+                    event={event}
+                    isLast={index === (data.eventHistory?.length ?? 0) - 1}
+                    startTimestamp={data.eventHistory?.[0]?.data.timestamp ?? event.data.timestamp}
+                    chain={chain}
+                    highlightIncluded
+                  />
+                ))}
+              </Card>
+            </section>
+          ) : null}
         </div>
       ) : null}
     </div>

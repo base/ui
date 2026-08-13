@@ -91,31 +91,57 @@ export const entryPoint07Abi: readonly any[]
 export type AaActor = {
   actorId: Hex
   authenticator: Address
+  /** `uint16` scope bitmask committed at creation. `0`/omitted = admin. */
   scope?: number
+  /** `manager || commitment` — required iff `scope & SCOPE_POLICY`. */
   policyData?: Hex
 }
+/** `authorizeActor` op (`ChangeType` 0x00) within a `SignedAccountChanges` batch. */
 export type AaAuthorizeActor = {
-  changeType: 0x01
+  changeType: 0x00
   actorId: Hex
   authenticator: Address
   scope?: number
+  /** Actor expiry (unix SECONDS, `uint48`). `0`/omitted = no expiry. */
   expiry?: bigint
   policyData?: Hex
 }
-export type AaRevokeActor = { changeType: 0x02; actorId: Hex }
+/** `revokeActor` op (`ChangeType` 0x01). */
+export type AaRevokeActor = { changeType: 0x01; actorId: Hex }
+/** `incrementLocalEpoch` op (`ChangeType` 0x02): invalidates unlanded local-channel sigs. */
+export type AaIncrementLocalEpoch = { changeType: 0x02 }
+/** `lock` op (`ChangeType` 0x03): local channel only, sole op in the batch. */
+export type AaLock = { changeType: 0x03; unlockDelay: number }
+/** `unlock` op (`ChangeType` 0x04): local channel only, sole op in the batch. */
+export type AaUnlock = { changeType: 0x04 }
+/** A single op within a `SignedAccountChanges` batch. */
+export type AaChange =
+  | AaAuthorizeActor
+  | AaRevokeActor
+  | AaIncrementLocalEpoch
+  | AaLock
+  | AaUnlock
+/** @deprecated retained alias; use {@link AaChange}. */
 export type AaActorChange = AaAuthorizeActor | AaRevokeActor
+/** Replay domain a `SignedAccountChanges` batch binds to. */
+export type AaChangeChannel = 'local' | 'multichain'
 export type AaAccountChangeCreate = {
   type: 'create'
   userSalt: Hex
   code: Hex
   initialActors: readonly AaActor[]
 }
+/** A signed `SignedAccountChanges` batch (`applySignedAccountChanges`). */
 export type AaAccountChangeConfig = {
   type: 'config'
-  chainId: number
-  sequence: number
-  actorChanges: readonly AaActorChange[]
-  auth: Hex
+  /** `'local'` binds `block.chainid` + epoch/sequence; `'multichain'` binds chain id 0. */
+  channel: AaChangeChannel
+  /** `uint64` channel sequence. Local: `localEpoch(hi 32) || localSequence(lo 32)`. */
+  sequence: bigint
+  /** Ordered ops applied all-or-nothing. */
+  changes: readonly AaChange[]
+  /** Authorization signature over the batch digest (`authenticator || data`). */
+  signature: Hex
 }
 export type AaAccountChangeDelegation = { type: 'delegation'; target: Address }
 export type AaAccountChange =
@@ -123,6 +149,7 @@ export type AaAccountChange =
   | AaAccountChangeConfig
   | AaAccountChangeDelegation
 export type AaCall = { to: Address; data?: Hex; value?: bigint }
+export type AaCalls = readonly (readonly AaCall[])[]
 
 export type Signer = {
   address: Address
@@ -143,9 +170,13 @@ export const key: {
   passkey(publicKey: { x: Hex; y: Hex } | Hex, options?: { authenticator?: Address }): AaActor
   delegate(delegatedAccount: Address, options?: { authenticator?: Address }): AaActor
   trustedExecutor(caller: Address): AaActor
+  /** No-code external-pull policy actor (uses `externalPolicyAuthenticator`). */
+  externalPull(caller: Address): AaActor
 }
+export const externalPolicyAuthenticator: Address
 export function authorizeActor(actor: AaActor, options?: AuthorizeActorOptions): AaAuthorizeActor
 export function revokeActor(actor: AaActor | Hex): AaRevokeActor
+export function incrementLocalEpoch(): AaIncrementLocalEpoch
 export function toScope(...flags: number[]): number
 export function encodePolicyData(policy: Policy): Hex
 
@@ -162,8 +193,24 @@ export const accountStateFlags: {
   locked: number
   unlockInitiated: number
 }
-export const lockOp: number
-export const unlockOp: number
+/** `SignedAccountChanges` op discriminants. */
+export const changeType: {
+  authorizeActor: 0x00
+  revokeActor: 0x01
+  incrementLocalEpoch: 0x02
+  lock: 0x03
+  unlock: 0x04
+}
+/** Top-level account-change entry discriminants (create / config / delegation). */
+export const accountChangeType: {
+  create: 0x00
+  config: 0x01
+  delegation: 0x02
+}
+/** Whether an actor with `scope` may use sequenced (counter-backed) nonce keys. */
+export function canUseSequencedNonce(scope: number | undefined): boolean
+/** Whether an actor with `scope` is restricted to nonce-free (expiring) txs. */
+export function isNoncelessOnly(scope: number | undefined): boolean
 export const policyDataLength: number
 export const replayIdType: Hex
 export const nonceFreeExpiryWindow: bigint
@@ -200,7 +247,7 @@ export const nonceManagerAbi: readonly any[]
  * Reads the current config-change sequences for an EIP-8130 account.
  * Use `local` as the `sequence` parameter when building the next AccountChange.
  */
-export function getConfigSequence8130(
+export function getConfigSequence(
   client: Client,
   parameters: {
     accountConfiguration: Address
@@ -208,44 +255,30 @@ export function getConfigSequence8130(
   },
 ): Promise<{ local: bigint; multichain: bigint }>
 
-// --- EIP-8130 account locking (elevated per-account rate limits) -----------
+// --- EIP-8130 account locking (SignedAccountChanges ops) -------------------
+//
+// NOTE: lock/unlock are `ChangeType` ops inside a `SignedAccountChanges` batch
+// (build via {@link lockChange}/{@link unlockChange}, sign via `account.change`
+// / `signAccountChanges` on the `'local'` channel, apply via
+// `encodeApplySignedAccountChangesData`). The enshrined node currently DEFERS
+// them — a batch carrying one is rejected on the native path.
 
-/** Lock-change op for {@link hashLockChange8130} / {@link lockCall}. */
-export type LockChangeOp = 'lock' | 'unlock'
-
-/**
- * Digest an account's admin (`scope == 0`) actor signs to lock/unlock the
- * account. Sign it in `authenticator || data` form and pass the blob as `auth`
- * to {@link lockCall}. Binds `chainId` and the account's local change sequence
- * (from {@link getConfigSequence8130}).
- */
-export function hashLockChange8130(parameters: {
-  account: Address
-  chainId: number
-  op: LockChangeOp
-  unlockDelay: number
-  sequence: number
-}): Hex
-
-/**
- * Builds the account call that hard-locks the account
- * (`AccountConfiguration.applySignedLockChanges(account, LOCK_OP, unlockDelay, auth)`).
- */
-export function lockCall(parameters: {
-  account: Address
-  unlockDelay: number
-  auth: Hex
-  accountConfiguration?: Address
-}): AaCall
+/** Maximum `unlockDelay` (`uint16`). */
+export const maxUnlockDelay: number
+export type LockChangeParameters = { unlockDelay: number }
+/** Builds a `lock` op ({@link AaLock}); local channel only, sole op in the batch. */
+export function lockChange(parameters: LockChangeParameters): AaLock
+/** Builds an `unlock` op ({@link AaUnlock}); local channel only, sole op in the batch. */
+export function unlockChange(): AaUnlock
 
 /** Reads whether an EIP-8130 account is currently locked. */
-export function isLocked8130(
+export function isLocked(
   client: Client,
   parameters: { account: Address; accountConfiguration?: Address },
 ): Promise<boolean>
 
 /** Reads the full lock status of an EIP-8130 account. */
-export function getLockStatus8130(
+export function getLockStatus(
   client: Client,
   parameters: { account: Address; accountConfiguration?: Address },
 ): Promise<{
@@ -256,7 +289,7 @@ export function getLockStatus8130(
 }>
 
 /** Live SessionPolicy spend for one token limit (getCurrentSpend). */
-export function getSessionSpend8130(
+export function getSessionSpend(
   client: Client,
   parameters: {
     commitment: Hex
@@ -273,7 +306,7 @@ export function getSessionSpend8130(
 }>
 
 /** Read the EIP-8130 nonce via `eth_getTransactionCount` (2D channel-nonce). */
-export function getTransactionCount8130(
+export function getTransactionCount(
   client: Client,
   parameters: {
     address: Address
@@ -293,7 +326,7 @@ export function getTransactionCount8130(
  * default: configured k1 stub if `sender`/`from` names a configured account,
  * else the default-EOA bare k1 stub). Same for payer authentication.
  */
-export function estimateGas8130(
+export function estimateGas(
   client: Client,
   parameters: {
     /** Sender account. Interchangeable with `sender` (must agree if both set). */
@@ -336,46 +369,53 @@ export function estimateGas8130(
   },
 ): Promise<bigint>
 
-export type Eip8130ReceiptFields = {
+export type ReceiptFields = {
   payer?: Address
   phaseStatuses?: readonly Hex[]
   metadata?: Hex
 }
+/** @deprecated alias of {@link ReceiptFields}. */
+export type Eip8130ReceiptFields = ReceiptFields
 /** Parse the EIP-8130 fields off a raw JSON-RPC receipt (graceful if absent). */
-export function parseEip8130ReceiptFields(receipt: any): Eip8130ReceiptFields
+export function parseReceiptFields(receipt: any): ReceiptFields
 /** Returns `true` when every reported call phase succeeded. */
 export function allPhasesSucceeded(fields: {
   phaseStatuses?: readonly Hex[]
 }): boolean
 /** Fetch a receipt and surface the EIP-8130 AA fields under `.eip8130`. */
-export function getTransactionReceipt8130(
+export function getTransactionReceipt(
   client: Client,
   parameters: { hash: Hex },
-): Promise<(Record<string, any> & { eip8130: Eip8130ReceiptFields }) | null>
+): Promise<(Record<string, any> & { eip8130: ReceiptFields }) | null>
 
 /**
  * Poll `eth_getTransactionReceipt` until an EIP-8130 tx is mined.
- * Unlike `waitForTransactionReceipt`, this skips replacement-detection (which
- * breaks on 2D nonces) and uses `getTransactionReceipt8130` internally.
+ * Skips replacement-detection (which breaks on 2D nonces) and surfaces the
+ * EIP-8130 fields under `.eip8130`.
  */
-export function waitForTransactionReceipt8130(
+export function waitForTransactionReceipt(
   client: Client,
   parameters: {
     hash: Hex
     pollingInterval?: number
     timeout?: number
+    /** Upper validity bound (unix ms) to stop polling an expired nonce-free tx. */
+    validBefore?: bigint
   },
-): Promise<Record<string, any> & { eip8130: Eip8130ReceiptFields }>
+): Promise<Record<string, any> & { eip8130: ReceiptFields }>
 
 /** Fetch an EIP-8130 transaction by hash with strong typing. */
-export type Transaction8130 = {
+export type Transaction = {
   type: '0x79'
   hash: Hex
   from: Address
   chainId: number
   nonceKey: Hex
   nonceSequence: number
-  expiry: number
+  /** Lower validity bound (unix ms). `0` = none. */
+  validAfter: bigint
+  /** Upper validity bound (unix ms). `0` = none. */
+  validBefore: bigint
   maxFeePerGas: bigint
   maxPriorityFeePerGas: bigint
   gas: bigint
@@ -390,10 +430,12 @@ export type Transaction8130 = {
   blockNumber: bigint | null
   transactionIndex: number | null
 }
-export function getTransaction8130(
+/** @deprecated alias of {@link Transaction}. */
+export type Transaction8130 = Transaction
+export function getTransaction(
   client: Client,
   parameters: { hash: Hex },
-): Promise<Transaction8130>
+): Promise<Transaction>
 
 // --- Actor policies (EIP-8130 restricted actors) ---------------------------
 export type PolicyBinding = {
@@ -410,7 +452,10 @@ export type SessionPolicy = {
   binding: PolicyBinding
   commitment: Hex
   actorPolicy: Policy
+  /** Wraps an action as `PolicyManager.execute` (session key dispatches as the account). */
   executeCall(executionData: Hex | SessionPolicyAction): AaCall
+  /** Wraps an action as `PolicyManager.executeFor` (external pull actor drives the account). */
+  executeForCall(executionData: Hex | SessionPolicyAction): AaCall
 }
 export function commitmentOf(binding: PolicyBinding): Hex
 export function defineSessionPolicy(parameters: {
@@ -452,40 +497,182 @@ export function encodeSessionPolicyAction(action: SessionPolicyAction): Hex
 export const policyManagerAbi: readonly unknown[]
 export const sessionPolicyAbi: readonly unknown[]
 
+// ---------------------------------------------------------------------------
+// ERC-7715 grants / ERC-7895 sub-accounts / ERC-5792 capabilities (high level)
+// ---------------------------------------------------------------------------
+
+/** ERC-7715 policy attached to a requested permission. */
+export type GrantedPolicy =
+  | { type: 'token-allowance'; data: { allowance: bigint } }
+  | { type: 'gas-limit'; data: { limit: bigint } }
+  | { type: 'rate-limit'; data: { count: number; interval: number } }
+  | { type: string; data?: unknown }
+/** ERC-7715 permission requested by a dApp. */
+export type Permission = {
+  type:
+    | 'native-token-transfer'
+    | 'erc20-token-transfer'
+    | 'contract-call'
+    | string
+  data?: any
+  policies?: readonly GrantedPolicy[]
+}
+
+export type GrantRole = 'session' | 'pull'
+
+export function toSessionPolicyConfig(
+  permissions: readonly Permission[],
+): SessionPolicyConfig
+
+export function toSessionPolicy(parameters: {
+  account: Address
+  permissions: readonly Permission[]
+  expiry?: number | bigint
+  policy?: Address
+  manager?: Address
+  validAfter?: bigint
+  salt?: bigint
+}): SessionPolicy
+
+export type FulfillGrantPermissionsParameters = {
+  account: Address
+  grantee: Address
+  permissions: readonly Permission[]
+  role?: GrantRole
+  expiry?: number | bigint
+  assumeManagerRegistered?: boolean
+  accountConfiguration?: Address
+  policy?: Address
+  manager?: Address
+  validAfter?: bigint
+  salt?: bigint
+}
+export type FulfillGrantPermissionsReturnType = {
+  actor: AaActor
+  change: AaAuthorizeActor
+  managerChange?: AaAuthorizeActor
+  changes: readonly AaChange[]
+  session: SessionPolicy
+  /** Opaque, self-describing ERC-7715 permissionsContext for this grant. */
+  permissionsContext: Hex
+}
+export function fulfillGrantPermissions(
+  client: Client,
+  parameters: FulfillGrantPermissionsParameters,
+): Promise<FulfillGrantPermissionsReturnType>
+
+export type ParsePermissionsContextReturnType = {
+  account: Address
+  role: GrantRole
+  actor: AaActor
+  session: SessionPolicy
+}
+export function toPermissionsContext(parameters: {
+  role: GrantRole
+  actor: AaActor
+  session: SessionPolicy
+}): Hex
+export function parsePermissionsContext(
+  context: Hex,
+): ParsePermissionsContextReturnType
+export type RoutePermissionedCallsReturnType =
+  ParsePermissionsContextReturnType & { calls: readonly AaCall[] }
+export function routePermissionedCalls(parameters: {
+  context: Hex
+  calls: readonly SessionPolicyAction[]
+}): RoutePermissionedCallsReturnType
+
+export type SubAccountKey = {
+  publicKey: Hex | { x: Hex; y: Hex }
+  type: 'address' | 'p256' | 'webauthn-p256' | 'secp256k1'
+}
+export type FulfillAddSubAccountParameters = {
+  parent: Address
+  signer: Signer
+  keys?: readonly SubAccountKey[]
+  keyScope?: number
+  keyPolicy?: Policy
+  proxy?: 'erc1167' | 'upgradeable'
+  implementation?: Address
+  salt?: Hex
+  code?: Hex
+  accountConfigAddress?: Address
+}
+export type FulfillAddSubAccountReturnType = ToAccountReturnType & {
+  createChange: AaAccountChangeCreate
+  parentActor: AaActor
+  initialActors: readonly AaActor[]
+  response: { address: Address }
+}
+export function fulfillAddSubAccount(
+  parameters: FulfillAddSubAccountParameters,
+): FulfillAddSubAccountReturnType
+
+export type Eip8130Capabilities = Record<string, unknown>
+export function eip8130Capabilities(parameters?: {
+  paymasterService?: boolean
+  signerTypes?: readonly string[]
+  permissionTypes?: readonly string[]
+  policyTypes?: readonly string[]
+  subAccountKeyTypes?: readonly string[]
+}): Eip8130Capabilities
+export function eip8130CapabilitiesByChain(
+  chainIds: readonly number[],
+  parameters?: Parameters<typeof eip8130Capabilities>[0],
+): Record<Hex, Eip8130Capabilities>
+
 export function erc1167Bytecode(implementation: Address): Hex
 export function upgradeableProxyBytecode(implementation: Address): Hex
 
-export function computeAddress8130(parameters: {
+export function computeAddress(parameters: {
   userSalt: Hex
   code: Hex
   initialActors: readonly AaActor[]
   accountConfigAddress?: Address
 }): Address
+/** The 32-byte deployment header committed into the CREATE2 salt. */
+export function deploymentHeader(parameters: {
+  code: Hex
+  initialActors: readonly AaActor[]
+}): Hex
 
-export type To8130AccountReturnType = {
+export type ChangeOptions = {
+  channel?: AaChangeChannel
+  chainId?: number
+  sequence?: bigint
+}
+export type ToAccountReturnType = {
   readonly address: Address
   readonly signer: Signer
   readonly initialActors: readonly AaActor[]
+  readonly scope?: number
+  readonly actorId?: Hex
+  readonly accountConfigAddress?: Address
   create(): AaAccountChangeCreate
+  /** Signs a `SignedAccountChanges` batch into a `config` entry. */
   change(
-    actorChanges: readonly AaActorChange[],
-    options?: { chainId?: number; sequence?: number },
+    changes: readonly AaChange[],
+    options?: ChangeOptions,
   ): Promise<AaAccountChangeConfig>
   delegate(target: Address): AaAccountChangeDelegation
   signTransaction(transaction: any, options?: any): Promise<Hex>
 }
+/** @deprecated alias of {@link ToAccountReturnType}. */
+export type To8130AccountReturnType = ToAccountReturnType
 /**
  * Two shapes:
  * - Smart account: supply userSalt + code + initialActors (address derived via CREATE2)
  * - Delegated EOA: supply address only (no salt/code/actors; use delegate(impl) in first tx)
  */
-export function to8130Account(parameters: (
+export function toAccount(parameters: (
   | {
       signer: Signer
       userSalt: Hex
       code: Hex
       initialActors: readonly AaActor[]
       authenticator?: Address
+      scope?: number
+      actorId?: Hex
       accountConfigAddress?: Address
       address?: Address
     }
@@ -493,13 +680,16 @@ export function to8130Account(parameters: (
       signer: Signer
       address: Address
       authenticator?: Address
+      scope?: number
+      actorId?: Hex
+      accountConfigAddress?: Address
       userSalt?: undefined
       code?: undefined
       initialActors?: undefined
     }
-)): To8130AccountReturnType
+)): ToAccountReturnType
 
-export type NewSmartAccount8130ReturnType = To8130AccountReturnType & {
+export type NewSmartAccountReturnType = ToAccountReturnType & {
   /** The `create` account-change — include in `accountChanges` for the first tx. */
   readonly createChange: AaAccountChangeCreate
 }
@@ -511,15 +701,17 @@ export type NewSmartAccount8130ReturnType = To8130AccountReturnType & {
  *
  * Supports K1 (secp256k1), P-256, and WebAuthn signers (detected automatically).
  */
-export function newSmartAccount8130(parameters: {
+export function newSmartAccount(parameters: {
   signer: Signer & { publicKey?: Hex | { x: Hex; y: Hex } }
   salt?: Hex
-  upgradeable?: boolean
+  /** @default 'upgradeable' — requires an `implementation` until one is enshrined. */
+  proxy?: 'erc1167' | 'upgradeable'
   implementation?: Address
   code?: Hex
+  admins?: readonly AaActor[]
   extraActors?: readonly AaActor[]
   accountConfigAddress?: Address
-}): NewSmartAccount8130ReturnType
+}): NewSmartAccountReturnType
 
 /**
  * Wraps a parent ADMIN signer into a `Signer` that authenticates a sub-account
@@ -530,7 +722,7 @@ export function newSmartAccount8130(parameters: {
  * as `signer` (and its `authenticator`) to `to8130Account` for an account whose
  * only owner is `key.delegate(parent)`. The parent must be deployed.
  */
-export function toDelegate8130Signer(parameters: {
+export function toDelegateSigner(parameters: {
   delegateAccount: Address
   nestedSigner: Signer
   nestedAuthenticator?: Address
@@ -551,15 +743,16 @@ export function delegateAuthSize(nestedDataLength?: number): number
  * node recovers the sender via ecrecover. Use when the EOA address IS the account
  * and no smart-contract deployment is needed.
  */
-export function toEoa8130Account(signer: Signer): {
+export function toEoaAccount(signer: Signer, parameters?: { scope?: number }): {
   readonly address: Address
   readonly signer: Signer
+  readonly scope?: number
   /** EIP-7702 delegation change — include in first tx's accountChanges. */
   delegate(target: Address): AaAccountChangeDelegation
-  /** Sign authorize/revoke actor changes (e.g. add P256 key alongside K1). */
+  /** Sign a `SignedAccountChanges` batch (e.g. add P256 key alongside K1). */
   change(
-    actorChanges: readonly AaActorChange[],
-    options?: { chainId?: number; sequence?: number },
+    changes: readonly AaChange[],
+    options?: ChangeOptions,
   ): Promise<AaAccountChangeConfig>
   /** Raw 65-byte K1 sig — no authenticator prefix, no `from` field. */
   signTransaction(
@@ -573,7 +766,10 @@ export type TransactionSerializable8130 = {
   from?: Address
   nonceKey?: bigint
   nonceSequence?: bigint
-  expiry?: bigint
+  /** Lower validity bound (unix MILLISECONDS). `0`/omitted = none. */
+  validAfter?: bigint
+  /** Upper validity bound (unix MILLISECONDS). Required non-zero in nonce-free mode. */
+  validBefore?: bigint
   maxPriorityFeePerGas?: bigint
   maxFeePerGas?: bigint
   gas?: bigint
@@ -585,14 +781,22 @@ export type TransactionSerializable8130 = {
   payerAuth?: Hex
 }
 
-export function parseTransaction8130(serialized: Hex): TransactionSerializable8130
+export function parseTransaction(serialized: Hex): TransactionSerializable8130
 
-export function serializeTransaction8130(
+export function serializeTransaction(
   transaction: TransactionSerializable8130,
 ): Hex
+/** Serialize just the ordered call phases (wire form). */
+export function toCallsList(calls: AaCalls): readonly any[]
+/** Serialize the account-change entries (wire form). */
+export function toAccountChangesList(
+  changes: readonly AaAccountChange[],
+): readonly any[]
+/** Build the RLP transaction body array. */
+export function toTransactionBody(transaction: TransactionSerializable8130): readonly any[]
 
 /** Sender signature hash — fields through `payer`. */
-export function getSenderSignatureHash8130(
+export function getSenderSignatureHash(
   transaction: TransactionSerializable8130 & { to?: "hex" | "bytes" },
 ): Hex
 
@@ -600,12 +804,12 @@ export function getSenderSignatureHash8130(
  * Resolves the sender (`from`) of an EIP-8130 tx. Returns `transaction.from`
  * when set; otherwise (EOA path) recovers it via ecrecover over the sender hash.
  */
-export function recoverSenderAddress8130(parameters: {
+export function recoverSenderAddress(parameters: {
   transaction: TransactionSerializable8130;
 }): Promise<Address>
 
 /** Payer signature hash — fields through `calls`/`metadata`, excluding `payer`. */
-export function getPayerSignatureHash8130(
+export function getPayerSignatureHash(
   transaction: TransactionSerializable8130 & { to?: "hex" | "bytes" },
 ): Hex
 
@@ -618,24 +822,38 @@ export function encodeWalletCalls(parameters: {
   }) => AaCall
 }): readonly (readonly AaCall[])[]
 
-export function sendCalls8130(
+export type SendCallsParameters = {
+  account: ToAccountReturnType
+  calls: readonly AaCall[] | readonly (readonly AaCall[])[]
+  accountChanges?: readonly AaAccountChange[]
+  payer?: { account: Signer; address?: Address }
+  gas: bigint
+  nonceKey?: bigint
+  nonceSequence?: bigint
+  /** Lower validity bound (unix ms; 0/omitted = none). */
+  validAfter?: bigint
+  /** Upper validity bound (unix ms; required non-zero in nonce-free mode). */
+  validBefore?: bigint
+  dataSuffix?: Hex
+  maxFeePerGas?: bigint
+  maxPriorityFeePerGas?: bigint
+  encodeExecute?: (parameters: any) => AaCall
+  /** Fires with the fully-resolved tx just before signing (thread `validBefore`). */
+  onTransaction?: (transaction: TransactionSerializable8130) => void
+}
+export function sendCalls(
   client: Client,
-  parameters: {
-    account: To8130AccountReturnType
-    calls: readonly AaCall[] | readonly (readonly AaCall[])[]
-    accountChanges?: readonly AaAccountChange[]
-    payer?: { account: Signer; address?: Address }
-    gas: bigint
-    nonceKey?: bigint
-    nonceSequence?: bigint
-    expiry?: bigint
-    dataSuffix?: Hex
-    maxFeePerGas?: bigint
-    maxPriorityFeePerGas?: bigint
-  },
+  parameters: SendCallsParameters,
 ): Promise<Hex>
+/** Builds a fully-populated transaction body (nonce, fees, validBefore) without sending. */
+export function prepareTransaction(
+  client: Client,
+  parameters: Omit<SendCallsParameters, 'calls' | 'encodeExecute' | 'onTransaction'> & {
+    calls: readonly (readonly AaCall[])[]
+  },
+): Promise<TransactionSerializable8130>
 
-export function toSmartAccount8130(parameters: {
+export function toSmartAccount(parameters: {
   owner: Address | LocalAccount
   client: Client
   authenticator?: Address
@@ -649,6 +867,68 @@ export function toSmartAccount8130(parameters: {
   accountConfigAddress?: Address
   [key: string]: any
 }): Promise<any>
+
+// --- Account-change signing / encoding -------------------------------------
+
+/** 32-byte actor id derived from an address (`bytes32(bytes20(address))`). */
+export function actorIdFromAddress(address: Address): Hex
+/** 32-byte actor id derived from a public key (`{ x, y }` or 64-byte hex). */
+export function actorIdFromPublicKey(publicKey: { x: Hex; y: Hex } | Hex): Hex
+
+export const accountChangeTypehash: Hex
+export const signedAccountChangesTypehash: Hex
+export const signedActorChangesMagic: Hex
+
+/** Digest an admin actor signs to authorize a `SignedAccountChanges` batch. */
+export function hashAccountChanges(parameters: {
+  account: Address
+  channel?: AaChangeChannel
+  chainId?: number
+  sequence?: bigint
+  changes: readonly AaChange[]
+}): Hex
+
+/** Signs a `SignedAccountChanges` batch into an `AaAccountChangeConfig` entry. */
+export function signAccountChanges(parameters: {
+  signer: Signer
+  account: Address
+  channel?: AaChangeChannel
+  chainId?: number
+  sequence?: bigint
+  changes: readonly AaChange[]
+  authenticator?: Address
+}): Promise<AaAccountChangeConfig>
+
+/** ABI-encodes a single change op's payload (by `changeType`). */
+export function encodeChangePayload(change: AaChange): Hex
+/** Decodes an `authorizeActor` payload back into its fields. */
+export function decodeAuthorizeActorPayload(payload: Hex): {
+  actorId: Hex
+  authenticator: Address
+  expiry: bigint
+  scope: number
+  policyData: Hex
+}
+/** `authenticator || data` wire form for a signed change set. */
+export function encodeSignedActorChangesSignature(parameters: any): Hex
+
+/** Calldata for `AccountConfiguration.createAccount(...)`. */
+export function encodeCreateAccountData(parameters: {
+  userSalt: Hex
+  code: Hex
+  initialActors: readonly AaActor[]
+}): Hex
+/** Calldata for `AccountConfiguration.applySignedAccountChanges(...)`. */
+export function encodeApplySignedAccountChangesData(
+  parameters: { account: Address } & Omit<AaAccountChangeConfig, 'type'>,
+): Hex
+/** ERC-4337 factory args (`factory`, `factoryData`) for a create entry. */
+export function toFactoryArgs(parameters: {
+  userSalt: Hex
+  code: Hex
+  initialActors: readonly AaActor[]
+  accountConfiguration?: Address
+}): { factory: Address; factoryData: Hex }
 
 export type Eip8130Deployment = {
   accountConfiguration: Address

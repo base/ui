@@ -1,11 +1,12 @@
-import { resolveTipsChain } from '../../../tips/chains';
+import { resolveTipsChain, type TipsChain } from '../../../tips/chains';
 import {
-  getRejectedTransaction,
-  listRejectedTransactions,
-  type RejectedTransaction,
-} from '../s3';
-
+  getAuditRejectedTransactionEvents,
+  rejectedTransactionFromAuditEvent,
+} from '../audit-events';
+import { getAuditRpcUrl } from '../config';
 import { tipsDisabledResponse } from '../guard';
+import { getRejectedTransaction, listRejectedTransactions } from '../s3';
+import type { RejectedTransaction } from '../transaction-data';
 
 export const runtime = 'nodejs';
 
@@ -19,13 +20,11 @@ export async function GET(request: Request) {
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
 
   try {
-    const summaries = await listRejectedTransactions(chain, 100);
-
-    const transactions = (
-      await Promise.all(
-        summaries.map((s) => getRejectedTransaction(chain, s.blockNumber, s.txHash)),
-      )
-    ).filter((tx): tx is RejectedTransaction => tx !== null);
+    // Audit-first, S3 fallback: use the S3 archive only when audit is not
+    // configured for this chain or returns no rejected events.
+    const auditTransactions = await getAuditRejectedTransactions(chain);
+    const transactions =
+      auditTransactions.length > 0 ? auditTransactions : await getS3RejectedTransactions(chain);
 
     const response: RejectedTransactionsResponse = { transactions };
     return Response.json(response);
@@ -33,4 +32,28 @@ export async function GET(request: Request) {
     console.error('Error fetching rejected transactions:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+async function getAuditRejectedTransactions(chain: TipsChain): Promise<RejectedTransaction[]> {
+  const auditRpcUrl = getAuditRpcUrl(chain);
+  if (!auditRpcUrl) {
+    return [];
+  }
+
+  try {
+    return (await getAuditRejectedTransactionEvents(auditRpcUrl, 100))
+      .map(rejectedTransactionFromAuditEvent)
+      .filter((tx): tx is RejectedTransaction => tx !== null);
+  } catch (error) {
+    console.error('Falling back to S3 rejected transactions:', error);
+    return [];
+  }
+}
+
+async function getS3RejectedTransactions(chain: TipsChain): Promise<RejectedTransaction[]> {
+  const summaries = await listRejectedTransactions(chain, 100);
+  const transactions = await Promise.all(
+    summaries.map((summary) => getRejectedTransaction(chain, summary.blockNumber, summary.txHash)),
+  );
+  return transactions.filter((tx): tx is RejectedTransaction => tx !== null);
 }

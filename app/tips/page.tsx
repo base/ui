@@ -35,30 +35,17 @@ function SearchBar({ chain, onError }: { chain: TipsChain; onError: (error: stri
   const [searchHash, setSearchHash] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = async (e: FormEvent) => {
+  const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     const hash = searchHash.trim();
     if (!hash) return;
 
+    // The transaction detail page is now the canonical, multi-source view (it
+    // resolves audit + on-chain + archive data itself and works even when the
+    // transaction is not part of a bundle), so route straight to it.
     setLoading(true);
     onError(null);
-
-    try {
-      const result = await tipsApi.txn(hash, chain);
-      if (result.bundle_ids && result.bundle_ids.length > 0) {
-        router.push(tipsHref(`/tips/bundles/${result.bundle_ids[0]}`, chain));
-      } else {
-        onError('No bundle found for this transaction');
-      }
-    } catch (err) {
-      onError(
-        err && typeof err === 'object' && 'status' in err && err.status === 404
-          ? 'Transaction not found'
-          : 'Failed to fetch transaction data',
-      );
-    } finally {
-      setLoading(false);
-    }
+    router.push(tipsHref(`/tips/txn/${hash}`, chain));
   };
 
   return (
@@ -503,7 +490,7 @@ function TipsDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('blocks');
   const [error, setError] = useState<string | null>(null);
 
-  // Preserve tips-ui's #rejected deep-link on first load.
+  // Support the #rejected deep-link on first load.
   useEffect(() => {
     if (window.location.hash.replace('#', '') === 'rejected') {
       setActiveTab('rejected');
@@ -531,6 +518,23 @@ function TipsDashboard() {
       </div>
 
       {activeTab === 'blocks' ? <SearchBar chain={chain} onError={setError} /> : null}
+
+      {activeTab === 'blocks' ? (
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <Link
+            href={tipsHref('/tips/blocks', chain)}
+            className="text-base-blue hover:underline dark:text-bds-blue-20"
+          >
+            All blocks →
+          </Link>
+          <Link
+            href={tipsHref('/tips/txs', chain)}
+            className="text-base-blue hover:underline dark:text-bds-blue-20"
+          >
+            All transactions →
+          </Link>
+        </div>
+      ) : null}
 
       {error && activeTab === 'blocks' ? (
         <div className="flex items-center gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-3.5 py-2.5 text-[13px] text-bds-red-70">

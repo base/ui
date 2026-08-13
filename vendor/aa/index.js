@@ -20935,14 +20935,15 @@ var entryPoint07Abi = [
 ];
 // ../viem/src/_esm/account-abstraction/constants/address.js
 var entryPoint07Address = "0x0000000071727De22E5E9d8BAf0edAc6f37da032";
-// ../viem/src/_esm/experimental/eip8130/abis.js
+// ../viem/src/_esm/eip8130/abis.js
 init_exports();
 var accountConfigurationAbi = parseAbi([
-  "struct InitialActor { bytes32 actorId; address authenticator; uint8 scope; bytes policyData; }",
-  "struct ActorConfig { address authenticator; uint8 scope; uint48 expiry; }",
+  "struct InitialActor { bytes32 actorId; address authenticator; uint16 scope; bytes policyData; }",
+  "struct ActorConfig { address authenticator; uint48 expiry; uint16 scope; }",
   "struct Actor { bytes32 actorId; ActorConfig config; bytes policyData; }",
-  "struct ActorChange { uint8 changeType; bytes32 actorId; bytes data; }",
-  "struct ChangeSequences { uint64 multichain; uint64 local; }",
+  "struct AccountChange { uint8 changeType; bytes payload; }",
+  "struct SignedAccountChanges { uint8 channel; uint64 sequence; AccountChange[] changes; bytes signature; }",
+  "struct ChangeSequences { uint64 multichain; uint32 localEpoch; uint32 localSequence; }",
   "event ActorAuthorized(address indexed account, bytes32 indexed actorId, bytes actorData)",
   "event ActorRevoked(address indexed account, bytes32 indexed actorId)",
   "event AccountCreated(address indexed account, bytes32 userSalt, bytes32 codeHash)",
@@ -20953,13 +20954,11 @@ var accountConfigurationAbi = parseAbi([
   "function createAccount(bytes32 userSalt, bytes bytecode, InitialActor[] initialActors) returns (address)",
   "function computeAddress(bytes32 userSalt, bytes bytecode, InitialActor[] initialActors) view returns (address)",
   "function importAccount(address account, uint256 chainId, InitialActor[] initialActors, bytes signature)",
-  "function applySignedActorChanges(address account, uint256 chainId, ActorChange[] actorChanges, bytes auth)",
-  "function applySignedLockChanges(address account, uint8 op, uint16 unlockDelay, bytes auth)",
+  "function applySignedAccountChanges(address account, SignedAccountChanges s)",
   "function verifySignature(address account, bytes32 hash, bytes signature) view returns (bool verified)",
-  "function authenticateActor(address account, bytes32 hash, bytes auth) view returns (bytes32 actorId, uint8 scope, address policyTarget)",
-  "function isActor(address account, bytes32 actorId) view returns (bool)",
+  "function authenticateActor(address account, bytes32 hash, bytes auth) view returns (bytes32 actorId, uint16 scope)",
   "function getActorConfig(address account, bytes32 actorId) view returns (ActorConfig)",
-  "function getPolicy(address account, bytes32 actorId) view returns (address target, bytes32 commitment)",
+  "function getActor(address account, bytes32 actorId) view returns (ActorConfig config, address policyManager, bytes32 policyCommitment)",
   "function getPolicyCommitment(address account, bytes32 actorId) view returns (bytes32)",
   "function getPolicyManager(address account, bytes32 actorId) view returns (address)",
   "function getChangeSequences(address account) view returns (ChangeSequences)",
@@ -20989,12 +20988,12 @@ var transactionContextAbi = parseAbi([
 var nonceManagerAbi = parseAbi([
   "function getNonce(address account, uint256 nonceKey) view returns (uint64)"
 ]);
-// ../viem/src/_esm/experimental/eip8130/accounts/to8130Account.js
+// ../viem/src/_esm/eip8130/accounts/toAccount.js
 init_base();
 init_fromHex();
 init_toHex();
 
-// ../viem/src/_esm/experimental/eip8130/constants.js
+// ../viem/src/_esm/eip8130/constants.js
 var aaTransactionType = "0x79";
 var aaPayerType = "0x7a";
 var aaBaseCost = 15000n;
@@ -21002,17 +21001,20 @@ var nonceFreeCost = 13000n;
 var nonceKeyFirstUseCost = 22100n;
 var nonceKeyExistingCost = 5000n;
 var replayIdType = "0x7901";
-var nonceFreeExpiryWindow = 30n;
-var nonceFreeMaxExpiryWindow = 10n;
+var nonceFreeExpiryWindow = 30000n;
+var nonceFreeMaxExpiryWindow = 20000n;
 var replayBufferCapacity = 300000n;
 var accountChangeType = {
   create: "0x",
   config: "0x01",
   delegation: "0x02"
 };
-var actorChangeType = {
-  authorizeActor: 1,
-  revokeActor: 2
+var changeType = {
+  authorizeActor: 0,
+  revokeActor: 1,
+  incrementLocalEpoch: 2,
+  lock: 3,
+  unlock: 4
 };
 var actorScope = {
   sender: 1,
@@ -21027,18 +21029,17 @@ var accountStateFlags = {
   locked: 2,
   unlockInitiated: 4
 };
-var lockOp = 1;
-var unlockOp = 2;
 var policyDataLength = 52;
 var nonceKeyMax = 2n ** 256n - 1n;
 var ecrecoverAuthenticator = "0x0000000000000000000000000000000000000001";
 var revokedAuthenticator = "0xffffffffffffffffffffffffffffffffffffffff";
 var trustedExecutorAuthenticator = "0xbe114b191a3ac7519670cac0c5e74aac1d819a13";
+var externalPolicyAuthenticator = "0x8a22e6B3c724A7D0C3aCA1f7EbD089CfbD96B392";
 var canonicalAuthenticators = {
   k1: "0x0000000000000000000000000000000000000001",
-  p256: "0xf8847a74F8067CabaE5fe56B70b372A7D670f0f8",
-  passkey: "0x871c72d3950308A028E9c4917591bcfd3D6a1EF7",
-  delegate: "0xbb73E3871FBaC8aef1a7Ee8A24E21139916f14C2"
+  p256: "0x8130C89F65750431b564A4730397552a11CeA256",
+  passkey: "0x813007b6b1b48E75D91dEc5927ab515d12a0F1d0",
+  delegate: "0x8130b7D430D041ED4050935814D493299980aDE1"
 };
 var canonicalAuthDataLength = {
   [canonicalAuthenticators.k1.toLowerCase()]: 65,
@@ -21047,49 +21048,33 @@ var canonicalAuthDataLength = {
 };
 var nonceManagerAddress = "0x813000000000000000000000000000000000aa01";
 var txContextAddress = "0x813000000000000000000000000000000000aa02";
-var accountConfigAddress = "0x53648Cf00356fbAA1F2B531715c6B64AaBDE1555";
-var defaultAccountAddress = "0x58da469ef71Dd4B092B010CdA37DE124C926EebD";
+var accountConfigAddress = "0x81305d4f4976220D2af17E5Dc246848E235600AC";
+var defaultAccountAddress = "0x813078f98b3eb214046C8Dc93A771ac9de5AaDEf";
 var deploymentHeaderSize = 14;
 var maxCodeSize = 24576;
 
-// ../viem/src/_esm/experimental/eip8130/deployments.js
+// ../viem/src/_esm/eip8130/deployments.js
 var canonicalEip8130Deployment = {
-  accountConfiguration: "0x53648Cf00356fbAA1F2B531715c6B64AaBDE1555",
+  accountConfiguration: "0x81305d4f4976220D2af17E5Dc246848E235600AC",
   accounts: {
-    default: "0x58da469ef71Dd4B092B010CdA37DE124C926EebD",
-    defaultHighRate: "0x23Fe6949d6370330Ae32e7c17E1265D65955C92a"
+    upgradeable: undefined,
+    default: "0x813078f98b3eb214046C8Dc93A771ac9de5AaDEf",
+    defaultHighRate: "0x8130931874c894aC4963e128D6273AE520dAFa57"
   },
   authenticators: {
     k1: "0x0000000000000000000000000000000000000001",
-    p256: "0xf8847a74F8067CabaE5fe56B70b372A7D670f0f8",
-    webAuthn: "0x871c72d3950308A028E9c4917591bcfd3D6a1EF7",
-    delegate: "0xbb73E3871FBaC8aef1a7Ee8A24E21139916f14C2",
+    p256: "0x8130C89F65750431b564A4730397552a11CeA256",
+    webAuthn: "0x813007b6b1b48E75D91dEc5927ab515d12a0F1d0",
+    delegate: "0x8130b7D430D041ED4050935814D493299980aDE1",
     alwaysValid: "0xA550545Da91720c23483c5B3493412A02D1cF9F9"
   },
   policies: {
-    manager: "0x6e9E627770C1c90371A2E4CB9474A7Af577a4306",
-    sessionPolicy: "0x58ef2d572a1bC528f0B9121d686B2618809604Dc"
+    manager: "0x813077055d1110F92191ccE13018f51820B40ac1",
+    sessionPolicy: "0x813070914C530d030f4Efd8Fa99C18e836435e55"
   }
 };
 var baseSepoliaDeployment = {
-  accountConfiguration: "0xe7Bb8eF3728ea9f0A8be6D7e9585FeAb12dE086A",
-  accounts: {
-    upgradeable: "0xF8dafa4DA35F664cf2CF842f00482ebb68a982b3",
-    default: "0xDd802113C9FF6964cD2A61A16e075D5271cC82c9",
-    defaultHighRate: "0xe5edfB7E7365893d685c2FbFBAC3e022f51d942F",
-    erc4337: "0x8812ee1c9BA2395b5f113412769f22C6e7b89B11"
-  },
-  authenticators: {
-    k1: "0x0000000000000000000000000000000000000001",
-    p256: "0xf8847a74F8067CabaE5fe56B70b372A7D670f0f8",
-    webAuthn: "0x871c72d3950308A028E9c4917591bcfd3D6a1EF7",
-    delegate: "0x1B0195ba5E3FCdB387DD619816eeF8b510Ed0855",
-    alwaysValid: "0xA550545Da91720c23483c5B3493412A02D1cF9F9"
-  },
-  policies: {
-    manager: "0x18B545EfC321644eE2dB9644c8f94f3f3d5e8624",
-    sessionPolicy: "0x6Ef50425716c134162C5c289E02162dde75b23Ea"
-  }
+  ...canonicalEip8130Deployment
 };
 var vibenetDevnetDeployment = {
   ...canonicalEip8130Deployment
@@ -21102,18 +21087,18 @@ function getEip8130Deployment(chainId) {
   return eip8130Deployments[chainId];
 }
 
-// ../viem/src/_esm/experimental/eip8130/keys.js
+// ../viem/src/_esm/eip8130/keys.js
 init_base();
 init_pad();
 init_size();
 
-// ../viem/src/_esm/experimental/eip8130/utils/actorId.js
+// ../viem/src/_esm/eip8130/utils/actorId.js
 init_base();
 init_pad();
 init_size();
 init_keccak256();
 function actorIdFromAddress(address) {
-  return pad(address, { dir: "right", size: 32 });
+  return pad(address, { dir: "left", size: 32 });
 }
 function actorIdFromPublicKey(publicKey) {
   if (typeof publicKey === "string") {
@@ -21127,7 +21112,7 @@ function actorIdFromPublicKey(publicKey) {
   return keccak256(concatHex([x, y]));
 }
 
-// ../viem/src/_esm/experimental/eip8130/keys.js
+// ../viem/src/_esm/eip8130/keys.js
 var key = {
   k1(address) {
     return {
@@ -21164,6 +21149,12 @@ var key = {
       actorId: actorIdFromAddress(caller),
       authenticator: trustedExecutorAuthenticator
     };
+  },
+  externalPull(caller) {
+    return {
+      actorId: actorIdFromAddress(caller),
+      authenticator: externalPolicyAuthenticator
+    };
   }
 };
 function toScope(...flags) {
@@ -21185,7 +21176,7 @@ function encodePolicyData(policy) {
 }
 function authorizeActor(actor, options = {}) {
   const change = {
-    changeType: 1,
+    changeType: 0,
     actorId: actor.actorId,
     authenticator: actor.authenticator
   };
@@ -21204,10 +21195,13 @@ function authorizeActor(actor, options = {}) {
 }
 function revokeActor(actor) {
   const actorId = typeof actor === "string" ? actor : actor.actorId;
-  return { changeType: 2, actorId };
+  return { changeType: 1, actorId };
+}
+function incrementLocalEpoch() {
+  return { changeType: 2 };
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/computeAddress.js
+// ../viem/src/_esm/eip8130/utils/computeAddress.js
 init_base();
 // ../viem/src/_esm/utils/data/isBytes.js
 function isBytes5(value) {
@@ -21242,7 +21236,7 @@ function getCreate2Address3(opts) {
   return getAddress(slice(keccak256(concat([toBytes("0xff"), from14, salt, bytecodeHash])), 12));
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/computeAddress.js
+// ../viem/src/_esm/eip8130/utils/computeAddress.js
 init_size();
 init_fromHex();
 init_toHex();
@@ -21267,7 +21261,7 @@ function deploymentHeader(codeSize) {
     243
   ]));
 }
-function computeAddress8130(parameters) {
+function computeAddress(parameters) {
   const { userSalt, code, initialActors, accountConfigAddress: accountConfigAddress2 = accountConfigAddress } = parameters;
   const codeSize = size2(code);
   if (codeSize === 0)
@@ -21280,12 +21274,12 @@ function computeAddress8130(parameters) {
     if (hexToBigInt(initialActors[i].actorId) <= hexToBigInt(initialActors[i - 1].actorId))
       throw new BaseError2("`initialActors` must be sorted by `actorId` in strictly ascending order (no duplicates).");
   }
-  const actorsCommitment = keccak256(concatHex(initialActors.flatMap((actor) => [
+  const actorsCommitment = keccak256(concatHex(initialActors.map((actor) => keccak256(concatHex([
     actor.actorId,
     actor.authenticator,
-    toHex(actor.scope ?? 0, { size: 1 }),
+    toHex(actor.scope ?? 0, { size: 2 }),
     actor.policyData ?? "0x"
-  ])));
+  ])))));
   const effectiveSalt = keccak256(concatHex([userSalt, actorsCommitment]));
   const deploymentCode = concatHex([deploymentHeader(codeSize), code]);
   return getCreate2Address3({
@@ -21295,7 +21289,7 @@ function computeAddress8130(parameters) {
   });
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/proxy.js
+// ../viem/src/_esm/eip8130/utils/proxy.js
 function erc1167Bytecode(implementation) {
   return concatHex([
     "0x363d3d373d3d3d363d73",
@@ -21316,43 +21310,53 @@ function upgradeableProxyBytecode(implementation) {
   ]);
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/signActorChanges.js
+// ../viem/src/_esm/eip8130/utils/signActorChanges.js
 init_base();
 
-// ../viem/src/_esm/experimental/eip8130/utils/hashActorChanges.js
+// ../viem/src/_esm/eip8130/utils/hashActorChanges.js
 init_encodeAbiParameters();
 init_toHex();
 init_keccak256();
 
-// ../viem/src/_esm/experimental/eip8130/utils/actorChangeData.js
+// ../viem/src/_esm/eip8130/utils/actorChangeData.js
 init_decodeAbiParameters();
 init_encodeAbiParameters();
-var authorizeDataParameters = [
+var authorizePayloadParameters = [
+  { name: "actorId", type: "bytes32" },
   {
+    name: "config",
     type: "tuple",
     components: [
       { name: "authenticator", type: "address" },
-      { name: "scope", type: "uint8" },
-      { name: "expiry", type: "uint48" }
+      { name: "expiry", type: "uint48" },
+      { name: "scope", type: "uint16" }
     ]
   },
-  { type: "bytes" }
+  { name: "policyData", type: "bytes" }
 ];
-function encodeActorChangeData(change) {
-  if (change.changeType === actorChangeType.authorizeActor)
-    return encodeAbiParameters(authorizeDataParameters, [
+var revokePayloadParameters = [{ name: "actorId", type: "bytes32" }];
+var lockPayloadParameters = [{ name: "unlockDelay", type: "uint16" }];
+function encodeChangePayload(change) {
+  if (change.changeType === changeType.authorizeActor)
+    return encodeAbiParameters(authorizePayloadParameters, [
+      change.actorId,
       {
         authenticator: change.authenticator,
-        scope: change.scope ?? 0,
-        expiry: Number(change.expiry ?? 0n)
+        expiry: Number(change.expiry ?? 0n),
+        scope: change.scope ?? 0
       },
       change.policyData ?? "0x"
     ]);
+  if (change.changeType === changeType.revokeActor)
+    return encodeAbiParameters(revokePayloadParameters, [change.actorId]);
+  if (change.changeType === changeType.lock)
+    return encodeAbiParameters(lockPayloadParameters, [change.unlockDelay]);
   return "0x";
 }
-function decodeAuthorizeActorData(data) {
-  const [config, policyData] = decodeAbiParameters(authorizeDataParameters, data);
+function decodeAuthorizeActorPayload(payload) {
+  const [actorId, config, policyData] = decodeAbiParameters(authorizePayloadParameters, payload);
   return {
+    actorId,
     authenticator: config.authenticator,
     scope: config.scope,
     expiry: BigInt(config.expiry),
@@ -21360,23 +21364,17 @@ function decodeAuthorizeActorData(data) {
   };
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/hashActorChanges.js
-var actorChangeTypehash = keccak256(stringToHex("ActorChange(uint8 changeType,bytes32 actorId,bytes data)"));
-var signedActorChangesTypehash = keccak256(stringToHex("SignedActorChanges(address account,uint256 chainId,uint64 sequence,ActorChange[] actorChanges)ActorChange(uint8 changeType,bytes32 actorId,bytes data)"));
-function hashActorChanges8130(parameters) {
-  const { account, chainId, sequence, actorChanges } = parameters;
-  const actorChangeHashes = actorChanges.map((change) => keccak256(encodeAbiParameters([
-    { type: "bytes32" },
-    { type: "uint8" },
-    { type: "bytes32" },
-    { type: "bytes32" }
-  ], [
-    actorChangeTypehash,
+// ../viem/src/_esm/eip8130/utils/hashActorChanges.js
+var accountChangeTypehash = keccak256(stringToHex("AccountChange(uint8 changeType,bytes payload)"));
+var signedAccountChangesTypehash = keccak256(stringToHex("SignedAccountChanges(address account,uint256 chainId,uint64 sequence,AccountChange[] changes)AccountChange(uint8 changeType,bytes payload)"));
+function hashAccountChanges(parameters) {
+  const { account, chainId, sequence, changes } = parameters;
+  const changeHashes = changes.map((change) => keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint8" }, { type: "bytes32" }], [
+    accountChangeTypehash,
     change.changeType,
-    change.actorId,
-    keccak256(encodeActorChangeData(change))
+    keccak256(encodeChangePayload(change))
   ])));
-  const actorChangesHash = keccak256(concatHex(actorChangeHashes));
+  const changesHash = keccak256(concatHex(changeHashes));
   return keccak256(encodeAbiParameters([
     { type: "bytes32" },
     { type: "address" },
@@ -21384,74 +21382,76 @@ function hashActorChanges8130(parameters) {
     { type: "uint64" },
     { type: "bytes32" }
   ], [
-    signedActorChangesTypehash,
+    signedAccountChangesTypehash,
     account,
     BigInt(chainId),
     BigInt(sequence),
-    actorChangesHash
+    changesHash
   ]));
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/signActorChanges.js
-async function signActorChanges8130(parameters) {
-  const { signer, chainId, sequence, actorChanges } = parameters;
+// ../viem/src/_esm/eip8130/utils/signActorChanges.js
+async function signAccountChanges(parameters) {
+  const { signer, chainId, sequence, changes } = parameters;
+  const channel = parameters.channel ?? "local";
   const authenticator = parameters.authenticator ?? signer.authenticator ?? ecrecoverAuthenticator;
   const account = parameters.account ?? signer.address;
   if (!signer.sign)
     throw new BaseError2("`signer` does not support raw signing.");
-  const digest = hashActorChanges8130({
+  const digest = hashAccountChanges({
     account,
-    chainId,
+    chainId: channel === "local" ? chainId : 0,
     sequence,
-    actorChanges
+    changes
   });
-  const signature = await signer.sign({ hash: digest });
-  const auth = concatHex([authenticator, signature]);
-  return { type: "config", chainId, sequence, actorChanges, auth };
+  const signature = concatHex([
+    authenticator,
+    await signer.sign({ hash: digest })
+  ]);
+  return { type: "config", channel, sequence, changes, signature };
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/signTransaction.js
+// ../viem/src/_esm/eip8130/utils/signTransaction.js
 init_base();
 
-// ../viem/src/_esm/experimental/eip8130/utils/hashTransaction.js
+// ../viem/src/_esm/eip8130/utils/hashTransaction.js
 init_toBytes();
 init_keccak256();
 
-// ../viem/src/_esm/experimental/eip8130/utils/serializeTransaction.js
+// ../viem/src/_esm/eip8130/utils/serializeTransaction.js
 init_toHex();
 
-// ../viem/src/_esm/experimental/eip8130/utils/assertTransaction.js
+// ../viem/src/_esm/eip8130/utils/assertTransaction.js
 init_base();
 init_chain();
-function assertTransaction8130(transaction) {
-  const { chainId, nonceKey, nonceSequence, expiry, payer, payerAuth, calls } = transaction;
+function assertTransaction(transaction) {
+  const { chainId, nonceKey, nonceSequence, validBefore, payer, payerAuth, calls } = transaction;
   if (chainId <= 0)
     throw new InvalidChainIdError({ chainId });
   if (calls) {
     for (const phase of calls)
       for (const call3 of phase)
         if (call3.value && call3.value !== 0n)
-          throw new BaseError2("EIP-8130 calls cannot carry `value` on the wire. Route value-bearing calls through the account wallet (e.g. `encodeWalletCalls` / `sendCalls8130`).");
+          throw new BaseError2("EIP-8130 calls cannot carry `value` on the wire. Route value-bearing calls through the account wallet (e.g. `encodeWalletCalls` / `sendCalls`).");
   }
   if (typeof nonceKey === "bigint" && nonceKey === nonceKeyMax) {
     if (nonceSequence !== undefined && nonceSequence !== 0n)
       throw new BaseError2("`nonceSequence` must be `0n` when `nonceKey` is `nonceKeyMax` (nonce-free mode).");
-    if (!expiry || expiry === 0n)
-      throw new BaseError2("`expiry` must be non-zero when `nonceKey` is `nonceKeyMax` (nonce-free mode).");
+    if (!validBefore || validBefore === 0n)
+      throw new BaseError2("`validBefore` must be non-zero when `nonceKey` is `nonceKeyMax` (nonce-free mode).");
   }
   if (!payer && payerAuth && payerAuth !== "0x")
     throw new BaseError2("`payerAuth` must be empty for self-pay transactions (no `payer` set).");
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/serializeTransaction.js
+// ../viem/src/_esm/eip8130/utils/serializeTransaction.js
 function toCallsList(calls) {
   return (calls ?? []).map((phase) => phase.map((call3) => [call3.to, call3.data ?? "0x"]));
 }
-function toActorChange(change) {
+function toChange(change) {
   return [
-    numberToHex(change.changeType),
-    change.actorId,
-    encodeActorChangeData(change)
+    change.changeType ? numberToHex(change.changeType) : "0x",
+    encodeChangePayload(change)
   ];
 }
 function toAccountChangesList(accountChanges) {
@@ -21471,22 +21471,23 @@ function toAccountChangesList(accountChanges) {
     if (entry.type === "config")
       return [
         accountChangeType.config,
-        entry.chainId ? numberToHex(entry.chainId) : "0x",
+        entry.channel === "multichain" ? "0x01" : "0x",
         entry.sequence ? numberToHex(entry.sequence) : "0x",
-        entry.actorChanges.map(toActorChange),
-        entry.auth
+        entry.changes.map(toChange),
+        entry.signature
       ];
     return [accountChangeType.delegation, entry.target];
   });
 }
 function toTransactionBody(transaction) {
-  const { chainId, from: from14, nonceKey, nonceSequence, expiry, maxPriorityFeePerGas, maxFeePerGas, gas, accountChanges, calls, metadata } = transaction;
+  const { chainId, from: from14, nonceKey, nonceSequence, validAfter, validBefore, maxPriorityFeePerGas, maxFeePerGas, gas, accountChanges, calls, metadata } = transaction;
   return [
     numberToHex(chainId),
     from14 ?? "0x",
     nonceKey ? numberToHex(nonceKey) : "0x",
     nonceSequence ? numberToHex(nonceSequence) : "0x",
-    expiry ? numberToHex(expiry) : "0x",
+    validAfter ? numberToHex(validAfter) : "0x",
+    validBefore ? numberToHex(validBefore) : "0x",
     maxPriorityFeePerGas ? numberToHex(maxPriorityFeePerGas) : "0x",
     maxFeePerGas ? numberToHex(maxFeePerGas) : "0x",
     gas ? numberToHex(gas) : "0x",
@@ -21495,8 +21496,8 @@ function toTransactionBody(transaction) {
     metadata ?? "0x"
   ];
 }
-function serializeTransaction8130(transaction) {
-  assertTransaction8130(transaction);
+function serializeTransaction4(transaction) {
+  assertTransaction(transaction);
   const { payer, senderAuth, payerAuth } = transaction;
   return concatHex([
     aaTransactionType,
@@ -21509,8 +21510,8 @@ function serializeTransaction8130(transaction) {
   ]);
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/hashTransaction.js
-function getSenderSignatureHash8130(parameters) {
+// ../viem/src/_esm/eip8130/utils/hashTransaction.js
+function getSenderSignatureHash(parameters) {
   const { to = "hex", payer } = parameters;
   const hash3 = keccak256(concatHex([
     aaTransactionType,
@@ -21520,7 +21521,7 @@ function getSenderSignatureHash8130(parameters) {
     return hexToBytes(hash3);
   return hash3;
 }
-function getPayerSignatureHash8130(parameters) {
+function getPayerSignatureHash(parameters) {
   const { to = "hex", payer } = parameters;
   const hash3 = keccak256(concatHex([
     aaPayerType,
@@ -21531,15 +21532,15 @@ function getPayerSignatureHash8130(parameters) {
   return hash3;
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/signTransaction.js
-async function signTransaction8130(parameters) {
+// ../viem/src/_esm/eip8130/utils/signTransaction.js
+async function signTransaction5(parameters) {
   const { account, payer } = parameters;
   const transaction = { ...parameters.transaction };
   if (!transaction.senderAuth) {
     if (!account?.sign)
       throw new BaseError2("A sender `account` with raw signing support, or a preset `transaction.senderAuth`, is required.");
     const authenticator = parameters.authenticator ?? account.authenticator ?? ecrecoverAuthenticator;
-    const senderHash = getSenderSignatureHash8130(transaction);
+    const senderHash = getSenderSignatureHash(transaction);
     const signature = await account.sign({ hash: senderHash });
     transaction.senderAuth = transaction.from ? concatHex([authenticator, signature]) : signature;
   }
@@ -21550,15 +21551,15 @@ async function signTransaction8130(parameters) {
       throw new BaseError2("A `payer` signer with raw signing support, or a preset `transaction.payerAuth`, is required for sponsored transactions.");
     const authenticator = payer.authenticator ?? payer.account.authenticator ?? ecrecoverAuthenticator;
     const from14 = transaction.from ?? account?.address;
-    const payerHash = getPayerSignatureHash8130({ ...transaction, from: from14 });
+    const payerHash = getPayerSignatureHash({ ...transaction, from: from14 });
     const signature = await payer.account.sign({ hash: payerHash });
     transaction.payerAuth = concatHex([authenticator, signature]);
   }
-  return serializeTransaction8130(transaction);
+  return serializeTransaction4(transaction);
 }
 
-// ../viem/src/_esm/experimental/eip8130/accounts/to8130Account.js
-function to8130Account(parameters) {
+// ../viem/src/_esm/eip8130/accounts/toAccount.js
+function toAccount3(parameters) {
   const { signer, authenticator = ecrecoverAuthenticator, scope } = parameters;
   const isAddressOnly = parameters.userSalt === undefined;
   const accountConfigAddress2 = parameters.accountConfigAddress ?? accountConfigAddress;
@@ -21567,7 +21568,7 @@ function to8130Account(parameters) {
       return parameters.address;
     if (isAddressOnly)
       throw new BaseError2("Provide `address` or `userSalt + code + initialActors` to derive the account address.");
-    return computeAddress8130({
+    return computeAddress({
       userSalt: parameters.userSalt,
       code: parameters.code,
       initialActors: parameters.initialActors,
@@ -21594,13 +21595,14 @@ function to8130Account(parameters) {
         initialActors: parameters.initialActors
       };
     },
-    async change(actorChanges, options = {}) {
-      return signActorChanges8130({
+    async change(changes, options = {}) {
+      return signAccountChanges({
         signer,
         account: address,
+        channel: options.channel ?? "local",
         chainId: options.chainId ?? 0,
-        sequence: options.sequence ?? 0,
-        actorChanges,
+        sequence: options.sequence ?? 0n,
+        changes,
         authenticator
       });
     },
@@ -21610,7 +21612,7 @@ function to8130Account(parameters) {
     async signTransaction(transaction, options = {}) {
       if (!signer.sign)
         throw new BaseError2("`signer` does not support raw signing.");
-      return signTransaction8130({
+      return signTransaction5({
         transaction: { ...transaction, from: transaction.from ?? address },
         account: signer,
         authenticator,
@@ -21619,26 +21621,35 @@ function to8130Account(parameters) {
     }
   };
 }
-function newSmartAccount8130(parameters) {
-  const { signer, implementation, upgradeable = false, extraActors = [], accountConfigAddress: accountConfigAddress2 } = parameters;
+function newSmartAccount(parameters) {
+  const { signer, implementation, proxy = "upgradeable", admins = [], extraActors = [], accountConfigAddress: accountConfigAddress2 } = parameters;
   const primaryActor = "publicKey" in signer && signer.publicKey && typeof signer.publicKey !== "string" ? signer.authenticator === canonicalAuthenticators.passkey ? key.webAuthn(signer.publicKey) : key.p256(signer.publicKey) : key.k1(signer.address);
-  const allActors = [primaryActor, ...extraActors].sort((a, b) => {
+  const adminActors = admins.map((a) => ({
+    actorId: a.actorId,
+    authenticator: a.authenticator
+  }));
+  const allActors = [
+    primaryActor,
+    ...adminActors,
+    ...extraActors
+  ].sort((a, b) => {
     const ai = hexToBigInt(a.actorId);
     const bi = hexToBigInt(b.actorId);
     return ai < bi ? -1 : ai > bi ? 1 : 0;
   });
+  for (let i = 1;i < allActors.length; i++)
+    if (allActors[i].actorId === allActors[i - 1].actorId)
+      throw new BaseError2(`Duplicate initial actor id \`${allActors[i].actorId}\` (signer, admins, and extraActors must be distinct).`);
   const salt = parameters.salt ?? randomBytes32();
-  let code = parameters.code;
-  if (!code) {
-    if (upgradeable) {
-      if (!implementation)
-        throw new BaseError2("`implementation` is required for `upgradeable: true`; the canonical deployment does not include the unaudited UpgradeableAccount example.");
-      code = upgradeableProxyBytecode(implementation);
-    } else {
-      code = erc1167Bytecode(implementation ?? canonicalEip8130Deployment.accounts.default);
-    }
-  }
-  const inner = to8130Account({
+  const code = parameters.code ?? (() => {
+    if (proxy === "erc1167")
+      return erc1167Bytecode(implementation ?? canonicalEip8130Deployment.accounts.default);
+    const impl = implementation ?? canonicalEip8130Deployment.accounts.upgradeable;
+    if (!impl)
+      throw new BaseError2("No canonical `UpgradeableAccount` is enshrined yet (pending final " + 'implementation), so `proxy: "upgradeable"` requires an explicit ' + "`implementation` — a UUPS UpgradeableAccount you deployed (see " + "https://github.com/base/eip-8130-examples). Alternatively pass " + '`proxy: "erc1167"` for an immutable DefaultAccount-backed account.');
+    return upgradeableProxyBytecode(impl);
+  })();
+  const inner = toAccount3({
     signer,
     userSalt: salt,
     code,
@@ -21649,7 +21660,7 @@ function newSmartAccount8130(parameters) {
   });
   return { ...inner, createChange: inner.create() };
 }
-function toEoa8130Account(signer, parameters = {}) {
+function toEoaAccount(signer, parameters = {}) {
   if (!signer.address)
     throw new BaseError2("`signer.address` is required. Use `privateKeyToAccount(pk)` or equivalent.");
   const address = signer.address;
@@ -21661,20 +21672,21 @@ function toEoa8130Account(signer, parameters = {}) {
     delegate(target) {
       return { type: "delegation", target };
     },
-    async change(actorChanges, options = {}) {
-      return signActorChanges8130({
+    async change(changes, options = {}) {
+      return signAccountChanges({
         signer,
         account: address,
+        channel: options.channel ?? "local",
         chainId: options.chainId ?? 0,
-        sequence: options.sequence ?? 0,
-        actorChanges,
+        sequence: options.sequence ?? 0n,
+        changes,
         authenticator: ecrecoverAuthenticator
       });
     },
     async signTransaction(transaction, options = {}) {
       if (!signer.sign)
         throw new BaseError2("`signer` does not support raw signing.");
-      return signTransaction8130({
+      return signTransaction5({
         transaction,
         account: signer,
         authenticator: ecrecoverAuthenticator,
@@ -21683,7 +21695,7 @@ function toEoa8130Account(signer, parameters = {}) {
     }
   };
 }
-function toDelegate8130Signer(parameters) {
+function toDelegateSigner(parameters) {
   const { delegateAccount, nestedSigner, nestedAuthenticator = ecrecoverAuthenticator, authenticator = canonicalAuthenticators.delegate } = parameters;
   if (!nestedSigner.sign)
     throw new BaseError2("`nestedSigner` must support raw signing.");
@@ -22052,12 +22064,12 @@ function getUserOperationHash2(parameters) {
   })();
   return keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "address" }, { type: "uint256" }], [keccak256(packedUserOp), entryPointAddress, BigInt(chainId)]));
 }
-// ../viem/src/_esm/experimental/eip8130/accounts/toSmartAccount8130.js
+// ../viem/src/_esm/eip8130/accounts/toSmartAccount.js
 init_base();
 init_decodeFunctionData();
 init_encodeFunctionData();
 
-// ../viem/src/_esm/experimental/eip8130/utils/accountConfigCalls.js
+// ../viem/src/_esm/eip8130/utils/accountConfigCalls.js
 init_encodeFunctionData();
 function toInitialActors(actors) {
   return actors.map((actor) => ({
@@ -22067,11 +22079,10 @@ function toInitialActors(actors) {
     policyData: actor.policyData ?? "0x"
   }));
 }
-function toAbiActorChanges(changes) {
+function toAbiChanges(changes) {
   return changes.map((change) => ({
     changeType: change.changeType,
-    actorId: change.actorId,
-    data: encodeActorChangeData(change)
+    payload: encodeChangePayload(change)
   }));
 }
 function encodeCreateAccountData(parameters) {
@@ -22082,24 +22093,32 @@ function encodeCreateAccountData(parameters) {
     args: [userSalt, code, toInitialActors(initialActors)]
   });
 }
-function toFactoryArgs8130(parameters) {
+function toFactoryArgs(parameters) {
   const { accountConfigAddress: accountConfigAddress2 = accountConfigAddress, ...createParameters } = parameters;
   return {
     factory: accountConfigAddress2,
     factoryData: encodeCreateAccountData(createParameters)
   };
 }
-function encodeApplySignedActorChangesData(parameters) {
-  const { account, chainId, actorChanges, auth } = parameters;
+function encodeApplySignedAccountChangesData(parameters) {
+  const { account, channel, sequence, changes, signature } = parameters;
   return encodeFunctionData({
     abi: accountConfigurationAbi,
-    functionName: "applySignedActorChanges",
-    args: [account, BigInt(chainId), toAbiActorChanges(actorChanges), auth]
+    functionName: "applySignedAccountChanges",
+    args: [
+      account,
+      {
+        channel: channel === "multichain" ? 1 : 0,
+        sequence,
+        changes: toAbiChanges(changes),
+        signature
+      }
+    ]
   });
 }
 
-// ../viem/src/_esm/experimental/eip8130/accounts/toSmartAccount8130.js
-async function toSmartAccount8130(parameters) {
+// ../viem/src/_esm/eip8130/accounts/toSmartAccount.js
+async function toSmartAccount3(parameters) {
   const { client, entryPoint: entryPoint_ = {
     abi: entryPoint07Abi,
     address: entryPoint07Address,
@@ -22161,10 +22180,10 @@ async function toSmartAccount8130(parameters) {
     async getAddress() {
       if (parameters.address)
         return parameters.address;
-      return computeAddress8130(getCreateParameters());
+      return computeAddress(getCreateParameters());
     },
     async getFactoryArgs() {
-      return toFactoryArgs8130(getCreateParameters());
+      return toFactoryArgs(getCreateParameters());
     },
     async getStubSignature() {
       return concatHex([authenticator, stubData]);
@@ -22193,12 +22212,12 @@ async function toSmartAccount8130(parameters) {
     }
   });
 }
-// ../viem/src/_esm/experimental/eip8130/actions/estimateGas8130.js
+// ../viem/src/_esm/eip8130/actions/estimateGas.js
 init_base();
 init_fromHex();
 init_toHex();
 var maxAuthSize = 8192;
-async function estimateGas8130(client, parameters) {
+async function estimateGas3(client, parameters) {
   const { from: from14, sender, to, data, value, senderAuth: senderAuthExplicit, senderAuthAuthenticator, senderAuthSize, senderActorId, accountChanges, calls, nonceKey = 0n, nonceSequence = 0, payer, payerAuth: payerAuthExplicit, payerAuthAuthenticator, payerAuthSize, dataSuffix: dataSuffixParam, blockNumber, blockTag = "pending" } = parameters;
   const dataSuffix = dataSuffixParam ?? (typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value);
   const account_ = sender ?? from14;
@@ -22219,7 +22238,8 @@ async function estimateGas8130(client, parameters) {
       sender: account_,
       nonceKey: Number(nonceKey),
       nonceSequence,
-      expiry: 0,
+      validAfter: 0,
+      validBefore: 0,
       maxFeePerGas: numberToHex(1000000000n),
       maxPriorityFeePerGas: numberToHex(1000000n),
       gasLimit: 30000000,
@@ -22295,20 +22315,26 @@ function serializeAccountChange(change) {
   if (change.type === "delegation") {
     return { type: "delegation", target: change.target };
   }
+  const changeTypeName = {
+    [changeType.authorizeActor]: "AuthorizeActor",
+    [changeType.revokeActor]: "RevokeActor",
+    [changeType.incrementLocalEpoch]: "IncrementLocalEpoch",
+    [changeType.lock]: "Lock",
+    [changeType.unlock]: "Unlock"
+  };
   return {
     type: "configChange",
-    chainId: change.chainId,
-    sequence: change.sequence,
-    actorChanges: change.actorChanges.map((ac) => ({
-      changeType: ac.changeType === actorChangeType.revokeActor ? "Revoke" : "Authorize",
-      actorId: ac.actorId,
-      data: encodeActorChangeData(ac)
+    channel: change.channel === "multichain" ? "Multichain" : "Local",
+    sequence: Number(change.sequence),
+    changes: change.changes.map((c) => ({
+      changeType: changeTypeName[c.changeType],
+      payload: encodeChangePayload(c)
     })),
-    auth: change.auth
+    signature: change.signature
   };
 }
-// ../viem/src/_esm/experimental/eip8130/actions/getActorConfig8130.js
-async function getActorConfig8130(client, parameters) {
+// ../viem/src/_esm/eip8130/actions/getActorConfig.js
+async function getActorConfig(client, parameters) {
   const { account, actorId, accountConfiguration = accountConfigAddress } = parameters;
   const config = await readContract(client, {
     address: accountConfiguration,
@@ -22323,8 +22349,8 @@ async function getActorConfig8130(client, parameters) {
     hasPolicy: (config.scope & actorScope.policy) !== 0
   };
 }
-// ../viem/src/_esm/experimental/eip8130/actions/getConfigSequence8130.js
-async function getConfigSequence8130(client, parameters) {
+// ../viem/src/_esm/eip8130/actions/getConfigSequence.js
+async function getConfigSequence(client, parameters) {
   const { accountConfiguration, account } = parameters;
   const result = await readContract(client, {
     address: accountConfiguration,
@@ -22332,13 +22358,16 @@ async function getConfigSequence8130(client, parameters) {
     functionName: "getChangeSequences",
     args: [account]
   });
+  const local = BigInt(result.localEpoch) << 32n | BigInt(result.localSequence);
   return {
-    local: result.local,
-    multichain: result.multichain
+    local,
+    multichain: result.multichain,
+    localEpoch: result.localEpoch,
+    localSequence: result.localSequence
   };
 }
-// ../viem/src/_esm/experimental/eip8130/actions/getLockStatus8130.js
-async function getLockStatus8130(client, parameters) {
+// ../viem/src/_esm/eip8130/actions/getLockStatus.js
+async function getLockStatus(client, parameters) {
   const { account, accountConfiguration = accountConfigAddress } = parameters;
   const [locked, hasInitiatedUnlock, unlocksAt, unlockDelay] = await readContract(client, {
     address: accountConfiguration,
@@ -22348,18 +22377,18 @@ async function getLockStatus8130(client, parameters) {
   });
   return { locked, hasInitiatedUnlock, unlocksAt, unlockDelay };
 }
-// ../viem/src/_esm/experimental/eip8130/actions/getPolicy8130.js
-async function getPolicy8130(client, parameters) {
+// ../viem/src/_esm/eip8130/actions/getPolicy.js
+async function getPolicy(client, parameters) {
   const { account, actorId, accountConfiguration = accountConfigAddress } = parameters;
-  const [target, commitment] = await readContract(client, {
+  const [, policyManager, policyCommitment] = await readContract(client, {
     address: accountConfiguration,
     abi: accountConfigurationAbi,
-    functionName: "getPolicy",
+    functionName: "getActor",
     args: [account, actorId]
   });
-  return { target, commitment };
+  return { target: policyManager, commitment: policyCommitment };
 }
-// ../viem/src/_esm/experimental/eip8130/policies.js
+// ../viem/src/_esm/eip8130/policies.js
 init_exports();
 init_base();
 init_encodeAbiParameters();
@@ -22445,6 +22474,18 @@ function defineSessionPolicy(parameters) {
           args: [toBindingArgs(binding), executionData]
         })
       };
+    },
+    executeForCall(executionDataOrAction) {
+      const executionData = typeof executionDataOrAction === "string" ? executionDataOrAction : encodeSessionPolicyAction(executionDataOrAction);
+      return {
+        to: manager,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: policyManagerAbi,
+          functionName: "executeFor",
+          args: [toBindingArgs(binding), executionData]
+        })
+      };
     }
   };
 }
@@ -22518,8 +22559,8 @@ function encodeSessionPolicyAction(action) {
   ]);
 }
 
-// ../viem/src/_esm/experimental/eip8130/actions/getSessionSpend8130.js
-async function getSessionSpend8130(client, parameters) {
+// ../viem/src/_esm/eip8130/actions/getSessionSpend.js
+async function getSessionSpend(client, parameters) {
   const { commitment, tokenLimit, sessionPolicy = sessionPolicyAddress } = parameters;
   const read = getAction(client, readContract, "readContract");
   const allowance = tokenLimit.limit;
@@ -22548,67 +22589,12 @@ async function getSessionSpend8130(client, parameters) {
     periodEnd: usage.end
   };
 }
-// ../viem/src/_esm/experimental/eip8130/actions/isActor8130.js
-async function isActor8130(client, parameters) {
-  const { account, actorId, accountConfiguration = accountConfigAddress } = parameters;
-  return readContract(client, {
-    address: accountConfiguration,
-    abi: accountConfigurationAbi,
-    functionName: "isActor",
-    args: [account, actorId]
-  });
-}
-// ../viem/src/_esm/experimental/eip8130/actions/isLocked8130.js
-async function isLocked8130(client, parameters) {
-  const { account, accountConfiguration = accountConfigAddress } = parameters;
-  return readContract(client, {
-    address: accountConfiguration,
-    abi: accountConfigurationAbi,
-    functionName: "isLocked",
-    args: [account]
-  });
-}
-// ../viem/src/_esm/experimental/eip8130/actions/getTransactionCount8130.js
-init_fromHex();
-init_toHex();
-async function getTransactionCount8130(client, parameters) {
-  const { address, nonceKey = 0n, blockNumber, blockTag = "pending" } = parameters;
-  if (nonceKey === nonceKeyMax)
-    throw new Error("nonceKey NONCE_KEY_MAX selects the expiring-nonce channel, which has no per-channel counter. Use an `expiry` instead of reading a sequence number.");
-  const block = blockNumber !== undefined ? numberToHex(blockNumber) : blockTag;
-  const params = nonceKey === 0n ? [address, block] : [address, block, numberToHex(nonceKey)];
-  const count = await client.request({ method: "eth_getTransactionCount", params });
-  return hexToBigInt(count);
-}
-// ../viem/src/_esm/experimental/eip8130/actions/getTransactionReceipt8130.js
-function parseEip8130ReceiptFields(receipt) {
-  if (!receipt)
-    return {};
-  return {
-    payer: receipt.payer,
-    phaseStatuses: receipt.phaseStatuses,
-    metadata: receipt.metadata
-  };
-}
-function allPhasesSucceeded(fields) {
-  const phases = fields.phaseStatuses;
-  if (!phases)
-    return true;
-  return phases.every((s) => s === "0x1" || s === "0x01");
-}
-async function getTransactionReceipt8130(client, parameters) {
-  const { hash: hash3 } = parameters;
-  const receipt = await client.request({ method: "eth_getTransactionReceipt", params: [hash3] });
-  if (!receipt)
-    return null;
-  return { ...receipt, eip8130: parseEip8130ReceiptFields(receipt) };
-}
-// ../viem/src/_esm/experimental/eip8130/actions/getTransaction8130.js
-async function getTransaction8130(client, parameters) {
+// ../viem/src/_esm/eip8130/actions/getTransaction.js
+async function getTransaction3(client, parameters) {
   const { hash: hash3 } = parameters;
   const raw = await client.request({ method: "eth_getTransactionByHash", params: [hash3] });
   if (!raw || raw.type !== aaTransactionType)
-    throw new Error(`getTransaction8130: expected type ${aaTransactionType} but got type ${raw?.type ?? "null"} for hash ${hash3}`);
+    throw new Error(`getTransaction: expected type ${aaTransactionType} but got type ${raw?.type ?? "null"} for hash ${hash3}`);
   const body = raw.tx;
   return {
     type: aaTransactionType,
@@ -22617,7 +22603,8 @@ async function getTransaction8130(client, parameters) {
     chainId: body.chainId,
     nonceKey: body.nonceKey,
     nonceSequence: body.nonceSequence,
-    expiry: body.expiry,
+    validAfter: body.validAfter,
+    validBefore: body.validBefore,
     maxFeePerGas: BigInt(body.maxFeePerGas),
     maxPriorityFeePerGas: BigInt(body.maxPriorityFeePerGas),
     gas: BigInt(body.gasLimit),
@@ -22633,7 +22620,65 @@ async function getTransaction8130(client, parameters) {
     transactionIndex: raw.transactionIndex ? Number(raw.transactionIndex) : null
   };
 }
-// ../viem/src/_esm/experimental/eip8130/errors.js
+// ../viem/src/_esm/eip8130/actions/getTransactionCount.js
+init_fromHex();
+init_toHex();
+async function getTransactionCount3(client, parameters) {
+  const { address, nonceKey = 0n, blockNumber, blockTag = "pending" } = parameters;
+  if (nonceKey === nonceKeyMax)
+    throw new Error("nonceKey NONCE_KEY_MAX selects the expiring-nonce channel, which has no per-channel counter. Use an `expiry` instead of reading a sequence number.");
+  const block = blockNumber !== undefined ? numberToHex(blockNumber) : blockTag;
+  const params = nonceKey === 0n ? [address, block] : [address, block, numberToHex(nonceKey)];
+  const count = await client.request({ method: "eth_getTransactionCount", params });
+  return hexToBigInt(count);
+}
+// ../viem/src/_esm/eip8130/actions/getTransactionReceipt.js
+function parseReceiptFields(receipt) {
+  if (!receipt)
+    return {};
+  return {
+    payer: receipt.payer,
+    phaseStatuses: receipt.phaseStatuses,
+    metadata: receipt.metadata
+  };
+}
+function allPhasesSucceeded(fields) {
+  const phases = fields.phaseStatuses;
+  if (!phases)
+    return true;
+  return phases.every((s) => s === "0x1" || s === "0x01");
+}
+async function getTransactionReceipt3(client, parameters) {
+  const { hash: hash3 } = parameters;
+  const receipt = await client.request({ method: "eth_getTransactionReceipt", params: [hash3] });
+  if (!receipt)
+    return null;
+  return { ...receipt, eip8130: parseReceiptFields(receipt) };
+}
+// ../viem/src/_esm/eip8130/actions/isActor.js
+async function isActor(client, parameters) {
+  const { account, actorId, accountConfiguration } = parameters;
+  const { authenticator } = await getActorConfig(client, {
+    account,
+    actorId,
+    ...accountConfiguration ? { accountConfiguration } : {}
+  });
+  return authenticator !== zeroAddress;
+}
+// ../viem/src/_esm/eip8130/actions/isLocked.js
+async function isLocked(client, parameters) {
+  const { account, accountConfiguration = accountConfigAddress } = parameters;
+  return readContract(client, {
+    address: accountConfiguration,
+    abi: accountConfigurationAbi,
+    functionName: "isLocked",
+    args: [account]
+  });
+}
+// ../viem/src/_esm/eip8130/actions/sendCalls.js
+init_base();
+
+// ../viem/src/_esm/eip8130/errors.js
 init_base();
 
 class NonceScopeError extends BaseError2 {
@@ -22671,11 +22716,11 @@ class ScopeMismatchError extends BaseError2 {
 }
 
 class TransactionExpiredError extends BaseError2 {
-  constructor({ hash: hash3, expiry, blockTimestamp }) {
-    super(`Transaction \`${hash3}\` expired before landing: \`expiry\` ${expiry} passed (latest block timestamp ${blockTimestamp}).`, {
+  constructor({ hash: hash3, validBefore, blockTimestamp }) {
+    super(`Transaction \`${hash3}\` expired before landing: \`validBefore\` ${validBefore} (unix ms) passed (latest block timestamp ${blockTimestamp}s).`, {
       metaMessages: [
-        "Nonce-free (expiring) transactions are only valid until their `expiry`; once the block timestamp passes it the tx is dropped and can never be mined.",
-        "Resubmit with a fresh `expiry` (e.g. `nonce.nonceless({ expiresIn })`)."
+        "Nonce-free (expiring) transactions are only valid until their `validBefore`; once the block timestamp passes it the tx is dropped and can never be mined.",
+        "Resubmit with a fresh `validBefore` (e.g. `nonce.nonceless({ expiresIn })`)."
       ]
     });
     Object.defineProperty(this, "name", {
@@ -22704,44 +22749,7 @@ class ActorNotBoundError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/experimental/eip8130/actions/waitForTransactionReceipt8130.js
-async function waitForTransactionReceipt8130(client, parameters) {
-  const { hash: hash3, pollingInterval = 500, timeout = 60000 } = parameters;
-  const deadline = Date.now() + timeout;
-  const suppliedExpiry = parameters.expiry !== undefined && BigInt(parameters.expiry) > 0n;
-  let expiry = suppliedExpiry ? BigInt(parameters.expiry) : undefined;
-  while (Date.now() < deadline) {
-    const receipt = await getTransactionReceipt8130(client, { hash: hash3 });
-    if (receipt !== null)
-      return receipt;
-    if (expiry === undefined) {
-      try {
-        const tx = await getTransaction8130(client, { hash: hash3 });
-        if (tx.expiry > 0)
-          expiry = BigInt(tx.expiry);
-      } catch {}
-    }
-    if (expiry !== undefined) {
-      const blockTimestamp = await getLatestBlockTimestamp(client);
-      if (blockTimestamp !== undefined && blockTimestamp > expiry)
-        throw new TransactionExpiredError({ hash: hash3, expiry, blockTimestamp });
-    }
-    await new Promise((resolve) => setTimeout(resolve, pollingInterval));
-  }
-  throw new Error(`waitForTransactionReceipt8130: timed out after ${timeout}ms waiting for ${hash3}`);
-}
-async function getLatestBlockTimestamp(client) {
-  try {
-    const block = await client.request({ method: "eth_getBlockByNumber", params: ["latest", false] });
-    return block?.timestamp ? BigInt(block.timestamp) : undefined;
-  } catch {
-    return;
-  }
-}
-// ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
-init_base();
-
-// ../viem/src/_esm/experimental/eip8130/utils/encodeWalletCalls.js
+// ../viem/src/_esm/eip8130/utils/encodeWalletCalls.js
 init_encodeFunctionData();
 var defaultEncodeExecute = ({ account, calls }) => ({
   to: account,
@@ -22772,20 +22780,20 @@ function encodeWalletCalls(parameters) {
   });
 }
 
-// ../viem/src/_esm/experimental/eip8130/actions/sendCalls.js
+// ../viem/src/_esm/eip8130/actions/sendCalls.js
 async function resolveSigningScope(client, account) {
   const { actorId, scope: declared } = account;
   if (!actorId)
     return declared;
   const accountConfiguration = account.accountConfigAddress;
-  const bound = await isActor8130(client, {
+  const bound = await isActor(client, {
     account: account.address,
     actorId,
     ...accountConfiguration ? { accountConfiguration } : {}
   });
   if (!bound)
     return declared;
-  const { scope: onChain } = await getActorConfig8130(client, {
+  const { scope: onChain } = await getActorConfig(client, {
     account: account.address,
     actorId,
     ...accountConfiguration ? { accountConfiguration } : {}
@@ -22794,7 +22802,7 @@ async function resolveSigningScope(client, account) {
     throw new ScopeMismatchError({ declared, onChain });
   return onChain;
 }
-async function prepareTransaction8130(client, parameters) {
+async function prepareTransaction(client, parameters) {
   const { account, calls, accountChanges, payer, gas } = parameters;
   const chainId = client.chain?.id;
   if (!chainId)
@@ -22810,7 +22818,7 @@ async function prepareTransaction8130(client, parameters) {
   } else {
     nonceKey ??= 0n;
   }
-  let expiry = parameters.expiry;
+  let validBefore = parameters.validBefore;
   let { maxFeePerGas, maxPriorityFeePerGas } = parameters;
   if (maxFeePerGas === undefined || maxPriorityFeePerGas === undefined) {
     const fees = await getAction(client, estimateFeesPerGas, "estimateFeesPerGas")({ chain: client.chain });
@@ -22819,11 +22827,11 @@ async function prepareTransaction8130(client, parameters) {
   }
   let nonceSequence = parameters.nonceSequence;
   if (nonceKey === nonceKeyMax) {
-    if (!expiry || expiry === 0n)
-      expiry = BigInt(Math.floor(Date.now() / 1000)) + nonceFreeMaxExpiryWindow;
+    if (!validBefore || validBefore === 0n)
+      validBefore = BigInt(Date.now()) + nonceFreeMaxExpiryWindow;
     nonceSequence ??= 0n;
   } else if (nonceSequence === undefined) {
-    nonceSequence = await getAction(client, getTransactionCount8130, "getTransactionCount8130")({ address: account.address, nonceKey });
+    nonceSequence = await getAction(client, getTransactionCount3, "getTransactionCount")({ address: account.address, nonceKey });
   }
   return {
     chainId,
@@ -22833,7 +22841,8 @@ async function prepareTransaction8130(client, parameters) {
     maxFeePerGas,
     maxPriorityFeePerGas,
     gas,
-    expiry,
+    validBefore,
+    ...parameters.validAfter !== undefined ? { validAfter: parameters.validAfter } : {},
     accountChanges,
     calls,
     ...dataSuffix ? { metadata: dataSuffix } : {},
@@ -22847,9 +22856,9 @@ function toPhases(calls) {
     return calls;
   return [calls];
 }
-async function sendCalls8130(client, parameters) {
+async function sendCalls3(client, parameters) {
   const { account, calls, payer, encodeExecute, onTransaction, ...rest } = parameters;
-  const transaction = await prepareTransaction8130(client, {
+  const transaction = await prepareTransaction(client, {
     ...rest,
     account,
     calls: encodeWalletCalls({
@@ -22865,7 +22874,86 @@ async function sendCalls8130(client, parameters) {
   });
   return getAction(client, sendRawTransaction, "sendRawTransaction")({ serializedTransaction });
 }
-// ../viem/src/_esm/experimental/eip8130/chains.js
+// ../viem/src/_esm/eip8130/actions/waitForTransactionReceipt.js
+async function waitForTransactionReceipt3(client, parameters) {
+  const { hash: hash3, pollingInterval = 500, timeout = 60000 } = parameters;
+  const deadline = Date.now() + timeout;
+  const suppliedValidBefore = parameters.validBefore !== undefined && BigInt(parameters.validBefore) > 0n;
+  let validBefore = suppliedValidBefore ? BigInt(parameters.validBefore) : undefined;
+  while (Date.now() < deadline) {
+    const receipt = await getTransactionReceipt3(client, { hash: hash3 });
+    if (receipt !== null)
+      return receipt;
+    if (validBefore === undefined) {
+      try {
+        const tx = await getTransaction3(client, { hash: hash3 });
+        if (tx.validBefore > 0)
+          validBefore = BigInt(tx.validBefore);
+      } catch {}
+    }
+    if (validBefore !== undefined) {
+      const blockTimestamp = await getLatestBlockTimestamp(client);
+      if (blockTimestamp !== undefined && blockTimestamp * 1000n > validBefore)
+        throw new TransactionExpiredError({
+          hash: hash3,
+          validBefore,
+          blockTimestamp
+        });
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+  }
+  throw new Error(`waitForTransactionReceipt: timed out after ${timeout}ms waiting for ${hash3}`);
+}
+async function getLatestBlockTimestamp(client) {
+  try {
+    const block = await client.request({ method: "eth_getBlockByNumber", params: ["latest", false] });
+    return block?.timestamp ? BigInt(block.timestamp) : undefined;
+  } catch {
+    return;
+  }
+}
+// ../viem/src/_esm/eip8130/capabilities.js
+init_toHex();
+var supportedPermissionTypes = [
+  "native-token-transfer",
+  "erc20-token-transfer",
+  "contract-call"
+];
+var supportedPolicyTypes = ["token-allowance", "rate-limit"];
+var supportedSignerTypes = ["account", "key"];
+var supportedSubAccountKeyTypes = [
+  "address",
+  "p256",
+  "webcrypto-p256",
+  "webauthn-p256"
+];
+function eip8130Capabilities(parameters = {}) {
+  const { paymasterService, signerTypes = supportedSignerTypes, permissionTypes = supportedPermissionTypes, policyTypes = supportedPolicyTypes, subAccountKeyTypes = supportedSubAccountKeyTypes } = parameters;
+  return {
+    atomic: { status: "supported" },
+    permissions: {
+      supported: true,
+      signerTypes,
+      permissionTypes,
+      policyTypes
+    },
+    unstable_addSubAccount: {
+      supported: true,
+      keyTypes: subAccountKeyTypes
+    },
+    ...paymasterService !== undefined ? { paymasterService: { supported: paymasterService } } : {}
+  };
+}
+function eip8130CapabilitiesByChain(chainIds, parameters = {}) {
+  const capabilities = eip8130Capabilities(parameters);
+  const record = {};
+  for (const chainId of chainIds) {
+    const key2 = typeof chainId === "number" ? numberToHex(chainId) : chainId;
+    record[key2] = capabilities;
+  }
+  return record;
+}
+// ../viem/src/_esm/eip8130/chains.js
 var eip8130ChainIds = new Set;
 function register8130Chains(...chainIds) {
   for (const id of chainIds)
@@ -22880,60 +22968,19 @@ function is8130Enabled(chain, parameters = {}) {
   const set = parameters.chainIds ? parameters.chainIds instanceof Set ? parameters.chainIds : new Set(parameters.chainIds) : eip8130ChainIds;
   return set.has(id);
 }
-// ../viem/src/_esm/experimental/eip8130/lock.js
+// ../viem/src/_esm/eip8130/lock.js
 init_base();
-init_encodeAbiParameters();
-init_encodeFunctionData();
-init_toHex();
-init_keccak256();
 var maxUnlockDelay = 65535;
-var lockChangeTypehash = keccak256(stringToHex("SignedLockChange(address account,uint256 chainId,uint8 op,uint16 unlockDelay,uint64 sequence)"));
-function opByte(op) {
-  return op === "lock" ? lockOp : unlockOp;
-}
-function hashLockChange8130(parameters) {
-  const { account, chainId, op, unlockDelay, sequence } = parameters;
-  return keccak256(encodeAbiParameters([
-    { type: "bytes32" },
-    { type: "address" },
-    { type: "uint256" },
-    { type: "uint8" },
-    { type: "uint16" },
-    { type: "uint64" }
-  ], [
-    lockChangeTypehash,
-    account,
-    BigInt(chainId),
-    opByte(op),
-    unlockDelay,
-    BigInt(sequence)
-  ]));
-}
-function lockCall(parameters) {
-  const { account, unlockDelay, auth, accountConfiguration = accountConfigAddress } = parameters;
+function lockChange(parameters) {
+  const { unlockDelay } = parameters;
   if (!Number.isInteger(unlockDelay) || unlockDelay < 1 || unlockDelay > maxUnlockDelay)
     throw new BaseError2(`\`unlockDelay\` must be an integer in \`1 … ${maxUnlockDelay}\` (uint16 seconds). Received ${unlockDelay}.`);
-  return {
-    to: accountConfiguration,
-    data: encodeFunctionData({
-      abi: accountConfigurationAbi,
-      functionName: "applySignedLockChanges",
-      args: [account, lockOp, unlockDelay, auth]
-    })
-  };
+  return { changeType: changeType.lock, unlockDelay };
 }
-function initiateUnlockCall(parameters) {
-  const { account, auth, accountConfiguration = accountConfigAddress } = parameters;
-  return {
-    to: accountConfiguration,
-    data: encodeFunctionData({
-      abi: accountConfigurationAbi,
-      functionName: "applySignedLockChanges",
-      args: [account, unlockOp, 0, auth]
-    })
-  };
+function unlockChange() {
+  return { changeType: changeType.unlock };
 }
-// ../viem/src/_esm/experimental/eip8130/nonce.js
+// ../viem/src/_esm/eip8130/nonce.js
 init_base();
 init_fromHex();
 init_toHex();
@@ -22945,7 +22992,7 @@ var nonce = {
     if (key2 < 0n || key2 > nonceKeyMax)
       throw new BaseError2(`\`nonceKey\` must be in \`0 … NONCE_KEY_MAX\`. Received ${key2}.`);
     if (key2 === nonceKeyMax)
-      throw new BaseError2("`NONCE_KEY_MAX` selects nonce-free mode, which has no counter. Use `nonce.nonceless({ expiry })` instead.");
+      throw new BaseError2("`NONCE_KEY_MAX` selects nonce-free mode, which has no counter. Use `nonce.nonceless({ validBefore })` instead.");
     return { nonceKey: key2 };
   },
   randomChannel() {
@@ -22955,22 +23002,276 @@ var nonce = {
     return { nonceKey: key2 };
   },
   nonceless(parameters) {
-    const { expiry, expiresIn } = parameters;
-    const resolvedExpiry = expiry ?? (expiresIn !== undefined ? BigInt(Math.floor(Date.now() / 1000) + expiresIn) : undefined);
-    if (resolvedExpiry === undefined || resolvedExpiry <= 0n)
-      throw new BaseError2("Nonce-free mode requires a non-zero `expiry` (or `expiresIn`).");
-    return { nonceKey: nonceKeyMax, nonceSequence: 0n, expiry: resolvedExpiry };
+    const { validBefore, expiresIn } = parameters;
+    const resolvedValidBefore = validBefore ?? (expiresIn !== undefined ? BigInt(Date.now() + expiresIn * 1000) : undefined);
+    if (resolvedValidBefore === undefined || resolvedValidBefore <= 0n)
+      throw new BaseError2("Nonce-free mode requires a non-zero `validBefore` (or `expiresIn`).");
+    return {
+      nonceKey: nonceKeyMax,
+      nonceSequence: 0n,
+      validBefore: resolvedValidBefore
+    };
   },
   forScope(scope, parameters = {}) {
     if (isNoncelessOnly(scope))
-      return nonce.nonceless(parameters.expiry !== undefined ? { expiry: parameters.expiry } : {
-        expiresIn: parameters.expiresIn ?? Number(nonceFreeMaxExpiryWindow)
+      return nonce.nonceless(parameters.validBefore !== undefined ? { validBefore: parameters.validBefore } : {
+        expiresIn: parameters.expiresIn ?? Number(nonceFreeMaxExpiryWindow) / 1000
       });
     return nonce.channel(parameters.key ?? 0n);
   }
 };
-// ../viem/src/_esm/experimental/eip8130/utils/parseTransaction.js
+// ../viem/src/_esm/eip8130/permissions.js
 init_base();
+init_decodeAbiParameters();
+init_encodeAbiParameters();
+init_toFunctionSelector();
+var erc20TransferSelectors = [
+  toFunctionSelector("transfer(address,uint256)"),
+  toFunctionSelector("transferFrom(address,address,uint256)")
+];
+var selectorRegex = /^0x[0-9a-fA-F]{8}$/;
+function toSelector(signatureOrSelector) {
+  if (selectorRegex.test(signatureOrSelector))
+    return signatureOrSelector.toLowerCase();
+  return toFunctionSelector(signatureOrSelector);
+}
+function spendFromPolicies(policies) {
+  let limit;
+  let period;
+  for (const policy of policies) {
+    if (typeof policy.type === "object")
+      throw new BaseError2("Cannot lower a custom ERC-7715 policy to a SessionPolicy. Build the `SessionPolicyConfig` explicitly.");
+    const type = policy.type;
+    switch (policy.type) {
+      case "token-allowance":
+        limit = policy.data.allowance;
+        break;
+      case "rate-limit":
+        period = BigInt(policy.data.interval);
+        break;
+      case "gas-limit":
+        break;
+      default:
+        throw new BaseError2(`Unsupported ERC-7715 policy type: "${type}".`);
+    }
+  }
+  return { limit, period };
+}
+function toSessionPolicyConfig(permissions) {
+  const tokenLimits = [];
+  const callScopes = [];
+  for (const permission of permissions) {
+    if (typeof permission.type === "object")
+      throw new BaseError2("Cannot lower a custom ERC-7715 permission to a SessionPolicy. Build the `SessionPolicyConfig` explicitly.");
+    const type = permission.type;
+    switch (permission.type) {
+      case "native-token-transfer": {
+        const { limit, period } = spendFromPolicies(permission.policies);
+        if (limit === undefined)
+          throw new BaseError2("A `native-token-transfer` permission must include a `token-allowance` policy (an unbounded spend cannot be granted).");
+        tokenLimits.push({ token: zeroAddress, limit, period });
+        break;
+      }
+      case "erc20-token-transfer": {
+        const token = permission.data.address;
+        const { limit, period } = spendFromPolicies(permission.policies);
+        if (limit === undefined)
+          throw new BaseError2("An `erc20-token-transfer` permission must include a `token-allowance` policy (an unbounded spend cannot be granted).");
+        tokenLimits.push({ token, limit, period });
+        callScopes.push({
+          target: token,
+          selectorRules: erc20TransferSelectors.map((selector) => ({
+            selector
+          }))
+        });
+        break;
+      }
+      case "contract-call": {
+        callScopes.push({
+          target: permission.data.address,
+          selectorRules: permission.data.calls.map((call3) => ({
+            selector: toSelector(call3)
+          }))
+        });
+        break;
+      }
+      default:
+        throw new BaseError2(`Unsupported ERC-7715 permission type: "${type}".`);
+    }
+  }
+  return {
+    tokenLimits: tokenLimits.length > 0 ? tokenLimits : undefined,
+    callScopes: callScopes.length > 0 ? callScopes : undefined
+  };
+}
+function toSessionPolicy(parameters) {
+  const { permissions, expiry, ...rest } = parameters;
+  return defineSessionPolicy({
+    ...rest,
+    policyConfig: encodeSessionPolicyConfig(toSessionPolicyConfig(permissions)),
+    validUntil: expiry === undefined ? undefined : BigInt(expiry)
+  });
+}
+async function fulfillGrantPermissions(client, parameters) {
+  const { account, grantee, role = "session", permissions, expiry, assumeManagerRegistered = false, accountConfiguration, ...rest } = parameters;
+  const expiryBig = expiry === undefined ? undefined : BigInt(expiry);
+  const session = defineSessionPolicy({
+    ...rest,
+    account,
+    policyConfig: encodeSessionPolicyConfig(toSessionPolicyConfig(permissions)),
+    validUntil: expiryBig
+  });
+  const actor = role === "pull" ? key.externalPull(grantee) : key.k1(grantee);
+  const change = authorizeActor(actor, {
+    scope: actorScope.policy,
+    policy: session.actorPolicy,
+    expiry: expiryBig
+  });
+  let managerChange;
+  if (!assumeManagerRegistered) {
+    const managerActor = key.trustedExecutor(session.manager);
+    const { authenticator } = await getActorConfig(client, {
+      account,
+      actorId: managerActor.actorId,
+      ...accountConfiguration ? { accountConfiguration } : {}
+    });
+    const registered = authenticator.toLowerCase() === trustedExecutorAuthenticator.toLowerCase();
+    if (!registered)
+      managerChange = authorizeActor(managerActor, {
+        scope: actorScope.sender
+      });
+  }
+  const changes = managerChange ? [managerChange, change] : [change];
+  const permissionsContext = toPermissionsContext({ role, actor, session });
+  return { actor, change, managerChange, changes, session, permissionsContext };
+}
+var grantRoleCode = { session: 0, pull: 1 };
+var grantRoleName = [
+  "session",
+  "pull"
+];
+var permissionsContextParameters = [
+  { type: "address" },
+  { type: "uint8" },
+  { type: "bytes32" },
+  { type: "address" },
+  { type: "address" },
+  { type: "address" },
+  { type: "bytes" },
+  { type: "uint40" },
+  { type: "uint40" },
+  { type: "uint256" }
+];
+function toPermissionsContext(parameters) {
+  const { role, actor, session } = parameters;
+  const { binding } = session;
+  return encodeAbiParameters(permissionsContextParameters, [
+    binding.account,
+    grantRoleCode[role],
+    actor.actorId,
+    actor.authenticator,
+    session.manager,
+    binding.policy,
+    binding.policyConfig,
+    Number(binding.validAfter),
+    Number(binding.validUntil),
+    binding.salt
+  ]);
+}
+function parsePermissionsContext(context) {
+  const [account, roleCode, actorId, authenticator, manager, policy, policyConfig, validAfter, validUntil, salt] = decodeAbiParameters(permissionsContextParameters, context);
+  const role = grantRoleName[roleCode];
+  if (!role)
+    throw new BaseError2(`Unknown permissionsContext role code: ${roleCode}.`);
+  const session = defineSessionPolicy({
+    account,
+    policy,
+    manager,
+    policyConfig,
+    validAfter: BigInt(validAfter),
+    validUntil: BigInt(validUntil),
+    salt
+  });
+  return { account, role, actor: { actorId, authenticator }, session };
+}
+function routePermissionedCalls(parameters) {
+  const { context, calls } = parameters;
+  const parsed = parsePermissionsContext(context);
+  const wrap3 = parsed.role === "pull" ? parsed.session.executeForCall : parsed.session.executeCall;
+  return { ...parsed, calls: calls.map((action) => wrap3(action)) };
+}
+// ../viem/src/_esm/eip8130/subAccounts.js
+init_base();
+init_fromHex();
+init_toHex();
+function toKeyActor(k) {
+  switch (k.type) {
+    case "address":
+      return key.k1(k.publicKey);
+    case "p256":
+    case "webcrypto-p256":
+      return key.p256(k.publicKey);
+    case "webauthn-p256":
+      return key.webAuthn(k.publicKey);
+    default:
+      throw new BaseError2(`Unsupported sub-account key type: "${k.type}".`);
+  }
+}
+function randomBytes322() {
+  const buf = new Uint8Array(32);
+  globalThis.crypto.getRandomValues(buf);
+  return bytesToHex(buf);
+}
+function fulfillAddSubAccount(parameters) {
+  const { parent, signer, keys = [], keyScope, keyPolicy, proxy = "upgradeable", implementation, accountConfigAddress: accountConfigAddress2 } = parameters;
+  const parentActor = key.delegate(parent);
+  const restricted = keyScope !== undefined && keyScope !== scopeUnrestricted;
+  const keyActors = keys.map((k) => {
+    const actor = toKeyActor(k);
+    if (!restricted)
+      return actor;
+    return authorizeActor(actor, {
+      scope: keyScope,
+      ...keyPolicy ? { policy: keyPolicy } : {}
+    });
+  });
+  const initialActors = [parentActor, ...keyActors].sort((a, b) => {
+    const ai = hexToBigInt(a.actorId);
+    const bi = hexToBigInt(b.actorId);
+    return ai < bi ? -1 : ai > bi ? 1 : 0;
+  });
+  for (let i = 1;i < initialActors.length; i++)
+    if (initialActors[i].actorId === initialActors[i - 1].actorId)
+      throw new BaseError2(`Duplicate initial actor id \`${initialActors[i].actorId}\` (parent delegate and requested keys must be distinct).`);
+  const salt = parameters.salt ?? randomBytes322();
+  const code = parameters.code ?? (() => {
+    if (proxy === "erc1167")
+      return erc1167Bytecode(implementation ?? canonicalEip8130Deployment.accounts.default);
+    const impl = implementation ?? canonicalEip8130Deployment.accounts.upgradeable;
+    if (!impl)
+      throw new BaseError2("No canonical `UpgradeableAccount` is enshrined yet (pending final " + 'implementation), so `proxy: "upgradeable"` requires an explicit ' + '`implementation`. Pass `proxy: "erc1167"` for an immutable ' + "DefaultAccount-backed sub-account.");
+    return upgradeableProxyBytecode(impl);
+  })();
+  const inner = toAccount3({
+    signer,
+    userSalt: salt,
+    code,
+    initialActors,
+    authenticator: canonicalAuthenticators.delegate,
+    actorId: parentActor.actorId,
+    scope: scopeUnrestricted,
+    accountConfigAddress: accountConfigAddress2
+  });
+  return {
+    ...inner,
+    createChange: inner.create(),
+    parentActor,
+    response: { address: inner.address }
+  };
+}
+// ../viem/src/_esm/eip8130/utils/parseTransaction.js
+init_base();
+init_decodeAbiParameters();
 init_slice();
 init_fromHex();
 
@@ -23032,7 +23333,7 @@ function readList(cursor, length, to) {
   return value;
 }
 
-// ../viem/src/_esm/experimental/eip8130/utils/parseTransaction.js
+// ../viem/src/_esm/eip8130/utils/parseTransaction.js
 function toOptionalAddress(value) {
   return value === "0x" ? undefined : value;
 }
@@ -23056,13 +23357,13 @@ function parseActor(value) {
     actor.policyData = policyData;
   return actor;
 }
-function parseActorChange(value) {
-  const [changeType, actorId, data] = value;
-  const type = changeType === "0x" ? 0 : hexToNumber(changeType);
-  if (type === actorChangeType.authorizeActor) {
-    const { authenticator, scope, expiry, policyData } = decodeAuthorizeActorData(data);
+function parseChange(value) {
+  const [opByte, payload] = value;
+  const type = opByte === "0x" ? 0 : hexToNumber(opByte);
+  if (type === changeType.authorizeActor) {
+    const { actorId, authenticator, scope, expiry, policyData } = decodeAuthorizeActorPayload(payload);
     const change = {
-      changeType: actorChangeType.authorizeActor,
+      changeType: changeType.authorizeActor,
       actorId,
       authenticator
     };
@@ -23074,7 +23375,17 @@ function parseActorChange(value) {
       change.policyData = policyData;
     return change;
   }
-  return { changeType: actorChangeType.revokeActor, actorId };
+  if (type === changeType.revokeActor) {
+    const [actorId] = decodeAbiParameters([{ type: "bytes32" }], payload);
+    return { changeType: changeType.revokeActor, actorId };
+  }
+  if (type === changeType.lock) {
+    const [unlockDelay] = decodeAbiParameters([{ type: "uint16" }], payload);
+    return { changeType: changeType.lock, unlockDelay };
+  }
+  if (type === changeType.unlock)
+    return { changeType: changeType.unlock };
+  return { changeType: changeType.incrementLocalEpoch };
 }
 function parseAccountChanges(value) {
   const entries = value;
@@ -23092,13 +23403,13 @@ function parseAccountChanges(value) {
       continue;
     }
     if (type === accountChangeType.config) {
-      const [chainId, sequence, actorChanges, auth] = body;
+      const [channel, sequence, changes, signature] = body;
       result.push({
         type: "config",
-        chainId: chainId === "0x" ? 0 : hexToNumber(chainId),
-        sequence: sequence === "0x" ? 0 : hexToNumber(sequence),
-        actorChanges: actorChanges.map(parseActorChange),
-        auth
+        channel: channel === "0x01" ? "multichain" : "local",
+        sequence: sequence === "0x" ? 0n : hexToBigInt(sequence),
+        changes: changes.map(parseChange),
+        signature
       });
       continue;
     }
@@ -23111,12 +23422,12 @@ function parseAccountChanges(value) {
   }
   return result;
 }
-function parseTransaction8130(serialized) {
+function parseTransaction3(serialized) {
   const type = sliceHex(serialized, 0, 1);
   if (type !== aaTransactionType)
     throw new BaseError2(`Serialized transaction type "${type}" is not an EIP-8130 transaction.`);
   const fields = fromRlp3(sliceHex(serialized, 1), "hex");
-  const [chainId, from14, nonceKey, nonceSequence, expiry, maxPriorityFeePerGas, maxFeePerGas, gas, accountChanges, calls, metadata, payer, senderAuth, payerAuth] = fields;
+  const [chainId, from14, nonceKey, nonceSequence, validAfter, validBefore, maxPriorityFeePerGas, maxFeePerGas, gas, accountChanges, calls, metadata, payer, senderAuth, payerAuth] = fields;
   const transaction = {
     chainId: hexToNumber(chainId)
   };
@@ -23129,9 +23440,12 @@ function parseTransaction8130(serialized) {
   const nonceSequenceValue = toOptionalBigInt(nonceSequence);
   if (nonceSequenceValue !== undefined)
     transaction.nonceSequence = nonceSequenceValue;
-  const expiryValue = toOptionalBigInt(expiry);
-  if (expiryValue !== undefined)
-    transaction.expiry = expiryValue;
+  const validAfterValue = toOptionalBigInt(validAfter);
+  if (validAfterValue !== undefined)
+    transaction.validAfter = validAfterValue;
+  const validBeforeValue = toOptionalBigInt(validBefore);
+  if (validBeforeValue !== undefined)
+    transaction.validBefore = validBeforeValue;
   const maxPriorityFeePerGasValue = toOptionalBigInt(maxPriorityFeePerGas);
   if (maxPriorityFeePerGasValue !== undefined)
     transaction.maxPriorityFeePerGas = maxPriorityFeePerGasValue;
@@ -23156,17 +23470,17 @@ function parseTransaction8130(serialized) {
     transaction.payerAuth = payerAuth;
   return transaction;
 }
-// ../viem/src/_esm/experimental/eip8130/utils/recoverSender.js
-async function recoverSenderAddress8130(parameters) {
+// ../viem/src/_esm/eip8130/utils/recoverSender.js
+async function recoverSenderAddress(parameters) {
   const { transaction } = parameters;
   if (transaction.from)
     return transaction.from;
   if (!transaction.senderAuth || transaction.senderAuth === "0x")
     throw new Error("Cannot recover sender: transaction has neither `from` nor `senderAuth`.");
-  const hash3 = getSenderSignatureHash8130({ ...transaction, from: undefined });
+  const hash3 = getSenderSignatureHash({ ...transaction, from: undefined });
   return recoverAddress({ hash: hash3, signature: transaction.senderAuth });
 }
-// ../viem/src/_esm/experimental/eip8130/utils/signedActorChangesSignature.js
+// ../viem/src/_esm/eip8130/utils/signedActorChangesSignature.js
 init_encodeAbiParameters();
 init_toHex();
 init_keccak256();
@@ -23181,8 +23495,7 @@ var signatureParameters = [
         type: "tuple[]",
         components: [
           { name: "changeType", type: "uint8" },
-          { name: "actorId", type: "bytes32" },
-          { name: "data", type: "bytes" }
+          { name: "payload", type: "bytes" }
         ]
       },
       { name: "auth", type: "bytes" }
@@ -23194,17 +23507,16 @@ function encodeSignedActorChangesSignature(changeSets, opAuth) {
   return encodeAbiParameters(signatureParameters, [
     signedActorChangesMagic,
     changeSets.map((set) => ({
-      changes: set.actorChanges.map((change) => ({
+      changes: set.changes.map((change) => ({
         changeType: change.changeType,
-        actorId: change.actorId,
-        data: encodeActorChangeData(change)
+        payload: encodeChangePayload(change)
       })),
       auth: set.auth
     })),
     opAuth
   ]);
 }
-// ../viem/src/_esm/experimental/eip8130/utils/signers.js
+// ../viem/src/_esm/eip8130/utils/signers.js
 init_encodeAbiParameters();
 init_size();
 init_slice();
@@ -23280,12 +23592,12 @@ function toWebAuthnSigner(source, parameters = {}) {
     }
   };
 }
-// ../viem/src/_esm/experimental/eip8168/actions/sendSponsoredCalls.js
+// ../viem/src/_esm/eip8168/actions/sendSponsoredCalls.js
 init_base();
 init_fromHex();
 init_toHex();
 
-// ../viem/src/_esm/experimental/eip8168/utils/buildSponsoredCalls.js
+// ../viem/src/_esm/eip8168/utils/buildSponsoredCalls.js
 init_abis();
 init_base();
 init_encodeFunctionData();
@@ -23369,7 +23681,7 @@ function buildSponsoredCalls(parameters) {
   };
 }
 
-// ../viem/src/_esm/experimental/eip8168/constants.js
+// ../viem/src/_esm/eip8168/constants.js
 var payerRejectedCode = -32000;
 var payerErrorCode = {
   policyRejected: "POLICY_REJECTED",
@@ -23394,7 +23706,7 @@ var sponsorshipDeclineCode = {
   temporarilyUnavailable: "TEMPORARILY_UNAVAILABLE"
 };
 
-// ../viem/src/_esm/experimental/eip8168/utils/parsePayerError.js
+// ../viem/src/_esm/eip8168/utils/parsePayerError.js
 function parsePayerError(error) {
   const seen = new Set;
   let current = error;
@@ -23411,7 +23723,7 @@ function parsePayerError(error) {
   return;
 }
 
-// ../viem/src/_esm/experimental/eip8168/actions/sendSponsoredCalls.js
+// ../viem/src/_esm/eip8168/actions/sendSponsoredCalls.js
 async function sendSponsoredCalls(client, parameters) {
   const { account, payerClient, calls, accountChanges, mode = "send", token, context, retries = 2, confirmRetry, onTransaction } = parameters;
   const chainId = client.chain?.id;
@@ -23436,22 +23748,22 @@ async function sendSponsoredCalls(client, parameters) {
   const maxPriorityFeePerGas = parameters.maxPriorityFeePerGas ?? (gasEstimate ? hexToBigInt(gasEstimate.maxPriorityFeePerGas) : undefined);
   const maxGasLimit = option.conditions?.maxGasLimit ? hexToBigInt(option.conditions.maxGasLimit) : undefined;
   const noncelessOnly = account.scope !== undefined && isNoncelessOnly(account.scope);
-  const computeExpiry = () => {
-    if (parameters.expiry !== undefined)
-      return parameters.expiry;
+  const computeValidBefore = () => {
+    if (parameters.validBefore !== undefined)
+      return parameters.validBefore;
     if (noncelessOnly)
-      return BigInt(Math.floor(Date.now() / 1000)) + nonceFreeMaxExpiryWindow;
+      return BigInt(Date.now()) + nonceFreeMaxExpiryWindow;
     const maxExpiry = option.conditions?.maxExpiry;
-    return maxExpiry !== undefined ? BigInt(Math.floor(Date.now() / 1000)) + BigInt(maxExpiry) : 0n;
+    return maxExpiry !== undefined ? BigInt(Date.now()) + BigInt(maxExpiry) * 1000n : 0n;
   };
-  const transaction = await prepareTransaction8130(client, {
+  const transaction = await prepareTransaction(client, {
     account,
     calls: built.calls,
     accountChanges,
     gas: initialGas,
     maxFeePerGas,
     maxPriorityFeePerGas,
-    expiry: computeExpiry(),
+    validBefore: computeValidBefore(),
     nonceKey: parameters.nonceKey,
     nonceSequence: parameters.nonceSequence
   });
@@ -23461,7 +23773,7 @@ async function sendSponsoredCalls(client, parameters) {
   for (let attempt = 0;; attempt++) {
     transaction.calls = phases;
     transaction.gas = gas;
-    transaction.expiry = computeExpiry();
+    transaction.validBefore = computeValidBefore();
     transaction.payerAuth = "0x";
     onTransaction?.(transaction);
     const signedTransaction = await account.signTransaction(transaction);
@@ -23510,14 +23822,8 @@ async function sendSponsoredCalls(client, parameters) {
     }
   }
 }
-// ../viem/src/_esm/experimental/eip8168/client.js
-function createPayerClient(parameters) {
-  const { url, transport = http(url) } = parameters;
-  if (!url && !parameters.transport)
-    throw new Error("`url` or `transport` is required.");
-  const { request } = createClient({
-    transport
-  });
+// ../viem/src/_esm/eip8168/client.js
+function payerClientFromRequest(request) {
   return {
     getTerms(params) {
       return request({
@@ -23545,59 +23851,77 @@ function createPayerClient(parameters) {
     }
   };
 }
+function createPayerClient(parameters) {
+  const { url, transport = http(url) } = parameters;
+  if (!url && !parameters.transport)
+    throw new Error("`url` or `transport` is required.");
+  const { request } = createClient({
+    transport
+  });
+  return payerClientFromRequest(request);
+}
 export {
   zeroAddress,
-  waitForTransactionReceipt8130,
+  waitForTransactionReceipt3 as waitForTransactionReceipt,
   vibenetDevnetDeployment,
   upgradeableProxyBytecode,
   unregister8130Chains,
-  unlockOp,
+  unlockChange,
   txContextAddress,
   trustedExecutorAuthenticator,
   transactionContextAbi,
   toWebAuthnSigner,
   toWebAuthnAccount,
   toTransactionBody,
-  toSmartAccount8130,
+  toSmartAccount3 as toSmartAccount,
+  toSessionPolicyConfig,
+  toSessionPolicy,
   toScope,
+  toPermissionsContext,
   toP256Signer,
   toHex,
-  toFactoryArgs8130,
-  toEoa8130Account,
-  toDelegate8130Signer,
+  toFactoryArgs,
+  toEoaAccount,
+  toDelegateSigner,
   toCallsList,
   toAccountChangesList,
-  to8130Account,
+  toAccount3 as toAccount,
+  supportedSubAccountKeyTypes,
+  supportedSignerTypes,
+  supportedPolicyTypes,
+  supportedPermissionTypes,
   sponsorshipDeclineCode,
   slice,
-  signedActorChangesTypehash,
   signedActorChangesMagic,
-  signTransaction8130,
-  signActorChanges8130,
+  signedAccountChangesTypehash,
+  signTransaction5 as signTransaction,
+  signAccountChanges,
   sessionPolicyAddress,
   sessionPolicyAbi,
-  serializeTransaction8130,
+  serializeTransaction4 as serializeTransaction,
   sendSponsoredCalls,
-  sendCalls8130,
+  sendCalls3 as sendCalls,
   selectPaymentOption,
   scopeUnrestricted,
+  routePermissionedCalls,
   revokedAuthenticator,
   revokeActor,
   replayIdType,
   replayBufferCapacity,
   register8130Chains,
-  recoverSenderAddress8130,
+  recoverSenderAddress,
   privateKeyToAccount,
-  prepareTransaction8130,
+  prepareTransaction,
   policyManagerAbi,
   policyDataLength,
   payerRejectedCode,
   payerErrorCode,
   parseUnits2 as parseUnits,
-  parseTransaction8130,
+  parseTransaction3 as parseTransaction,
+  parseReceiptFields,
+  parsePermissionsContext,
   parsePayerError,
   parseEther2 as parseEther,
-  parseEip8130ReceiptFields,
   parseAbi,
   nonceManagerAddress,
   nonceManagerAbi,
@@ -23608,40 +23932,41 @@ export {
   nonceFreeExpiryWindow,
   nonceFreeCost,
   nonce,
-  newSmartAccount8130,
+  newSmartAccount,
+  maxUnlockDelay,
   maxCodeSize,
-  lockOp,
-  lockChangeTypehash,
-  lockCall,
+  lockChange,
   key,
   keccak256,
   isTokenOffer,
   isSponsoredOffer,
   isSelectableOffer,
   isNoncelessOnly,
-  isLocked8130,
+  isLocked,
   isDeclinedOffer,
-  isActor8130,
+  isActor,
   is8130Enabled,
-  initiateUnlockCall,
+  incrementLocalEpoch,
   http,
   hexToBigInt,
-  hashLockChange8130,
-  hashActorChanges8130,
-  getTransactionReceipt8130,
-  getTransactionCount8130,
-  getTransaction8130,
-  getSessionSpend8130,
-  getSenderSignatureHash8130,
-  getPolicy8130,
-  getPayerSignatureHash8130,
-  getLockStatus8130,
+  hashAccountChanges,
+  getTransactionReceipt3 as getTransactionReceipt,
+  getTransactionCount3 as getTransactionCount,
+  getTransaction3 as getTransaction,
+  getSessionSpend,
+  getSenderSignatureHash,
+  getPolicy,
+  getPayerSignatureHash,
+  getLockStatus,
   getEip8130Deployment,
-  getConfigSequence8130,
-  getActorConfig8130,
+  getConfigSequence,
+  getActorConfig,
   generatePrivateKey,
+  fulfillGrantPermissions,
+  fulfillAddSubAccount,
   formatEther,
-  estimateGas8130,
+  externalPolicyAuthenticator,
+  estimateGas3 as estimateGas,
   erc4337AccountAbi,
   erc1167Bytecode,
   entryPoint07Address,
@@ -23654,11 +23979,13 @@ export {
   encodePolicyData,
   encodeFunctionData,
   encodeCreateAccountData,
-  encodeApplySignedActorChangesData,
-  encodeActorChangeData,
+  encodeChangePayload,
+  encodeApplySignedAccountChangesData,
   encodeAbiParameters,
   eip8130Deployments,
   eip8130ChainIds,
+  eip8130CapabilitiesByChain,
+  eip8130Capabilities,
   ecrecoverAuthenticator,
   deploymentHeaderSize,
   deploymentHeader,
@@ -23666,7 +23993,7 @@ export {
   defineSessionPolicy,
   defaultEncodeExecute,
   defaultAccountAddress,
-  decodeAuthorizeActorData,
+  decodeAuthorizeActorPayload,
   decodeAbiParameters,
   custom,
   createWebAuthnCredential,
@@ -23675,8 +24002,9 @@ export {
   createPayerClient,
   createBundlerClient,
   concatHex,
-  computeAddress8130,
+  computeAddress,
   commitmentOf,
+  changeType,
   canonicalEip8130Deployment,
   canonicalAuthenticators,
   canonicalAuthDataLength,
@@ -23685,16 +24013,15 @@ export {
   baseSepoliaDeployment,
   authorizeActor,
   authenticatorAbi,
-  assertTransaction8130,
+  assertTransaction,
   allPhasesSucceeded,
   actorScope,
   actorIdFromPublicKey,
   actorIdFromAddress,
-  actorChangeTypehash,
-  actorChangeType,
   accountStateFlags,
   accountConfigurationAbi,
   accountConfigAddress,
+  accountChangeTypehash,
   accountChangeType,
   aaTransactionType,
   aaPayerType,

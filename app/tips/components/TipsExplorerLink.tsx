@@ -11,10 +11,9 @@ type TipsExplorerLinkProps = {
   className?: string;
 };
 
-// External link into the selected chain's public block explorer. Replaces
-// tips-ui's NEXT_PUBLIC_BLOCK_EXPLORER_URL-based ExplorerLink with the
-// chain-aware tipsExplorerHref; renders plain text when the chain has no
-// explorer configured (e.g. Zeronet).
+// External link into the selected chain's public block explorer via the chain-
+// aware tipsExplorerHref; renders plain text when the chain has no explorer
+// configured (e.g. Zeronet).
 export function TipsExplorerLink({
   chain,
   type,
