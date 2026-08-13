@@ -89,7 +89,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
             transition={panelTransition}
             onClick={stop}
             className={cn(
-              'flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-white text-black shadow-xl focus:outline-none dark:border-white/10 dark:bg-[#141414] dark:text-white',
+              'flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-background text-foreground shadow-xl focus:outline-none dark:border-white/10 dark:bg-[#141414] dark:text-white',
               className,
             )}
           >
@@ -101,7 +101,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-black dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
+                className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
               >
                 <CloseIcon size={14} />
               </button>

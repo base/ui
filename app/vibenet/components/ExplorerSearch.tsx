@@ -72,7 +72,7 @@ export function ExplorerSearch() {
     <div className="flex flex-col gap-1.5">
       <form onSubmit={handleSubmit} className="relative w-full">
         <svg
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black dark:text-white"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground"
           viewBox="0 0 16 16"
           fill="none"
           stroke="currentColor"
@@ -93,7 +93,7 @@ export function ExplorerSearch() {
           spellCheck={false}
           autoComplete="off"
           className={cn(
-            'w-full rounded-full border border-bds-gray-10 bg-bds-gray-0 py-3 pl-9 font-sans text-sm text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40',
+            'w-full rounded-full border border-bds-gray-10 bg-bds-gray-0 py-3 pl-9 font-sans text-sm text-foreground outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-bds-blue-40',
             hasQuery ? 'pr-20' : 'pr-3.5',
           )}
         />

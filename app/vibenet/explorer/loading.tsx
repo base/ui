@@ -9,7 +9,7 @@ export default function ExplorerLoading() {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="rounded-2xl border border-bds-gray-10 bg-white p-4 dark:border-white/10 dark:bg-white/5"
+            className="rounded-2xl border border-bds-gray-10 bg-background p-4 dark:border-white/10 dark:bg-white/5"
           >
             <Skeleton className="h-4 w-24" />
             <Skeleton className="mt-2 h-7 w-16" />
@@ -21,7 +21,7 @@ export default function ExplorerLoading() {
         {[0, 1].map((i) => (
           <div
             key={i}
-            className="rounded-2xl border border-bds-gray-10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+            className="rounded-2xl border border-bds-gray-10 bg-background p-5 dark:border-white/10 dark:bg-white/5"
           >
             <Skeleton className="h-5 w-32" />
             <div className="mt-4 flex flex-col gap-3">

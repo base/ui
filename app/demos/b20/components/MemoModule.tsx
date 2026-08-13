@@ -59,10 +59,10 @@ export function MemoModule({
           description="See the short references attached to token activity."
           action={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
         />
-        <Card className="bg-white p-5 dark:bg-white/5">
+        <Card className="bg-background p-5 dark:bg-white/5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <span className="rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
+              <span className="rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue">
                 Sample transaction
               </span>
               <Text className="mt-3" variant="headline">
@@ -115,7 +115,7 @@ export function MemoModule({
         description="Add a short reference to a token transfer so your team can find it later."
         action={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
       />
-      <Card className="bg-white p-5 dark:bg-white/5">
+      <Card className="bg-background p-5 dark:bg-white/5">
         {!token ? (
           <EmptyToken />
         ) : (

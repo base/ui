@@ -35,7 +35,7 @@ export function SampleAnnouncementViewer({ onDeploy }: { onDeploy: () => void })
         action={<CopyPromptButton prompt={READ_ANNOUNCEMENT_PROMPT} module="announcements" />}
       />
       <div className="flex items-center justify-between gap-3">
-        <span className="rounded-full bg-bds-gray-5 px-2.5 py-1 text-[11px] text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30">
+        <span className="rounded-full bg-bds-gray-5 px-2.5 py-1 text-[11px] text-bds-gray-60 dark:bg-white/10">
           Sample token · Read only
         </span>
         <span className="text-[12px] text-bds-gray-50">{SAMPLE_ANNOUNCEMENTS.length} announcements</span>
@@ -43,10 +43,10 @@ export function SampleAnnouncementViewer({ onDeploy }: { onDeploy: () => void })
       <div className="grid gap-4">
         {SAMPLE_ANNOUNCEMENTS.map((announcement) => (
           <article key={announcement.id}>
-            <Card className="bg-white p-5 dark:bg-white/5">
+            <Card className="bg-background p-5 dark:bg-white/5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <span className="rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
+                  <span className="rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue">
                     {announcement.type} · Mock announcement
                   </span>
                   <Text as="h3" className="mt-3" variant="headline">
@@ -75,14 +75,14 @@ export function SampleAnnouncementViewer({ onDeploy }: { onDeploy: () => void })
                   <dd className="mt-1 font-mono text-[11px]">{announcement.call}</dd>
                 </div>
               </dl>
-              <div className="mt-4 rounded-lg bg-bds-gray-5 px-3 py-2 text-[11px] text-bds-gray-60 dark:bg-white/5 dark:text-bds-gray-30">
+              <div className="mt-4 rounded-lg bg-bds-gray-5 px-3 py-2 text-[11px] text-bds-gray-60 dark:bg-white/5">
                 The notice and its token change were recorded together.
               </div>
             </Card>
           </article>
         ))}
       </div>
-      <Card className="flex flex-wrap items-center justify-between gap-3 bg-bds-blue-0 p-4 dark:bg-bds-blue-100/30">
+      <Card className="flex flex-wrap items-center justify-between gap-3 bg-bds-blue-0 p-4">
         <div>
           <Text variant="label">Want to publish an announcement?</Text>
           <Text variant="footnote" tone="muted">
@@ -220,10 +220,10 @@ export function AnnouncementModule({
           action={<CopyPromptButton prompt={READ_ANNOUNCEMENT_PROMPT} module="announcements" />}
         />
         <div className="grid gap-4">
-          <Card className="bg-white p-5 dark:bg-white/5">
+          <Card className="bg-background p-5 dark:bg-white/5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <span className="rounded-full bg-bds-orange-0 px-2 py-1 text-[11px] text-bds-orange-70 dark:bg-bds-orange-100/40 dark:text-bds-orange-20">
+                <span className="rounded-full bg-bds-orange-0 px-2 py-1 text-[11px] text-bds-orange-70">
                   Scheduled update · Mock data
                 </span>
                 <Text className="mt-3" variant="headline">
@@ -250,10 +250,10 @@ export function AnnouncementModule({
               </div>
             </dl>
           </Card>
-          <Card className="bg-white p-5 dark:bg-white/5">
+          <Card className="bg-background p-5 dark:bg-white/5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <span className="rounded-full bg-bds-gray-5 px-2 py-1 text-[11px] text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30">
+                <span className="rounded-full bg-bds-gray-5 px-2 py-1 text-[11px] text-bds-gray-60 dark:bg-white/10">
                   Information only · Mock data
                 </span>
                 <Text className="mt-3" variant="headline">
@@ -277,7 +277,7 @@ export function AnnouncementModule({
             </dl>
           </Card>
         </div>
-        <Card className="flex flex-wrap items-center justify-between gap-3 bg-bds-blue-0 p-4 dark:bg-bds-blue-100/30">
+        <Card className="flex flex-wrap items-center justify-between gap-3 bg-bds-blue-0 p-4">
           <div>
             <Text variant="label">Ready to publish an announcement?</Text>
             <Text variant="footnote" tone="muted">
@@ -301,7 +301,7 @@ export function AnnouncementModule({
       {published ? (
         <div
           role="status"
-          className="animate-in flex items-start gap-3 rounded-xl border border-bds-green-20 bg-bds-green-0 p-4 dark:border-bds-green-80 dark:bg-bds-green-100/20"
+          className="animate-in flex items-start gap-3 rounded-xl border border-bds-green-20 bg-bds-green-0 p-4"
         >
           <span
             className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bds-green-50 text-[13px] text-white"
@@ -327,26 +327,26 @@ export function AnnouncementModule({
             type="button"
             onClick={() => setPublished(null)}
             aria-label="Dismiss confirmation"
-            className="-mr-1 -mt-1 shrink-0 rounded-full px-2 py-1 text-[12px] text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white"
+            className="-mr-1 -mt-1 shrink-0 rounded-full px-2 py-1 text-[12px] text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
           >
             ×
           </button>
         </div>
       ) : null}
-      <Card className="bg-white p-5 dark:bg-white/5">
+      <Card className="bg-background p-5 dark:bg-white/5">
         {!token ? (
           <EmptyToken />
         ) : token.variant !== 'asset' ? (
-          <p className="rounded-lg bg-bds-orange-0 p-4 text-[13px] text-bds-orange-70 dark:bg-bds-orange-100/40">
+          <p className="rounded-lg bg-bds-orange-0 p-4 text-[13px] text-bds-orange-70">
             Announcements are not available on Stablecoin tokens. They are only available on Asset tokens.
           </p>
         ) : (
           <>
             {tokenAccess !== 'operator' ? (
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4 text-[13px] dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4 text-[13px]">
                 <div>
                   <strong>This wallet cannot publish announcements for this asset</strong>
-                  <p className="mt-1 text-bds-gray-60 dark:text-bds-gray-30">
+                  <p className="mt-1 text-bds-gray-60">
                     Create your own Asset token to write and publish announcements.
                   </p>
                 </div>
@@ -355,7 +355,7 @@ export function AnnouncementModule({
                 </Button>
               </div>
             ) : (
-              <div className="mb-5 rounded-xl bg-bds-green-0 p-3 text-[12px] text-bds-green-70 dark:bg-bds-green-100/30 dark:text-bds-green-20">
+              <div className="mb-5 rounded-xl bg-bds-green-0 p-3 text-[12px] text-bds-green-70">
                 Your wallet can publish announcements for this asset.
               </div>
             )}
@@ -377,8 +377,8 @@ export function AnnouncementModule({
                   className={cn(
                     'rounded-full px-3 py-1.5 text-[12px]',
                     announcementType === item
-                      ? 'bg-base-blue text-white'
-                      : 'bg-bds-gray-5 text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30',
+                      ? 'bg-base-blue text-white dark:text-black'
+                      : 'bg-bds-gray-5 text-bds-gray-60 dark:bg-white/10',
                   )}
                 >
                   {item === 'disclosure' ? 'Publish announcement' : 'Publish announcement with scheduled asset split'}

@@ -7,8 +7,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
-import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
-import { spectrum } from '../spectrum';
+import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { demoLabel } from '../demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
@@ -47,7 +46,7 @@ const styles: Record<string, CSSProperties> = {
   sidebar: {
     width: SIDEBAR_WIDTH,
     flexShrink: 0,
-    borderRight: '1px solid rgba(0,0,0,0.06)',
+    borderRight: `1px solid ${SELECTED}`,
     display: 'flex',
     flexDirection: 'column',
     padding: '0 12px 20px',
@@ -104,9 +103,59 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     textDecoration: 'none',
-    color: spectrum.gray[50],
+    color: 'var(--bds-gray-50)',
   },
   footerIcon: { display: 'inline-flex', width: 18, height: 18 },
+  // Sits outside the sliding nav container so the toggle stays pinned to the
+  // bottom of the sidebar on sub-nav routes too, where `sidebarFooter` (which
+  // lives inside the main-nav pane) has slid away.
+  //
+  // Absolute rather than in flow so it shares a line with the last footer link:
+  // those links are inside the sliding pane and this is not, so as a flow sibling
+  // it could only ever stack below them. Taking it out of flow lets the pane occupy
+  // the full height, which drops the footer onto the bottom row beside the switch.
+  // Offsets live in `.theme-switch-footer` because they mirror the container's own
+  // padding, and the desktop sidebar and mobile drawer pad differently.
+  themeFooter: { display: 'flex', justifyContent: 'flex-end' },
+  // Hugs the switch rather than filling the row: with no label beside it, a
+  // full-width button would hover-fill a strip of empty sidebar. The inherited
+  // footer-row padding keeps the hit target at 54×38, comfortably past the 24×24
+  // WCAG 2.5.8 floor even though the track itself is only 34×20.
+  themeButton: {
+    border: 0,
+    background: 'transparent',
+    cursor: 'pointer',
+  },
+  // The switch state and the theme are the same thing, so the off state only ever
+  // renders on a light sidebar and the on state only on a dark one. Off therefore
+  // has to hold up against white specifically, and a pale track left the white
+  // thumb at 1.15:1 — invisible, against the 3:1 WCAG 1.4.11 asks of UI components.
+  // The fix is a gray-50 track rather than an outlined thumb: it puts the thumb and
+  // the track edge both at ~5:1 without ringing the icon in a second circle.
+  switchTrack: {
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    width: 34,
+    height: 20,
+    padding: 2,
+    borderRadius: 999,
+    background: 'var(--bds-gray-50)',
+    boxSizing: 'border-box',
+  },
+  switchTrackOn: { background: BRAND_BLUE },
+  switchThumb: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: '50%',
+    // Reads against both the grey off-track and the blue on-track.
+    background: 'var(--bds-gray-0)',
+    color: 'var(--bds-gray-50)',
+  },
+  switchThumbOn: { transform: 'translateX(14px)', color: BRAND_BLUE },
   main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
   topbar: {
     height: 65,
@@ -233,7 +282,7 @@ function NavGlyph({ name }: NavGlyphProps) {
 function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, layoutScope = 'desktop' }: NavRowProps) {
   let color = DISABLED;
   if (enabled) {
-    color = active ? spectrum.gray[80] : spectrum.gray[50];
+    color = active ? 'var(--bds-gray-80)' : 'var(--bds-gray-50)';
   }
 
   const row = (
@@ -271,7 +320,7 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
       <Text as="span" variant="label.medium" tone="inherit">{label}</Text>
       {!enabled && <span style={styles.soon}>Soon</span>}
       {hasChildren && (
-        <span style={{ marginLeft: 'auto', marginRight: -8, color: spectrum.gray[50] }}>
+        <span style={{ marginLeft: 'auto', marginRight: -8, color: 'var(--bds-gray-50)' }}>
           <AnimatedArrowIcon size={16} strokeWidth={1.5} />
         </span>
       )}
@@ -320,7 +369,40 @@ const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
 // slipped through), so it just has to be longer than a slow route.
 const PENDING_PATH_TIMEOUT_MS = 5000;
 
-function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { onNavigate?: () => void; hideBrand?: boolean; layoutScope?: string }) {
+// Rides inside the switch thumb. Stroke is heavier than the nav glyphs' 1.8
+// because at 10px that weight all but disappears.
+function ThemeIcon({ dark }: { dark: boolean }) {
+  const common = {
+    width: 10,
+    height: 10,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2.6,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+  return dark ? (
+    <svg {...common}>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+    </svg>
+  ) : (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+    </svg>
+  );
+}
+
+type SidebarContentProps = {
+  dark: boolean;
+  onToggleTheme: () => void;
+  onNavigate?: () => void;
+  hideBrand?: boolean;
+  layoutScope?: string;
+};
+
+function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScope = 'desktop' }: SidebarContentProps) {
   const pathname = usePathname() || '/';
   // The nav follows the tapped href immediately instead of waiting for the router:
   // usePathname() only updates once the route commits, which left the pill and the
@@ -384,7 +466,7 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
               <Link
                 href="/"
                 className="nav-header-hover group"
-                style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: spectrum.gray[50] }}
+                style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: 'var(--bds-gray-50)' }}
                 onClick={(event) => {
                   if (opensInNewTab(event)) return;
                   selectPath('/');
@@ -505,6 +587,36 @@ function SidebarContent({ onNavigate, hideBrand, layoutScope = 'desktop' }: { on
           )}
         </AnimatePresence>
       </div>
+
+      <div className="theme-switch-footer" style={styles.themeFooter}>
+        {/* `role="switch"` rather than a plain button: the control reports a state
+            rather than firing an action, so screen readers announce "on"/"off"
+            against a stable label instead of the label itself changing. The switch
+            renders bare, so that name comes from `aria-label` — the visible track
+            is decorative and hidden from the tree. */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={dark}
+          aria-label="Dark mode"
+          onClick={onToggleTheme}
+          className="nav-header-hover theme-switch"
+          style={{ ...styles.footerLink, ...styles.themeButton }}
+        >
+          <span
+            aria-hidden
+            className="theme-switch-track"
+            style={{ ...styles.switchTrack, ...(dark ? styles.switchTrackOn : null) }}
+          >
+            <span
+              className="theme-switch-thumb"
+              style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
+            >
+              <ThemeIcon dark={dark} />
+            </span>
+          </span>
+        </button>
+      </div>
     </>
   );
 }
@@ -538,7 +650,7 @@ function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
       <button
         type="button"
         onClick={onDismiss}
-        className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-black"
+        className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
         aria-label="Dismiss banner"
       >
         <CloseIcon size={10} />
@@ -552,6 +664,25 @@ export function AppShell({ children }: PropsWithChildren) {
   const title = titleForPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  // Starts false on both server and client so the first render matches; the
+  // effect below reads the attribute the pre-paint script in layout.tsx set.
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(document.documentElement.dataset.theme === 'dark');
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !dark;
+    document.documentElement.dataset.theme = nextDark ? 'dark' : 'light';
+    setDark(nextDark);
+    try {
+      localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+    } catch {
+      // Private browsing or a blocked-storage profile — the theme still applies
+      // for this session, it just won't survive a reload.
+    }
+  };
 
   useEffect(() => {
     setMenuOpen(false);
@@ -582,7 +713,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <div style={styles.root}>
         {/* Desktop sidebar */}
         <aside className="sidebar-desktop" style={styles.sidebar}>
-          <SidebarContent />
+          <SidebarContent dark={dark} onToggleTheme={toggleTheme} />
         </aside>
 
         {/* Mobile header (logo + hamburger) */}
@@ -615,7 +746,13 @@ export function AppShell({ children }: PropsWithChildren) {
               exit={{ x: '100%' }}
               transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
             >
-              <SidebarContent onNavigate={() => setMenuOpen(false)} hideBrand layoutScope="mobile" />
+              <SidebarContent
+                dark={dark}
+                onToggleTheme={toggleTheme}
+                onNavigate={() => setMenuOpen(false)}
+                hideBrand
+                layoutScope="mobile"
+              />
             </motion.aside>
           )}
         </AnimatePresence>

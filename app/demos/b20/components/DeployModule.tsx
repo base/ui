@@ -321,7 +321,7 @@ export function DeployModule({
         title="Create a token"
         description="Set up a test token, then use it to try the B20 features in this demo."
       />
-      <Card className="bg-white p-5 dark:bg-white/5">
+      <Card className="bg-background p-5 dark:bg-white/5">
         <div className="flex gap-2">
           {(['asset', 'stablecoin'] as const).map((item) => (
             <button
@@ -330,14 +330,14 @@ export function DeployModule({
               onClick={() => setVariant(item)}
               className={cn(
                 'rounded-full px-3 py-1.5 text-[12px]',
-                variant === item ? 'bg-base-blue text-white' : 'bg-bds-gray-5 text-bds-gray-60 dark:bg-white/10',
+                variant === item ? 'bg-base-blue text-white dark:text-black' : 'bg-bds-gray-5 text-bds-gray-60 dark:bg-white/10',
               )}
             >
               {item === 'asset' ? 'Asset' : 'Stablecoin'}
             </button>
           ))}
         </div>
-        <div className="mt-3 rounded-xl bg-bds-blue-0 p-3 text-[12px] text-bds-gray-70 dark:bg-bds-blue-100/30 dark:text-bds-gray-20">
+        <div className="mt-3 rounded-xl bg-bds-blue-0 p-3 text-[12px] text-bds-gray-70">
           <strong>{variant === 'asset' ? 'Asset' : 'Stablecoin'}: </strong>
           {variant === 'asset'
             ? 'Choose this for flexible decimals, announcements, and displayed-balance changes.'
@@ -383,19 +383,19 @@ export function DeployModule({
             Optional. Create or choose shared Policy Registry rules, then attach their IDs to this token’s actions.
             Leave an action blank to keep it open to everyone.
           </Text>
-          <div className="mt-4 rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4 dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+          <div className="mt-4 rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4">
             <Text variant="label">Policies belong to the registry and are attached to token actions</Text>
             <Text variant="footnote" tone="muted" className="mt-1 max-w-3xl">
               A wallet may administer a policy or appear in its member list, but policies are not attached to wallets.
               The registry assigns each policy a uint64 ID. This token stores that ID in a scope such as Transfer sender
               and asks the registry whether the wallet involved in that action is allowed.
             </Text>
-            <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px] text-bds-gray-60 dark:text-bds-gray-30">
-              <span className="rounded bg-white px-2 py-1 dark:bg-white/10">Registry policy</span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[11px] text-bds-gray-60">
+              <span className="rounded bg-background px-2 py-1 dark:bg-white/10">Registry policy</span>
               <span aria-hidden="true">→</span>
-              <span className="rounded bg-white px-2 py-1 dark:bg-white/10">uint64 Policy ID</span>
+              <span className="rounded bg-background px-2 py-1 dark:bg-white/10">uint64 Policy ID</span>
               <span aria-hidden="true">→</span>
-              <span className="rounded bg-white px-2 py-1 dark:bg-white/10">Token action scope</span>
+              <span className="rounded bg-background px-2 py-1 dark:bg-white/10">Token action scope</span>
             </div>
           </div>
           <div className="mt-4 rounded-xl border border-bds-gray-10 p-4 dark:border-white/10">
@@ -499,7 +499,7 @@ export function DeployModule({
                       const owner = policyAssignments.find((entry) => entry.id !== assignment.id && entry.scopes.includes(scope));
                       const selected = assignment.scopes.includes(scope);
                       return (
-                        <label key={scope} className={cn('rounded-lg border p-3 text-[12px]', owner ? 'cursor-not-allowed opacity-50' : 'cursor-pointer', selected ? 'border-base-blue bg-bds-blue-0 dark:bg-bds-blue-100/30' : 'border-bds-gray-10 dark:border-white/10')}>
+                        <label key={scope} className={cn('rounded-lg border p-3 text-[12px]', owner ? 'cursor-not-allowed opacity-50' : 'cursor-pointer', selected ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}>
                           <span className="flex items-center gap-2">
                             <input type="checkbox" checked={selected} disabled={!!owner} onChange={() => togglePolicyScope(assignment.id, scope)} />
                             <strong>{label}</strong>
@@ -518,7 +518,7 @@ export function DeployModule({
               <p className="text-[11px] text-bds-gray-50">Removing a policy here only removes it from this token draft. The registry policy continues to exist.</p>
             </div>
           ) : (
-            <p className="mt-4 rounded-lg bg-bds-gray-5 p-4 text-[12px] text-bds-gray-60 dark:bg-white/5 dark:text-bds-gray-30">
+            <p className="mt-4 rounded-lg bg-bds-gray-5 p-4 text-[12px] text-bds-gray-60 dark:bg-white/5">
               No policies are assigned. Sending, receiving, delegated movement, and minting remain open to everyone.
             </p>
           )}
@@ -584,7 +584,7 @@ function CreatedView({
   ];
   return (
     <div className="animate-in flex flex-col gap-5">
-      <div className="relative flex flex-col items-center gap-3 overflow-hidden rounded-2xl border border-bds-green-20 bg-bds-green-0 px-6 py-8 text-center dark:border-bds-green-80 dark:bg-bds-green-100/20">
+      <div className="relative flex flex-col items-center gap-3 overflow-hidden rounded-2xl border border-bds-green-20 bg-bds-green-0 px-6 py-8 text-center">
         <ConfettiBurst />
         <span
           className="relative flex h-12 w-12 items-center justify-center rounded-full bg-bds-green-50 text-xl text-white shadow-[0_0_0_8px_rgba(8,173,117,0.12)]"
@@ -601,7 +601,7 @@ function CreatedView({
         </Text>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="bg-white p-5 dark:bg-white/5">
+        <Card className="bg-background p-5 dark:bg-white/5">
           <Text variant="label" tone="muted">
             Token
           </Text>
@@ -650,7 +650,7 @@ function CreatedView({
             </Link>
           </div>
         </Card>
-        <Card className="bg-white p-5 dark:bg-white/5">
+        <Card className="bg-background p-5 dark:bg-white/5">
           <Text variant="label" tone="muted">
             What was set up
           </Text>
@@ -679,7 +679,7 @@ function CreatedView({
               key={step.module}
               type="button"
               onClick={() => onNavigate(step.module)}
-              className="group flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 text-left transition-colors hover:border-base-blue dark:border-white/10 dark:bg-white/5"
+              className="group flex flex-col rounded-xl border border-bds-gray-10 bg-background p-4 text-left transition-colors hover:border-base-blue dark:border-white/10 dark:bg-white/5"
             >
               <Text variant="headline">{step.title}</Text>
               <Text variant="footnote" tone="muted" className="mt-1">

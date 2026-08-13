@@ -375,7 +375,7 @@ export function B20Demo() {
           ? 'external'
           : 'disconnected';
   return (
-    <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-5 pb-6 text-black [&_.text-3xl]:hidden [&_.tracking-tight]:capitalize dark:text-white">
+    <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-5 pb-6 text-foreground [&_.text-3xl]:hidden [&_.tracking-tight]:capitalize dark:text-white">
       <header className="flex flex-wrap items-center justify-end gap-3 border-b border-bds-gray-10 pb-4 dark:border-white/10">
         <div className={cn('flex flex-wrap items-center gap-2', textVariantClasses.label)}>
           <span className="rounded-full border border-bds-gray-10 px-3 py-2 dark:border-white/10">
@@ -395,7 +395,7 @@ export function B20Demo() {
               <button
                 type="button"
                 onClick={disconnect}
-                className="rounded-full px-2 py-1 text-[11px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-black dark:text-bds-gray-30 dark:hover:bg-white/10 dark:hover:text-white"
+                className="rounded-full px-2 py-1 text-[11px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
               >
                 Disconnect
               </button>
@@ -499,7 +499,7 @@ export function B20Demo() {
       {inspectError ? (
         <div
           role="alert"
-          className="rounded-xl border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20"
+          className="rounded-xl border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
         >
           {inspectError}
         </div>

@@ -14,7 +14,7 @@ import type { BlockRow, StatsRow, TxRow } from '../library/api-types';
 import { vibenetApi } from '../library/client';
 import { timeAgoFromSeconds } from '../library/explorer';
 
-const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0 dark:bg-bds-blue-100/30';
+const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0';
 const TH =
   'px-4 py-3 text-left text-sm font-normal text-bds-gray-50 first:pl-0 last:pr-0';
 const TD = 'px-4 py-3 text-sm first:pl-0 last:pr-0';
@@ -144,7 +144,7 @@ export default function ExplorerPage() {
             <Card
               key={stat.key}
               className={cn(
-                'bg-white p-4 transition-colors duration-700 dark:bg-white/5',
+                'bg-background p-4 transition-colors duration-700 dark:bg-white/5',
                 statHighlight.has(stat.key) && NEW_ROW_HIGHLIGHT,
               )}
             >
@@ -158,7 +158,7 @@ export default function ExplorerPage() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
+        <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
           <Text variant="headline">Latest Blocks</Text>
           <TablePanel loading={loading} isEmpty={blocks.length === 0} emptyText="No blocks yet">
             <table className="w-full border-collapse">
@@ -201,7 +201,7 @@ export default function ExplorerPage() {
           </TablePanel>
         </Card>
 
-        <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
+        <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
           <Text variant="headline">Latest Transactions</Text>
           <TablePanel loading={loading} isEmpty={txs.length === 0} emptyText="No transactions yet">
             {/* Desktop table */}

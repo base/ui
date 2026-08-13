@@ -98,7 +98,7 @@ export function Tabs({
         <motion.span
           animate={{ x: pill.x, width: pill.width }}
           transition={pillTransition}
-          className="absolute top-1 bottom-1 left-0 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+          className="absolute top-1 bottom-1 left-0 rounded-full bg-background shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
         />
       )}
       {items.map((item) => {
@@ -119,10 +119,10 @@ export function Tabs({
               'relative z-[1] flex shrink-0 select-none items-center gap-1.5 rounded-full font-sans whitespace-nowrap transition-colors',
               size === 'sm' ? 'px-2.5 py-1 text-[12px]' : 'px-3 py-1.5 text-[14px]',
               item.disabled
-                ? 'cursor-not-allowed text-bds-gray-40 dark:text-bds-gray-60'
+                ? 'cursor-not-allowed text-bds-gray-40'
                 : active
-                  ? 'text-black dark:text-white'
-                  : 'text-bds-gray-60 hover:text-black dark:text-bds-gray-40 dark:hover:text-white',
+                  ? 'text-foreground'
+                  : 'text-bds-gray-60 hover:text-foreground dark:text-bds-gray-40 dark:hover:text-white',
             )}
           >
             {item.icon && <span className="flex shrink-0">{item.icon}</span>}

@@ -18,7 +18,7 @@ export function MeteringCard({ meter }: { meter: MeterBundleResponse }) {
     (meter.stateRootAccountLeafCount ?? 0) > 0 || (meter.stateRootStorageLeafCount ?? 0) > 0;
 
   return (
-    <Card className="overflow-hidden bg-white dark:bg-white/5">
+    <Card className="overflow-hidden bg-background dark:bg-white/5">
       <div className="p-5">
         <div className="grid grid-cols-3 gap-6">
           <Stat label="Execution" value={`${executionTimeUs.toLocaleString()}μs`} />
@@ -70,7 +70,7 @@ function Footnote({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <span className="text-bds-gray-60 dark:text-bds-gray-40">{label}</span>{' '}
-      <span className="font-medium text-black dark:text-white">{value}</span>
+      <span className="font-medium text-foreground">{value}</span>
     </div>
   );
 }

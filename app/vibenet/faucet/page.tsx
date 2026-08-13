@@ -24,9 +24,9 @@ const RESULT_CLASSES: Record<DripState['phase'], string> = {
   idle: '',
   pending: 'border-bds-gray-10 text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40',
   success:
-    'border-bds-green-20 bg-bds-green-0 text-bds-green-70 dark:border-bds-green-80 dark:bg-bds-green-100/40 dark:text-bds-green-20',
+    'border-bds-green-20 bg-bds-green-0 text-bds-green-70',
   error:
-    'border-bds-red-20 bg-bds-red-0 text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20',
+    'border-bds-red-20 bg-bds-red-0 text-bds-red-70',
 };
 
 function dripErrorMessage(err: unknown): string {
@@ -162,7 +162,7 @@ export default function FaucetPage() {
                 Ready
               </span>
             ) : (
-              <span className="text-[13px] text-black dark:text-white">
+              <span className="text-[13px] text-foreground">
                 {token.summaryValue(loaded)}
               </span>
             )}
@@ -214,10 +214,10 @@ export default function FaucetPage() {
     : [];
 
   return (
-    <div className="animate-in -mx-7 -mb-20 -mt-6 flex min-h-[calc(100vh-116px)] flex-col gap-4 px-7 pt-6 pb-2 text-black dark:text-white">
+    <div className="animate-in -mx-7 -mb-20 -mt-6 flex min-h-[calc(100vh-116px)] flex-col gap-4 px-7 pt-6 pb-2 text-foreground">
       <div>{summaryBody}</div>
 
-      <Card className="flex flex-col gap-3 bg-white p-6 dark:bg-white/5">
+      <Card className="flex flex-col gap-3 bg-background p-6 dark:bg-white/5">
         <div className="flex flex-col gap-0.5">
           <Text variant="label.medium">Recipient Address</Text>
           <Text variant="label.medium" tone="muted">
@@ -235,7 +235,7 @@ export default function FaucetPage() {
               placeholder="0x…"
               spellCheck={false}
               autoComplete="off"
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 font-sans text-[14px] font-normal text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40"
+              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 font-sans text-[14px] font-normal text-foreground outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-bds-blue-40"
             />
           </label>
           <div className="flex flex-wrap gap-3">
@@ -288,7 +288,7 @@ export default function FaucetPage() {
               key={chip.label}
               href={`${VIBENET_EXPLORER_PATH}/address/${chip.address}`}
               className={cn(
-                'animate-in inline-flex gap-2 text-bds-gray-30 transition-colors hover:text-bds-gray-50 hover:no-underline dark:text-bds-gray-50 dark:hover:text-bds-gray-40',
+                'animate-in inline-flex gap-2 text-bds-gray-30 transition-colors hover:text-bds-gray-50 hover:no-underline',
                 i === 1 && 'animate-in-delay-1',
                 i === 2 && 'animate-in-delay-2',
               )}

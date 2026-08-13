@@ -62,7 +62,7 @@ export function AnimatedAmount({ text, decimals, group }: AnimatedAmountProps) {
     <motion.span
       className={cn(
         'tabular-nums transition-colors',
-        rolling && 'text-bds-green-60 dark:text-bds-green-30',
+        rolling && 'text-bds-green-60',
       )}
     >
       {displayed}

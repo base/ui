@@ -71,7 +71,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                 }}
                 className={cn(
                   'border-b border-bds-gray-10 transition-colors duration-700 hover:bg-bds-gray-5/50 dark:border-white/10 dark:hover:bg-white/5',
-                  newIds.has(e.id) && 'bg-bds-blue-0 dark:bg-bds-blue-100/20',
+                  newIds.has(e.id) && 'bg-bds-blue-0',
                 )}
               >
                 <td className="px-4 py-3.5">
@@ -139,7 +139,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
               }}
               className={cn(
                 'flex flex-col gap-2.5 border-b border-bds-gray-10 px-4 py-3.5 transition-colors duration-700 dark:border-white/10',
-                newIds.has(e.id) && 'bg-bds-blue-0 dark:bg-bds-blue-100/20',
+                newIds.has(e.id) && 'bg-bds-blue-0',
               )}
             >
               <div className="flex flex-col gap-0.5">

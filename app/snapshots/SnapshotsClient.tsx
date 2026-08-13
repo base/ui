@@ -31,7 +31,7 @@ const NETWORK_LABELS: Record<string, string> = {
 };
 
 const SHIMMER_GRADIENT =
-  'linear-gradient(90deg, currentColor 0%, currentColor 30%, #0000FF 50%, currentColor 70%, currentColor 100%)';
+  'linear-gradient(90deg, currentColor 0%, currentColor 30%, var(--bds-brand) 50%, currentColor 70%, currentColor 100%)';
 
 function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -82,7 +82,7 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
         </Text>
       </div>
       <div
-        className="flex w-full items-center gap-2 rounded-lg border border-bds-gray-10 bg-white px-3 py-2"
+        className="flex w-full items-center gap-2 rounded-lg border border-bds-gray-10 bg-background px-3 py-2"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -120,7 +120,7 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
         <button
           type="button"
           onClick={handleCopy}
-          className="relative ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center text-bds-gray-60 transition-colors hover:text-black"
+          className="relative ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center text-bds-gray-60 transition-colors hover:text-foreground"
           aria-label="Copy command"
         >
           <AnimatePresence mode="wait" initial={false}>
@@ -327,7 +327,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
           />
         </div>
 
-        <div className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 sm:p-6">
+        <div className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-background p-4 sm:p-6">
           <Text as="h2" variant="headline" className="mb-6">Configuration</Text>
           <section>
             <div className="mb-4">
@@ -350,7 +350,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                     className={cn(
                       'rounded-xl border border-bds-gray-10 px-4 py-3 text-left transition-[color,box-shadow] duration-150 ease-out',
                       selected
-                        ? 'border-transparent ring-2 ring-black'
+                        ? 'border-transparent ring-2 ring-foreground'
                         : 'hover:border-bds-gray-15',
                     )}
                   >
@@ -415,7 +415,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                         className={cn(
                           'flex flex-col items-start rounded-xl border px-4 py-3.5 text-left transition-[color,box-shadow] duration-150 ease-out',
                           selected
-                            ? 'border-transparent ring-2 ring-black'
+                            ? 'border-transparent ring-2 ring-foreground'
                             : 'border-bds-gray-10 hover:border-bds-gray-15',
                         )}
                       >
@@ -472,7 +472,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                           disabled={isDisabled}
                           aria-label={c.displayName}
                           className={cn(
-                            'flex w-full items-center gap-3 bg-white px-4 py-2.5 text-left transition-opacity duration-150 ease-out',
+                            'flex w-full items-center gap-3 bg-background px-4 py-2.5 text-left transition-opacity duration-150 ease-out',
                             !isLast && 'border-b border-bds-gray-10',
                             isDisabled && 'cursor-not-allowed opacity-50',
                           )}

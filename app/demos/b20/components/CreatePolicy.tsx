@@ -194,7 +194,7 @@ export function CreatePolicy({
 
   if (created) {
     return (
-      <Card className="border-bds-green-20 bg-bds-green-0 p-5 dark:border-bds-green-80 dark:bg-bds-green-100/20">
+      <Card className="border-bds-green-20 bg-bds-green-0 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-bds-green-50 text-white">✓</span>
@@ -203,7 +203,7 @@ export function CreatePolicy({
           </div>
           <Button size="sm" variant="outline" onClick={() => { setCreated(null); setMembers(''); setError(null); }}>Create another</Button>
         </div>
-        <div className="mt-5 grid gap-3 rounded-xl border border-bds-green-20 bg-white/70 p-4 text-[13px] sm:grid-cols-2 dark:border-bds-green-80 dark:bg-black/10">
+        <div className="mt-5 grid gap-3 rounded-xl border border-bds-green-20 bg-white/70 p-4 text-[13px] sm:grid-cols-2 dark:bg-black/10">
           <div><p className="text-[11px] text-bds-gray-50">Policy ID (uint64)</p><CopyableValue value={created.id.toString()} className="mt-1" /></div>
           <div><p className="text-[11px] text-bds-gray-50">Type</p><p className="mt-1">{policyKindLabel(created.kind)}</p></div>
           <div><p className="text-[11px] text-bds-gray-50">Policy admin</p><CopyableValue value={created.admin} display={shortAddress(created.admin)} className="mt-1" /></div>
@@ -237,12 +237,12 @@ export function CreatePolicy({
   const compositeReady = children.length >= 2 && children.every(Boolean);
 
   return (
-    <Card className="bg-white p-5 dark:bg-white/5">
+    <Card className="bg-background p-5 dark:bg-white/5">
       <Text as="h3" variant="headline">Create a reusable policy</Text>
       <Text variant="footnote" tone="muted" className="mt-1 max-w-2xl">Build one address list or combine existing policies into a live authorization rule.</Text>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         {[['simple', 'Single list', 'Create one allowlist or blocklist.'], ['composite', 'Combine policies', 'Use multiple existing policies together.']].map(([value, title, body]) => (
-          <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value as typeof mode); setTestResults(null); }} className={cn('rounded-xl border p-4 text-left', mode === value ? 'border-base-blue bg-bds-blue-0 dark:bg-bds-blue-100/30' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{title}</strong><span className="mt-1 block text-[12px] text-bds-gray-60 dark:text-bds-gray-30">{body}</span></button>
+          <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value as typeof mode); setTestResults(null); }} className={cn('rounded-xl border p-4 text-left', mode === value ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{title}</strong><span className="mt-1 block text-[12px] text-bds-gray-60">{body}</span></button>
         ))}
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -251,12 +251,12 @@ export function CreatePolicy({
       </div>
       {mode === 'simple' ? (
         <>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">{simpleKinds.map((item) => <button key={item} type="button" aria-pressed={simpleKind === item} onClick={() => setSimpleKind(item)} className={cn('rounded-xl border p-4 text-left', simpleKind === item ? 'border-base-blue bg-bds-blue-0 dark:bg-bds-blue-100/30' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px] capitalize">{item}</strong><span className="mt-1 block text-[12px] text-bds-gray-60 dark:text-bds-gray-30">{item === 'allowlist' ? 'Only member wallets pass.' : 'Every wallet except listed members passes.'}</span></button>)}</div>
-          <div className="mt-5"><Field label={simpleKind === 'allowlist' ? 'Initially allowed wallets (optional)' : 'Initially blocked wallets (optional)'} hint="Enter up to 64 addresses separated by spaces, commas, or new lines."><textarea value={members} onChange={(event) => setMembers(event.target.value)} rows={4} className="min-h-24 w-full resize-y rounded-lg border border-bds-gray-10 bg-white px-3 py-2 font-mono text-[12px] outline-none focus:border-base-blue dark:border-white/10 dark:bg-white/5" /></Field></div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">{simpleKinds.map((item) => <button key={item} type="button" aria-pressed={simpleKind === item} onClick={() => setSimpleKind(item)} className={cn('rounded-xl border p-4 text-left', simpleKind === item ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px] capitalize">{item}</strong><span className="mt-1 block text-[12px] text-bds-gray-60">{item === 'allowlist' ? 'Only member wallets pass.' : 'Every wallet except listed members passes.'}</span></button>)}</div>
+          <div className="mt-5"><Field label={simpleKind === 'allowlist' ? 'Initially allowed wallets (optional)' : 'Initially blocked wallets (optional)'} hint="Enter up to 64 addresses separated by spaces, commas, or new lines."><textarea value={members} onChange={(event) => setMembers(event.target.value)} rows={4} className="min-h-24 w-full resize-y rounded-lg border border-bds-gray-10 bg-background px-3 py-2 font-mono text-[12px] outline-none focus:border-base-blue dark:border-white/10 dark:bg-white/5" /></Field></div>
         </>
       ) : (
         <>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">{compositeKinds.map((item) => <button key={item} type="button" aria-pressed={compositeKind === item} onClick={() => { setCompositeKind(item); setTestResults(null); }} className={cn('rounded-xl border p-4 text-left', compositeKind === item ? 'border-base-blue bg-bds-blue-0 dark:bg-bds-blue-100/30' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{policyKindLabel(item)}</strong><span className="mt-1 block text-[12px] text-bds-gray-60 dark:text-bds-gray-30">{item === 'union' ? 'UNION · A wallet passes when any child allows it.' : 'INTERSECT · A wallet passes only when every child allows it.'}</span></button>)}</div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">{compositeKinds.map((item) => <button key={item} type="button" aria-pressed={compositeKind === item} onClick={() => { setCompositeKind(item); setTestResults(null); }} className={cn('rounded-xl border p-4 text-left', compositeKind === item ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{policyKindLabel(item)}</strong><span className="mt-1 block text-[12px] text-bds-gray-60">{item === 'union' ? 'UNION · A wallet passes when any child allows it.' : 'INTERSECT · A wallet passes only when every child allows it.'}</span></button>)}</div>
           <div className="mt-5 space-y-3">
             {children.map((child, index) => {
               const recent = simpleRecent.find((policy) => policy.id.toString() === child);
@@ -275,11 +275,11 @@ export function CreatePolicy({
                     ) : null}
                   </div>
                   {child ? (
-                    <div className="mt-3 rounded-lg bg-bds-green-0 p-3 dark:bg-bds-green-100/20">
+                    <div className="mt-3 rounded-lg bg-bds-green-0 p-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <strong className="text-[13px]">{recent?.label || policyKindLabel((recent?.kind || policyKindFromId(BigInt(child))) as PolicyKind)}</strong>
-                          <p className="mt-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-30">
+                          <p className="mt-1 text-[12px] text-bds-gray-60">
                             {policyKindLabel((recent?.kind || policyKindFromId(BigInt(child))) as PolicyKind)} · Created in Policy Registry
                           </p>
                         </div>
@@ -293,8 +293,8 @@ export function CreatePolicy({
                         <Field label="Child name" hint="Saved locally so this child is recognizable."><Input value={draft.label} onChange={(event) => setChildDrafts((current) => current.map((item, i) => i === index && item ? { ...item, label: event.target.value } : item))} placeholder="KYC list" /></Field>
                         <Field label="Child policy admin"><Input value={draft.admin} onChange={(event) => setChildDrafts((current) => current.map((item, i) => i === index && item ? { ...item, admin: event.target.value } : item))} placeholder="0x…" /></Field>
                       </div>
-                      <div className="flex gap-2">{simpleKinds.map((item) => <button key={item} type="button" aria-pressed={draft.kind === item} onClick={() => setChildDrafts((current) => current.map((value, i) => i === index && value ? { ...value, kind: item } : value))} className={cn('rounded-full px-3 py-1.5 text-[12px]', draft.kind === item ? 'bg-base-blue text-white' : 'bg-white dark:bg-white/10')}>{policyKindLabel(item)}</button>)}</div>
-                      <Field label={draft.kind === 'allowlist' ? 'Initially allowed wallets (optional)' : 'Initially blocked wallets (optional)'}><textarea value={draft.members} onChange={(event) => setChildDrafts((current) => current.map((item, i) => i === index && item ? { ...item, members: event.target.value } : item))} rows={3} className="w-full rounded-lg border border-bds-gray-10 bg-white px-3 py-2 font-mono text-[12px] dark:border-white/10 dark:bg-white/5" /></Field>
+                      <div className="flex gap-2">{simpleKinds.map((item) => <button key={item} type="button" aria-pressed={draft.kind === item} onClick={() => setChildDrafts((current) => current.map((value, i) => i === index && value ? { ...value, kind: item } : value))} className={cn('rounded-full px-3 py-1.5 text-[12px]', draft.kind === item ? 'bg-base-blue text-white dark:text-black' : 'bg-background dark:bg-white/10')}>{policyKindLabel(item)}</button>)}</div>
+                      <Field label={draft.kind === 'allowlist' ? 'Initially allowed wallets (optional)' : 'Initially blocked wallets (optional)'}><textarea value={draft.members} onChange={(event) => setChildDrafts((current) => current.map((item, i) => i === index && item ? { ...item, members: event.target.value } : item))} rows={3} className="w-full rounded-lg border border-bds-gray-10 bg-background px-3 py-2 font-mono text-[12px] dark:border-white/10 dark:bg-white/5" /></Field>
                       <div className="flex gap-2"><Button size="sm" onClick={() => void createChildPolicy(index)} disabled={creatingChild !== null}>{creatingChild === index ? 'Creating child…' : `Create ${policyKindLabel(draft.kind)} child`}</Button><Button size="sm" variant="outline" onClick={() => setChildDrafts((current) => current.map((item, i) => i === index ? null : item))}>Cancel</Button></div>
                     </div>
                   ) : (
@@ -313,7 +313,7 @@ export function CreatePolicy({
             })}
           </div>
           {children.length < 4 ? <Button className="mt-3" size="sm" variant="outline" onClick={() => { setChildren((current) => [...current, '']); setChildDrafts((current) => [...current, null]); setChildManualIds((current) => [...current, '']); }}>Add child policy</Button> : null}
-          <div className="mt-5 rounded-xl bg-bds-blue-0 p-4 dark:bg-bds-blue-100/30"><p className="text-[11px] uppercase tracking-wide text-bds-gray-50">Live logic preview</p><p className="mt-2 font-mono text-[13px]">{expression}</p><p className="mt-2 text-[12px] text-bds-gray-60 dark:text-bds-gray-30">Child policies are evaluated live. Changing a child later can change this result.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><Input value={testWallet} onChange={(event) => { setTestWallet(event.target.value); setTestResults(null); }} placeholder="Wallet address to test" /><Button size="sm" variant="outline" onClick={() => void testComposite()}>Test wallet</Button></div>{testResults ? <div className="mt-4"><div className="flex flex-wrap gap-2">{testResults.map((allowed, index) => <span key={index} className={cn('rounded-full px-2 py-1 text-[11px]', allowed ? 'bg-bds-green-0 text-bds-green-70' : 'bg-bds-red-0 text-bds-red-70')}>Policy {String.fromCharCode(65 + index)}: {allowed ? 'Allows' : 'Denies'}</span>)}</div><p className="mt-3 font-medium">Composite result: {evaluateComposite(compositeKind, testResults) ? 'Wallet passes' : 'Wallet does not pass'}</p></div> : null}</div>
+          <div className="mt-5 rounded-xl bg-bds-blue-0 p-4"><p className="text-[11px] uppercase tracking-wide text-bds-gray-50">Live logic preview</p><p className="mt-2 font-mono text-[13px]">{expression}</p><p className="mt-2 text-[12px] text-bds-gray-60">Child policies are evaluated live. Changing a child later can change this result.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><Input value={testWallet} onChange={(event) => { setTestWallet(event.target.value); setTestResults(null); }} placeholder="Wallet address to test" /><Button size="sm" variant="outline" onClick={() => void testComposite()}>Test wallet</Button></div>{testResults ? <div className="mt-4"><div className="flex flex-wrap gap-2">{testResults.map((allowed, index) => <span key={index} className={cn('rounded-full px-2 py-1 text-[11px]', allowed ? 'bg-bds-green-0 text-bds-green-70' : 'bg-bds-red-0 text-bds-red-70')}>Policy {String.fromCharCode(65 + index)}: {allowed ? 'Allows' : 'Denies'}</span>)}</div><p className="mt-3 font-medium">Composite result: {evaluateComposite(compositeKind, testResults) ? 'Wallet passes' : 'Wallet does not pass'}</p></div> : null}</div>
         </>
       )}
       <ErrorNote message={error} />

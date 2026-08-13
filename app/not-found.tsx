@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function NotFound() {
   return (
     <main className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-6 py-16">
-      <span className="font-mono text-[120px] font-medium leading-none tracking-tight text-black sm:text-[200px] md:text-[280px] dark:text-white">
+      <span className="font-mono text-[120px] font-medium leading-none tracking-tight text-foreground sm:text-[200px] md:text-[280px] dark:text-white">
         <ScrambleText text="404" charset="0123456789" duration={1500} interval={50} />
       </span>
       <div className="flex max-w-md flex-col items-center gap-6 text-center">

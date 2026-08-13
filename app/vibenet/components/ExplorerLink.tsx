@@ -17,7 +17,7 @@ export function ExplorerLink({ kind, value, label, className }: ExplorerLinkProp
   return (
     <Link
       href={`${VIBENET_EXPLORER_PATH}/${kind}/${value}`}
-      className={cn('font-mono text-base-blue hover:underline dark:text-bds-blue-20', className)}
+      className={cn('font-mono text-base-blue hover:underline', className)}
     >
       {label ?? shortAddress(value)}
     </Link>

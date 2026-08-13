@@ -79,7 +79,7 @@ export function AttachPolicy({
   };
 
   return (
-    <Card id="attach-policy-card" className="bg-white p-5 dark:bg-white/5">
+    <Card id="attach-policy-card" className="bg-background p-5 dark:bg-white/5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Text as="h3" variant="headline">
@@ -90,13 +90,13 @@ export function AttachPolicy({
             operations.
           </Text>
         </div>
-        <span className="rounded-full bg-bds-gray-5 px-2 py-1 text-[11px] text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30">
+        <span className="rounded-full bg-bds-gray-5 px-2 py-1 text-[11px] text-bds-gray-60 dark:bg-white/10">
           DEFAULT_ADMIN_ROLE required
         </span>
       </div>
 
       {adminStatus !== 'allowed' ? (
-        <p className="mt-4 rounded-lg bg-bds-gray-5 p-4 text-[13px] text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30">
+        <p className="mt-4 rounded-lg bg-bds-gray-5 p-4 text-[13px] text-bds-gray-60 dark:bg-white/10">
           {adminStatus === 'checking'
             ? 'Checking whether your wallet is a token admin…'
             : adminStatus === 'disconnected'
@@ -163,7 +163,7 @@ export function AttachPolicy({
           </div>
           <ErrorNote message={error} />
           {updatedHash ? (
-            <p className="mt-4 rounded-lg bg-bds-green-0 p-3 text-[13px] text-bds-green-70 dark:bg-bds-green-100/30 dark:text-bds-green-20">
+            <p className="mt-4 rounded-lg bg-bds-green-0 p-3 text-[13px] text-bds-green-70">
               Policy attached successfully.{' '}
               <Link href={`${VIBENET_EXPLORER_PATH}/tx/${updatedHash}`} className="text-base-blue hover:underline">
                 View transaction ↗

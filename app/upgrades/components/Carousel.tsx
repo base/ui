@@ -114,7 +114,7 @@ export function Carousel({
             aria-label="Previous"
             onClick={handlePrev}
             disabled={!canPrev}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-bds-gray-10 bg-white text-black shadow-sm transition-colors hover:bg-bds-gray-5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white dark:border-white/10 dark:bg-bds-gray-100 dark:text-white dark:hover:bg-bds-gray-90 dark:disabled:hover:bg-bds-gray-100"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-bds-gray-10 bg-background text-foreground shadow-sm transition-colors hover:bg-bds-gray-5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background dark:border-white/10"
           >
             <span aria-hidden>&lt;</span>
           </button>
@@ -123,7 +123,7 @@ export function Carousel({
             aria-label="Next"
             onClick={handleNext}
             disabled={!canNext}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-bds-gray-10 bg-white text-black shadow-sm transition-colors hover:bg-bds-gray-5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white dark:border-white/10 dark:bg-bds-gray-100 dark:text-white dark:hover:bg-bds-gray-90 dark:disabled:hover:bg-bds-gray-100"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-bds-gray-10 bg-background text-foreground shadow-sm transition-colors hover:bg-bds-gray-5 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background dark:border-white/10"
           >
             <span aria-hidden>&gt;</span>
           </button>

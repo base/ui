@@ -48,7 +48,7 @@ export default async function UpgradeDetailPage(props: UpgradePageProps) {
   const categories = upgrade.categories.filter((group) => group.changeIds.length > 0);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-24 pb-4 text-black">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-24 pb-4 text-foreground">
       <div className="animate-in">
         <div>
           <div className="mb-4 h-12 w-12">

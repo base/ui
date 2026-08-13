@@ -46,12 +46,12 @@ export function CopyPromptButton({ prompt, module, className }: CopyPromptButton
       onClick={handleCopy}
       title={`Copy developer instructions to ${prompt.title.toLowerCase()}`}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-bds-gray-10 bg-white px-2.5 py-1.5 text-[12px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-bds-gray-30 dark:hover:text-white',
+        'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-bds-gray-10 bg-background px-2.5 py-1.5 text-[12px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-foreground dark:border-white/10 dark:bg-white/5 dark:hover:text-white',
         className,
       )}
     >
       {copied ? (
-        <CheckIcon size={14} className="text-bds-green-60 dark:text-bds-green-20" />
+        <CheckIcon size={14} className="text-bds-green-60" />
       ) : (
         <ClipboardIcon size={14} />
       )}

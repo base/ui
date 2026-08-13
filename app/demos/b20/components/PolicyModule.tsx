@@ -92,8 +92,8 @@ export function PolicyModule({
       ) : null}
       {!token && !address ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="flex flex-col bg-white p-5 dark:bg-white/5">
-            <span className="mb-3 w-fit rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
+          <Card className="flex flex-col bg-background p-5 dark:bg-white/5">
+            <span className="mb-3 w-fit rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue">
               No wallet required
             </span>
             <Text variant="headline">Explore a sample token</Text>
@@ -109,8 +109,8 @@ export function PolicyModule({
               {busy === 'inspect' ? 'Loading…' : 'Explore the sample'}
             </Button>
           </Card>
-          <Card className="flex flex-col bg-white p-5 dark:bg-white/5">
-            <span className="mb-3 w-fit rounded-full bg-bds-green-0 px-2 py-1 text-[11px] text-bds-green-70 dark:bg-bds-green-100/40 dark:text-bds-green-20">
+          <Card className="flex flex-col bg-background p-5 dark:bg-white/5">
+            <span className="mb-3 w-fit rounded-full bg-bds-green-0 px-2 py-1 text-[11px] text-bds-green-70">
               Interactive
             </span>
             <Text variant="headline">Create your own token</Text>
@@ -123,7 +123,7 @@ export function PolicyModule({
           </Card>
         </div>
       ) : null}
-      <Card className="grid overflow-hidden bg-white md:grid-cols-[minmax(0,1fr)_250px] dark:bg-white/5">
+      <Card className="grid overflow-hidden bg-background md:grid-cols-[minmax(0,1fr)_250px] dark:bg-white/5">
         <div className="p-5">
           <Field label="Token address" hint="Paste the address of the B20 token you want to explore.">
             <div className="flex gap-2">
@@ -170,8 +170,8 @@ export function PolicyModule({
                 className={cn(
                   'mt-3 inline-block rounded-full px-2 py-1 text-[11px]',
                   tokenAccess === 'operator'
-                    ? 'bg-bds-green-0 text-bds-green-70 dark:bg-bds-green-100/40 dark:text-bds-green-20'
-                    : 'bg-bds-gray-10 text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30',
+                    ? 'bg-bds-green-0 text-bds-green-70'
+                    : 'bg-bds-gray-10 text-bds-gray-60 dark:bg-white/10',
                 )}
               >
                 {token.variant === 'stablecoin'
@@ -200,7 +200,7 @@ export function PolicyModule({
       </Card>
       {token ? (
         <>
-          <section className="rounded-2xl border border-bds-gray-10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+          <section className="rounded-2xl border border-bds-gray-10 bg-background p-5 dark:border-white/10 dark:bg-white/5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5">
@@ -247,10 +247,10 @@ export function PolicyModule({
                     className={cn(
                       'mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px]',
                       policy.id === 0n
-                        ? 'bg-bds-orange-0 text-bds-orange-70 dark:bg-bds-orange-100/40'
+                        ? 'bg-bds-orange-0 text-bds-orange-70'
                         : policy.exists
-                          ? 'bg-bds-green-0 text-bds-green-70 dark:bg-bds-green-100/40'
-                          : 'bg-bds-red-0 text-bds-red-70 dark:bg-bds-red-100/40',
+                          ? 'bg-bds-green-0 text-bds-green-70'
+                          : 'bg-bds-red-0 text-bds-red-70',
                     )}
                   >
                     {policy.id === 0n ? 'No policy set' : policy.exists ? 'Policy active' : 'Policy unavailable'}
@@ -290,7 +290,7 @@ export function PolicyModule({
             busy={busy}
             suggestedPolicyId={suggestedPolicyId}
           />
-          <Card className="bg-white p-5 dark:bg-white/5">
+          <Card className="bg-background p-5 dark:bg-white/5">
             <div className="flex items-center gap-1.5">
               <Text variant="headline">Check a wallet</Text>
               <InfoTooltip label="How the check works">{B20_HELP.checkAddress}</InfoTooltip>
@@ -310,7 +310,7 @@ export function PolicyModule({
             </div>
           </Card>
           <div className="grid gap-5 lg:grid-cols-2">
-            <Card className="bg-white p-5 dark:bg-white/5">
+            <Card className="bg-background p-5 dark:bg-white/5">
               <Text variant="headline">Token details</Text>
               <dl className="mt-4 space-y-3 text-[13px]">
                 <Row label="Address" value={shortAddress(token.address)} />
@@ -329,7 +329,7 @@ export function PolicyModule({
                 View on Explorer ↗
               </Link>
             </Card>
-            <Card className="bg-white p-5 dark:bg-white/5">
+            <Card className="bg-background p-5 dark:bg-white/5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <Text variant="headline">Technical reference</Text>

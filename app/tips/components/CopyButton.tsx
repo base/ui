@@ -21,13 +21,13 @@ export function CopyButton({ text, className }: { text: string; className?: stri
       onClick={handleCopy}
       title="Copy to clipboard"
       className={cn(
-        'rounded-md p-1.5 text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-black dark:hover:bg-white/10 dark:hover:text-white',
+        'rounded-md p-1.5 text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white',
         className,
       )}
     >
       {copied ? (
         <svg
-          className="h-4 w-4 text-bds-green-60 dark:text-bds-green-20"
+          className="h-4 w-4 text-bds-green-60"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

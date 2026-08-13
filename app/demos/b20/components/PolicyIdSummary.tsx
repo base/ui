@@ -103,14 +103,14 @@ export function PolicyIdSummary({
   return (
     <div className="rounded-lg border border-bds-gray-10 bg-bds-gray-5 p-3 dark:border-white/10 dark:bg-white/5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] font-medium text-base-blue dark:bg-bds-blue-100/40 dark:text-bds-blue-20">
+        <span className="rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] font-medium text-base-blue">
           {title}
         </span>
         {resolution.localLabel && !alwaysAllow && !alwaysBlock ? (
           <span className="text-[11px] text-bds-gray-50">{policyKindLabel(resolution.kind)}</span>
         ) : null}
       </div>
-      <p className="mt-2 text-[12px] text-bds-gray-60 dark:text-bds-gray-30">
+      <p className="mt-2 text-[12px] text-bds-gray-60">
         {alwaysAllow ? 'Everyone passes this policy.' : alwaysBlock ? 'No wallet passes this policy.' : policyMeaning(resolution.kind)}
       </p>
       <p className="mt-1 text-[11px] text-bds-gray-50">

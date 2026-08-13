@@ -51,7 +51,7 @@ function SearchBar({ chain, onError }: { chain: TipsChain; onError: (error: stri
   return (
     <form onSubmit={handleSearch} className="relative w-full">
       <svg
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black dark:text-white"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground"
         viewBox="0 0 16 16"
         fill="none"
         stroke="currentColor"
@@ -73,7 +73,7 @@ function SearchBar({ chain, onError }: { chain: TipsChain; onError: (error: stri
         spellCheck={false}
         autoComplete="off"
         className={cn(
-          'w-full rounded-full border border-bds-gray-10 bg-bds-gray-0 py-3 pl-9 font-sans text-sm text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40',
+          'w-full rounded-full border border-bds-gray-10 bg-bds-gray-0 py-3 pl-9 font-sans text-sm text-foreground outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-bds-blue-40',
           searchHash.trim() ? 'pr-24' : 'pr-3.5',
         )}
       />
@@ -99,9 +99,9 @@ function BlockRow({ block, chain }: { block: BlockSummary; chain: TipsChain }) {
       href={tipsHref(`/tips/block/${block.hash}`, chain)}
       className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-bds-gray-5/60 dark:hover:bg-white/5"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bds-blue-0 dark:bg-bds-blue-100/40">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bds-blue-0">
         <svg
-          className="h-5 w-5 text-base-blue dark:text-bds-blue-20"
+          className="h-5 w-5 text-base-blue"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -175,7 +175,7 @@ function BlocksTab({ chain }: { chain: TipsChain }) {
   return (
     <section className="flex flex-col gap-4">
       <Text variant="headline">Latest Blocks</Text>
-      <Card className="overflow-hidden bg-white dark:bg-white/5">
+      <Card className="overflow-hidden bg-background dark:bg-white/5">
         {loading && blocks.length === 0 ? (
           <div className="flex items-center justify-center gap-3 py-12">
             <Spinner className="text-base-blue" />
@@ -220,9 +220,9 @@ function RejectedTxRow({
         onClick={onToggle}
         className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-bds-gray-5/60 dark:hover:bg-white/5"
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bds-red-0 dark:bg-bds-red-100/40">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bds-red-0">
           <svg
-            className="h-5 w-5 text-bds-red-50 dark:text-bds-red-20"
+            className="h-5 w-5 text-bds-red-50"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -238,8 +238,8 @@ function RejectedTxRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="break-all font-mono text-sm text-black dark:text-white">{tx.txHash}</span>
-            <span className="inline-flex items-center rounded-full bg-bds-red-0 px-2 py-0.5 text-xs font-medium text-bds-red-70 ring-1 ring-inset ring-bds-red-20 dark:bg-bds-red-100/40 dark:text-bds-red-20">
+            <span className="break-all font-mono text-sm text-foreground">{tx.txHash}</span>
+            <span className="inline-flex items-center rounded-full bg-bds-red-0 px-2 py-0.5 text-xs font-medium text-bds-red-70 ring-1 ring-inset ring-bds-red-20">
               Rejected
             </span>
             <span className="text-xs text-bds-gray-50">{timeAgoFromSeconds(tx.timestamp)}</span>
@@ -266,23 +266,23 @@ function RejectedTxRow({
               <tbody>
                 <tr className="border-b border-bds-gray-10 dark:border-white/10">
                   <td className="w-28 py-2 text-bds-gray-60 dark:text-bds-gray-40">Transaction</td>
-                  <td className="break-all py-2 font-mono text-black dark:text-white">{tx.txHash}</td>
+                  <td className="break-all py-2 font-mono text-foreground">{tx.txHash}</td>
                 </tr>
                 <tr className="border-b border-bds-gray-10 dark:border-white/10">
                   <td className="py-2 text-bds-gray-60 dark:text-bds-gray-40">Block</td>
-                  <td className="py-2 font-medium text-black dark:text-white">
+                  <td className="py-2 font-medium text-foreground">
                     #{tx.blockNumber.toLocaleString()}
                   </td>
                 </tr>
                 <tr className="border-b border-bds-gray-10 dark:border-white/10">
                   <td className="py-2 text-bds-gray-60 dark:text-bds-gray-40">Reason</td>
-                  <td className="py-2 font-medium text-bds-red-70 dark:text-bds-red-20">
+                  <td className="py-2 font-medium text-bds-red-70">
                     {formatRejectionReason(tx.reason)}
                   </td>
                 </tr>
                 <tr>
                   <td className="py-2 text-bds-gray-60 dark:text-bds-gray-40">Rejected At</td>
-                  <td className="py-2 text-black dark:text-white">
+                  <td className="py-2 text-foreground">
                     {new Date(tx.timestamp * 1000).toLocaleString()}
                   </td>
                 </tr>
@@ -302,7 +302,7 @@ function RejectedTxRow({
               <Text as="span" variant="caption" tone="muted" className="mb-2">
                 Per-Transaction Breakdown
               </Text>
-              <Card className="overflow-x-auto bg-white dark:bg-white/5">
+              <Card className="overflow-x-auto bg-background dark:bg-white/5">
                 <table className="w-full min-w-[560px] text-xs">
                   <thead>
                     <tr className="border-b border-bds-gray-10 bg-bds-gray-5/60 dark:border-white/10 dark:bg-white/[0.03]">
@@ -317,22 +317,22 @@ function RejectedTxRow({
                   <tbody className="divide-y divide-bds-gray-10 dark:divide-white/10">
                     {tx.metering.results.map((result) => (
                       <tr key={result.txHash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
-                        <td className={cn(BODY_CELL, 'font-mono text-black dark:text-white')}>
+                        <td className={cn(BODY_CELL, 'font-mono text-foreground')}>
                           {result.txHash.slice(0, 10)}…{result.txHash.slice(-6)}
                         </td>
                         <td className={cn(BODY_CELL, 'font-mono text-bds-gray-60 dark:text-bds-gray-40')}>
                           {result.fromAddress.slice(0, 8)}…{result.fromAddress.slice(-4)}
                         </td>
-                        <td className={cn(BODY_CELL, 'text-right font-medium text-black dark:text-white')}>
+                        <td className={cn(BODY_CELL, 'text-right font-medium text-foreground')}>
                           {result.gasUsed.toLocaleString()}
                         </td>
-                        <td className={cn(BODY_CELL, 'text-right font-medium text-black dark:text-white')}>
+                        <td className={cn(BODY_CELL, 'text-right font-medium text-foreground')}>
                           {result.executionTimeUs.toLocaleString()}μs
                         </td>
-                        <td className={cn(BODY_CELL, 'text-right text-bds-gray-70 dark:text-bds-gray-30')}>
+                        <td className={cn(BODY_CELL, 'text-right text-bds-gray-70')}>
                           {formatGasPrice(result.gasPrice)}
                         </td>
-                        <td className={cn(BODY_CELL, 'text-right text-bds-gray-70 dark:text-bds-gray-30')}>
+                        <td className={cn(BODY_CELL, 'text-right text-bds-gray-70')}>
                           {formatHexValue(result.gasFees)}
                         </td>
                       </tr>
@@ -390,7 +390,7 @@ function RejectedTransactionsTab({ chain }: { chain: TipsChain }) {
   });
 
   const inputClass =
-    'rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-1.5 text-sm text-black outline-none transition-colors placeholder:text-bds-gray-40 focus:border-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-bds-gray-60 dark:focus:border-bds-blue-40';
+    'rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-1.5 text-sm text-foreground outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-bds-blue-40';
 
   return (
     <section className="flex flex-col gap-4">
@@ -434,7 +434,7 @@ function RejectedTransactionsTab({ chain }: { chain: TipsChain }) {
                 setBlockNumberFilter('');
                 setExpandedIdx(null);
               }}
-              className="px-2 py-1.5 text-xs text-bds-gray-60 transition-colors hover:text-black dark:text-bds-gray-40 dark:hover:text-white"
+              className="px-2 py-1.5 text-xs text-bds-gray-60 transition-colors hover:text-foreground dark:text-bds-gray-40 dark:hover:text-white"
             >
               Clear
             </button>
@@ -442,7 +442,7 @@ function RejectedTransactionsTab({ chain }: { chain: TipsChain }) {
         </div>
       </div>
 
-      <Card className="overflow-hidden bg-white dark:bg-white/5">
+      <Card className="overflow-hidden bg-background dark:bg-white/5">
         {loading && transactions.length === 0 ? (
           <div className="flex items-center justify-center gap-3 py-12">
             <Spinner className="text-bds-red-50" />
@@ -537,12 +537,12 @@ function TipsDashboard() {
       ) : null}
 
       {error && activeTab === 'blocks' ? (
-        <div className="flex items-center gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-3.5 py-2.5 text-[13px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/30 dark:text-bds-red-20">
+        <div className="flex items-center gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-3.5 py-2.5 text-[13px] text-bds-red-70">
           <span className="flex-1">{error}</span>
           <button
             type="button"
             onClick={() => setError(null)}
-            className="text-bds-red-60 hover:text-bds-red-80 dark:text-bds-red-20"
+            className="text-bds-red-60 hover:text-bds-red-80"
             aria-label="Dismiss error"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

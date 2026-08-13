@@ -6,7 +6,7 @@ export default function DemosLoading() {
       {[0, 1].map((i) => (
         <div
           key={i}
-          className="rounded-2xl border border-bds-gray-10 bg-white p-6 dark:border-white/10 dark:bg-white/5"
+          className="rounded-2xl border border-bds-gray-10 bg-background p-6 dark:border-white/10 dark:bg-white/5"
         >
           <Skeleton className="h-5 w-16 rounded-full" />
           <Skeleton className="mt-3 h-6 w-48" />

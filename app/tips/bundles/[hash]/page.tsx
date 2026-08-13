@@ -26,12 +26,12 @@ interface PageProps {
 type BadgeVariant = 'default' | 'success' | 'warning' | 'error';
 
 const BADGE_VARIANTS: Record<BadgeVariant, string> = {
-  default: 'bg-bds-blue-0 text-bds-blue-70 ring-bds-blue-20 dark:bg-bds-blue-100/40 dark:text-bds-blue-20',
+  default: 'bg-bds-blue-0 text-bds-blue-70 ring-bds-blue-20 dark:text-base-blue',
   success:
-    'bg-bds-green-0 text-bds-green-70 ring-bds-green-20 dark:bg-bds-green-100/40 dark:text-bds-green-20',
+    'bg-bds-green-0 text-bds-green-70 ring-bds-green-20',
   warning:
-    'bg-bds-yellow-0 text-bds-yellow-70 ring-bds-yellow-20 dark:bg-bds-yellow-100/40 dark:text-bds-yellow-20',
-  error: 'bg-bds-red-0 text-bds-red-70 ring-bds-red-20 dark:bg-bds-red-100/40 dark:text-bds-red-20',
+    'bg-bds-yellow-0 text-bds-yellow-70 ring-bds-yellow-20',
+  error: 'bg-bds-red-0 text-bds-red-70 ring-bds-red-20',
 };
 
 function Badge({ children, variant = 'default' }: { children: ReactNode; variant?: BadgeVariant }) {
@@ -59,7 +59,7 @@ function TransactionDetails({
   const [expanded, setExpanded] = useState(index === 0);
 
   return (
-    <Card className="overflow-hidden bg-white dark:bg-white/5">
+    <Card className="overflow-hidden bg-background dark:bg-white/5">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
@@ -70,7 +70,7 @@ function TransactionDetails({
             {index + 1}
           </div>
           <div className="min-w-0 text-left">
-            <span className="font-mono text-sm text-black dark:text-white">{shortHash(tx.hash)}</span>
+            <span className="font-mono text-sm text-foreground">{shortHash(tx.hash)}</span>
             <div className="mt-0.5 truncate text-xs text-bds-gray-60 dark:text-bds-gray-40">
               {tx.signer.slice(0, 6)}…{tx.signer.slice(-4)} →{' '}
               {tx.to ? `${tx.to.slice(0, 6)}…${tx.to.slice(-4)}` : 'Contract Creation'}
@@ -79,7 +79,7 @@ function TransactionDetails({
         </div>
         <div className="flex shrink-0 items-center gap-4">
           <div className="text-right">
-            <div className="text-sm font-semibold text-black dark:text-white">
+            <div className="text-sm font-semibold text-foreground">
               {Number.parseInt(tx.gas, 16).toLocaleString()} gas
             </div>
             <div className="text-xs text-bds-gray-60 dark:text-bds-gray-40">
@@ -172,7 +172,7 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <span className="text-bds-gray-60 dark:text-bds-gray-40">{label}</span>{' '}
-      <span className="font-medium text-black dark:text-white">{value}</span>
+      <span className="font-medium text-foreground">{value}</span>
     </div>
   );
 }
@@ -184,7 +184,7 @@ function TimelineEventDetails({ event, chain }: { event: BundleEvent; chain: Tip
         <Badge variant="success">{event.event}</Badge>
         <Link
           href={tipsHref(`/tips/block/${event.data.block_hash}`, chain)}
-          className="font-mono text-xs text-base-blue hover:underline dark:text-bds-blue-20"
+          className="font-mono text-xs text-base-blue hover:underline"
         >
           Block #{event.data.block_number}
         </Link>
@@ -225,8 +225,8 @@ function Timeline({ events, chain }: { events: BundleEvent[]; chain: TipsChain }
           key={`${event.data?.key}-${index}`}
           className="flex items-center gap-4 py-3 first:pt-0 last:pb-0"
         >
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bds-blue-0 dark:bg-bds-blue-100/40">
-            <div className="h-2 w-2 rounded-full bg-base-blue dark:bg-bds-blue-20" />
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bds-blue-0">
+            <div className="h-2 w-2 rounded-full bg-base-blue" />
           </div>
           <div className="flex flex-1 flex-wrap items-center justify-between gap-2">
             <TimelineEventDetails event={event} chain={chain} />
@@ -304,7 +304,7 @@ function BundleContent({ params }: PageProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={tipsHref('/tips', chain)}
-          className="text-sm text-base-blue hover:underline dark:text-bds-blue-20"
+          className="text-sm text-base-blue hover:underline"
         >
           ← TIPS
         </Link>
@@ -338,7 +338,7 @@ function BundleContent({ params }: PageProps) {
 
           <section className="flex flex-col gap-4">
             <Text variant="headline">Event History</Text>
-            <Card className="bg-white p-6 dark:bg-white/5">
+            <Card className="bg-background p-6 dark:bg-white/5">
               {data.history.length > 0 ? (
                 <Timeline events={data.history} chain={chain} />
               ) : (

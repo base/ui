@@ -199,7 +199,7 @@ export function ChangelogClient() {
           onChange={handleQueryChange}
           placeholder="Search by title, EIP, or summary keyword"
           aria-label="Search changes"
-          className="h-9 min-w-0 flex-1 rounded-full border border-bds-gray-10 bg-white px-4 text-[14px] text-black outline-none placeholder:text-bds-gray-50"
+          className="h-9 min-w-0 flex-1 rounded-full border border-bds-gray-10 bg-background px-4 text-[14px] text-foreground outline-none placeholder:text-bds-gray-50"
         />
       </div>
 
@@ -210,12 +210,12 @@ export function ChangelogClient() {
           onChange={handleQueryChange}
           placeholder="Search changes…"
           aria-label="Search changes"
-          className="h-9 min-w-0 flex-1 rounded-full border border-bds-gray-10 bg-white px-4 text-[14px] text-black outline-none placeholder:text-bds-gray-50"
+          className="h-9 min-w-0 flex-1 rounded-full border border-bds-gray-10 bg-background px-4 text-[14px] text-foreground outline-none placeholder:text-bds-gray-50"
         />
         <button
           type="button"
           onClick={() => setFiltersOpen(true)}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-white px-3.5 text-[14px] text-black transition-colors hover:bg-bds-gray-5"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-background px-3.5 text-[14px] text-foreground transition-colors hover:bg-bds-gray-5"
         >
           <svg
             aria-hidden="true"
@@ -232,7 +232,7 @@ export function ChangelogClient() {
           </svg>
           Filters
           {activeFilterCount > 0 ? (
-            <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-black px-1 text-[10px] font-medium text-white">
+            <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-medium text-white">
               {activeFilterCount}
             </span>
           ) : null}
@@ -258,7 +258,7 @@ export function ChangelogClient() {
               transition={reducedMotion
                 ? { duration: 0.15 }
                 : { type: 'spring', bounce: 0, duration: 0.3 }}
-              className="fixed inset-x-0 bottom-0 z-[201] rounded-t-2xl bg-white px-5 pb-8 pt-5 md:hidden"
+              className="fixed inset-x-0 bottom-0 z-[201] rounded-t-2xl bg-background px-5 pb-8 pt-5 md:hidden"
             >
               <div className="mb-6 flex items-center justify-between">
                 <Text variant="headline">Filters</Text>
@@ -318,7 +318,7 @@ export function ChangelogClient() {
                       setCategoryFilter('all');
                       setLifecycleFilter('all');
                     }}
-                    className="w-full text-center text-[13px] text-bds-gray-50 transition-colors hover:text-black"
+                    className="w-full text-center text-[13px] text-bds-gray-50 transition-colors hover:text-foreground"
                   >
                     Reset Filters
                   </button>
@@ -416,7 +416,7 @@ export function ChangelogClient() {
             key={change.id}
             href={`/upgrades/changelog/${change.slug}`}
             interactive={false}
-            className="bg-white p-4 dark:bg-white/5"
+            className="bg-background p-4 dark:bg-white/5"
           >
             <div className="flex items-center justify-between gap-3">
               <KindBadge kind={change.kind} />

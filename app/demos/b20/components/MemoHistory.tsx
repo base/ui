@@ -102,7 +102,7 @@ export function MemoHistory({ address, decimals, symbol }: { address: Address; d
   }, [address]);
 
   return (
-    <Card className="bg-white p-5 dark:bg-white/5">
+    <Card className="bg-background p-5 dark:bg-white/5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Text variant="headline">Onchain memo history</Text>
@@ -120,13 +120,13 @@ export function MemoHistory({ address, decimals, symbol }: { address: Address; d
       {state === 'error' ? (
         <p
           role="alert"
-          className="mt-4 rounded-lg bg-bds-red-0 p-3 text-[13px] text-bds-red-70 dark:bg-bds-red-100/30 dark:text-bds-red-20"
+          className="mt-4 rounded-lg bg-bds-red-0 p-3 text-[13px] text-bds-red-70"
         >
           We could not load memo history yet. Try again after the transaction appears in the explorer.
         </p>
       ) : null}
       {state === 'ready' && !rows.length ? (
-        <p className="mt-4 rounded-lg bg-bds-gray-5 p-3 text-[13px] text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-30">
+        <p className="mt-4 rounded-lg bg-bds-gray-5 p-3 text-[13px] text-bds-gray-60 dark:bg-white/10">
           This token does not have any memo events yet.
         </p>
       ) : null}

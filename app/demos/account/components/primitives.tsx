@@ -28,10 +28,10 @@ export function AccountDot({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
 // Neutral / success status pill.
 export function Badge({ children, tone }: { children: ReactNode; tone?: 'ok' | 'warn' | 'error' | 'blue' | 'default' }) {
   const tones = {
-    ok: 'bg-bds-green-0 text-bds-green-70 dark:bg-bds-green-100/40 dark:text-bds-green-20',
-    warn: 'bg-bds-orange-0 text-bds-orange-70 dark:bg-bds-orange-100/40 dark:text-bds-orange-20',
-    error: 'bg-bds-red-0 text-bds-red-70 dark:bg-bds-red-100/40 dark:text-bds-red-20',
-    blue: 'bg-bds-blue-0 text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20',
+    ok: 'bg-bds-green-0 text-bds-green-70',
+    warn: 'bg-bds-orange-0 text-bds-orange-70',
+    error: 'bg-bds-red-0 text-bds-red-70',
+    blue: 'bg-bds-blue-0 text-bds-blue-60 dark:text-base-blue',
     default: 'bg-bds-gray-5 text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-40',
   } as const;
   return (
@@ -47,9 +47,9 @@ export function Badge({ children, tone }: { children: ReactNode; tone?: 'ok' | '
 }
 
 const KIND_BADGE: Record<SignerKind, string> = {
-  k1: 'bg-bds-blue-0 text-bds-blue-70 dark:bg-bds-blue-100/40 dark:text-bds-blue-20',
-  p256: 'bg-bds-purple-0 text-bds-purple-70 dark:bg-bds-purple-100/40 dark:text-bds-purple-20',
-  passkey: 'bg-bds-teal-0 text-bds-teal-70 dark:bg-bds-teal-100/40 dark:text-bds-teal-20',
+  k1: 'bg-bds-blue-0 text-bds-blue-70 dark:text-base-blue',
+  p256: 'bg-bds-purple-0 text-bds-purple-70',
+  passkey: 'bg-bds-teal-0 text-bds-teal-70',
 };
 
 export function AccountAvatar({ variant = 'default' }: { variant?: 'default' | 'spending' }) {

@@ -130,7 +130,7 @@ export default function VibenetHomePage() {
         </span>
         <Link
           href={`${VIBENET_EXPLORER_PATH}/address/${contract.address}`}
-          className="min-w-0 flex-1 truncate text-[14px] text-black transition-colors hover:text-base-blue hover:underline dark:text-white dark:hover:text-bds-blue-20"
+          className="min-w-0 flex-1 truncate text-[14px] text-foreground transition-colors hover:text-base-blue hover:underline dark:text-white"
         >
           {contract.address}
         </Link>
@@ -145,15 +145,15 @@ export default function VibenetHomePage() {
   const commit = config.commit && config.commit !== 'unknown' ? config.commit : null;
 
   return (
-    <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-16 pb-4 text-black dark:text-white">
+    <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-16 pb-4 text-foreground">
       <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:justify-between md:gap-8">
         <div className="flex max-w-xl flex-1 flex-col gap-6">
           <img src="/vibenet-illo.svg" alt="" width={48} height={48} className="mt-8" />
           <Text variant="title2" tone="muted">
-            <span className="text-black dark:text-white">Vibenet</span> is an ephemeral Base developer network for testing in-flight features.
+            <span className="text-foreground">Vibenet</span> is an ephemeral Base developer network for testing in-flight features.
           </Text>
         </div>
-        <Card className="flex flex-col gap-0.5 bg-white px-5 py-5 dark:bg-white/5 md:min-w-[360px]">
+        <Card className="flex flex-col gap-0.5 bg-background px-5 py-5 dark:bg-white/5 md:min-w-[360px]">
           <Text variant="label" className="mb-2.5">Connect to Vibenet</Text>
           <div className="flex items-center justify-between gap-3">
             <Text variant="label" tone="muted">Chain ID</Text>
@@ -167,7 +167,7 @@ export default function VibenetHomePage() {
             <Text variant="label" tone="muted">Explorer</Text>
             <Link
               href={VIBENET_EXPLORER_PATH}
-              className="font-mono text-[13px] text-black transition-colors hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20"
+              className="font-mono text-[13px] text-foreground transition-colors hover:text-base-blue dark:text-white"
             >
               {VIBENET_EXPLORER_PATH}
             </Link>
@@ -201,7 +201,7 @@ export default function VibenetHomePage() {
 
       <section className="flex flex-col gap-6 md:hidden">
         <Text variant="title2">Connect</Text>
-        <Card className="flex flex-col gap-4 bg-white p-6 dark:bg-white/5">
+        <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Text variant="label" tone="muted">Chain ID</Text>
             <CopyableValue value={chainId} />
@@ -214,7 +214,7 @@ export default function VibenetHomePage() {
             <Text variant="label" tone="muted">Explorer</Text>
             <Link
               href={VIBENET_EXPLORER_PATH}
-              className="font-mono text-[13px] text-base-blue hover:underline dark:text-bds-blue-20"
+              className="font-mono text-[13px] text-base-blue hover:underline"
             >
               {VIBENET_EXPLORER_PATH}
             </Link>
@@ -237,7 +237,7 @@ export default function VibenetHomePage() {
         </div>
       </section>
 
-      <footer className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-2 pb-4 text-[12px] text-bds-gray-30 dark:text-bds-gray-50">
+      <footer className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-2 pb-4 text-[12px] text-bds-gray-30">
         <span>
           branch{' '}
           {branch ? (
@@ -245,7 +245,7 @@ export default function VibenetHomePage() {
               href={`https://github.com/base/base/tree/${branch}`}
               target="_blank"
               rel="noopener"
-              className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 hover:no-underline dark:text-bds-gray-40 dark:hover:text-bds-gray-30"
+              className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 hover:no-underline dark:text-bds-gray-40"
             >
               {branch}
             </a>
@@ -260,7 +260,7 @@ export default function VibenetHomePage() {
               href={`https://github.com/base/base/commit/${commit}`}
               target="_blank"
               rel="noopener"
-              className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 hover:no-underline dark:text-bds-gray-40 dark:hover:text-bds-gray-30"
+              className="text-bds-gray-50 transition-colors hover:text-bds-gray-70 hover:no-underline dark:text-bds-gray-40"
             >
               {commit.slice(0, 12)}
             </a>
