@@ -33,6 +33,13 @@ export const SURFACES = {
     apiPrefixes: ['/api/tips'],
     targets: ['internal'],
   },
+  // No apiPrefixes: the benchmark UI calls the report API straight from the
+  // browser (NEXT_PUBLIC_BENCHMARK_API_BASE_URL) instead of proxying through a
+  // route handler here, so this app serves no /api path for it.
+  benchmark: {
+    routePrefixes: ['/benchmark'],
+    targets: ['internal'],
+  },
 };
 
 /** Is a surface included in the current build target? Unknown key => yes. */
