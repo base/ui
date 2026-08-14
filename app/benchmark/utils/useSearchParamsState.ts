@@ -1,6 +1,25 @@
 import { useCallback, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+export function encodeSearchParamState(value: unknown): string {
+  const jsonString = JSON.stringify(value);
+  const bytes = new TextEncoder().encode(jsonString);
+  let binaryString = "";
+
+  for (const byte of bytes) {
+    binaryString += String.fromCharCode(byte);
+  }
+
+  return btoa(binaryString);
+}
+
+export function decodeSearchParamState<T>(value: string): T {
+  const binaryString = atob(value);
+  const bytes = Uint8Array.from(binaryString, (char) => char.charCodeAt(0));
+  const jsonString = new TextDecoder().decode(bytes);
+  return JSON.parse(jsonString) as T;
+}
+
 /**
  * Hook for storing state in URL search parameters as base64 encoded JSON
  * Supports multiple instances without conflicts
@@ -27,8 +46,7 @@ export function useSearchParamsState<T>(
     if (paramValue) {
       try {
         // Decode base64 back to JSON string and then parse
-        const jsonString = atob(paramValue);
-        return JSON.parse(jsonString) as T;
+        return decodeSearchParamState<T>(paramValue);
       } catch (e) {
         console.error(
           `Error parsing state from URL parameter ${paramName}:`,
@@ -52,7 +70,7 @@ export function useSearchParamsState<T>(
         // keeps filter churn out of the back-button history, matching the
         // react-router original's `{ replace: true }`.
         const newParams = new URLSearchParams(searchParams.toString());
-        newParams.set(paramName, btoa(JSON.stringify(newValue)));
+        newParams.set(paramName, encodeSearchParamState(newValue));
         router.replace(`${pathname}?${newParams.toString()}`, {
           scroll: false,
         });
