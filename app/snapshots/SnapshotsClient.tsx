@@ -30,6 +30,8 @@ const NETWORK_LABELS: Record<string, string> = {
   sepolia: 'Sepolia',
 };
 
+const REQUIRED_COMPONENTS = new Set(['state', 'headers']);
+
 const SHIMMER_GRADIENT =
   'linear-gradient(90deg, currentColor 0%, currentColor 30%, var(--bds-brand) 50%, currentColor 70%, currentColor 100%)';
 
@@ -239,6 +241,8 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
   }
 
   function toggleComponent(name: string) {
+    if (REQUIRED_COMPONENTS.has(name)) return;
+
     let next = [...selectedComponents];
 
     if (name === 'state_history') {
@@ -457,8 +461,10 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                   <Card className="overflow-hidden rounded-[10px]">
                     {displayComponents.map((c, i, arr) => {
                       const checked =
-                        c.name === 'state_history' ? withStateHistory : selectedComponents.includes(c.name);
+                        REQUIRED_COMPONENTS.has(c.name) ||
+                        (c.name === 'state_history' ? withStateHistory : selectedComponents.includes(c.name));
                       const isDisabled =
+                        REQUIRED_COMPONENTS.has(c.name) ||
                         (c.name === 'transaction_senders' && !withTransactions) ||
                         (c.name === 'rocksdb_indices' &&
                           (!withTransactions || !withReceipts || !withStateHistory));
