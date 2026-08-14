@@ -42,12 +42,14 @@ export function hexToInt(hex: string | null | undefined): number | null {
 /** Format a raw integer token amount with `decimals` places, trimming zeros. */
 export function fmtTokenAmount(raw: bigint, decimals: number): string {
   if (raw === 0n) return '0';
+  const sign = raw < 0n ? '-' : '';
+  const absRaw = raw < 0n ? -raw : raw;
   const divisor = 10n ** BigInt(decimals);
-  const whole = raw / divisor;
-  const frac = raw % divisor;
-  if (frac === 0n) return whole.toLocaleString();
+  const whole = absRaw / divisor;
+  const frac = absRaw % divisor;
+  if (frac === 0n) return `${sign}${whole.toLocaleString()}`;
   const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '');
-  return `${whole.toLocaleString()}.${fracStr}`;
+  return `${sign}${whole.toLocaleString()}.${fracStr}`;
 }
 
 export function weiToEth(hex: string | null | undefined): string {
