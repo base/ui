@@ -32,14 +32,16 @@ export function formatAmount(raw: string, decimals: number, maxFractionDigits = 
   try {
     const value = BigInt(raw);
     if (value === 0n) return '0';
+    const sign = value < 0n ? '-' : '';
+    const magnitude = value < 0n ? -value : value;
     const divisor = 10n ** BigInt(decimals);
-    const whole = (value / divisor).toLocaleString();
-    const frac = (value % divisor)
+    const whole = (magnitude / divisor).toLocaleString();
+    const frac = (magnitude % divisor)
       .toString()
       .padStart(decimals, '0')
       .slice(0, maxFractionDigits)
       .replace(/0+$/, '');
-    return frac ? `${whole}.${frac}` : whole;
+    return frac ? `${sign}${whole}.${frac}` : `${sign}${whole}`;
   } catch {
     return raw;
   }
