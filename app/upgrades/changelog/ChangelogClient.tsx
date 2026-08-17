@@ -35,6 +35,19 @@ function scheduleLabel(change: Change): string {
   return getVibenetChangeById(change.id) ? 'Vibenet' : 'Not scheduled';
 }
 
+// Reverse-chronological rank per upgrade id
+const upgradeRankById = new Map(
+  getUpgradesReversed().map((upgrade, index) => [upgrade.id, index]),
+);
+
+function upgradeRank(change: Change): number {
+  // Vibenet changes aren't in an upgrade yet, but should display at the top for testing
+  if (!change.upgrade) {
+    return getVibenetChangeById(change.id) ? -1 : Number.MAX_SAFE_INTEGER;
+  }
+  return upgradeRankById.get(change.upgrade) ?? Number.MAX_SAFE_INTEGER;
+}
+
 function NetworkStatus({ change, network }: { change: Change; network: 'sepolia' | 'mainnet' }) {
   const lifecycle = getLifecycleForChange(change);
   if (lifecycle) {
@@ -99,8 +112,9 @@ export function ChangelogClient() {
     });
 
     return next.sort((a, b) => {
-      const upgradeCmp = scheduleLabel(a).localeCompare(scheduleLabel(b));
-      if (upgradeCmp !== 0) return upgradeCmp;
+      const rankCmp = upgradeRank(a) - upgradeRank(b);
+      if (rankCmp !== 0) return rankCmp;
+      // Fall back to alphabetical for equal rank
       return a.title.localeCompare(b.title);
     });
   }, [categoryFilter, kindFilter, lifecycleFilter, query, upgradeFilter]);
