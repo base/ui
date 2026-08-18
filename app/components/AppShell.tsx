@@ -15,6 +15,7 @@ import { titleForPath } from '../navigation';
 
 import { trackNavClick } from '../analytics/events';
 import { navSlideDirection } from './nav-motion';
+import { NavScrollArea } from './NavScrollArea';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
 import { cn } from './ui/cn';
@@ -50,20 +51,33 @@ const styles: Record<string, CSSProperties> = {
     borderRight: `1px solid ${SELECTED}`,
     display: 'flex',
     flexDirection: 'column',
-    padding: '0 12px 20px',
+    padding: '0 0 20px',
     position: 'relative',
     overflow: 'hidden',
   },
   brand: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    padding: '0 8px',
-    height: 64,
     flexShrink: 0,
     position: 'relative',
   },
   brandLink: { display: 'inline-block', lineHeight: 0 },
+  // Slot between logo and pinned footer. Overflow hidden clips the popLayout
+  // slide; each pane inside scrolls on its own (`NavScrollArea`).
+  navSlot: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  // Fills the slot. Overflow lives on NavScrollArea inside, not on this pane,
+  // so popLayout can still slide in-flow.
+  navPane: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    minHeight: 0,
+  },
   // `isolation` makes the nav a stacking context so the active-row pill (which
   // renders at z-index -1 and travels across rows while animating) paints behind
   // every row's label instead of on top of the rows it passes over.
@@ -90,12 +104,17 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     padding: '1px 6px',
   },
+  // Pinned below the sliding panes so Status/Support/Docs/Blog stay put when
+  // a section sub-nav slides in. The switch sits on the last row beside Blog.
   sidebarFooter: {
-    marginTop: 'auto',
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
-    position: 'relative',
+    flexShrink: 0,
+  },
+  footerLastRow: {
+    display: 'flex',
+    alignItems: 'center',
   },
   footerLink: {
     display: 'flex',
@@ -107,17 +126,6 @@ const styles: Record<string, CSSProperties> = {
     color: 'var(--bds-gray-50)',
   },
   footerIcon: { display: 'inline-flex', width: 18, height: 18 },
-  // Sits outside the sliding nav container so the toggle stays pinned to the
-  // bottom of the sidebar on sub-nav routes too, where `sidebarFooter` (which
-  // lives inside the main-nav pane) has slid away.
-  //
-  // Absolute rather than in flow so it shares a line with the last footer link:
-  // those links are inside the sliding pane and this is not, so as a flow sibling
-  // it could only ever stack below them. Taking it out of flow lets the pane occupy
-  // the full height, which drops the footer onto the bottom row beside the switch.
-  // Offsets live in `.theme-switch-footer` because they mirror the container's own
-  // padding, and the desktop sidebar and mobile drawer pad differently.
-  themeFooter: { display: 'flex', justifyContent: 'flex-end' },
   // Hugs the switch rather than filling the row: with no label beside it, a
   // full-width button would hover-fill a strip of empty sidebar. The inherited
   // footer-row padding keeps the hit target at 54×38, comfortably past the 24×24
@@ -321,7 +329,7 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
       <Text as="span" variant="label.medium" tone="inherit">{label}</Text>
       {!enabled && <span style={styles.soon}>Soon</span>}
       {hasChildren && (
-        <span style={{ marginLeft: 'auto', marginRight: -8, color: 'var(--bds-gray-50)' }}>
+        <span style={{ marginLeft: 'auto', color: 'var(--bds-gray-50)' }}>
           <AnimatedArrowIcon size={16} strokeWidth={1.5} />
         </span>
       )}
@@ -447,13 +455,13 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
   return (
     <>
       {!hideBrand && (
-        <div style={styles.brand}>
+        <div style={styles.brand} className="sidebar-gutter sidebar-brand">
           <AnimatedBaseLogo size={BRAND_MARK_SIZE} />
         </div>
       )}
 
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        <AnimatePresence mode="popLayout" custom={direction}>
+      <div style={styles.navSlot}>
+        <AnimatePresence mode="popLayout" initial={false} custom={direction}>
           {activeParent ? (
             <motion.div
               key={`sub-nav:${activeParent.href}`}
@@ -463,8 +471,10 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
               animate="center"
               exit="exit"
               transition={slideTransition}
-              style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+              className="sidebar-nav-pane"
+              style={styles.navPane}
             >
+              <NavScrollArea belowBrand={!hideBrand}>
               <Link
                 href="/"
                 className="nav-header-hover group"
@@ -511,6 +521,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                   );
                 })}
               </nav>
+              </NavScrollArea>
             </motion.div>
           ) : (
             <motion.div
@@ -521,8 +532,10 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
               animate="center"
               exit="exit"
               transition={slideTransition}
-              style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+              className="sidebar-nav-pane"
+              style={styles.navPane}
             >
+              <NavScrollArea belowBrand={!hideBrand}>
               <nav style={styles.nav}>
                 {NAV_ITEMS.filter((item) => item.icon).map((item) => {
                   let active: boolean;
@@ -550,74 +563,74 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                   );
                 })}
               </nav>
-
-              <div style={styles.sidebarFooter}>
-                <a href="https://status.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-                  <span style={styles.footerIcon}>
-                    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
-                    </svg>
-                  </span>
-                  <Text as="span" variant="label.medium" tone="inherit">Status</Text>
-                </a>
-                <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
-                  <span style={styles.footerIcon}>
-                    <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
-                      <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
-                    </svg>
-                  </span>
-                  <Text as="span" variant="label.medium" tone="inherit">Support</Text>
-                </a>
-                <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-                  <span style={styles.footerIcon}>
-                    <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
-                    </svg>
-                  </span>
-                  <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
-                </a>
-                <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-                  <span style={styles.footerIcon}>
-                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-                    </svg>
-                  </span>
-                  <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
-                </a>
-              </div>
+              </NavScrollArea>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      <div className="theme-switch-footer" style={styles.themeFooter}>
-        {/* `role="switch"` rather than a plain button: the control reports a state
-            rather than firing an action, so screen readers announce "on"/"off"
-            against a stable label instead of the label itself changing. The switch
-            renders bare, so that name comes from `aria-label` — the visible track
-            is decorative and hidden from the tree. */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={dark}
-          aria-label="Dark mode"
-          onClick={onToggleTheme}
-          className="nav-header-hover theme-switch"
-          style={{ ...styles.footerLink, ...styles.themeButton }}
-        >
-          <span
-            aria-hidden
-            className="theme-switch-track"
-            style={{ ...styles.switchTrack, ...(dark ? styles.switchTrackOn : null) }}
+      <div style={styles.sidebarFooter} className="sidebar-gutter">
+        <a href="https://status.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
+          <span style={styles.footerIcon}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
+            </svg>
+          </span>
+          <Text as="span" variant="label.medium" tone="inherit">Status</Text>
+        </a>
+        <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
+          <span style={styles.footerIcon}>
+            <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
+              <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
+            </svg>
+          </span>
+          <Text as="span" variant="label.medium" tone="inherit">Support</Text>
+        </a>
+        <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
+          <span style={styles.footerIcon}>
+            <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+            </svg>
+          </span>
+          <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
+        </a>
+        <div style={styles.footerLastRow}>
+          <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={{ ...styles.footerLink, flex: 1 }}>
+            <span style={styles.footerIcon}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+              </svg>
+            </span>
+            <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
+          </a>
+          {/* `role="switch"` rather than a plain button: the control reports a state
+              rather than firing an action, so screen readers announce "on"/"off"
+              against a stable label instead of the label itself changing. The switch
+              renders bare, so that name comes from `aria-label` — the visible track
+              is decorative and hidden from the tree. */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={dark}
+            aria-label="Dark mode"
+            onClick={onToggleTheme}
+            className="nav-header-hover theme-switch"
+            style={{ ...styles.footerLink, ...styles.themeButton }}
           >
             <span
-              className="theme-switch-thumb"
-              style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
+              aria-hidden
+              className="theme-switch-track"
+              style={{ ...styles.switchTrack, ...(dark ? styles.switchTrackOn : null) }}
             >
-              <ThemeIcon dark={dark} />
+              <span
+                className="theme-switch-thumb"
+                style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
+              >
+                <ThemeIcon dark={dark} />
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+        </div>
       </div>
     </>
   );
