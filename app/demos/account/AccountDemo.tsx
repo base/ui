@@ -2925,7 +2925,7 @@ export function AccountDemo() {
       <div
         className="activity-full-width sticky bottom-0 z-10 mt-auto"
       >
-        <div className="border-t border-bds-gray-10 bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/5">
+        <div className="border-t border-bds-gray-10 bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[rgb(30,30,30)]">
           <button
             type="button"
             onClick={() => setActivityOpen(!activityOpen)}
