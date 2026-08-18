@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
+import { createGateToken, GATE_COOKIE, GATE_MAX_AGE_SECONDS } from '../../../site-gate';
 
 // Verifies the temporary site password (see middleware.ts) and, on success,
 // sets an httpOnly cookie that the middleware checks. Reads the password from
 // SITE_PASSWORD; nothing is hardcoded.
 
 export const runtime = 'nodejs';
-
-const COOKIE = 'site_gate';
-const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 export async function POST(request: Request) {
   const password = process.env.SITE_PASSWORD;
@@ -31,13 +29,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE, password, {
+  const token = await createGateToken(password);
+  const res = NextResponse.json({ ok: true }, { headers: { 'cache-control': 'no-store' } });
+  
+  // Security Fix: Set secure, httpOnly cookie with strict sameSite enforcement
+  res.cookies.set(GATE_COOKIE, token, {
     httpOnly: true,
     secure: true,
     sameSite: 'strict',
     path: '/',
-    maxAge: MAX_AGE_SECONDS,
+    maxAge: GATE_MAX_AGE_SECONDS,
   });
   return res;
 }
