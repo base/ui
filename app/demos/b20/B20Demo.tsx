@@ -244,13 +244,12 @@ export function B20Demo() {
         if (!isB20 || !initialized) throw new Error('This address is not a ready-to-use B20 token.');
         const variant = b20Variant(address);
         if (!variant) throw new Error('We could not identify this B20 token type.');
-        const [name, symbol, decimals, supply, cap, contractURI, policyRows] = await Promise.all([
+        const [name, symbol, decimals, supply, cap, policyRows] = await Promise.all([
           client.readContract({ address, abi: b20Abi, functionName: 'name' }),
           client.readContract({ address, abi: b20Abi, functionName: 'symbol' }),
           client.readContract({ address, abi: b20Abi, functionName: 'decimals' }),
           client.readContract({ address, abi: b20Abi, functionName: 'totalSupply' }),
           client.readContract({ address, abi: b20Abi, functionName: 'supplyCap' }),
-          client.readContract({ address, abi: b20Abi, functionName: 'contractURI' }),
           Promise.all(
             POLICY_SCOPES.map(async ([scope, label]) => {
               const id = await client.readContract({
@@ -277,7 +276,7 @@ export function B20Demo() {
             }),
           ),
         ]);
-        setToken({ address, name, symbol, decimals, variant, supply, cap, contractURI, policies: policyRows });
+        setToken({ address, name, symbol, decimals, variant, supply, cap, policies: policyRows });
         setTokenAddress(address);
       } catch (error) {
         setToken(null);

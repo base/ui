@@ -19,7 +19,6 @@ export const SAMPLE_TOKEN: TokenInfo = {
   variant: 'asset',
   supply: 2_500_000n * 10n ** 18n,
   cap: 5_000_000n * 10n ** 18n,
-  contractURI: 'https://example.com/tokens/vibenet-reserve-asset',
   policies: [
     {
       scope: 'TRANSFER_SENDER_POLICY',
