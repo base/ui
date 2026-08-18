@@ -25,7 +25,7 @@ import { AnnouncementModule, SampleAnnouncementViewer } from './components/Annou
 import { DeployModule } from './components/DeployModule';
 import { MemoModule } from './components/MemoModule';
 import { PolicyModule } from './components/PolicyModule';
-import { client, CHAIN_ID, MODULES, SAMPLE_TOKEN } from './lib/constants';
+import { client, CHAIN_ID, MODULES } from './lib/constants';
 import {
   b20Abi,
   b20Variant,
@@ -40,6 +40,7 @@ import {
   shortAddress,
 } from './lib/protocol';
 import { readRecent, readRecentPolicies, writeRecent, writeRecentPolicy } from './lib/recent';
+import { sampleTokenForAddress } from './lib/samples';
 import type {
   ActivityItem,
   CreatedToken,
@@ -102,7 +103,7 @@ export function B20Demo() {
   useEffect(() => {
     let cancelled = false;
     setIsOperator(false);
-    if (!activeTokenAddress || !wallet || activeTokenAddress.toLowerCase() === SAMPLE_TOKEN.toLowerCase()) return;
+    if (!activeTokenAddress || !wallet || sampleTokenForAddress(activeTokenAddress)) return;
     client
       .readContract({
         address: activeTokenAddress,
@@ -128,7 +129,7 @@ export function B20Demo() {
     setTokenAdminCheckedFor(null);
     if (!activeTokenAddress || !wallet) return;
     const checkKey = `${activeTokenAddress.toLowerCase()}:${wallet.toLowerCase()}`;
-    if (activeTokenAddress.toLowerCase() === SAMPLE_TOKEN.toLowerCase()) {
+    if (sampleTokenForAddress(activeTokenAddress)) {
       setTokenAdminCheckedFor(checkKey);
       return;
     }
@@ -206,6 +207,14 @@ export function B20Demo() {
 
   const inspect = useCallback(
     async (candidate = tokenAddress) => {
+      const sampleToken = sampleTokenForAddress(candidate);
+      if (sampleToken) {
+        setInspectError('');
+        setChecks(null);
+        setToken(sampleToken);
+        setTokenAddress(sampleToken.address);
+        return;
+      }
       if (!isAddress(candidate)) {
         setInspectError('Paste a valid token address, then try again.');
         return;
@@ -367,7 +376,7 @@ export function B20Demo() {
     trackB20ModuleSelect(next);
   };
   const tokenAccess: TokenAccess =
-    token?.address.toLowerCase() === SAMPLE_TOKEN.toLowerCase()
+    sampleTokenForAddress(token?.address)
       ? 'sample'
       : isOperator
         ? 'operator'

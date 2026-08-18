@@ -1,18 +1,16 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { encodeFunctionData, isAddress, type Address, type Hex } from 'viem';
 
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
-import { VIBENET_EXPLORER_PATH } from '../../../vibenet/library/config';
 import { walletErrorMessage } from '../../../vibenet/library/wallet';
-import { SAMPLE_MEMO_TX } from '../lib/constants';
 import { B20_HELP } from '../lib/glossary';
-import { amount, b20Abi, memoToBytes32 } from '../lib/protocol';
+import { amount, b20Abi, formatAmount, memoToBytes32, shortAddress } from '../lib/protocol';
 import { READ_MEMO_PROMPT } from '../lib/prompts';
+import { SAMPLE_MEMOS } from '../lib/samples';
 import type { TokenAccess, TokenInfo } from '../lib/types';
 import { CopyPromptButton } from './CopyPromptButton';
 import { MemoHistory } from './MemoHistory';
@@ -63,40 +61,52 @@ export function MemoModule({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <span className="rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue">
-                Sample transaction
+                Sample data · Read only
               </span>
               <Text className="mt-3" variant="headline">
-                Transfer with memo
+                Memo history
               </Text>
               <Text variant="footnote" tone="muted">
-                A token transfer with a memo attached to help identify the transaction’s purpose.
+                Example token activity with short references attached to it. These records are local mock data.
               </Text>
             </div>
-            <Link
-              href={`${VIBENET_EXPLORER_PATH}/tx/${SAMPLE_MEMO_TX}`}
-              className="text-[12px] text-base-blue hover:underline"
-            >
-              View transaction ↗
-            </Link>
+            <span className="text-[12px] text-bds-gray-50">
+              {SAMPLE_MEMOS.length} memo{SAMPLE_MEMOS.length === 1 ? '' : 's'}
+            </span>
           </div>
-          <dl className="mt-5 grid gap-3 rounded-xl border border-bds-gray-10 p-4 text-[13px] sm:grid-cols-2 dark:border-white/10">
-            <div>
-              <dt className="text-[11px] text-bds-gray-50">Operation</dt>
-              <dd className="mt-1">Transfer with a note</dd>
-            </div>
-            <div>
-              <dt className="text-[11px] text-bds-gray-50">Amount</dt>
-              <dd className="mt-1">0.001 {token.symbol}</dd>
-            </div>
-            <div>
-              <dt className="text-[11px] text-bds-gray-50">Memo</dt>
-              <dd className="mt-1 font-medium">sending test</dd>
-            </div>
-            <div>
-              <dt className="text-[11px] text-bds-gray-50">Encoding</dt>
-              <dd className="mt-1 font-mono text-[11px]">bytes32</dd>
-            </div>
-          </dl>
+          <div className="mt-5 divide-y divide-bds-gray-10 border-y border-bds-gray-10 dark:divide-white/10 dark:border-white/10">
+            {SAMPLE_MEMOS.map((row) => (
+              <article key={row.id} className="py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] text-bds-gray-50">Memo</p>
+                    <p className="mt-1 text-[16px] font-medium">{row.memo}</p>
+                  </div>
+                  <span className="rounded-full bg-bds-gray-5 px-2 py-1 text-[11px] capitalize text-bds-gray-60 dark:bg-white/10">
+                    {row.operation} with memo
+                  </span>
+                </div>
+                <dl className="mt-4 grid gap-3 text-[12px] sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <dt className="text-bds-gray-50">Memo caller</dt>
+                    <dd className="mt-0.5 font-mono">{shortAddress(row.caller)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-bds-gray-50">From</dt>
+                    <dd className="mt-0.5 font-mono">{shortAddress(row.from)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-bds-gray-50">To</dt>
+                    <dd className="mt-0.5 font-mono">{shortAddress(row.to)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-bds-gray-50">Amount</dt>
+                    <dd className="mt-0.5">{formatAmount(row.value, token.decimals)} {token.symbol}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
             <p className="text-[12px] text-bds-gray-50">Create a token to add memos to your own transactions.</p>
             <Button size="sm" onClick={onDeploy}>
@@ -104,7 +114,6 @@ export function MemoModule({
             </Button>
           </div>
         </Card>
-        <MemoHistory address={token.address} decimals={token.decimals} symbol={token.symbol} />
       </div>
     );
   return (
