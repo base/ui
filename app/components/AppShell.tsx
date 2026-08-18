@@ -14,6 +14,7 @@ import { getUpgradeById } from '../upgrades/data/upgrades';
 import { titleForPath } from '../navigation';
 
 import { trackNavClick } from '../analytics/events';
+import { navSlideDirection } from './nav-motion';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
 import { cn } from './ui/cn';
@@ -414,14 +415,15 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
   const directionRef = useRef(1);
   const prevParentRef = useRef<string | null>(activeParent?.href ?? null);
 
-  useEffect(() => {
-    const prev = prevParentRef.current;
-    const curr = activeParent?.href ?? null;
-    if (prev !== curr) {
-      directionRef.current = curr ? 1 : -1;
-      prevParentRef.current = curr;
-    }
-  }, [activeParent]);
+  // Direction must update during render. An effect applies one commit late,
+  // so the first click of the section back-header still slid as if going in.
+  const prevParent = prevParentRef.current;
+  const currParent = activeParent?.href ?? null;
+  const nextDirection = navSlideDirection(prevParent, currParent);
+  if (nextDirection !== null) {
+    directionRef.current = nextDirection;
+    prevParentRef.current = currParent;
+  }
 
   // Any commit hands control back to the router, including a Back that lands
   // somewhere other than the tapped href.
