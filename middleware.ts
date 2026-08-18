@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { disabledRoutePrefixes } from './deploy.config.mjs';
+import { GATE_COOKIE, isValidGateToken } from './site-gate';
 
 // TEMPORARY site-wide password gate.
 //
@@ -15,9 +16,7 @@ import { disabledRoutePrefixes } from './deploy.config.mjs';
 // To remove the gate later: delete this file and app/api/gate/route.ts, and
 // unset SITE_PASSWORD in Vercel.
 
-const COOKIE = 'site_gate';
-
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   // Surfaces not shipped to this build target (deploy.config.mjs) 404 at the
   // edge. This is the authoritative status block: a disabled section's page may
   // be statically prerendered, so its layout notFound() serves 404 content with
@@ -37,7 +36,8 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (req.cookies.get(COOKIE)?.value === password) {
+  // Verify the HMAC token securely without exposing the plaintext password
+  if (await isValidGateToken(req.cookies.get(GATE_COOKIE)?.value, password)) {
     return NextResponse.next();
   }
 
