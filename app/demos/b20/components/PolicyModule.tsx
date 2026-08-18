@@ -10,10 +10,10 @@ import { cn } from '../../../components/ui/cn';
 import { InfoTooltip } from '../../../components/ui/InfoTooltip';
 import { Text } from '../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../vibenet/library/config';
-import { SAMPLE_TOKEN } from '../lib/constants';
 import { B20_HELP, SCOPE_HELP } from '../lib/glossary';
 import { formatAmount, MAX_SUPPLY_CAP, policyKindFromId, policyKindLabel, shortAddress } from '../lib/protocol';
 import { READ_POLICY_PROMPT } from '../lib/prompts';
+import { SAMPLE_TOKEN } from '../lib/samples';
 import type { CreatedPolicy, RecentPolicy, RecentToken, TokenAccess, TokenInfo } from '../lib/types';
 import { AttachPolicy, type TokenAdminStatus } from './AttachPolicy';
 import { CopyPromptButton } from './CopyPromptButton';
@@ -59,6 +59,7 @@ export function PolicyModule({
 }) {
   const [showCreator, setShowCreator] = useState(false);
   const [suggestedPolicyId, setSuggestedPolicyId] = useState<bigint | null>(null);
+  const isSample = tokenAccess === 'sample';
   return (
     <div className="flex flex-col gap-5">
       <section className="flex flex-wrap items-start justify-between gap-3">
@@ -71,11 +72,13 @@ export function PolicyModule({
             </Text>
           </div>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setShowCreator((shown) => !shown)}>
-          {showCreator ? 'Close creator' : 'Create policy'}
-        </Button>
+        {!isSample ? (
+          <Button size="sm" variant="outline" onClick={() => setShowCreator((shown) => !shown)}>
+            {showCreator ? 'Close creator' : 'Create policy'}
+          </Button>
+        ) : null}
       </section>
-      {showCreator ? (
+      {showCreator && !isSample ? (
         <CreatePolicy
           wallet={wallet}
           recentPolicies={recentPolicies}
@@ -103,7 +106,7 @@ export function PolicyModule({
             <Button
               className="mt-5 self-start"
               variant="outline"
-              onClick={() => onInspect(SAMPLE_TOKEN)}
+              onClick={() => onInspect(SAMPLE_TOKEN.address)}
               disabled={busy === 'inspect'}
             >
               {busy === 'inspect' ? 'Loading…' : 'Explore the sample'}
@@ -282,33 +285,37 @@ export function PolicyModule({
               ))}
             </div>
           </section>
-          <AttachPolicy
-            token={token}
-            adminStatus={tokenAdminStatus}
-            recentPolicies={recentPolicies}
-            onSend={onSend}
-            busy={busy}
-            suggestedPolicyId={suggestedPolicyId}
-          />
-          <Card className="bg-background p-5 dark:bg-white/5">
-            <div className="flex items-center gap-1.5">
-              <Text variant="headline">Check a wallet</Text>
-              <InfoTooltip label="How the check works">{B20_HELP.checkAddress}</InfoTooltip>
-            </div>
-            <Text variant="footnote" tone="muted">
-              See what this wallet can do with the token you selected.
-            </Text>
-            <div className="mt-4 flex gap-2">
-              <Input
-                value={checkAddress}
-                onChange={(e) => setCheckAddress(e.target.value)}
-                placeholder="Paste a wallet address"
+          {!isSample ? (
+            <>
+              <AttachPolicy
+                token={token}
+                adminStatus={tokenAdminStatus}
+                recentPolicies={recentPolicies}
+                onSend={onSend}
+                busy={busy}
+                suggestedPolicyId={suggestedPolicyId}
               />
-              <Button size="sm" variant="outline" onClick={onCheck}>
-                Check
-              </Button>
-            </div>
-          </Card>
+              <Card className="bg-background p-5 dark:bg-white/5">
+                <div className="flex items-center gap-1.5">
+                  <Text variant="headline">Check a wallet</Text>
+                  <InfoTooltip label="How the check works">{B20_HELP.checkAddress}</InfoTooltip>
+                </div>
+                <Text variant="footnote" tone="muted">
+                  See what this wallet can do with the token you selected.
+                </Text>
+                <div className="mt-4 flex gap-2">
+                  <Input
+                    value={checkAddress}
+                    onChange={(e) => setCheckAddress(e.target.value)}
+                    placeholder="Paste a wallet address"
+                  />
+                  <Button size="sm" variant="outline" onClick={onCheck}>
+                    Check
+                  </Button>
+                </div>
+              </Card>
+            </>
+          ) : null}
           <div className="grid gap-5 lg:grid-cols-2">
             <Card className="bg-background p-5 dark:bg-white/5">
               <Text variant="headline">Token details</Text>
@@ -322,41 +329,47 @@ export function PolicyModule({
                   value={token.cap === MAX_SUPPLY_CAP ? 'Unlimited' : formatAmount(token.cap, token.decimals)}
                 />
               </dl>
-              <Link
-                href={`${VIBENET_EXPLORER_PATH}/address/${token.address}`}
-                className="mt-5 inline-block text-[12px] text-base-blue hover:underline"
-              >
-                View on Explorer ↗
-              </Link>
+              {isSample ? (
+                <p className="mt-5 text-[12px] text-bds-gray-50">Mock data · Not a deployed token</p>
+              ) : (
+                <Link
+                  href={`${VIBENET_EXPLORER_PATH}/address/${token.address}`}
+                  className="mt-5 inline-block text-[12px] text-base-blue hover:underline"
+                >
+                  View on Explorer ↗
+                </Link>
+              )}
             </Card>
-            <Card className="bg-background p-5 dark:bg-white/5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <Text variant="headline">Technical reference</Text>
-                  <Text variant="footnote" tone="muted">
-                    These are the contract checks behind this screen.
-                  </Text>
-                </div>
-                <CopyPromptButton prompt={READ_POLICY_PROMPT} module="policy" />
-              </div>
-              <div className="mt-4 space-y-2 font-mono text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                {[
-                  'factory.isB20(address)',
-                  'token.policyId(scope)',
-                  'registry.policyExists(id)',
-                  'registry.policyAdmin(id)',
-                  'registry.isAuthorized(id, account)',
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center justify-between rounded-lg border border-bds-gray-10 px-3 py-2 dark:border-white/10"
-                  >
-                    <span>{item}</span>
-                    <span className="text-bds-green-60">Read</span>
+            {!isSample ? (
+              <Card className="bg-background p-5 dark:bg-white/5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Text variant="headline">Technical reference</Text>
+                    <Text variant="footnote" tone="muted">
+                      These are the contract checks behind this screen.
+                    </Text>
                   </div>
-                ))}
-              </div>
-            </Card>
+                  <CopyPromptButton prompt={READ_POLICY_PROMPT} module="policy" />
+                </div>
+                <div className="mt-4 space-y-2 font-mono text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                  {[
+                    'factory.isB20(address)',
+                    'token.policyId(scope)',
+                    'registry.policyExists(id)',
+                    'registry.policyAdmin(id)',
+                    'registry.isAuthorized(id, account)',
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="flex items-center justify-between rounded-lg border border-bds-gray-10 px-3 py-2 dark:border-white/10"
+                    >
+                      <span>{item}</span>
+                      <span className="text-bds-green-60">Read</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
           </div>
         </>
       ) : null}

@@ -17,7 +17,6 @@ export type RecentToken = {
 export type TokenInfo = RecentToken & {
   supply: bigint;
   cap: bigint;
-  contractURI: string;
   policies: Array<{ scope: string; label: string; id: bigint; exists: boolean; admin: Address }>;
 };
 
