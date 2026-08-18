@@ -975,12 +975,22 @@ export function AccountDemo() {
       ]);
       const ethBefore = BigInt(assetBals.vibenet?.eth_wei ?? '0');
       const deadline = Date.now() + 8_000;
+      let credited = false;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 500));
         const fresh = await refreshVibenetBalances();
-        if (BigInt(fresh?.eth_wei ?? '0') > ethBefore) break;
+        if (BigInt(fresh?.eth_wei ?? '0') > ethBefore) {
+          credited = true;
+          break;
+        }
       }
-      toast.success('Topped up successfully');
+      if (credited) {
+        toast.success('Topped up successfully');
+      } else {
+        toast.error(
+          "Top up didn't go through — Vibenet may be down for maintenance. Please try again shortly.",
+        );
+      }
     } catch (e) {
       setError((e as Error).message);
       toast.error('Top up failed');
