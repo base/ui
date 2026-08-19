@@ -4,7 +4,7 @@ import {
   rejectedTransactionFromAuditEvent,
 } from '../audit-events';
 import { getAuditRpcUrl } from '../config';
-import { tipsDisabledResponse } from '../guard';
+import { tipsChainDisabledResponse, tipsDisabledResponse } from '../guard';
 import { getRejectedTransaction, listRejectedTransactions } from '../s3';
 import type { RejectedTransaction } from '../transaction-data';
 
@@ -18,6 +18,8 @@ export async function GET(request: Request) {
   const disabled = tipsDisabledResponse();
   if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chainDisabled = tipsChainDisabledResponse(chain);
+  if (chainDisabled) return chainDisabled;
 
   try {
     // Audit-first, S3 fallback: use the S3 archive only when audit is not

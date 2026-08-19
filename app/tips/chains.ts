@@ -24,9 +24,10 @@ function explorerFor(chain: TipsChain): string {
   return configured && configured.length > 0 ? configured : DEFAULT_EXPLORERS[chain];
 }
 
-export const TIPS_CHAINS: readonly TipsChainInfo[] = (
-  ['mainnet', 'sepolia', 'zeronet'] as const
-).map((id) => ({
+/** Every chain the TIPS surface knows how to render, in display order. */
+export const ALL_TIPS_CHAINS = ['mainnet', 'sepolia', 'zeronet'] as const;
+
+export const TIPS_CHAINS: readonly TipsChainInfo[] = ALL_TIPS_CHAINS.map((id) => ({
   id,
   label: id === 'mainnet' ? 'Base Mainnet' : id === 'sepolia' ? 'Base Sepolia' : 'Zeronet',
   explorerUrl: explorerFor(id),
@@ -38,9 +39,42 @@ export function isTipsChain(value: string | null | undefined): value is TipsChai
   return value === 'mainnet' || value === 'sepolia' || value === 'zeronet';
 }
 
-/** Normalize an unknown ?chain= value to a valid chain (falls back to default). */
-export function resolveTipsChain(value: string | null | undefined): TipsChain {
-  return isTipsChain(value) ? value : DEFAULT_TIPS_CHAIN;
+/**
+ * Normalize an unknown ?chain= value to a chain that is actually available.
+ *
+ * `enabled` defaults to every known chain, so callers with no deployment
+ * context behave as before. When the requested chain is absent from `enabled`
+ * — a stale link, or a URL hand-edited to a chain this deployment does not
+ * serve — this falls back to the default chain if it is enabled, else to the
+ * first enabled one, so the caller always gets a chain it can serve.
+ */
+export function resolveTipsChain(
+  value: string | null | undefined,
+  enabled: readonly TipsChain[] = ALL_TIPS_CHAINS,
+): TipsChain {
+  if (enabled.length === 0) return DEFAULT_TIPS_CHAIN;
+  if (isTipsChain(value) && enabled.includes(value)) return value;
+  return enabled.includes(DEFAULT_TIPS_CHAIN) ? DEFAULT_TIPS_CHAIN : enabled[0];
+}
+
+/**
+ * Parse a `TIPS_CHAINS` allowlist ("mainnet,sepolia") into chain ids.
+ *
+ * Unset or empty means every known chain — the local-dev and pre-configuration
+ * default, which keeps behaviour unchanged for deployments that do not set it.
+ * Unknown names are dropped rather than failing the request: the env var is
+ * operator-supplied, and a typo should not take the whole section down. A value
+ * naming only unknown chains is treated as unset for the same reason.
+ */
+export function parseTipsChains(raw: string | null | undefined): readonly TipsChain[] {
+  if (!raw) return ALL_TIPS_CHAINS;
+  const named = raw
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter(isTipsChain);
+  if (named.length === 0) return ALL_TIPS_CHAINS;
+  // Keep the catalogue's display order and drop duplicates.
+  return ALL_TIPS_CHAINS.filter((id) => named.includes(id));
 }
 
 export function tipsChainInfo(chain: TipsChain): TipsChainInfo {

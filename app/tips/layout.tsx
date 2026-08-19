@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { TipsChainsProvider } from './components/TipsChainsProvider';
+import { enabledTipsChains } from './enabledChains';
 import { TIPS_ENABLED } from './flag';
 
 // Metadata for the TIPS section. The app-wide chrome (sidebar, header) comes
@@ -18,5 +20,11 @@ export default function TipsLayout({ children }: { children: ReactNode }) {
   // disabled. With the flag off this branch is a compile-time constant, so the
   // section is unreachable in the public build.
   if (!TIPS_ENABLED) notFound();
-  return <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">{children}</div>;
+  // Resolved here, once per request, because TIPS_CHAINS is server-only runtime
+  // config: the client components below cannot read it themselves.
+  return (
+    <TipsChainsProvider chains={enabledTipsChains()}>
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">{children}</div>
+    </TipsChainsProvider>
+  );
 }

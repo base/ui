@@ -6,7 +6,7 @@ import {
   getJoinedAuditEventsByBundle,
 } from '../../audit-events';
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
-import { tipsDisabledResponse } from '../../guard';
+import { tipsChainDisabledResponse, tipsDisabledResponse } from '../../guard';
 import { getBundleHistory } from '../../s3';
 import type { BundleEvent, BundleHistory, BundleTransaction } from '../../transaction-data';
 import { publicClientFor, type TipsPublicClient } from '../../viem';
@@ -96,6 +96,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
   const disabled = tipsDisabledResponse();
   if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chainDisabled = tipsChainDisabledResponse(chain);
+  if (chainDisabled) return chainDisabled;
 
   try {
     const { hash } = await params;

@@ -113,6 +113,15 @@ To add an environment-specific page, add one `SURFACES` entry (middleware and th
 llms generator pick it up automatically) and gate its nav entry / layout / API
 guard on `surfaceEnabled(...)`. `deploy.config.test.mjs` covers the matrix logic.
 
+`NEXT_PUBLIC_DEPLOY_TARGET` is a **build-time** switch, so it can only separate
+deployments that are built separately. The internal target builds one image and
+promotes it between environments, so anything that must differ *within* the
+internal target has to be runtime config instead. `TIPS_CHAINS` is the current
+example: a comma-separated allowlist (`mainnet,sepolia`) of the chains the TIPS
+chain switcher offers and its API will serve, read per request in
+`app/tips/enabledChains.ts`. Unset — the default, including local dev — means
+every known chain.
+
 ## Deployment
 
 Deployed on Vercel (external target). Push to the default branch to ship; pull

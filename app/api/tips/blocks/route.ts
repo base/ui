@@ -6,7 +6,7 @@ import {
   parseBlockListQuery,
 } from '../block-list';
 import { getRpcUrl } from '../config';
-import { tipsDisabledResponse } from '../guard';
+import { tipsChainDisabledResponse, tipsDisabledResponse } from '../guard';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +18,8 @@ export async function GET(request: Request) {
   const disabled = tipsDisabledResponse();
   if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chainDisabled = tipsChainDisabledResponse(chain);
+  if (chainDisabled) return chainDisabled;
 
   try {
     const query = parseBlockListQuery(new URL(request.url).searchParams);

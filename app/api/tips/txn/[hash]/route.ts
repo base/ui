@@ -1,5 +1,5 @@
 import { resolveTipsChain } from '../../../../tips/chains';
-import { tipsDisabledResponse } from '../../guard';
+import { tipsChainDisabledResponse, tipsDisabledResponse } from '../../guard';
 import {
   InvalidTransactionHashError,
   lookupTransaction,
@@ -17,6 +17,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
   const disabled = tipsDisabledResponse();
   if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chainDisabled = tipsChainDisabledResponse(chain);
+  if (chainDisabled) return chainDisabled;
 
   try {
     const { hash } = await params;
