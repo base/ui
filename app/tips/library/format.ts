@@ -6,9 +6,11 @@ const WEI_PER_GWEI = 10n ** 9n;
 const WEI_PER_ETH = 10n ** 18n;
 
 function formatBigInt(value: bigint, decimals: number, scale: bigint): string {
-  const whole = value / scale;
-  const frac = ((value % scale) * 10n ** BigInt(decimals)) / scale;
-  return `${whole}.${frac.toString().padStart(decimals, '0')}`;
+  const sign = value < 0n ? '-' : '';
+  const absValue = value < 0n ? -value : value;
+  const whole = absValue / scale;
+  const frac = ((absValue % scale) * 10n ** BigInt(decimals)) / scale;
+  return `${sign}${whole}.${frac.toString().padStart(decimals, '0')}`;
 }
 
 /** Render a `0x…` wei quantity as ETH / Gwei / Wei depending on magnitude. */
