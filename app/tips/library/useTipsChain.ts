@@ -4,9 +4,10 @@ import { useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { resolveTipsChain, type TipsChain } from '../chains';
+import { useEnabledTipsChains } from '../components/TipsChainsProvider';
 
 type UseTipsChain = {
-  /** The chain currently selected in the URL (defaults via resolveTipsChain). */
+  /** The chain selected in the URL, clamped to the chains this deployment serves. */
   chain: TipsChain;
   /** Update `?chain=` in place, preserving the path and other query params. */
   setChain: (next: TipsChain) => void;
@@ -20,7 +21,10 @@ export function useTipsChain(): UseTipsChain {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const chain = resolveTipsChain(searchParams.get('chain'));
+  // Clamped to what this deployment serves, so a `?chain=` naming a chain this
+  // environment has no data for reads as the default rather than erroring.
+  const enabled = useEnabledTipsChains();
+  const chain = resolveTipsChain(searchParams.get('chain'), enabled);
 
   const setChain = useCallback(
     (next: TipsChain) => {

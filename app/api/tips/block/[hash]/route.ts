@@ -10,7 +10,7 @@ import {
   transactionMetadataFromAuditEvents,
 } from '../../audit-events';
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
-import { tipsDisabledResponse } from '../../guard';
+import { tipsChainDisabledResponse, tipsDisabledResponse } from '../../guard';
 import { getTransactionReceiptSummaries } from '../../receipts';
 import {
   cacheBlockData,
@@ -305,6 +305,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
   const disabled = tipsDisabledResponse();
   if (disabled) return disabled;
   const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chainDisabled = tipsChainDisabledResponse(chain);
+  if (chainDisabled) return chainDisabled;
   const rpcUrl = getRpcUrl(chain);
 
   try {
