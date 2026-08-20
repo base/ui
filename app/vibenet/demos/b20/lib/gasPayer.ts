@@ -117,10 +117,10 @@ export function payerErrorMessage(error: unknown): string | null {
   switch (rejected.code) {
     case 'BUDGET_EXHAUSTED':
     case 'SENDER_LIMIT_REACHED':
-      return 'The gas sponsorship budget for this demo is used up. Wait a bit, then try again.';
+      return "The demo gas payer's budget is used up. Wait a bit, then try again.";
     case 'TEMPORARILY_UNAVAILABLE':
-      return 'The gas sponsor is temporarily unavailable. Try again in a moment.';
+      return 'The gas payer is temporarily unavailable. Try again in a moment.';
     default:
-      return `The gas sponsor declined this transaction${rejected.reason ? `: ${rejected.reason}` : '.'}`;
+      return `The gas payer declined this transaction${rejected.reason ? `: ${rejected.reason}` : '.'}`;
   }
 }

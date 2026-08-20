@@ -11,6 +11,7 @@ import { ActivityLog } from '../account/components/ActivityLog';
 import { useAccountEngine } from '../account/useAccountEngine';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { AnimatedAmount } from '../_components/AnimatedAmount';
+import { Select, type SelectGroup } from '../../../components/ui/Select';
 import { AnnouncementModule, SampleAnnouncementViewer } from './components/AnnouncementModule';
 import { DeployModule } from './components/DeployModule';
 import { MemoModule } from './components/MemoModule';
@@ -31,6 +32,7 @@ import {
 } from './lib/protocol';
 import { readRecent, readRecentPolicies, writeRecent, writeRecentPolicy } from './lib/recent';
 import { sampleTokenForAddress } from './lib/samples';
+import { canUseTokenForGas } from './lib/tokenGas';
 import {
   createPayer,
   ensurePayerFunded,
@@ -87,7 +89,12 @@ export function B20Demo() {
   const [checkAddress, setCheckAddress] = useState('');
   const [checks, setChecks] = useState<Record<string, boolean> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [batchProgress, setBatchProgress] = useState<{ label: string; index: number; total: number } | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{
+    label: string;
+    detail?: string;
+    index: number;
+    total: number;
+  } | null>(null);
   const [isOperator, setIsOperator] = useState(false);
   const [isTokenAdmin, setIsTokenAdmin] = useState(false);
   const [tokenAdminLoading, setTokenAdminLoading] = useState(false);
@@ -234,7 +241,7 @@ export function B20Demo() {
   // OPERATOR_ROLE, which the stablecoin deploy skips), so admin status is the
   // gate. Drop back to ETH when the active token changes, isn't a stablecoin,
   // or access is lost.
-  const tokenGasEligible = token?.variant === 'stablecoin' && (isTokenAdmin || isOperator);
+  const tokenGasEligible = canUseTokenForGas(token?.variant, isTokenAdmin, isOperator);
   useEffect(() => {
     if (!tokenGasEligible) setGasMode('eth');
   }, [tokenGasEligible]);
@@ -440,7 +447,7 @@ export function B20Demo() {
   // each one is written to be meaningful on its own.
   const sendBatches = useCallback(
     async (
-      batches: Array<{ label: string; calls: Array<{ to: Address; data: Hex }> }>,
+      batches: Array<{ label: string; detail?: string; calls: Array<{ to: Address; data: Hex }> }>,
       action: string,
     ): Promise<Hex[] | null> => {
       if (!activeAccount) {
@@ -453,7 +460,7 @@ export function B20Demo() {
       const hashes: Hex[] = [];
       try {
         for (const [index, batch] of batches.entries()) {
-          setBatchProgress({ label: batch.label, index, total: batches.length });
+          setBatchProgress({ label: batch.label, detail: batch.detail, index, total: batches.length });
           const tokenGas =
             gasMode === 'token' && token?.variant === 'stablecoin' && storedPayer
               ? {
@@ -472,6 +479,7 @@ export function B20Demo() {
           engine.pushActivity({
             kind: 'transact',
             title: annotateMode(batch.label, mode, token?.symbol),
+            detail: batch.detail,
             txHash: hash,
             serialized,
             network: engine.chain.name,
@@ -521,6 +529,40 @@ export function B20Demo() {
         : wallet
           ? 'external'
           : 'disconnected';
+  const selectedCreatedToken = recent.find(
+    (entry) => entry.address.toLowerCase() === tokenAddress.trim().toLowerCase(),
+  );
+  const headerToken = selectedCreatedToken ?? token;
+  const switchingCreatedToken =
+    busy === 'inspect' &&
+    selectedCreatedToken !== undefined &&
+    selectedCreatedToken.address.toLowerCase() !== token?.address.toLowerCase();
+  const headerTokenGroups: SelectGroup[] = [
+    {
+      label: 'Stablecoins · can pay network fees',
+      options: recent
+        .filter((entry) => entry.variant === 'stablecoin')
+        .map((entry) => ({
+          value: entry.address,
+          label:
+            entry.address.toLowerCase() === token?.address.toLowerCase() && tokenBalance !== null
+              ? `${formatAmount(tokenBalance, entry.decimals)} ${entry.symbol} · Stablecoin`
+              : `${entry.symbol} — ${entry.name} · Stablecoin`,
+        })),
+    },
+    {
+      label: 'Assets · fees in ETH only',
+      options: recent
+        .filter((entry) => entry.variant === 'asset')
+        .map((entry) => ({
+          value: entry.address,
+          label:
+            entry.address.toLowerCase() === token?.address.toLowerCase() && tokenBalance !== null
+              ? `${formatAmount(tokenBalance, entry.decimals)} ${entry.symbol} · Asset`
+              : `${entry.symbol} — ${entry.name} · Asset`,
+        })),
+    },
+  ].filter((group) => group.options.length > 0);
   return (
     <AccountDemoShell
       engine={engine}
@@ -540,7 +582,20 @@ export function B20Demo() {
             />
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-3 text-[12px]">
-            {token && tokenBalance !== null ? (
+            {recent.length > 1 ? (
+              <Select
+                value={selectedCreatedToken?.address ?? ''}
+                onValueChange={(value) => {
+                  setTokenAddress(value);
+                  void inspect(value);
+                }}
+                groups={headerTokenGroups}
+                placeholder={switchingCreatedToken ? 'Loading token…' : 'Choose token'}
+                ariaLabel="Active token"
+                disabled={busy === 'inspect'}
+                className="h-8 w-auto min-w-[180px] border-0 bg-transparent px-2 text-[13px] dark:bg-transparent"
+              />
+            ) : token && tokenBalance !== null ? (
               <span className="animate-in inline-flex items-baseline gap-1">
                 <AnimatedAmount
                   text={formatAmount(tokenBalance, token.decimals)}
@@ -548,9 +603,10 @@ export function B20Demo() {
                   group
                 />
                 {token.symbol}
+                <span className="capitalize text-bds-gray-50">· {token.variant}</span>
               </span>
             ) : null}
-            {token && tokenGasEligible ? (
+            {token && headerToken?.variant === 'stablecoin' && tokenGasEligible ? (
               <span className="inline-flex items-center gap-1.5">
                 <span className="text-bds-gray-50">Fees:</span>
                 <span className="inline-flex overflow-hidden rounded-full border border-bds-gray-10 text-[11px] dark:border-white/10">

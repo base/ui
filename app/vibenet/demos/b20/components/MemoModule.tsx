@@ -45,7 +45,7 @@ export function MemoModule({
   onPrefillConsumed?: () => void;
   /** Per-transaction network fee in token terms (e.g. "0.1 ATLN") when token gas is on. */
   feeNote?: string | null;
-  /** Set when the selected token is an eligible stablecoin still on sponsored gas. */
+  /** Set when the selected token is an eligible stablecoin still paying fees in ETH. */
   onEnableTokenGas?: (() => void) | null;
 }) {
   const [to, setTo] = useState('');
@@ -71,7 +71,7 @@ export function MemoModule({
       if (v <= 0n) throw new Error('Enter an amount greater than zero.');
       if (!isAddress(to)) throw new Error('Paste a valid wallet address for the recipient.');
       const hash = await onSend(
-        'Transfer with memo',
+        token.variant === 'stablecoin' ? `Send ${token.symbol} with memo` : 'Transfer with memo',
         token.address,
         encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, m] }),
         'memo_transfer',
@@ -245,12 +245,18 @@ export function MemoModule({
             </p>
             <ErrorNote message={error} />
             <Button className="mt-5" onClick={() => void submit()} disabled={!!busy}>
-              {busy === 'memo_transfer' ? 'Sending…' : 'Submit transfer with memo'}
+              {busy === 'memo_transfer'
+                ? token.variant === 'stablecoin'
+                  ? `Sending ${token.symbol}…`
+                  : 'Sending…'
+                : token.variant === 'stablecoin'
+                  ? `Send ${token.symbol} with memo`
+                  : 'Submit transfer with memo'}
             </Button>
             <p className="mt-3 text-[12px] text-bds-gray-50">
               {feeNote
                 ? `Network fee: ${feeNote} — paid from your balance.`
-                : 'Network fee: sponsored.'}
+                : 'Network fee: paid in ETH from your account.'}
               {!feeNote && onEnableTokenGas && token ? (
                 <>
                   {' '}

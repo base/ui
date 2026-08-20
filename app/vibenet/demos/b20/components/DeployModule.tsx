@@ -14,6 +14,11 @@ import { CopyableValue } from '../../../components/CopyableValue';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { client, INITIAL_ALLOCATION_MAX, INITIAL_ALLOCATION_MEMO } from '../lib/constants';
+import {
+  chunkDeploymentOperations,
+  describeStablecoinOperations,
+  type DeploymentOperation,
+} from '../lib/deployment';
 import { B20_HELP, SCOPE_HELP } from '../lib/glossary';
 import {
   ACTIVATION_REGISTRY,
@@ -124,11 +129,11 @@ export function DeployModule({
   wallet: Address | null;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
   onSendBatches: (
-    batches: Array<{ label: string; calls: Array<{ to: Address; data: Hex }> }>,
+    batches: Array<{ label: string; detail?: string; calls: Array<{ to: Address; data: Hex }> }>,
     action: string,
   ) => Promise<Hex[] | null>;
   /** Live step info while a batched flow runs (null when idle). */
-  progress: { label: string; index: number; total: number } | null;
+  progress: { label: string; detail?: string; index: number; total: number } | null;
   /** Guided flow: flip gas to the new stablecoin and pre-fill a first payment. */
   onFirstPayment: () => void;
   created: CreatedToken | null;
@@ -275,21 +280,41 @@ export function DeployModule({
       if (!salt.trim()) setSalt(saltValue);
       const deploySalt = saltFor(saltValue);
       const params = encodeDeploymentParams(variant, name, symbol, wallet, d, currency);
-      const initCalls: Hex[] = ROLES.filter((role) => variant === 'asset' || role !== 'OPERATOR_ROLE').map((role) =>
-        encodeRoleGrant(role, wallet),
-      );
+      const initCalls: DeploymentOperation[] = ROLES.filter(
+        (role) => variant === 'asset' || role !== 'OPERATOR_ROLE',
+      ).map((role) => ({ data: encodeRoleGrant(role, wallet), kind: 'role', role }));
       if (capAmount !== null)
-        initCalls.push(encodeFunctionData({ abi: b20Abi, functionName: 'updateSupplyCap', args: [capAmount] }));
-      if (uri) initCalls.push(encodeFunctionData({ abi: b20Abi, functionName: 'updateContractURI', args: [uri] }));
+        initCalls.push({
+          data: encodeFunctionData({ abi: b20Abi, functionName: 'updateSupplyCap', args: [capAmount] }),
+          kind: 'cap',
+          amount: formatAmount(capAmount, d),
+          symbol,
+        });
+      if (uri)
+        initCalls.push({
+          data: encodeFunctionData({ abi: b20Abi, functionName: 'updateContractURI', args: [uri] }),
+          kind: 'metadata',
+        });
       initCalls.push(
-        encodeFunctionData({
-          abi: b20Abi,
-          functionName: 'mintWithMemo',
-          args: [wallet, initialMintAmount, memoToBytes32(INITIAL_ALLOCATION_MEMO)],
-        }),
+        {
+          data: encodeFunctionData({
+            abi: b20Abi,
+            functionName: 'mintWithMemo',
+            args: [wallet, initialMintAmount, memoToBytes32(INITIAL_ALLOCATION_MEMO)],
+          }),
+          kind: 'mint',
+          amount: formatAmount(initialMintAmount, d),
+          symbol,
+          memo: INITIAL_ALLOCATION_MEMO,
+        },
       );
       initialPolicies.forEach(({ scope, id }) => {
-        initCalls.push(encodeFunctionData({ abi: b20Abi, functionName: 'updatePolicy', args: [scopeId(scope), id] }));
+        initCalls.push({
+          data: encodeFunctionData({ abi: b20Abi, functionName: 'updatePolicy', args: [scopeId(scope), id] }),
+          kind: 'policy',
+          id,
+          scope,
+        });
       });
       const configured: string[] = [
         variant === 'asset'
@@ -309,23 +334,32 @@ export function DeployModule({
         functionName: 'getB20Address',
         args: [variant === 'asset' ? 0 : 1, wallet, deploySalt],
       });
-      // The payer sponsors only ~300k gas per transaction, so creation can't
-      // carry the init calls: create the bare token first, then apply the same
-      // init calls directly to the token in budget-sized follow-up batches.
+      // Each transaction is kept to roughly 300k gas, so creation can't carry
+      // the init calls: create the bare token first, then apply the same init
+      // calls directly to the token in budget-sized follow-up batches.
       const createData = encodeFunctionData({
         abi: factoryAbi,
         functionName: 'createB20',
         args: [variant === 'asset' ? 0 : 1, deploySalt, params, []],
       });
-      // 6 calls ≈ 200k gas — the most that reliably fits under the payer's
-      // ~300k per-transaction sponsorship budget alongside the batch overhead.
-      const chunks: Hex[][] = [];
-      for (let i = 0; i < initCalls.length; i += 6) chunks.push(initCalls.slice(i, i + 6));
+      // 6 calls ≈ 200k gas — the most that reliably fits in the ~300k
+      // per-transaction budget alongside the batch overhead.
+      const chunks = chunkDeploymentOperations(initCalls);
       const batches = [
-        { label: `Create ${symbol}`, calls: [{ to: B20_FACTORY, data: createData }] },
+        {
+          label: `Create ${symbol}`,
+          ...(variant === 'stablecoin'
+            ? {
+                detail:
+                  'Call createB20 with the Stablecoin variant and the EIP-8130 account as initial admin.',
+              }
+            : {}),
+          calls: [{ to: B20_FACTORY, data: createData }],
+        },
         ...chunks.map((chunk, i) => ({
           label: chunks.length > 1 ? `Configure ${symbol} (${i + 1} of ${chunks.length})` : `Configure ${symbol}`,
-          calls: chunk.map((data) => ({ to: address, data })),
+          ...(variant === 'stablecoin' ? { detail: describeStablecoinOperations(chunk) } : {}),
+          calls: chunk.map(({ data }) => ({ to: address, data })),
         })),
       ];
       const hashes = await onSendBatches(batches, 'create_b20');
@@ -560,8 +594,9 @@ export function DeployModule({
           </div>
           <p className="mt-1 font-mono text-[13px]">{predicted}</p>
           <p className="mt-3 text-[11px] text-bds-gray-50">
-            Creating the token runs a short series of gas-sponsored transactions: it deploys the token, gives your
-            wallet the permissions it needs, sets your options, and sends you the starting amount.
+            {variant === 'stablecoin'
+              ? 'This demo splits deployment and setup into several transactions to keep each one inside its gas budget. B20Factory also supports these setup calls through initCalls.'
+              : 'Creating the token runs a short series of transactions: it deploys the token, gives your wallet the permissions it needs, sets your options, and sends you the starting amount.'}
           </p>
         </div>
         <ErrorNote message={error} />
@@ -583,6 +618,9 @@ export function DeployModule({
             ) : (
               <p className="text-[12px] text-bds-gray-50">Preparing your token…</p>
             )}
+            {progress?.detail ? (
+              <p className="mt-2 max-w-3xl text-[12px] leading-5 text-bds-gray-60">{progress.detail}</p>
+            ) : null}
             <p className="mt-1 text-[11px] text-bds-gray-50">
               Each step is a real onchain transaction — links appear in Recent Activity as they confirm.
             </p>
@@ -670,7 +708,7 @@ function CreatedView({
           </>
         ) : (
           <Text variant="footnote" tone="muted" className="relative max-w-md">
-            Asset tokens use sponsored gas. To try paying network fees with your own token, create a Stablecoin.
+            Asset tokens pay network fees in ETH. To try paying fees with your own token, create a Stablecoin.
           </Text>
         )}
       </div>
@@ -739,7 +777,7 @@ function CreatedView({
             ))}
           </ul>
           <p className="mt-4 text-[11px] text-bds-gray-50">
-            Each step ran as its own gas-sponsored transaction — check Recent Activity for the links.
+            Each step ran as its own transaction — check Recent Activity for the links.
           </p>
         </Card>
       </div>
