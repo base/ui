@@ -217,7 +217,7 @@ export const changes: Change[] = [
     summary:
       "At and after Azul activation, block production and import use the following Engine API methods: <ul class='my-2 flex flex-col gap-1 list-disc pl-5'><li><code>engine_forkchoiceUpdatedV3</code> for starting block builds and forkchoice synchronization.</li><li><code>engine_getPayloadV5</code> for fetching built payloads.</li><li><code>engine_newPayloadV4</code> for importing payloads into the execution engine.</li></ul><code>engine_getPayloadV5</code> returns a V5 envelope, but the contained execution payload is still V4-shaped. As a result, payload insertion continues through <code>engine_newPayloadV4</code> (there is no <code>engine_newPayloadV5</code> path used by Base Azul clients).<p class='mt-2'>Azul constraints for this flow:</p><ul class='mt-2 flex flex-col gap-1 list-disc pl-5'><li>Blob-related Engine API inputs are constrained to empty values:</li><ul class='mt-2 flex flex-col gap-1 list-disc pl-5'><li><code>expectedBlobVersionedHashes</code> MUST be an empty array.</li><li><code>blobsBundle</code> in <code>engine_getPayloadV5</code> responses is expected to be empty.</li></ul><li><code>executionRequests</code> in <code>engine_newPayloadV4</code> MUST be an empty array.</li></ul>",
     migrationNotes:
-      'Use the registry as the source of accepted TEE signer identities instead of hard-coding Nitro prover signers.',
+      'Node clients and libraries should handle the V5 payload envelope with an empty blobsBundle, continue inserting payloads through engine_newPayloadV4, and send empty expectedBlobVersionedHashes and executionRequests arrays.',
     lastUpdated: '2026-04-12',
     relatedRepos: [],
     githubIssues: [],
