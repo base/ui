@@ -317,7 +317,7 @@ export function CreatePolicy({
         </>
       )}
       <ErrorNote message={error} />
-      <Button className="mt-5" onClick={() => void submit()} disabled={pending || !wallet || (mode === 'composite' && !compositeReady)}>{pending ? 'Creating policy…' : !wallet ? 'Connect wallet to create' : mode === 'composite' && !compositeReady ? 'Create at least two child policies first' : `Create ${policyKindLabel(kind)}`}</Button>
+      <Button className="mt-5" onClick={() => void submit()} disabled={pending || !wallet || (mode === 'composite' && !compositeReady)}>{pending ? 'Creating policy…' : !wallet ? 'Make a wallet to create' : mode === 'composite' && !compositeReady ? 'Create at least two child policies first' : `Create ${policyKindLabel(kind)}`}</Button>
     </Card>
   );
 }

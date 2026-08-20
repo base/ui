@@ -1,34 +1,27 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatEther, isAddress, type Address, type Hex } from 'viem';
 
-import { trackB20Action, trackB20ModuleSelect, trackB20WalletConnection } from '../../analytics/events';
+import { trackB20Action, trackB20ModuleSelect, trackB20WalletCreation } from '../../analytics/events';
+import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../components/ui/cn';
+import { Spinner } from '../../components/ui/Spinner';
 import { Tabs } from '../../components/ui/Tabs';
 import { textVariantClasses } from '../../components/ui/Text';
 import { CopyableValue } from '../../vibenet/components/CopyableValue';
-import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from '../../vibenet/library/config';
-import {
-  addEthereumChain,
-  getChainId,
-  getEthereum,
-  isUnrecognizedChain,
-  isUserRejection,
-  switchEthereumChain,
-  walletErrorMessage,
-} from '../../vibenet/library/wallet';
+import { walletErrorMessage } from '../../vibenet/library/wallet';
 import { Activity } from './components/Activity';
 import { AnnouncementModule, SampleAnnouncementViewer } from './components/AnnouncementModule';
 import { DeployModule } from './components/DeployModule';
 import { MemoModule } from './components/MemoModule';
 import { PolicyModule } from './components/PolicyModule';
-import { client, CHAIN_ID, MODULES } from './lib/constants';
+import { client, MODULES } from './lib/constants';
 import {
   b20Abi,
   b20Variant,
+  formatAmount,
   B20_FACTORY,
   DEFAULT_ADMIN_ROLE,
   factoryAbi,
@@ -41,6 +34,30 @@ import {
 } from './lib/protocol';
 import { readRecent, readRecentPolicies, writeRecent, writeRecentPolicy } from './lib/recent';
 import { sampleTokenForAddress } from './lib/samples';
+import {
+  clearPayer,
+  clearWallet,
+  createPayer,
+  createWallet,
+  getEthBalance,
+  loadPayer,
+  loadWallet,
+  payerAddress,
+  payerErrorMessage,
+  savePayer,
+  saveWallet,
+  seedWithEth,
+  sendSponsored8130,
+  sendSponsoredBatches,
+  tokenGasFee,
+  useDeployment,
+  walletAddress,
+  type SendMode,
+  type SponsoredBatch,
+  type SponsoredCall,
+  type StoredB20Payer,
+  type StoredB20Wallet,
+} from './lib/wallet8130';
 import type {
   ActivityItem,
   CreatedToken,
@@ -51,10 +68,29 @@ import type {
   TokenInfo,
 } from './lib/types';
 
+// Retry schedule for reads that race a just-confirmed transaction: the public
+// RPC is load-balanced across replicas whose heads differ, so read at t=0 and
+// again as state settles. Reads are pinned to a fresh block so lagging replicas
+// error instead of answering stale; a success is authoritative and errors never
+// downgrade a previous success.
+const READ_RETRY_MS = [0, 2_500, 6_000];
+
+function annotateMode(label: string, mode: SendMode, symbol?: string): string {
+  if (mode === 'token' && symbol) return `${label} · paid in ${symbol}`;
+  if (mode === 'self') return `${label} · self-paid`;
+  return label;
+}
+
 export function B20Demo() {
   const [module, setModule] = useState<Module>('policy');
-  const [wallet, setWallet] = useState<Address | null>(null);
+  const [storedWallet, setStoredWallet] = useState<StoredB20Wallet | null>(null);
+  const [storedPayer, setStoredPayer] = useState<StoredB20Payer | null>(null);
   const [walletBalance, setWalletBalance] = useState<bigint | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<bigint | null>(null);
+  // Which token the shown balance belongs to (lowercased address).
+  const balanceForToken = useRef<string | null>(null);
+  const [gasMode, setGasMode] = useState<'sponsored' | 'token'>('sponsored');
+  const [resetConfirm, setResetConfirm] = useState(false);
   const [recent, setRecent] = useState<RecentToken[]>([]);
   const [recentPolicies, setRecentPolicies] = useState<RecentPolicy[]>([]);
   const [tokenAddress, setTokenAddress] = useState('');
@@ -64,6 +100,7 @@ export function B20Demo() {
   const [checks, setChecks] = useState<Record<string, boolean> | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ label: string; index: number; total: number } | null>(null);
   const [isOperator, setIsOperator] = useState(false);
   const [isTokenAdmin, setIsTokenAdmin] = useState(false);
   const [tokenAdminLoading, setTokenAdminLoading] = useState(false);
@@ -72,27 +109,83 @@ export function B20Demo() {
   // tabs and coming back to Native Deployment.
   const [created, setCreated] = useState<CreatedToken | null>(null);
 
+  // Live EIP-8130 system-contract addresses. The wallet address is derived from
+  // these, so it can shift once the fetch lands (and after a devnet reset).
+  const deployment = useDeployment();
+  const wallet = useMemo<Address | null>(
+    () => (storedWallet ? walletAddress(storedWallet, deployment) : null),
+    [storedWallet, deployment],
+  );
+
   const refreshWallet = useCallback(async (account: Address | null) => {
     if (!account) return;
-    const balance = await client.getBalance({ address: account }).catch(() => null);
-    setWalletBalance(balance);
     setRecent(readRecent(account));
     setRecentPolicies(readRecentPolicies(account));
+    setWalletBalance(await getEthBalance(account));
   }, []);
 
   useEffect(() => {
-    const eth = getEthereum();
-    if (!eth) return;
-    eth
-      .request({ method: 'eth_accounts' })
-      .then((value) => {
-        const account =
-          Array.isArray(value) && typeof value[0] === 'string' && isAddress(value[0]) ? (value[0] as Address) : null;
-        setWallet(account);
-        void refreshWallet(account);
-      })
-      .catch(() => {});
-  }, [refreshWallet]);
+    setStoredWallet(loadWallet());
+    setStoredPayer(loadPayer());
+  }, []);
+
+  useEffect(() => {
+    void refreshWallet(wallet);
+  }, [wallet, refreshWallet]);
+
+  // The chip shows "funding…" until the faucet seed lands. A single balance
+  // read isn't enough: the drip takes a few seconds and the load-balanced RPC
+  // can serve a stale replica — poll until a non-zero balance shows up.
+  useEffect(() => {
+    if (!wallet) return;
+    let cancelled = false;
+    const poll = window.setInterval(() => {
+      void getEthBalance(wallet).then((balance) => {
+        if (cancelled || balance === null) return;
+        setWalletBalance(balance);
+        if (balance > 0n) window.clearInterval(poll);
+      });
+    }, 2_000);
+    const stop = window.setTimeout(() => window.clearInterval(poll), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      window.clearTimeout(stop);
+    };
+  }, [wallet]);
+
+  // The wallet's holding of the active token, shown in the header chip so the
+  // initial mint (and every transfer) is visible. Keyed on the `token` object,
+  // which is re-fetched after every send — so this re-reads automatically.
+  useEffect(() => {
+    let cancelled = false;
+    if (!token || !wallet || sampleTokenForAddress(token.address)) {
+      setTokenBalance(null);
+      balanceForToken.current = null;
+      return;
+    }
+    // Switching to a different token invalidates the shown balance; refreshes
+    // of the same token keep it on screen (no flash) until the new read lands.
+    if (balanceForToken.current !== token.address.toLowerCase()) {
+      balanceForToken.current = token.address.toLowerCase();
+      setTokenBalance((previous) => (previous === 0n ? previous : null));
+    }
+    const read = () =>
+      client
+        .getBlockNumber({ cacheTime: 0 })
+        .then((blockNumber) =>
+          client.readContract({ address: token.address, abi: b20Abi, functionName: 'balanceOf', args: [wallet], blockNumber }),
+        )
+        .then((balance) => {
+          if (!cancelled) setTokenBalance(balance);
+        })
+        .catch(() => {});
+    const timers = READ_RETRY_MS.map((delay) => window.setTimeout(() => void read(), delay));
+    return () => {
+      cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [token, wallet]);
 
   // Operator status is a function of (token address, wallet) only. send()
   // re-inspects the token after every tx, which yields a fresh `token` object
@@ -104,21 +197,26 @@ export function B20Demo() {
     let cancelled = false;
     setIsOperator(false);
     if (!activeTokenAddress || !wallet || sampleTokenForAddress(activeTokenAddress)) return;
-    client
-      .readContract({
-        address: activeTokenAddress,
-        abi: b20Abi,
-        functionName: 'hasRole',
-        args: [roleId('OPERATOR_ROLE'), wallet],
-      })
-      .then((allowed) => {
-        if (!cancelled) setIsOperator(allowed);
-      })
-      .catch(() => {
-        if (!cancelled) setIsOperator(false);
-      });
+    const read = () =>
+      client
+        .getBlockNumber({ cacheTime: 0 })
+        .then((blockNumber) =>
+          client.readContract({
+            address: activeTokenAddress,
+            abi: b20Abi,
+            functionName: 'hasRole',
+            args: [roleId('OPERATOR_ROLE'), wallet],
+            blockNumber,
+          }),
+        )
+        .then((allowed) => {
+          if (!cancelled && allowed) setIsOperator(true);
+        })
+        .catch(() => {});
+    const timers = READ_RETRY_MS.map((delay) => window.setTimeout(() => void read(), delay));
     return () => {
       cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, [activeTokenAddress, wallet]);
 
@@ -134,76 +232,128 @@ export function B20Demo() {
       return;
     }
     setTokenAdminLoading(true);
-    client
-      .readContract({
-        address: activeTokenAddress,
-        abi: b20Abi,
-        functionName: 'hasRole',
-        args: [DEFAULT_ADMIN_ROLE, wallet],
-      })
-      .then((allowed) => {
-        if (!cancelled) setIsTokenAdmin(allowed);
-      })
-      .catch(() => {
-        if (!cancelled) setIsTokenAdmin(false);
-      })
-      .finally(() => {
-        if (!cancelled) {
+    const lastDelay = READ_RETRY_MS[READ_RETRY_MS.length - 1];
+    const read = (delay: number) =>
+      client
+        .getBlockNumber({ cacheTime: 0 })
+        .then((blockNumber) =>
+          client.readContract({
+            address: activeTokenAddress,
+            abi: b20Abi,
+            functionName: 'hasRole',
+            args: [DEFAULT_ADMIN_ROLE, wallet],
+            blockNumber,
+          }),
+        )
+        .then((allowed) => {
+          if (cancelled) return;
+          if (allowed) setIsTokenAdmin(true);
           setTokenAdminLoading(false);
           setTokenAdminCheckedFor(checkKey);
-        }
-      });
+        })
+        .catch(() => {
+          // Keep "checking" until the final attempt fails too.
+          if (!cancelled && delay === lastDelay) {
+            setTokenAdminLoading(false);
+            setTokenAdminCheckedFor(checkKey);
+          }
+        });
+    const timers = READ_RETRY_MS.map((delay) => window.setTimeout(() => void read(delay), delay));
     return () => {
       cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, [activeTokenAddress, wallet]);
 
-  const connect = useCallback(async () => {
-    const eth = getEthereum();
-    trackB20WalletConnection('started');
-    if (!eth) {
-      trackB20WalletConnection('error');
-      setInspectError('We could not find a browser wallet. Install or unlock one, then try again.');
-      return;
-    }
+  // Making a wallet is instant and local: generate a key, derive the smart
+  // account's CREATE2 address. The account itself deploys as a side effect of
+  // its first transaction. The faucet seed (0.1 vibenet ETH) runs in the
+  // background — sponsorship works at zero balance, the ETH just enables the
+  // self-paid fallback.
+  const makeWallet = useCallback(() => {
+    trackB20WalletCreation('started');
     try {
-      const accounts = (await eth.request({ method: 'eth_requestAccounts' })) as string[];
-      const account = accounts[0];
-      if (!account || !isAddress(account)) throw new Error('Wallet did not return an account.');
-      if ((await getChainId(eth)) !== CHAIN_ID) {
-        try {
-          await switchEthereumChain(eth, CHAIN_ID);
-        } catch (error) {
-          if (!isUnrecognizedChain(error)) throw error;
-          await addEthereumChain(eth, {
-            chainId: CHAIN_ID,
-            chainName: 'base vibenet',
-            rpcUrl: VIBENET_RPC_URL,
-            explorerUrl: `${window.location.origin}${VIBENET_EXPLORER_PATH}`,
-          });
-        }
+      // Never overwrite an existing key: a double-click, a replayed
+      // pre-hydration click, or a second tab must adopt the stored wallet
+      // instead of silently replacing it (the old key would be unrecoverable).
+      const existing = loadWallet();
+      if (existing) {
+        setStoredWallet(existing);
+        trackB20WalletCreation('success');
+        return;
       }
-      setWallet(account);
-      await refreshWallet(account);
-      trackB20WalletConnection('success');
+      const next = createWallet();
+      saveWallet(next);
+      setStoredWallet(next);
+      setInspectError('');
+      trackB20WalletCreation('success');
+      const address = walletAddress(next, deployment);
+      void seedWithEth(address).then(() => refreshWallet(address));
     } catch (error) {
-      trackB20WalletConnection('error');
-      setInspectError(isUserRejection(error) ? 'Wallet request dismissed.' : walletErrorMessage(error));
+      trackB20WalletCreation('error');
+      setInspectError(walletErrorMessage(error));
     }
-  }, [refreshWallet]);
+  }, [deployment, refreshWallet]);
 
-  const disconnect = useCallback(() => {
-    // EIP-1193 providers do not expose a portable disconnect method. Clear the
-    // app's session instead; the wallet's site permission remains unchanged.
-    setWallet(null);
+  const resetWallet = useCallback(() => {
+    clearWallet();
+    clearPayer();
+    setStoredWallet(null);
+    setStoredPayer(null);
     setWalletBalance(null);
+    setGasMode('sponsored');
+    setResetConfirm(false);
     setRecent([]);
     setRecentPolicies([]);
     setIsOperator(false);
     setIsTokenAdmin(false);
     setTokenAdminLoading(false);
     setTokenAdminCheckedFor(null);
+    // The token context belongs to the old wallet — a fresh wallet starts with
+    // nothing selected, only its faucet ETH.
+    setToken(null);
+    setTokenAddress('');
+    setTokenBalance(null);
+    setChecks(null);
+    setCheckAddress('');
+    setCreated(null);
+    setInspectError('');
   }, []);
+
+  // Token-paid gas is offered only for a STABLECOIN the wallet manages —
+  // paying fees in a currency-pegged token is the realistic story; volatile
+  // asset tokens stay on sponsored/self-paid gas. Stablecoin creators hold
+  // DEFAULT_ADMIN (not OPERATOR_ROLE, which the stablecoin deploy skips), so
+  // admin status is the gate. Drop back to sponsored when the active token
+  // changes, isn't a stablecoin, or access is lost.
+  const tokenGasEligible = token?.variant === 'stablecoin' && (isTokenAdmin || isOperator);
+  useEffect(() => {
+    if (!tokenGasEligible) setGasMode('sponsored');
+  }, [tokenGasEligible]);
+
+  const enableTokenGas = useCallback(() => {
+    let payer = storedPayer;
+    if (!payer) {
+      payer = createPayer();
+      savePayer(payer);
+      setStoredPayer(payer);
+      // Pre-fund the demo payer so the first token-paid send doesn't wait.
+      void seedWithEth(payerAddress(payer));
+    }
+    setGasMode('token');
+  }, [storedPayer]);
+
+  // Guided "first payment" from the token-created screen: flip gas to the new
+  // stablecoin, jump to Memos, and pre-fill an invoice-style payment so the
+  // next click is Submit.
+  const [memoPrefill, setMemoPrefill] = useState<{ to: string; amount: string; memo: string } | null>(null);
+  const startFirstPayment = useCallback(() => {
+    if (token?.variant === 'stablecoin') enableTokenGas();
+    setMemoPrefill({ to: '0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0', amount: '5', memo: 'Invoice-0001' });
+    setModule('memos');
+    trackB20ModuleSelect('memos');
+  }, [enableTokenGas, token]);
+  const clearMemoPrefill = useCallback(() => setMemoPrefill(null), []);
 
   const inspect = useCallback(
     async (candidate = tokenAddress) => {
@@ -310,30 +460,26 @@ export function B20Demo() {
     setChecks(Object.fromEntries(result));
   }, [checkAddress, token]);
 
-  const send = useCallback(
-    async (label: string, to: Address, data: Hex, action: string): Promise<Hex | null> => {
-      const eth = getEthereum();
-      if (!wallet || !eth) {
-        setInspectError('Connect a Vibenet wallet before you continue.');
+  // The single transaction chokepoint: every module action lands here. Calls go
+  // out as one atomic EIP-8130 transaction with gas paid by the hosted payer.
+  const sendCalls = useCallback(
+    async (label: string, calls: SponsoredCall[], action: string): Promise<Hex | null> => {
+      if (!storedWallet || !wallet) {
+        setInspectError('Make a wallet before you continue.');
         return null;
       }
       setBusy(action);
+      setInspectError('');
       trackB20Action(module, action, 'submitted');
       setActivity((rows) => [{ label, state: 'pending' }, ...rows]);
       try {
-        // Use the RPC estimate when available so wallets do not apply an oversized
-        // fallback gas limit to custom precompile calls. Estimation remains
-        // optional because some injected wallets can still submit when it fails.
-        const estimatedGas = await client.estimateGas({ account: wallet, to, data }).catch(() => undefined);
-        const gas = estimatedGas ? `0x${((estimatedGas * 120n) / 100n).toString(16)}` : undefined;
-        const hash = (await eth.request({
-          method: 'eth_sendTransaction',
-          params: [{ from: wallet, to, data, value: '0x0', ...(gas ? { gas } : {}) }],
-        })) as Hex;
-        const receipt = await client.waitForTransactionReceipt({ hash });
-        if (receipt.status !== 'success') throw new Error('The transaction did not complete. Check your wallet and try again.');
+        const tokenGas =
+          gasMode === 'token' && token?.variant === 'stablecoin' && storedPayer
+            ? { token: token.address, symbol: token.symbol, decimals: token.decimals, payer: storedPayer }
+            : undefined;
+        const { hash, mode } = await sendSponsored8130({ wallet: storedWallet, deployment, calls, tokenGas });
         setActivity((rows) => [
-          { label, hash, state: 'success' },
+          { label: annotateMode(label, mode, token?.symbol), hash, state: 'success' },
           ...rows.filter((row) => row.label !== label || row.state !== 'pending'),
         ]);
         trackB20Action(module, action, 'success');
@@ -341,7 +487,7 @@ export function B20Demo() {
         if (token) await inspect(token.address);
         return hash;
       } catch (error) {
-        const detail = walletErrorMessage(error);
+        const detail = payerErrorMessage(error) ?? walletErrorMessage(error);
         setActivity((rows) => [
           { label, state: 'error', detail },
           ...rows.filter((row) => row.label !== label || row.state !== 'pending'),
@@ -353,7 +499,67 @@ export function B20Demo() {
         setBusy(null);
       }
     },
-    [inspect, module, refreshWallet, token, wallet],
+    [deployment, gasMode, inspect, module, refreshWallet, storedPayer, storedWallet, token, wallet],
+  );
+
+  const send = useCallback(
+    (label: string, to: Address, data: Hex, action: string): Promise<Hex | null> =>
+      sendCalls(label, [{ to, data }], action),
+    [sendCalls],
+  );
+
+  // Multi-transaction flows (token deployment): the payer sponsors only ~300k
+  // gas per transaction, so heavy work is split into sequential batches that
+  // each fit the budget. Shows one activity row per batch.
+  const sendBatches = useCallback(
+    async (batches: SponsoredBatch[], action: string): Promise<Hex[] | null> => {
+      if (!storedWallet || !wallet) {
+        setInspectError('Make a wallet before you continue.');
+        return null;
+      }
+      setBusy(action);
+      setInspectError('');
+      trackB20Action(module, action, 'submitted');
+      let current = '';
+      try {
+        const results = await sendSponsoredBatches({
+          wallet: storedWallet,
+          deployment,
+          batches,
+          onProgress: (label, index, total) => {
+            current = label;
+            setBatchProgress({ label, index, total });
+            setActivity((rows) => [{ label, state: 'pending' }, ...rows]);
+          },
+          onBatchResult: (label, result) => {
+            setActivity((rows) =>
+              rows.map((row) =>
+                row.label === label && row.state === 'pending'
+                  ? { ...row, state: 'success' as const, hash: result.hash, label: annotateMode(label, result.mode) }
+                  : row,
+              ),
+            );
+          },
+        });
+        trackB20Action(module, action, 'success');
+        await refreshWallet(wallet);
+        if (token) await inspect(token.address);
+        return results.map((result) => result.hash);
+      } catch (error) {
+        const detail = payerErrorMessage(error) ?? walletErrorMessage(error);
+        setActivity((rows) => [
+          { label: current || batches[0]?.label || 'Transaction', state: 'error', detail },
+          ...rows.filter((row) => row.state !== 'pending'),
+        ]);
+        trackB20Action(module, action, 'error');
+        setInspectError(detail);
+        return null;
+      } finally {
+        setBusy(null);
+        setBatchProgress(null);
+      }
+    },
+    [deployment, inspect, module, refreshWallet, storedWallet, token, wallet],
   );
 
   useEffect(() => {
@@ -389,28 +595,82 @@ export function B20Demo() {
           <span className="rounded-full border border-bds-gray-10 px-3 py-2 dark:border-white/10">
             <span className="mr-2 text-bds-green-50">●</span>Vibenet
           </span>
-          <Link
-            href="/vibenet/faucet"
-            className="rounded-full border border-bds-gray-10 px-3 py-2 hover:border-base-blue dark:border-white/10"
-          >
-            Faucet
-          </Link>
           {wallet ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-bds-gray-10 px-3 py-1.5 dark:border-white/10">
               <CopyableValue value={wallet} display={shortAddress(wallet)} />
               <span aria-hidden="true">·</span>
-              <span>{walletBalance === null ? '…' : `${Number(formatEther(walletBalance)).toFixed(3)} ETH`}</span>
+              {walletBalance === null || walletBalance === 0n ? (
+                <span className="inline-flex items-center gap-1.5 text-bds-gray-60">
+                  <Spinner className="h-3 w-3" />
+                  funding wallet…
+                </span>
+              ) : (
+                <span>{`${Number(formatEther(walletBalance)).toFixed(3)} ETH`}</span>
+              )}
+              {token && tokenBalance !== null ? (
+                <span className="animate-in inline-flex items-center gap-2">
+                  <span aria-hidden="true">·</span>
+                  <span className="inline-flex items-baseline gap-1">
+                    <AnimatedAmount
+                      text={formatAmount(tokenBalance, token.decimals)}
+                      decimals={formatAmount(tokenBalance, token.decimals).split('.')[1]?.length ?? 0}
+                      group
+                    />
+                    {token.symbol}
+                  </span>
+                </span>
+              ) : null}
+              {token && tokenGasEligible ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-bds-gray-50">Fees:</span>
+                  <span className="inline-flex overflow-hidden rounded-full border border-bds-gray-10 text-[11px] dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setGasMode('sponsored')}
+                      title="Base sponsors the network fee."
+                      className={cn(
+                        'px-2 py-1 transition-colors',
+                        gasMode === 'sponsored'
+                          ? 'bg-base-blue font-medium text-white dark:text-black'
+                          : 'text-bds-gray-60 hover:bg-bds-gray-5 dark:hover:bg-white/10',
+                      )}
+                    >
+                      {gasMode === 'sponsored' ? '✓ ' : ''}Free · sponsored
+                    </button>
+                    <button
+                      type="button"
+                      onClick={enableTokenGas}
+                      title={`Pay the network fee in your own stablecoin: each transaction pays a flat 0.1 ${token.symbol} fee to the demo's gas payer (ERC-8168).`}
+                      className={cn(
+                        'px-2 py-1 transition-colors',
+                        gasMode === 'token'
+                          ? 'bg-base-blue font-medium text-white dark:text-black'
+                          : 'text-bds-gray-60 hover:bg-bds-gray-5 dark:hover:bg-white/10',
+                      )}
+                    >
+                      {gasMode === 'token' ? '✓ ' : ''}Pay in {token.symbol}
+                    </button>
+                  </span>
+                </span>
+              ) : (
+                <span className="text-bds-green-50">Gasless</span>
+              )}
               <button
                 type="button"
-                onClick={disconnect}
-                className="rounded-full px-2 py-1 text-[11px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
+                onClick={() => (resetConfirm ? resetWallet() : setResetConfirm(true))}
+                onBlur={() => setResetConfirm(false)}
+                title="Deletes this wallet's key from the browser — it cannot be recovered."
+                className={cn(
+                  'rounded-full px-2 py-1 text-[11px] transition-colors hover:bg-bds-gray-5 dark:hover:bg-white/10',
+                  resetConfirm ? 'text-bds-red-60' : 'text-bds-gray-60 hover:text-foreground dark:hover:text-white',
+                )}
               >
-                Disconnect
+                {resetConfirm ? 'Really reset?' : 'Reset'}
               </button>
             </div>
           ) : (
-            <Button size="sm" onClick={() => void connect()}>
-              Connect wallet
+            <Button size="sm" onClick={makeWallet}>
+              Make a wallet
             </Button>
           )}
         </div>
@@ -463,9 +723,20 @@ export function B20Demo() {
             <MemoModule
               token={token}
               tokenAccess={tokenAccess}
+              wallet={wallet}
               onDeploy={() => selectModule('deploy')}
               onSend={send}
+              onSendCalls={sendCalls}
               busy={busy}
+              refreshKey={activity.length}
+              prefill={memoPrefill}
+              onPrefillConsumed={clearMemoPrefill}
+              feeNote={
+                gasMode === 'token' && token
+                  ? `${formatAmount(tokenGasFee(token.decimals), token.decimals)} ${token.symbol}`
+                  : null
+              }
+              onEnableTokenGas={tokenGasEligible && gasMode === 'sponsored' ? enableTokenGas : null}
             />
           ) : null}
           {module === 'announcements' ? (
@@ -486,6 +757,9 @@ export function B20Demo() {
             <DeployModule
               wallet={wallet}
               onSend={send}
+              onSendBatches={sendBatches}
+              progress={batchProgress}
+              onFirstPayment={startFirstPayment}
               recentPolicies={recentPolicies}
               onPolicyCreated={(policy) => {
                 if (wallet) setRecentPolicies(writeRecentPolicy(wallet, policy));
@@ -495,6 +769,10 @@ export function B20Demo() {
                 if (wallet) setRecent(writeRecent(wallet, next));
                 setTokenAddress(next.address);
                 setCreated(next);
+                // Mount the chip balance at 0 so the initial deposit rolls up
+                // to the minted amount when the first read lands.
+                balanceForToken.current = next.address.toLowerCase();
+                setTokenBalance(0n);
                 await inspect(next.address);
               }}
               onReset={() => setCreated(null)}

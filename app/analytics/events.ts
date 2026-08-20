@@ -46,8 +46,10 @@ export function trackB20ModuleSelect(module: string): void {
   track('b20_module_select', { module });
 }
 
-export function trackB20WalletConnection(status: 'started' | 'success' | 'error'): void {
-  track('b20_wallet_connection', { status });
+// The demo mints its wallet locally (EIP-8130 smart account) — this tracks key
+// generation, not an injected-wallet connect, hence the distinct event name.
+export function trackB20WalletCreation(status: 'started' | 'success' | 'error'): void {
+  track('b20_wallet_creation', { status });
 }
 
 export function trackB20Action(

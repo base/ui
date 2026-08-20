@@ -97,11 +97,11 @@ export function PolicyModule({
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="flex flex-col bg-background p-5 dark:bg-white/5">
             <span className="mb-3 w-fit rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue">
-              No wallet required
+              Read-only preview
             </span>
             <Text variant="headline">Explore a sample token</Text>
             <Text variant="footnote" tone="muted">
-              See how token rules work without connecting a wallet.
+              See how token rules work before making a wallet.
             </Text>
             <Button
               className="mt-5 self-start"
@@ -178,14 +178,14 @@ export function PolicyModule({
                 )}
               >
                 {token.variant === 'stablecoin'
-                  ? 'Announcements are not available on Stablecoin tokens. They are only available on Asset tokens.'
+                  ? 'Announcements are an Asset token feature. Create an Asset token to publish updates.'
                   : tokenAccess === 'sample'
                     ? 'Sample token · Read only'
                     : tokenAccess === 'operator'
                       ? 'Your token · You can publish updates'
                       : tokenAccess === 'external'
-                        ? 'Another token · You cannot publish updates'
-                        : 'Connect a wallet to check access'}
+                        ? 'Another token · Read only'
+                        : 'Make a wallet to check access'}
               </span>
               <Link
                 href="https://github.com/base/base-std/tree/main/docs/B20"
@@ -256,7 +256,7 @@ export function PolicyModule({
                           : 'bg-bds-red-0 text-bds-red-70',
                     )}
                   >
-                    {policy.id === 0n ? 'No policy set' : policy.exists ? 'Policy active' : 'Policy unavailable'}
+                    {policy.id === 0n ? 'Open to everyone' : policy.exists ? 'Policy active' : 'Policy unavailable'}
                     <InfoTooltip label="What this status means">
                       {policy.id === 0n
                         ? B20_HELP.statusWideOpen

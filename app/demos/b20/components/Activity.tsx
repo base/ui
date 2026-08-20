@@ -18,7 +18,7 @@ export function Activity({ rows }: { rows: ActivityItem[] }) {
           </Text>
         </div>
         <span className="text-[12px] text-bds-gray-50">
-          {rows.length ? `${rows.length} activity item${rows.length === 1 ? '' : 's'}` : '● Nothing has happened yet'}
+          {rows.length ? `${rows.length} activity item${rows.length === 1 ? '' : 's'}` : '● Your activity will appear here'}
         </span>
       </div>
       {rows.length ? (
@@ -47,7 +47,9 @@ export function Activity({ rows }: { rows: ActivityItem[] }) {
                   {shortAddress(row.hash)} ↗
                 </Link>
               ) : (
-                <span className="max-w-[65%] truncate text-bds-gray-50">{row.detail ?? 'Pending…'}</span>
+                <span className="max-w-[65%] truncate text-bds-gray-50">
+                  {row.detail ?? (row.state === 'pending' ? 'Pending…' : '')}
+                </span>
               )}
             </div>
           ))}
