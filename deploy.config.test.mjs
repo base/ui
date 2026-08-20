@@ -28,19 +28,22 @@ describe('deploy.config', () => {
       const c = await loadWithTarget('external');
       expect(c.surfaceEnabled('tips')).toBe(false);
       expect(c.surfaceEnabled('benchmark')).toBe(false);
+      expect(c.surfaceEnabled('shadow-explorer')).toBe(false);
     });
 
     it('reports the disabled route + api prefixes and subtree globs', async () => {
       const c = await loadWithTarget('external');
-      expect(c.disabledRoutePrefixes()).toEqual(['/tips', '/benchmark']);
+      expect(c.disabledRoutePrefixes()).toEqual(['/tips', '/benchmark', '/shadow-explorer']);
       // Benchmark contributes no api prefix: it calls the report API directly
       // from the browser rather than through a route handler in this app.
-      expect(c.disabledApiPrefixes()).toEqual(['/api/tips']);
+      expect(c.disabledApiPrefixes()).toEqual(['/api/tips', '/api/shadow-explorer']);
       expect(c.disabledRouteGlobs()).toEqual([
         '/tips',
         '/tips/**',
         '/benchmark',
         '/benchmark/**',
+        '/shadow-explorer',
+        '/shadow-explorer/**',
       ]);
     });
   });
@@ -51,6 +54,7 @@ describe('deploy.config', () => {
       expect(c.TARGET).toBe('internal');
       expect(c.surfaceEnabled('tips')).toBe(true);
       expect(c.surfaceEnabled('benchmark')).toBe(true);
+      expect(c.surfaceEnabled('shadow-explorer')).toBe(true);
     });
 
     it('disables nothing', async () => {

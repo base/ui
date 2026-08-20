@@ -40,6 +40,11 @@ export const SURFACES = {
     routePrefixes: ['/benchmark'],
     targets: ['internal'],
   },
+  'shadow-explorer': {
+    routePrefixes: ['/shadow-explorer'],
+    apiPrefixes: ['/api/shadow-explorer'],
+    targets: ['internal'],
+  },
 };
 
 /** Is a surface included in the current build target? Unknown key => yes. */

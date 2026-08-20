@@ -1,6 +1,6 @@
-import { resolveTipsChain } from '../../../tips/chains';
-import { getShadowMetricsUrl } from '../config';
-import { tipsDisabledResponse } from '../guard';
+import { resolveShadowNetwork } from '../../../shadow-explorer/networks';
+import { resolveShadowChainUrl } from '../config';
+import { shadowExplorerDisabledResponse } from '../guard';
 import {
   InvalidShadowBlocksQueryError,
   ShadowBlocksUnavailableError,
@@ -10,25 +10,26 @@ import {
 
 export const runtime = 'nodejs';
 
-// Offset-paginated shadow block list, proxied from the shadow-metrics HTTP API.
-// See app/api/tips/shadow-blocks.ts. Types are re-exported for the client library.
 export type { ShadowBlockSummary, ShadowBlocksPage, ShadowBlocksResponse } from '../shadow-blocks';
 
 export async function GET(request: Request) {
-  const disabled = tipsDisabledResponse();
+  const disabled = shadowExplorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
 
-  const baseUrl = getShadowMetricsUrl(chain);
+  const url = new URL(request.url);
+  const network = resolveShadowNetwork(url.searchParams.get('network'));
+  const chainId = url.searchParams.get('chain');
+  if (!chainId) {
+    return Response.json({ error: 'Missing chain parameter' }, { status: 400 });
+  }
+
+  const baseUrl = resolveShadowChainUrl(network, chainId);
   if (!baseUrl) {
-    return Response.json(
-      { error: 'Shadow metrics not configured for this chain' },
-      { status: 503 },
-    );
+    return Response.json({ error: 'Shadow chain not configured' }, { status: 503 });
   }
 
   try {
-    const query = parseShadowBlocksQuery(new URL(request.url).searchParams);
+    const query = parseShadowBlocksQuery(url.searchParams);
     return Response.json(await listShadowBlocks(baseUrl, query));
   } catch (error) {
     if (error instanceof InvalidShadowBlocksQueryError) {

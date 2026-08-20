@@ -65,6 +65,16 @@ describe('listShadowBlocks pagination', () => {
     assert.equal(result.page.hasMore, false);
   });
 
+  test('defaults a missing upstream totalCount to 0', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ blocks: [] }));
+
+    const result = await listShadowBlocks('http://shadow.internal:8080', { offset: 0, limit: 2 });
+
+    assert.equal(result.page.totalCount, 0);
+    assert.equal(result.page.hasMore, false);
+    assert.equal(result.page.nextOffset, null);
+  });
+
   test('maps a non-ok upstream response to ShadowBlocksUnavailableError', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('nope', { status: 503 }));
 

@@ -1,7 +1,7 @@
-// Shadow block listing proxied from the shadow-metrics HTTP API. Chain-aware:
-// the caller passes the resolved base URL (getShadowMetricsUrl(chain)). Offset-
-// paginated to match the upstream /shadow-blocks endpoint. The `*Diff` fields are
-// shadow − canonical (positive = shadow used more). Server-only.
+// Shadow block listing proxied from a shadow chain's shadow-metrics HTTP API.
+// The caller resolves the base URL via resolveShadowChainUrl(network, chainId).
+// Offset-paginated to match the upstream /shadow-blocks endpoint. The `*Diff`
+// fields are shadow − canonical (positive = shadow used more). Server-only.
 
 export const DEFAULT_SHADOW_BLOCKS_PAGE_LIMIT = 25;
 export const MAX_SHADOW_BLOCKS_PAGE_LIMIT = 100;
@@ -112,15 +112,16 @@ export async function listShadowBlocks(
 
   const data = (await response.json()) as UpstreamShadowBlocksResponse;
   const blocks = data.blocks ?? [];
+  const totalCount = data.totalCount ?? 0;
   const nextOffset = query.offset + blocks.length;
-  const hasMore = nextOffset < data.totalCount;
+  const hasMore = nextOffset < totalCount;
 
   return {
     blocks,
     page: {
       offset: query.offset,
       limit: query.limit,
-      totalCount: data.totalCount,
+      totalCount,
       nextOffset: hasMore ? nextOffset : null,
       hasMore,
     },

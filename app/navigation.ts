@@ -1,4 +1,5 @@
 import { BENCHMARK_ENABLED } from './benchmark/flag';
+import { SHADOW_EXPLORER_ENABLED } from './shadow-explorer/flag';
 import { TIPS_ENABLED } from './tips/flag';
 
 export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'tips' | 'benchmark' | 'runs' | 'loadtest';
@@ -39,6 +40,12 @@ export const NAV_ITEMS: NavItem[] = [
   // (deploy.config.mjs). See app/tips/flag.ts.
   ...(TIPS_ENABLED
     ? [{ label: 'TIPS', href: '/tips', icon: 'tips', enabled: true } as NavItem]
+    : []),
+  // Shadow Explorer is internal-only; present only in the internal build target
+  // (deploy.config.mjs). See app/shadow-explorer/flag.ts. Network + shadow chain
+  // are carried in the URL path, so this entry needs no static children.
+  ...(SHADOW_EXPLORER_ENABLED
+    ? [{ label: 'Shadow Explorer', href: '/shadow-explorer', icon: 'explorer', enabled: true } as NavItem]
     : []),
   // Benchmark is internal-only; present only in the internal build target
   // (deploy.config.mjs). See app/benchmark/flag.ts. The two children were the

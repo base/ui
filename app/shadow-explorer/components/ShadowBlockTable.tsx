@@ -1,13 +1,10 @@
-// Purpose-built table for the shadow block explorer. Each row is a reorged-out
-// shadow block paired with the canonical block that replaced it, surfacing the
-// gas/tx deltas used to validate a builder canary. Chain-aware: the canonical
-// link carries ?chain= via tipsHref. Client-safe: pure formatters only.
-import Link from 'next/link';
+// Table for the shadow block explorer. Each row is a reorged-out shadow block
+// paired with the canonical block that replaced it, surfacing the gas/tx deltas
+// used to validate a builder canary. Client-safe: pure formatters only.
+import type React from 'react';
 
 import { cn } from '../../components/ui/cn';
-import type { TipsChain } from '../chains';
-import { formatAge, formatInteger, shortHash } from '../library/explorer-format';
-import { tipsHref } from '../library/links';
+import { formatAge, formatInteger, shortHash } from '../library/format';
 import type { ShadowBlockSummary } from '../library/types';
 
 // Canary threshold: rows whose gas differs from canonical by more than this are
@@ -39,8 +36,6 @@ function TableHeader({ children }: { children: React.ReactNode }) {
 function Cell({ children, className }: { children: React.ReactNode; className?: string }) {
   return <td className={cn('px-4 py-3 text-black dark:text-white', className)}>{children}</td>;
 }
-
-const linkClass = 'text-base-blue hover:underline dark:text-bds-blue-20';
 
 function GasDiffCell({ block }: { block: ShadowBlockSummary }) {
   if (block.gasDiffAbs === undefined || block.gasDiffPct === undefined) {
@@ -86,13 +81,7 @@ function BuilderCell({ block }: { block: ShadowBlockSummary }) {
   );
 }
 
-export function ShadowBlockTable({
-  blocks,
-  chain,
-}: {
-  blocks: ShadowBlockSummary[];
-  chain: TipsChain;
-}) {
+export function ShadowBlockTable({ blocks }: { blocks: ShadowBlockSummary[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[900px] text-sm">
@@ -144,13 +133,12 @@ export function ShadowBlockTable({
                 ) : null}
               </Cell>
               <Cell>
-                <Link
-                  href={tipsHref(`/tips/block/${block.canonicalHash}`, chain)}
-                  className={cn('font-mono', linkClass)}
+                <span
+                  className="font-mono text-bds-gray-60 dark:text-bds-gray-40"
                   title={block.canonicalHash}
                 >
                   {shortHash(block.canonicalHash)}
-                </Link>
+                </span>
               </Cell>
             </tr>
           ))}

@@ -10,7 +10,7 @@ export function ExplorerNav({
   active,
 }: {
   chain: TipsChain;
-  active: 'blocks' | 'txs' | 'shadow-blocks';
+  active: 'blocks' | 'txs';
 }) {
   const linkClass =
     'text-sm text-bds-gray-60 transition-colors hover:text-black dark:text-bds-gray-40 dark:hover:text-white';
@@ -32,12 +32,6 @@ export function ExplorerNav({
       </Link>
       <Link href={tipsHref('/tips/txs', chain)} className={active === 'txs' ? activeClass : linkClass}>
         Transactions
-      </Link>
-      <Link
-        href={tipsHref('/tips/shadow-blocks', chain)}
-        className={active === 'shadow-blocks' ? activeClass : linkClass}
-      >
-        Shadow Blocks
       </Link>
     </div>
   );

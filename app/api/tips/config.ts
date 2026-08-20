@@ -86,14 +86,3 @@ export function getAuditRpcUrl(chain: TipsChain): string | undefined {
 export function isAuditConfigured(chain: TipsChain): boolean {
   return Boolean(getAuditRpcUrl(chain));
 }
-
-// Shadow-metrics HTTP API base URL for a chain. Opt-in per chain via
-// TIPS_<CHAIN>_SHADOW_METRICS_URL; when unset the shadow blocks surface is
-// disabled for that chain (its route returns 503) — mirroring audit.
-export function getShadowMetricsUrl(chain: TipsChain): string | undefined {
-  return envValue([`TIPS_${ENV_PREFIX[chain]}_SHADOW_METRICS_URL`]);
-}
-
-export function isShadowMetricsConfigured(chain: TipsChain): boolean {
-  return Boolean(getShadowMetricsUrl(chain));
-}
