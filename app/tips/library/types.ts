@@ -19,6 +19,11 @@ export type {
   RejectionReason,
 } from '../../api/tips/s3';
 export type { BlocksPage, BlockSummary, BlocksResponse } from '../../api/tips/blocks/route';
+export type {
+  ShadowBlockSummary,
+  ShadowBlocksPage,
+  ShadowBlocksResponse,
+} from '../../api/tips/shadow-blocks/route';
 export type { TransactionListItem, TransactionsResponse } from '../../api/tips/txs/route';
 export type { RejectedTransactionsResponse } from '../../api/tips/rejected/route';
 export type { BundleHistoryResponse } from '../../api/tips/bundle/[hash]/route';

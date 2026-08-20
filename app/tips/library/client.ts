@@ -10,6 +10,7 @@ import type {
   BlocksResponse,
   BundleHistoryResponse,
   RejectedTransactionsResponse,
+  ShadowBlocksResponse,
   TransactionHistoryResponse,
   TransactionsResponse,
 } from './types';
@@ -88,4 +89,14 @@ export const tipsApi = {
     get<RejectedTransactionsResponse>('/api/tips/rejected', chain, signal),
   bundle: (hash: string, chain: TipsChain, signal?: AbortSignal) =>
     get<BundleHistoryResponse>(`/api/tips/bundle/${enc(hash)}`, chain, signal),
+  shadowBlocks: (
+    chain: TipsChain,
+    options?: { offset?: number; limit?: number },
+    signal?: AbortSignal,
+  ) =>
+    get<ShadowBlocksResponse>(
+      withQuery('/api/tips/shadow-blocks', { offset: options?.offset, limit: options?.limit }),
+      chain,
+      signal,
+    ),
 };
