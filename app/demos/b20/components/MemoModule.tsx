@@ -11,6 +11,7 @@ import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
 import { walletErrorMessage } from '../../../vibenet/library/wallet';
 import { B20_HELP } from '../lib/glossary';
+import { shouldUseDelegatedMemoTransfer } from '../lib/memoTransfer';
 import { amount, b20Abi, formatAmount, memoToBytes32, shortAddress } from '../lib/protocol';
 import { READ_MEMO_PROMPT } from '../lib/prompts';
 import { SAMPLE_MEMOS } from '../lib/samples';
@@ -62,11 +63,10 @@ export function MemoModule({
     setMemo(prefill.memo);
     onPrefillConsumed?.();
   }, [prefill, onPrefillConsumed]);
-  // When on, the send runs as approve + transferFromWithMemo in one atomic
-  // 8130 transaction — the delegated-spending pattern (exchanges, payroll,
-  // subscriptions) where a spender you approved moves the tokens. The demo
-  // wallet approves itself as the spender, since an approve can't share a
-  // transaction with another sender's call.
+  // Asset tokens can demonstrate approve + transferFromWithMemo in one atomic
+  // 8130 transaction. Stablecoin payments always use transferWithMemo directly
+  // so approval state from a previously selected Asset can never leak into the
+  // guided Stablecoin payment flow.
   const [batchApprove, setBatchApprove] = useState(false);
   const [sent, setSent] = useState<{ title: string; summary: string; hash: Hex } | null>(null);
   const submit = async () => {
@@ -78,28 +78,29 @@ export function MemoModule({
       const v = amount(value, token.decimals);
       if (v <= 0n) throw new Error('Enter an amount greater than zero.');
       if (!isAddress(to)) throw new Error('Paste a valid wallet address for the recipient.');
+      const useDelegatedTransfer = shouldUseDelegatedMemoTransfer(token.variant, batchApprove, wallet !== null);
       const hash =
-        batchApprove && wallet
+        useDelegatedTransfer
           ? await onSendCalls(
               'Approve + transfer with memo',
               [
                 {
                   to: token.address,
-                  data: encodeFunctionData({ abi: b20Abi, functionName: 'approve', args: [wallet, v] }),
+                  data: encodeFunctionData({ abi: b20Abi, functionName: 'approve', args: [wallet as Address, v] }),
                 },
                 {
                   to: token.address,
                   data: encodeFunctionData({
                     abi: b20Abi,
                     functionName: 'transferFromWithMemo',
-                    args: [wallet, to, v, m],
+                    args: [wallet as Address, to, v, m],
                   }),
                 },
               ],
               'memo_allowance_transfer',
             )
           : await onSend(
-              'Transfer with memo',
+              token.variant === 'stablecoin' ? `Send ${token.symbol} with memo` : 'Transfer with memo',
               token.address,
               encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, m] }),
               'memo_transfer',
@@ -107,11 +108,11 @@ export function MemoModule({
       if (hash) {
         setSent({
           title:
-            batchApprove && wallet
+            useDelegatedTransfer
               ? `Approved and sent ${value} ${token.symbol} to ${shortAddress(to)}`
               : `Sent ${value} ${token.symbol} to ${shortAddress(to)}`,
           summary:
-            batchApprove && wallet
+            useDelegatedTransfer
               ? `The approval and the transfer landed in one atomic transaction with the memo “${memo}”.`
               : `Memo “${memo}” is recorded onchain with the transfer.`,
           hash,
@@ -272,24 +273,30 @@ export function MemoModule({
                   })()
                 : 'Your memo preview will appear here'}
             </p>
-            <label className="mt-4 flex w-fit cursor-pointer select-none items-start gap-2 text-[12px] text-bds-gray-60">
-              <input
-                type="checkbox"
-                checked={batchApprove}
-                onChange={(event) => setBatchApprove(event.target.checked)}
-                disabled={!wallet}
-                className="mt-0.5 accent-base-blue"
-              />
-              <span>
-                <span className="font-medium text-foreground dark:text-white">Batch as approve + transferFrom</span>
-                <span className="block">Sends the approval and the transfer in a single atomic transaction.</span>
-              </span>
-            </label>
+            {token.variant === 'asset' ? (
+              <label className="mt-4 flex w-fit cursor-pointer select-none items-start gap-2 text-[12px] text-bds-gray-60">
+                <input
+                  type="checkbox"
+                  checked={batchApprove}
+                  onChange={(event) => setBatchApprove(event.target.checked)}
+                  disabled={!wallet}
+                  className="mt-0.5 accent-base-blue"
+                />
+                <span>
+                  <span className="font-medium text-foreground dark:text-white">Batch as approve + transferFrom</span>
+                  <span className="block">Sends the approval and the transfer in a single atomic transaction.</span>
+                </span>
+              </label>
+            ) : null}
             <ErrorNote message={error} />
             <Button className="mt-5" onClick={() => void submit()} disabled={!!busy}>
               {busy === 'memo_transfer' || busy === 'memo_allowance_transfer'
-                ? 'Sending…'
-                : batchApprove
+                ? token.variant === 'stablecoin'
+                  ? `Sending ${token.symbol}…`
+                  : 'Sending…'
+                : token.variant === 'stablecoin'
+                  ? `Send ${token.symbol} with memo`
+                  : batchApprove
                   ? 'Approve + transfer with memo'
                   : 'Submit transfer with memo'}
             </Button>
