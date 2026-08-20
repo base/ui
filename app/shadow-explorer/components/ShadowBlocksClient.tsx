@@ -98,7 +98,7 @@ export function ShadowBlocksClient({ network, chain }: { network: ShadowNetwork;
             </Text>
           </div>
         ) : data && data.blocks.length > 0 ? (
-          <ShadowBlockTable blocks={data.blocks} />
+          <ShadowBlockTable blocks={data.blocks} network={network} chain={chain} />
         ) : (
           <div className="py-12 text-center text-bds-gray-60 dark:text-bds-gray-40">
             No shadow blocks available

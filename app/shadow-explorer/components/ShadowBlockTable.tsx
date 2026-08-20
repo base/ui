@@ -1,10 +1,17 @@
+'use client';
+
 // Table for the shadow block explorer. Each row is a reorged-out shadow block
 // paired with the canonical block that replaced it, surfacing the gas/tx deltas
-// used to validate a builder canary. Client-safe: pure formatters only.
+// used to validate a builder canary. Rows are clickable: the row drills into the
+// shadow block, the Canonical cell drills into the canonical block.
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type React from 'react';
 
 import { cn } from '../../components/ui/cn';
 import { formatAge, formatInteger, shortHash } from '../library/format';
+import { shadowHref, tipsCanonicalBlockHref } from '../library/links';
+import type { ShadowNetwork } from '../networks';
 import type { ShadowBlockSummary } from '../library/types';
 
 // Canary threshold: rows whose gas differs from canonical by more than this are
@@ -81,7 +88,17 @@ function BuilderCell({ block }: { block: ShadowBlockSummary }) {
   );
 }
 
-export function ShadowBlockTable({ blocks }: { blocks: ShadowBlockSummary[] }) {
+export function ShadowBlockTable({
+  blocks,
+  network,
+  chain,
+}: {
+  blocks: ShadowBlockSummary[];
+  network: ShadowNetwork;
+  chain: string;
+}) {
+  const router = useRouter();
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[900px] text-sm">
@@ -97,8 +114,23 @@ export function ShadowBlockTable({ blocks }: { blocks: ShadowBlockSummary[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-bds-gray-10 dark:divide-white/10">
-          {blocks.map((block) => (
-            <tr key={block.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
+          {blocks.map((block) => {
+            const open = () => router.push(shadowHref(network, chain, `/block/${block.hash}`));
+            return (
+            <tr
+              key={block.hash}
+              role="link"
+              tabIndex={0}
+              aria-label={`Shadow block ${block.number}`}
+              onClick={open}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  open();
+                }
+              }}
+              className="cursor-pointer hover:bg-bds-gray-5/60 focus:bg-bds-gray-5/60 focus:outline-none dark:hover:bg-white/5 dark:focus:bg-white/5"
+            >
               <Cell>
                 <span className="font-medium">#{formatInteger(block.number)}</span>
                 <div
@@ -133,15 +165,18 @@ export function ShadowBlockTable({ blocks }: { blocks: ShadowBlockSummary[] }) {
                 ) : null}
               </Cell>
               <Cell>
-                <span
-                  className="font-mono text-bds-gray-60 dark:text-bds-gray-40"
-                  title={block.canonicalHash}
+                <Link
+                  href={tipsCanonicalBlockHref(network, block.canonicalHash)}
+                  onClick={(event) => event.stopPropagation()}
+                  className="font-mono text-base-blue hover:underline dark:text-bds-blue-20"
+                  title={`View canonical block in TIPS: ${block.canonicalHash}`}
                 >
                   {shortHash(block.canonicalHash)}
-                </span>
+                </Link>
               </Cell>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
