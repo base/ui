@@ -100,8 +100,8 @@ export function AttachPolicy({
           {adminStatus === 'checking'
             ? 'Checking whether your wallet is a token admin…'
             : adminStatus === 'disconnected'
-              ? 'Connect the token admin wallet to attach or replace a policy.'
-              : 'The connected wallet does not hold this token’s DEFAULT_ADMIN_ROLE.'}
+              ? 'Use the token admin wallet to attach or replace a policy.'
+              : 'Your demo wallet does not hold this token’s DEFAULT_ADMIN_ROLE.'}
         </p>
       ) : (
         <>
@@ -171,7 +171,7 @@ export function AttachPolicy({
             </p>
           ) : null}
           <Button className="mt-5" onClick={() => void submit()} disabled={!!busy}>
-            {busy ? 'Waiting for wallet…' : 'Attach policy'}
+            {busy ? 'Sending…' : 'Attach policy'}
           </Button>
         </>
       )}

@@ -42,14 +42,26 @@ type MemoRow = {
   operation: 'mint' | 'transfer';
 };
 
-export function MemoHistory({ address, decimals, symbol }: { address: Address; decimals: number; symbol: string }) {
+export function MemoHistory({
+  address,
+  decimals,
+  symbol,
+  refreshKey = 0,
+}: {
+  address: Address;
+  decimals: number;
+  symbol: string;
+  /** Bump to re-read the log history (e.g. after the demo sends a transaction). */
+  refreshKey?: number;
+}) {
   const [rows, setRows] = useState<MemoRow[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
     let cancelled = false;
-    setState('loading');
-    setRows([]);
+    // Only show the loading state on first mount for a token — refreshes after
+    // a send keep the current rows on screen instead of flashing empty.
+    setState((previous) => (previous === 'ready' ? previous : 'loading'));
 
     const loadMemoLogs = async () => {
       const latestBlock = await client.getBlockNumber({ cacheTime: 0 });
@@ -63,7 +75,7 @@ export function MemoHistory({ address, decimals, symbol }: { address: Address; d
       }
     };
 
-    void loadMemoLogs()
+    const load = () => loadMemoLogs()
       .then(async (memoLogs) => {
         if (cancelled) return;
         const nextRows = await Promise.all(
@@ -96,10 +108,15 @@ export function MemoHistory({ address, decimals, symbol }: { address: Address; d
         if (!cancelled) setState('error');
       });
 
+    void load();
+    // Log reads lag inclusion by ~1 block, so a refresh right after a send can
+    // miss the newest memo — read again once the state settles.
+    const settle = window.setTimeout(() => void load(), 2_500);
     return () => {
       cancelled = true;
+      window.clearTimeout(settle);
     };
-  }, [address]);
+  }, [address, refreshKey]);
 
   return (
     <Card className="bg-background p-5 dark:bg-white/5">

@@ -177,6 +177,20 @@ export const b20Abi = [
   },
   {
     type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [{ type: 'address' }, { type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'approve',
+    stateMutability: 'nonpayable',
+    inputs: [{ type: 'address' }, { type: 'uint256' }],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'function',
     name: 'transferWithMemo',
     stateMutability: 'nonpayable',
     inputs: [{ type: 'address' }, { type: 'uint256' }, { type: 'bytes32' }],

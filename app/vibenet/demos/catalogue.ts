@@ -38,11 +38,11 @@ export const DEMOS: DemoEntry[] = [
     title: 'Tokens',
     shortTitle: 'Tokens',
     summary:
-      'Inspect policy scopes, attach transaction memos, publish Asset announcements, and create Base-native B20 tokens.',
+      'Make a gasless EIP-8130 smart wallet in one click, then inspect policy scopes, attach transaction memos, publish Asset announcements, and create Base-native B20 tokens.',
     points: [
-      'Asset and Stablecoin factory flows',
-      'Policy Registry inspection and address checks',
-      'Memo operations and Asset announcements',
+      'One-click 8130 wallet — faucet-seeded, gasless via payer sponsorship',
+      'Pay gas with your own stablecoin (ERC-8168 token payment)',
+      'Policies, memos, and atomic approve + transferFrom batching',
     ],
     available: true,
   },

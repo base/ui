@@ -27,6 +27,7 @@ import {
   ecrecoverAuthenticator,
   type Eip8130Deployment,
   encodeSessionPolicyConfig,
+  encodeTokenTransfer,
   encodeWalletCalls,
   estimateGas,
   generatePrivateKey,
@@ -1206,7 +1207,11 @@ export function useAccountEngine() {
     changeSeq: number | null,
     meta: Hex | undefined,
     sessionPolicy?: AppPolicy,
-    payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[] },
+    // `localSigner` co-signs `payerAuth` inline with a key this browser holds
+    // (the B20 demo's own faucet-funded payer EOA, which accepts an arbitrary
+    // B20 stablecoin as the fee). Without it the tx is serialized with an empty
+    // `payerAuth` for a hosted payer service to co-sign out of band.
+    payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[]; localSigner?: Signer },
   ): Promise<{ serialized: Hex; nextSeq: number }> => {
     const signer = await buildSigner(signerWS);
     const account = nativeAccountFor(a, signer, signerWS.authenticator);
@@ -1360,18 +1365,22 @@ export function useAccountEngine() {
       gasLimit = BigInt(floorGas(true) || 200_000);
     }
 
-    const serialized = await account.signTransaction({
-      chainId,
-      accountChanges,
-      calls: wire,
-      metadata: meta,
-      nonceKey: 0n,
-      nonceSequence,
-      maxFeePerGas: 1_000_000_000n,
-      maxPriorityFeePerGas: 1_000_000n,
-      gas: gasLimit,
-      ...(payerOpt ? { payer: payerOpt.address, payerAuth: '0x' as Hex } : {}),
-    });
+    const serialized = await account.signTransaction(
+      {
+        chainId,
+        accountChanges,
+        calls: wire,
+        metadata: meta,
+        nonceKey: 0n,
+        nonceSequence,
+        maxFeePerGas: 1_000_000_000n,
+        maxPriorityFeePerGas: 1_000_000n,
+        gas: gasLimit,
+        // A local payer signs `payerAuth` here, so don't stub it out.
+        ...(payerOpt ? { payer: payerOpt.address, ...(payerOpt.localSigner ? {} : { payerAuth: '0x' as Hex }) } : {}),
+      },
+      payerOpt?.localSigner ? { payer: { account: payerOpt.localSigner, address: payerOpt.address } } : undefined,
+    );
     return { serialized, nextSeq };
   };
 
@@ -1401,8 +1410,22 @@ export function useAccountEngine() {
   // transaction builder. It deliberately reuses the full compose/broadcast
   // implementation so deployment reconciliation, sub-account delegation, gas
   // estimation, and eligible staged account changes behave consistently.
-  const sendActiveCall = async ({ to, data }: { to: Address; data: Hex }) => {
+  //
+  // `calls` land as one atomic EIP-8130 transaction, so a demo can pair an
+  // approve with the call that spends it. `tokenGas` routes the transaction
+  // through a caller-supplied ERC-8168 payer: phase 0 pays that payer a flat
+  // fee in the given token and the payer's own ETH covers gas, which is how a
+  // demo lets you pay fees in a token you just created. Without it the account
+  // pays its own gas.
+  const sendActiveCalls = async ({
+    calls,
+    tokenGas,
+  }: {
+    calls: { to: Address; data: Hex }[];
+    tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
+  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token' }> => {
     if (!acct) throw new Error('Select an account before you continue.');
+    if (!calls.length) throw new Error('No calls to send.');
     const signer =
       postChangeOwnerSigners.find((s) => s.id === activeSignerId) ??
       postChangeOwnerSigners[0] ??
@@ -1412,18 +1435,34 @@ export function useAccountEngine() {
     const bundle = pendingBundleFor({ mode: 'owner-send' });
     const presigned = bundle.map((item) => item.change);
     const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
+    const payerOpt = tokenGas
+      ? {
+          address: tokenGas.payer.address,
+          phase0: [
+            (({ to, data }) => ({ to, data }))(
+              encodeTokenTransfer({ token: tokenGas.token, to: tokenGas.payer.address, amount: tokenGas.fee }),
+            ),
+          ],
+          localSigner: tokenGas.payer,
+        }
+      : undefined;
     const { serialized, nextSeq } = await signComposed(
       acct,
       signer,
-      [newCallRow({ to, data, value: '0' })],
+      calls.map((call) => newCallRow({ ...call, value: '0' })),
       presigned,
       changeSeq,
       undefined,
       undefined,
-      undefined,
+      payerOpt,
     );
     const hash = await broadcast8130(serialized);
     applyLandedBundle(acct, nextSeq, bundle);
+    return { hash, serialized, mode: tokenGas ? 'token' : 'self' };
+  };
+
+  const sendActiveCall = async ({ to, data }: { to: Address; data: Hex }) => {
+    const { hash, serialized } = await sendActiveCalls({ calls: [{ to, data }] });
     return { hash, serialized };
   };
 
@@ -2341,6 +2380,7 @@ export function useAccountEngine() {
     broadcast8130,
     signComposed,
     sendActiveCall,
+    sendActiveCalls,
     applyLandedBundle,
     handleSeqMismatch,
     pendingBundleFor,
