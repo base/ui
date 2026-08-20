@@ -4,6 +4,8 @@
 
 export type {
   ShadowBlockSummary,
+  ShadowBlockHealth,
+  ShadowHealthCheck,
   ShadowBlocksPage,
   ShadowBlocksResponse,
 } from '../../api/shadow-explorer/shadow-blocks/route';

@@ -11,7 +11,7 @@ import { shadowExplorerApi } from '../library/client';
 import { formatInteger } from '../library/format';
 import { shadowHref } from '../library/links';
 import type { ShadowBlocksResponse, ShadowNetwork } from '../library/types';
-import { GAS_DIFF_THRESHOLD_PCT, ShadowBlockTable, isGasDiffOutOfBand } from './ShadowBlockTable';
+import { ShadowBlockTable, isUnhealthy } from './ShadowBlockTable';
 
 const PAGE_LIMIT = 25;
 
@@ -50,7 +50,7 @@ export function ShadowBlocksClient({ network, chain }: { network: ShadowNetwork;
     };
   }, [network, chain, offset]);
 
-  const outOfBandCount = data?.blocks.filter(isGasDiffOutOfBand).length ?? 0;
+  const unhealthyCount = data?.blocks.filter(isUnhealthy).length ?? 0;
 
   return (
     <div className="animate-in flex flex-col gap-6">
@@ -58,8 +58,9 @@ export function ShadowBlocksClient({ network, chain }: { network: ShadowNetwork;
         <div>
           <Text variant="title2">Shadow Blocks</Text>
           <Text variant="label.regular" tone="muted" className="mt-1">
-            Reorged-out shadow candidates vs. the canonical block that replaced them. Gas Δ is
-            shadow − canonical; rows over ±{GAS_DIFF_THRESHOLD_PCT}% are flagged.
+            Reorged-out shadow candidates vs. the canonical block that replaced them. Health is the
+            number of release checks passed (gas within ±50%, tx counts match, no priority-fee
+            inversions); open a row for the breakdown.
           </Text>
         </div>
         {offset !== undefined && offset > 0 ? (
@@ -80,11 +81,11 @@ export function ShadowBlocksClient({ network, chain }: { network: ShadowNetwork;
         </Card>
       ) : null}
 
-      {!error && data && outOfBandCount > 0 ? (
+      {!error && data && unhealthyCount > 0 ? (
         <Card className="border-bds-red-30 bg-bds-red-0 p-4 dark:border-bds-red-60 dark:bg-bds-red-90/20">
           <Text variant="label.regular" className="text-bds-red-70 dark:text-bds-red-20">
-            {outOfBandCount} of {data.blocks.length} shadow blocks on this page differ from canonical
-            by more than ±{GAS_DIFF_THRESHOLD_PCT}% gas.
+            {unhealthyCount} of {data.blocks.length} shadow blocks on this page failed one or more
+            health checks.
           </Text>
         </Card>
       ) : null}

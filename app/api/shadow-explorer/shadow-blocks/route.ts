@@ -10,7 +10,13 @@ import {
 
 export const runtime = 'nodejs';
 
-export type { ShadowBlockSummary, ShadowBlocksPage, ShadowBlocksResponse } from '../shadow-blocks';
+export type {
+  ShadowBlockSummary,
+  ShadowBlockHealth,
+  ShadowHealthCheck,
+  ShadowBlocksPage,
+  ShadowBlocksResponse,
+} from '../shadow-blocks';
 
 export async function GET(request: Request) {
   const disabled = shadowExplorerDisabledResponse();

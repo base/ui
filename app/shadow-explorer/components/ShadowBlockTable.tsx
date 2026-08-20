@@ -14,22 +14,9 @@ import { shadowHref, tipsCanonicalBlockHref } from '../library/links';
 import type { ShadowNetwork } from '../networks';
 import type { ShadowBlockSummary } from '../library/types';
 
-// Canary threshold: rows whose gas differs from canonical by more than this are
-// flagged. The working requirement is "gas used within ~50%".
-export const GAS_DIFF_THRESHOLD_PCT = 50;
-
-function formatSignedInteger(value: number): string {
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toLocaleString()}`;
-}
-
-function formatSignedPct(value: number): string {
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}%`;
-}
-
-export function isGasDiffOutOfBand(block: ShadowBlockSummary): boolean {
-  return block.gasDiffPct !== undefined && Math.abs(block.gasDiffPct) > GAS_DIFF_THRESHOLD_PCT;
+// A reconciled block is unhealthy when it failed at least one health check.
+export function isUnhealthy(block: ShadowBlockSummary): boolean {
+  return block.health.reconciled && block.health.passed < block.health.total;
 }
 
 function TableHeader({ children }: { children: React.ReactNode }) {
@@ -44,31 +31,24 @@ function Cell({ children, className }: { children: React.ReactNode; className?: 
   return <td className={cn('px-4 py-3 text-black dark:text-white', className)}>{children}</td>;
 }
 
-function GasDiffCell({ block }: { block: ShadowBlockSummary }) {
-  if (block.gasDiffAbs === undefined || block.gasDiffPct === undefined) {
-    return <span className="text-bds-gray-50 dark:text-bds-gray-40">—</span>;
+function HealthCell({ block }: { block: ShadowBlockSummary }) {
+  const { reconciled, passed, total } = block.health;
+  if (!reconciled) {
+    return <span className="text-bds-gray-50 dark:text-bds-gray-40">pending</span>;
   }
 
-  const outOfBand = isGasDiffOutOfBand(block);
+  const ok = passed === total;
   return (
-    <div className="flex flex-col gap-0.5">
-      <span
-        className={cn(
-          'whitespace-nowrap font-medium',
-          outOfBand ? 'text-bds-red-70 dark:text-bds-red-20' : 'text-black dark:text-white',
-        )}
-      >
-        {formatSignedPct(block.gasDiffPct)}
-      </span>
-      <span className="whitespace-nowrap text-xs text-bds-gray-50 dark:text-bds-gray-40">
-        {formatSignedInteger(block.gasDiffAbs)}
-      </span>
-      {outOfBand ? (
-        <span className="mt-0.5 inline-flex w-fit rounded bg-bds-red-0 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-bds-red-70 dark:bg-bds-red-90/20 dark:text-bds-red-20">
-          &gt;{GAS_DIFF_THRESHOLD_PCT}%
-        </span>
-      ) : null}
-    </div>
+    <span
+      className={cn(
+        'inline-flex items-center rounded px-2 py-0.5 text-sm font-medium tabular-nums',
+        ok
+          ? 'bg-bds-green-0 text-bds-green-70 dark:bg-bds-green-90/20 dark:text-bds-green-20'
+          : 'bg-bds-red-0 text-bds-red-70 dark:bg-bds-red-90/20 dark:text-bds-red-20',
+      )}
+    >
+      {passed}/{total}
+    </span>
   );
 }
 
@@ -101,15 +81,13 @@ export function ShadowBlockTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[900px] text-sm">
+      <table className="w-full min-w-[720px] text-sm">
         <thead className="border-b border-bds-gray-10 bg-bds-gray-5/60 dark:border-white/10 dark:bg-white/[0.03]">
           <tr>
             <TableHeader>Height</TableHeader>
             <TableHeader>Age</TableHeader>
             <TableHeader>Builder</TableHeader>
-            <TableHeader>Gas (shadow / canon)</TableHeader>
-            <TableHeader>Gas Δ</TableHeader>
-            <TableHeader>Txns (shadow / canon)</TableHeader>
+            <TableHeader>Health</TableHeader>
             <TableHeader>Canonical</TableHeader>
           </tr>
         </thead>
@@ -146,25 +124,10 @@ export function ShadowBlockTable({
               <Cell>
                 <BuilderCell block={block} />
               </Cell>
-              <Cell className="whitespace-nowrap">
-                {formatInteger(block.shadowGasUsed)}
-                <span className="text-bds-gray-40"> / </span>
-                {formatInteger(block.canonicalGasUsed)}
-              </Cell>
-              <Cell>
-                <GasDiffCell block={block} />
-              </Cell>
-              <Cell className="whitespace-nowrap">
-                {formatInteger(block.shadowTxCount)}
-                <span className="text-bds-gray-40"> / </span>
-                {formatInteger(block.canonicalTxCount)}
-                {block.txCountDiff !== undefined && block.txCountDiff !== 0 ? (
-                  <span className="ml-1 text-xs text-bds-gray-50 dark:text-bds-gray-40">
-                    ({formatSignedInteger(block.txCountDiff)})
-                  </span>
-                ) : null}
-              </Cell>
-              <Cell>
+                <Cell>
+                  <HealthCell block={block} />
+                </Cell>
+                <Cell>
                 <Link
                   href={tipsCanonicalBlockHref(network, block.canonicalHash)}
                   onClick={(event) => event.stopPropagation()}

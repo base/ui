@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import { Card } from '../../../../../components/ui/Card';
+import { cn } from '../../../../../components/ui/cn';
 import { Text } from '../../../../../components/ui/Text';
 import {
   ShadowBlockNotFoundError,
   fetchShadowBlockDetail,
   type ShadowBlockDetail,
 } from '../../../../../api/shadow-explorer/block-detail';
+import { fetchShadowBlock, type ShadowBlockHealth } from '../../../../../api/shadow-explorer/shadow-blocks';
 import { resolveShadowChainUrl } from '../../../../../api/shadow-explorer/config';
 import { ShadowNav } from '../../../../components/ShadowNav';
 import { formatAge, formatInteger, shortHash } from '../../../../library/format';
@@ -51,6 +53,15 @@ export default async function ShadowBlockDetailPage({
     redirect(tipsCanonicalBlockHref(network, detail.hash));
   }
 
+  let health: ShadowBlockHealth | null = null;
+  if (detail) {
+    try {
+      health = (await fetchShadowBlock(baseUrl, id)).health;
+    } catch {
+      health = null;
+    }
+  }
+
   return (
     <div className="animate-in flex flex-col gap-6">
       <ShadowNav network={network} chain={chain} active="shadow-blocks" />
@@ -89,6 +100,53 @@ export default async function ShadowBlockDetailPage({
               {detail.hash}
             </Text>
           </div>
+
+          {health && health.reconciled ? (
+            <Card className="flex flex-col gap-3 bg-white p-5 dark:bg-white/5">
+              <div className="flex items-center gap-2">
+                <Text variant="headline">Release health</Text>
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded px-2 py-0.5 text-sm font-medium tabular-nums',
+                    health.passed === health.total
+                      ? 'bg-bds-green-0 text-bds-green-70 dark:bg-bds-green-90/20 dark:text-bds-green-20'
+                      : 'bg-bds-red-0 text-bds-red-70 dark:bg-bds-red-90/20 dark:text-bds-red-20',
+                  )}
+                >
+                  {health.passed}/{health.total}
+                </span>
+              </div>
+              <ul className="flex flex-col gap-2">
+                {health.checks.map((check) => (
+                  <li key={check.id} className="flex items-start gap-2 text-sm">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'mt-0.5 font-semibold',
+                        check.passed
+                          ? 'text-bds-green-70 dark:text-bds-green-20'
+                          : 'text-bds-red-70 dark:text-bds-red-20',
+                      )}
+                    >
+                      {check.passed ? '✓' : '✗'}
+                    </span>
+                    <div>
+                      <div className="text-black dark:text-white">{check.label}</div>
+                      <div className="text-xs text-bds-gray-50 dark:text-bds-gray-40">
+                        {check.detail}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : health && !health.reconciled ? (
+            <Card className="bg-white p-5 dark:bg-white/5">
+              <Text variant="label.regular" tone="muted">
+                Health pending — canonical replacement not reconciled yet.
+              </Text>
+            </Card>
+          ) : null}
 
           <Card className="grid grid-cols-1 gap-4 bg-white p-5 sm:grid-cols-2 dark:bg-white/5">
             <Field label="Age">{formatAge(detail.timestamp)}</Field>

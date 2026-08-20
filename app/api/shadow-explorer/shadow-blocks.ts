@@ -3,8 +3,26 @@
 // Offset-paginated to match the upstream /shadow-blocks endpoint. The `*Diff`
 // fields are shadow − canonical (positive = shadow used more). Server-only.
 
+import { ShadowBlockNotFoundError } from './block-detail';
+
 export const DEFAULT_SHADOW_BLOCKS_PAGE_LIMIT = 25;
 export const MAX_SHADOW_BLOCKS_PAGE_LIMIT = 100;
+
+export interface ShadowHealthCheck {
+  id: string;
+  label: string;
+  passed: boolean;
+  detail: string;
+}
+
+// Release-health verdict computed server-side (shadow-metrics). `reconciled` is
+// false when the canonical replacement isn't persisted yet, so `checks` is empty.
+export interface ShadowBlockHealth {
+  reconciled: boolean;
+  passed: number;
+  total: number;
+  checks: ShadowHealthCheck[];
+}
 
 export interface ShadowBlockSummary {
   number: number;
@@ -23,6 +41,7 @@ export interface ShadowBlockSummary {
   shadowNonDepositTxCount: number;
   canonicalNonDepositTxCount?: number;
   shadowPriorityFeeInversions: number;
+  health: ShadowBlockHealth;
 }
 
 export interface ShadowBlocksPage {
@@ -126,4 +145,25 @@ export async function listShadowBlocks(
       hasMore,
     },
   };
+}
+
+export async function fetchShadowBlock(baseUrl: string, id: string): Promise<ShadowBlockSummary> {
+  const root = baseUrl.replace(/\/$/, '');
+  const url = `${root}/shadow-blocks/${encodeURIComponent(id)}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, { cache: 'no-store' });
+  } catch {
+    throw new ShadowBlocksUnavailableError('failed to reach shadow-metrics');
+  }
+
+  if (response.status === 404) {
+    throw new ShadowBlockNotFoundError();
+  }
+  if (!response.ok) {
+    throw new ShadowBlocksUnavailableError(`shadow-metrics responded ${response.status}`);
+  }
+
+  return (await response.json()) as ShadowBlockSummary;
 }
