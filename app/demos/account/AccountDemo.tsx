@@ -975,12 +975,22 @@ export function AccountDemo() {
       ]);
       const ethBefore = BigInt(assetBals.vibenet?.eth_wei ?? '0');
       const deadline = Date.now() + 8_000;
+      let credited = false;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 500));
         const fresh = await refreshVibenetBalances();
-        if (BigInt(fresh?.eth_wei ?? '0') > ethBefore) break;
+        if (BigInt(fresh?.eth_wei ?? '0') > ethBefore) {
+          credited = true;
+          break;
+        }
       }
-      toast.success('Topped up successfully');
+      if (credited) {
+        toast.success('Topped up successfully');
+      } else {
+        toast.error(
+          "Top up didn't go through — Vibenet may be down for maintenance. Please try again shortly.",
+        );
+      }
     } catch (e) {
       setError((e as Error).message);
       toast.error('Top up failed');
@@ -2925,7 +2935,7 @@ export function AccountDemo() {
       <div
         className="activity-full-width sticky bottom-0 z-10 mt-auto"
       >
-        <div className="border-t border-bds-gray-10 bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-white/5">
+        <div className="border-t border-bds-gray-10 bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[rgb(30,30,30)]">
           <button
             type="button"
             onClick={() => setActivityOpen(!activityOpen)}
