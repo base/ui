@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 
 import { Spinner } from '../../../../components/ui/Spinner';
 import { Text } from '../../../../components/ui/Text';
+import { resolveShadowChainUrl } from '../../../../api/shadow-explorer/config';
 import { ShadowBlocksClient } from '../../../components/ShadowBlocksClient';
 import { ShadowNav } from '../../../components/ShadowNav';
 import { isShadowNetwork } from '../../../networks';
@@ -13,7 +14,7 @@ export default async function ShadowBlocksPage({
   params: Promise<{ network: string; chain: string }>;
 }) {
   const { network, chain } = await params;
-  if (!isShadowNetwork(network)) notFound();
+  if (!isShadowNetwork(network) || !resolveShadowChainUrl(network, chain)) notFound();
 
   return (
     <div className="animate-in flex flex-col gap-6">
