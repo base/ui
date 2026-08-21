@@ -18,27 +18,27 @@ export function Activity({ rows }: { rows: ActivityItem[] }) {
           </Text>
         </div>
         <span className="text-[12px] text-bds-gray-50">
-          {rows.length ? `${rows.length} activity item${rows.length === 1 ? '' : 's'}` : '● Nothing has happened yet'}
+          {rows.length ? `${rows.length} activity item${rows.length === 1 ? '' : 's'}` : '● Your activity will appear here'}
         </span>
       </div>
       {rows.length ? (
         <div className="mt-3 divide-y divide-bds-gray-10 border-t border-bds-gray-10 dark:divide-white/10 dark:border-white/10">
           {rows.map((row, index) => (
-            <div
-              key={`${row.label}-${index}`}
-              className="flex flex-wrap items-center justify-between gap-2 py-3 text-[12px]"
-            >
-              <span
-                className={
-                  row.state === 'success'
-                    ? 'text-bds-green-60'
-                    : row.state === 'error'
-                      ? 'text-bds-red-60'
-                      : 'text-bds-orange-60'
-                }
-              >
-                {row.state === 'success' ? '✓' : row.state === 'error' ? '×' : '◌'} {row.label}
-              </span>
+            <div key={`${row.label}-${index}`} className="flex flex-wrap items-start justify-between gap-3 py-3 text-[12px]">
+              <div className="min-w-0 flex-1">
+                <span
+                  className={
+                    row.state === 'success'
+                      ? 'text-bds-green-60'
+                      : row.state === 'error'
+                        ? 'text-bds-red-60'
+                        : 'text-bds-orange-60'
+                  }
+                >
+                  {row.state === 'success' ? '✓' : row.state === 'error' ? '×' : '◌'} {row.label}
+                </span>
+                {row.detail ? <p className="mt-1 max-w-3xl leading-5 text-bds-gray-50">{row.detail}</p> : null}
+              </div>
               {row.hash ? (
                 <Link
                   href={`${VIBENET_EXPLORER_PATH}/tx/${row.hash}`}
@@ -46,9 +46,11 @@ export function Activity({ rows }: { rows: ActivityItem[] }) {
                 >
                   {shortAddress(row.hash)} ↗
                 </Link>
-              ) : (
-                <span className="max-w-[65%] truncate text-bds-gray-50">{row.detail ?? 'Pending…'}</span>
-              )}
+              ) : !row.detail ? (
+                <span className="max-w-[65%] truncate text-bds-gray-50">
+                  {row.detail ?? (row.state === 'pending' ? 'Pending…' : '')}
+                </span>
+              ) : null}
             </div>
           ))}
         </div>

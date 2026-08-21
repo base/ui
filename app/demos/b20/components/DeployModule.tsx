@@ -14,6 +14,11 @@ import { CopyableValue } from '../../../vibenet/components/CopyableValue';
 import { VIBENET_EXPLORER_PATH } from '../../../vibenet/library/config';
 import { walletErrorMessage } from '../../../vibenet/library/wallet';
 import { client, INITIAL_ALLOCATION_MAX, INITIAL_ALLOCATION_MEMO } from '../lib/constants';
+import {
+  chunkDeploymentOperations,
+  describeStablecoinOperations,
+  type DeploymentOperation,
+} from '../lib/deployment';
 import { B20_HELP, SCOPE_HELP } from '../lib/glossary';
 import {
   ACTIVATION_REGISTRY,
@@ -108,6 +113,9 @@ function ConfettiBurst() {
 export function DeployModule({
   wallet,
   onSend,
+  onSendBatches,
+  progress,
+  onFirstPayment,
   created,
   onCreated,
   onReset,
@@ -118,6 +126,14 @@ export function DeployModule({
 }: {
   wallet: Address | null;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
+  onSendBatches: (
+    batches: Array<{ label: string; calls: Array<{ to: Address; data: Hex }> }>,
+    action: string,
+  ) => Promise<Hex[] | null>;
+  /** Live step info while a batched flow runs (null when idle). */
+  progress: { label: string; detail?: string; index: number; total: number } | null;
+  /** Guided flow: flip gas to the new stablecoin and pre-fill a first payment. */
+  onFirstPayment: () => void;
   created: CreatedToken | null;
   onCreated: (token: CreatedToken) => Promise<void>;
   onReset: () => void;
@@ -141,13 +157,13 @@ export function DeployModule({
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [resolvingPolicy, setResolvingPolicy] = useState(false);
   const [showPolicyCreator, setShowPolicyCreator] = useState(false);
-  const [predicted, setPredicted] = useState('Connect a wallet to see the address');
+  const [predicted, setPredicted] = useState('Make a wallet to see the address');
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (!wallet) {
-      setPredicted('Connect a wallet to see the address');
+      setPredicted('Make a wallet to see the address');
       return;
     }
     if (!salt.trim()) {
@@ -214,7 +230,7 @@ export function DeployModule({
 
   const submit = async () => {
     if (!wallet) {
-      setError('Connect a wallet before you create a token.');
+      setError('Make a wallet before you create a token.');
       return;
     }
     setFinalizing(true);
@@ -261,21 +277,41 @@ export function DeployModule({
       if (!salt.trim()) setSalt(saltValue);
       const deploySalt = saltFor(saltValue);
       const params = encodeDeploymentParams(variant, name, symbol, wallet, d, currency);
-      const initCalls: Hex[] = ROLES.filter((role) => variant === 'asset' || role !== 'OPERATOR_ROLE').map((role) =>
-        encodeRoleGrant(role, wallet),
-      );
+      const initCalls: DeploymentOperation[] = ROLES.filter(
+        (role) => variant === 'asset' || role !== 'OPERATOR_ROLE',
+      ).map((role) => ({ data: encodeRoleGrant(role, wallet), kind: 'role', role }));
       if (capAmount !== null)
-        initCalls.push(encodeFunctionData({ abi: b20Abi, functionName: 'updateSupplyCap', args: [capAmount] }));
-      if (uri) initCalls.push(encodeFunctionData({ abi: b20Abi, functionName: 'updateContractURI', args: [uri] }));
+        initCalls.push({
+          data: encodeFunctionData({ abi: b20Abi, functionName: 'updateSupplyCap', args: [capAmount] }),
+          kind: 'cap',
+          amount: formatAmount(capAmount, d),
+          symbol,
+        });
+      if (uri)
+        initCalls.push({
+          data: encodeFunctionData({ abi: b20Abi, functionName: 'updateContractURI', args: [uri] }),
+          kind: 'metadata',
+        });
       initCalls.push(
-        encodeFunctionData({
-          abi: b20Abi,
-          functionName: 'mintWithMemo',
-          args: [wallet, initialMintAmount, memoToBytes32(INITIAL_ALLOCATION_MEMO)],
-        }),
+        {
+          data: encodeFunctionData({
+            abi: b20Abi,
+            functionName: 'mintWithMemo',
+            args: [wallet, initialMintAmount, memoToBytes32(INITIAL_ALLOCATION_MEMO)],
+          }),
+          kind: 'mint',
+          amount: formatAmount(initialMintAmount, d),
+          symbol,
+          memo: INITIAL_ALLOCATION_MEMO,
+        },
       );
       initialPolicies.forEach(({ scope, id }) => {
-        initCalls.push(encodeFunctionData({ abi: b20Abi, functionName: 'updatePolicy', args: [scopeId(scope), id] }));
+        initCalls.push({
+          data: encodeFunctionData({ abi: b20Abi, functionName: 'updatePolicy', args: [scopeId(scope), id] }),
+          kind: 'policy',
+          id,
+          scope,
+        });
       });
       const configured: string[] = [
         variant === 'asset'
@@ -289,21 +325,44 @@ export function DeployModule({
       );
       const policyCount = initialPolicies.length;
       if (policyCount) configured.push(`Added ${policyCount} token ${policyCount === 1 ? 'rule' : 'rules'}`);
-      const data = encodeFunctionData({
-        abi: factoryAbi,
-        functionName: 'createB20',
-        args: [variant === 'asset' ? 0 : 1, deploySalt, params, initCalls],
-      });
       const address = await client.readContract({
         address: B20_FACTORY,
         abi: factoryAbi,
         functionName: 'getB20Address',
         args: [variant === 'asset' ? 0 : 1, wallet, deploySalt],
       });
-      const hash = await onSend(`Create ${symbol}`, B20_FACTORY, data, 'create_b20');
-      if (hash) {
+      // The payer sponsors only ~300k gas per transaction, so creation can't
+      // carry the init calls: create the bare token first, then apply the same
+      // init calls directly to the token in budget-sized follow-up batches.
+      const createData = encodeFunctionData({
+        abi: factoryAbi,
+        functionName: 'createB20',
+        args: [variant === 'asset' ? 0 : 1, deploySalt, params, []],
+      });
+      // 6 calls ≈ 200k gas — the most that reliably fits under the payer's
+      // ~300k per-transaction sponsorship budget alongside the batch overhead.
+      const chunks = chunkDeploymentOperations(initCalls);
+      const batches = [
+        {
+          label: `Create ${symbol}`,
+          ...(variant === 'stablecoin'
+            ? {
+                detail:
+                  'Call createB20 with the Stablecoin variant and the EIP-8130 account as initial admin.',
+              }
+            : {}),
+          calls: [{ to: B20_FACTORY, data: createData }],
+        },
+        ...chunks.map((chunk, i) => ({
+          label: chunks.length > 1 ? `Configure ${symbol} (${i + 1} of ${chunks.length})` : `Configure ${symbol}`,
+          ...(variant === 'stablecoin' ? { detail: describeStablecoinOperations(chunk) } : {}),
+          calls: chunk.map(({ data }) => ({ to: address, data })),
+        })),
+      ];
+      const hashes = await onSendBatches(batches, 'create_b20');
+      if (hashes?.length) {
         await waitForB20Initialization(address);
-        await onCreated({ address, name, symbol, decimals: d, variant, hash, configured });
+        await onCreated({ address, name, symbol, decimals: d, variant, hash: hashes[0], configured });
         setSalt('');
       }
     } catch (error) {
@@ -312,7 +371,8 @@ export function DeployModule({
       setFinalizing(false);
     }
   };
-  if (created) return <CreatedView created={created} onNavigate={onNavigate} onReset={onReset} />;
+  if (created)
+    return <CreatedView created={created} onNavigate={onNavigate} onReset={onReset} onFirstPayment={onFirstPayment} />;
   const pending = !!busy || finalizing;
   return (
     <div className="flex flex-col gap-5">
@@ -341,7 +401,7 @@ export function DeployModule({
           <strong>{variant === 'asset' ? 'Asset' : 'Stablecoin'}: </strong>
           {variant === 'asset'
             ? 'Choose this for flexible decimals, announcements, and displayed-balance changes.'
-            : 'Choose this for a currency-linked token. It always uses six decimals and a currency code, helping wallets identify it consistently.'}
+            : 'Choose this for a currency-linked token. It always uses six decimals and a currency code, helping wallets identify it consistently. Once created, it can also be used to pay gas.'}
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Field label="Token name" hint="This is the name people will see in their wallet.">
@@ -530,18 +590,37 @@ export function DeployModule({
           </div>
           <p className="mt-1 font-mono text-[13px]">{predicted}</p>
           <p className="mt-3 text-[11px] text-bds-gray-50">
-            Creating the token gives your wallet the permissions it needs, sets your options, and sends the starting
-            amount to you in one transaction.
+            {variant === 'stablecoin'
+              ? 'This demo splits deployment and setup into gas-sponsored transactions to stay within its sponsorship limit. B20Factory also supports these setup calls through initCalls.'
+              : 'Creating the token runs a short series of gas-sponsored transactions: it deploys the token, gives your wallet the permissions it needs, sets your options, and sends you the starting amount.'}
           </p>
         </div>
         <ErrorNote message={error} />
         <Button className="mt-5" onClick={() => void submit()} disabled={pending}>
-          {pending ? 'Creating your token…' : 'Create token'}
+          {pending && progress ? `Step ${progress.index + 1} of ${progress.total}…` : pending ? 'Creating your token…' : 'Create token'}
         </Button>
         {pending ? (
-          <p className="mt-3 text-[12px] text-bds-gray-50">
-            Confirm in your wallet, then wait a few seconds for your token to be ready.
-          </p>
+          <div className="mt-3">
+            {progress ? (
+              <div className="flex items-center gap-3 text-[12px] text-bds-gray-60">
+                <span className="inline-flex h-2 w-32 overflow-hidden rounded-full bg-bds-gray-10 dark:bg-white/10">
+                  <span
+                    className="h-full rounded-full bg-base-blue transition-all duration-500"
+                    style={{ width: `${Math.round(((progress.index + 0.5) / progress.total) * 100)}%` }}
+                  />
+                </span>
+                <span>{progress.label}…</span>
+              </div>
+            ) : (
+              <p className="text-[12px] text-bds-gray-50">Preparing your token…</p>
+            )}
+            {progress?.detail ? (
+              <p className="mt-2 max-w-3xl text-[12px] leading-5 text-bds-gray-60">{progress.detail}</p>
+            ) : null}
+            <p className="mt-1 text-[11px] text-bds-gray-50">
+              Each step is a real onchain transaction — links appear in Recent Activity as they confirm.
+            </p>
+          </div>
         ) : null}
       </Card>
     </div>
@@ -556,31 +635,46 @@ function CreatedView({
   created,
   onNavigate,
   onReset,
+  onFirstPayment,
 }: {
   created: CreatedToken;
   onNavigate: (module: Module) => void;
   onReset: () => void;
+  onFirstPayment: () => void;
 }) {
-  const nextSteps: Array<{ module: Module; title: string; body: string }> = [
+  // Each variant only lists what it can actually do: stablecoins get the
+  // pay-fees-in-token step (assets can't), assets get announcements
+  // (stablecoins can't).
+  const nextSteps: Array<{ key: string; title: string; body: string; onGo: () => void }> = [
     {
-      module: 'policy',
-      title: 'Explore policies',
-      body: 'See who can use each token action and check a wallet before you use it.',
+      key: 'memos',
+      title: 'Send a transfer with a memo',
+      body: `Move some ${created.symbol} to another wallet with a short reference attached — the fastest way to see your token in action.`,
+      onGo: () => onNavigate('memos'),
     },
-    {
-      module: 'memos',
-      title: 'View memo history',
-      body: 'See your initial memo and add references to future token activity.',
-    },
-    ...(created.variant === 'asset'
+    ...(created.variant === 'stablecoin'
       ? [
           {
-            module: 'announcements' as Module,
-            title: 'Share an update',
-            body: 'Publish information for token holders or schedule a displayed-balance change.',
+            key: 'token-gas',
+            title: `Pay network fees with ${created.symbol}`,
+            body: `Send a payment where the gas fee is charged in ${created.symbol} itself.`,
+            onGo: onFirstPayment,
           },
         ]
-      : []),
+      : [
+          {
+            key: 'announcements',
+            title: 'Share an update',
+            body: 'Publish information for token holders or schedule a displayed-balance change.',
+            onGo: () => onNavigate('announcements'),
+          },
+        ]),
+    {
+      key: 'policy',
+      title: 'Explore policies',
+      body: 'See who can use each token action and check a wallet before you use it.',
+      onGo: () => onNavigate('policy'),
+    },
   ];
   return (
     <div className="animate-in flex flex-col gap-5">
@@ -599,6 +693,20 @@ function CreatedView({
           Your {created.variant} token {created.symbol} is ready on Vibenet. Here is what was set up and what you can
           try next.
         </Text>
+        {created.variant === 'stablecoin' ? (
+          <>
+            <Button className="relative mt-2" onClick={onFirstPayment}>
+              Send your first payment in {created.symbol} →
+            </Button>
+            <Text variant="footnote" tone="muted" className="relative max-w-md">
+              This flips the fee switch so the network fee is paid in {created.symbol} too.
+            </Text>
+          </>
+        ) : (
+          <Text variant="footnote" tone="muted" className="relative max-w-md">
+            Asset tokens use sponsored gas. To try paying network fees with your own token, create a Stablecoin.
+          </Text>
+        )}
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="bg-background p-5 dark:bg-white/5">
@@ -665,7 +773,7 @@ function CreatedView({
             ))}
           </ul>
           <p className="mt-4 text-[11px] text-bds-gray-50">
-            Everything was applied together, so the token was ready in one transaction.
+            Each step ran as its own gas-sponsored transaction — check Recent Activity for the links.
           </p>
         </Card>
       </div>
@@ -676,9 +784,9 @@ function CreatedView({
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {nextSteps.map((step) => (
             <button
-              key={step.module}
+              key={step.key}
               type="button"
-              onClick={() => onNavigate(step.module)}
+              onClick={step.onGo}
               className="group flex flex-col rounded-xl border border-bds-gray-10 bg-background p-4 text-left transition-colors hover:border-base-blue dark:border-white/10 dark:bg-white/5"
             >
               <Text variant="headline">{step.title}</Text>
