@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 import { Card } from '../../../components/ui/Card';
@@ -13,10 +14,14 @@ import { EventHistoryRow } from '../../components/EventHistoryRow';
 import { TipsExplorerLink } from '../../components/TipsExplorerLink';
 import type { TipsChain } from '../../chains';
 import { tipsApi, TipsApiError } from '../../library/client';
-import { formatGwei } from '../../library/explorer-format';
+import { formatAge, formatGwei, formatInteger } from '../../library/explorer-format';
 import { shortHash } from '../../library/format';
 import { tipsHref } from '../../library/links';
-import type { BlockDetailResponse, BlockDetailTransaction } from '../../library/types';
+import type {
+  BlockDetailResponse,
+  BlockDetailTransaction,
+  ShadowBlockSummary,
+} from '../../library/types';
 import { useTipsChain } from '../../library/useTipsChain';
 
 interface PageProps {
@@ -176,6 +181,70 @@ function BlockStats({ block }: { block: BlockDetailResponse }) {
   );
 }
 
+const CANDIDATE_HEADER =
+  'whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-bds-gray-60 dark:text-bds-gray-40';
+
+function ShadowCandidatesTable({
+  candidates,
+  chain,
+}: {
+  candidates: ShadowBlockSummary[];
+  chain: TipsChain;
+}) {
+  const router = useRouter();
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead className="border-b border-bds-gray-10 bg-bds-gray-5/60 dark:border-white/10 dark:bg-white/[0.03]">
+          <tr>
+            <th className={CANDIDATE_HEADER}>Block</th>
+            <th className={CANDIDATE_HEADER}>Builder</th>
+            <th className={CANDIDATE_HEADER}>Age</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-bds-gray-10 dark:divide-white/10">
+          {candidates.map((block) => {
+            const open = () => router.push(tipsHref(`/tips/shadow-block/${block.hash}`, chain));
+            return (
+              <tr
+                key={block.hash}
+                role="link"
+                tabIndex={0}
+                aria-label={`Shadow block ${block.number}`}
+                onClick={open}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    open();
+                  }
+                }}
+                className="cursor-pointer hover:bg-bds-gray-5/60 focus:bg-bds-gray-5/60 focus:outline-none dark:hover:bg-white/5 dark:focus:bg-white/5"
+              >
+                <td className="px-4 py-3 text-black dark:text-white">
+                  <span className="font-medium">#{formatInteger(block.number)}</span>
+                  <div
+                    className="mt-0.5 font-mono text-xs text-bds-gray-50 dark:text-bds-gray-40"
+                    title={block.hash}
+                  >
+                    {shortHash(block.hash)}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-black dark:text-white">
+                  <div className="font-mono text-xs">{block.shadowBuilderVersion}</div>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-bds-gray-60 dark:text-bds-gray-40">
+                  {formatAge(block.timestamp)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function BlockToolbar({
   chain,
   hash,
@@ -246,6 +315,7 @@ function BlockContent({ params }: PageProps) {
   const { chain } = useTipsChain();
   const [hash, setHash] = useState('');
   const [data, setData] = useState<BlockDetailResponse | null>(null);
+  const [shadowCandidates, setShadowCandidates] = useState<ShadowBlockSummary[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -286,6 +356,21 @@ function BlockContent({ params }: PageProps) {
     };
   }, [hash, chain]);
 
+  useEffect(() => {
+    if (!data?.hash) return;
+    const controller = new AbortController();
+    setShadowCandidates(null);
+
+    tipsApi
+      .shadowCandidates(chain, data.hash, controller.signal)
+      .then((response) => setShadowCandidates(response.candidates))
+      .catch(() => setShadowCandidates(null));
+
+    return () => {
+      controller.abort();
+    };
+  }, [chain, data?.hash]);
+
   if (!hash || loading) {
     return (
       <div className="flex items-center justify-center gap-3 py-16">
@@ -320,6 +405,20 @@ function BlockContent({ params }: PageProps) {
             <Text variant="headline">Block Overview</Text>
             <BlockStats block={data} />
           </section>
+
+          {shadowCandidates && shadowCandidates.length > 0 ? (
+            <section className="flex flex-col gap-4">
+              <div>
+                <Text variant="headline">Shadow blocks</Text>
+                <Text variant="label.regular" tone="muted" className="mt-1">
+                  Shadow blocks reorged out in favor of this block.
+                </Text>
+              </div>
+              <Card className="overflow-hidden bg-background dark:bg-white/5">
+                <ShadowCandidatesTable candidates={shadowCandidates} chain={chain} />
+              </Card>
+            </section>
+          ) : null}
 
           <section className="flex flex-col gap-4">
             <Text variant="headline">Transactions</Text>

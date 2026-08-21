@@ -10,6 +10,8 @@ import type {
   BlocksResponse,
   BundleHistoryResponse,
   RejectedTransactionsResponse,
+  ShadowBlockDetail,
+  ShadowBlockSummary,
   TransactionHistoryResponse,
   TransactionsResponse,
 } from './types';
@@ -88,4 +90,22 @@ export const tipsApi = {
     get<RejectedTransactionsResponse>('/api/tips/rejected', chain, signal),
   bundle: (hash: string, chain: TipsChain, signal?: AbortSignal) =>
     get<BundleHistoryResponse>(`/api/tips/bundle/${enc(hash)}`, chain, signal),
+  shadowCandidates: (chain: TipsChain, canonicalHash: string, signal?: AbortSignal) =>
+    get<{ candidates: ShadowBlockSummary[] }>(
+      withQuery('/api/tips/shadow-candidates', { canonical: canonicalHash }),
+      chain,
+      signal,
+    ),
+  shadowCandidatesBatch: (chain: TipsChain, hashes: string[], signal?: AbortSignal) =>
+    get<Record<string, ShadowBlockSummary[]>>(
+      withQuery('/api/tips/shadow-candidates-batch', { canonical: hashes.join(',') }),
+      chain,
+      signal,
+    ),
+  shadowBlock: (hash: string, chain: TipsChain, signal?: AbortSignal) =>
+    get<{ summary: ShadowBlockSummary; detail: ShadowBlockDetail }>(
+      `/api/tips/shadow-block/${enc(hash)}`,
+      chain,
+      signal,
+    ),
 };

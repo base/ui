@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
@@ -12,7 +12,7 @@ import { ExplorerNav } from '../components/ExplorerNav';
 import { tipsApi } from '../library/client';
 import { formatInteger } from '../library/explorer-format';
 import { tipsHref } from '../library/links';
-import type { BlocksResponse } from '../library/types';
+import type { BlocksResponse, ShadowBlockSummary } from '../library/types';
 import { useTipsChain } from '../library/useTipsChain';
 
 const PAGE_LIMIT = 25;
@@ -26,6 +26,12 @@ function BlocksContent() {
   const [data, setData] = useState<BlocksResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showShadowDelta, setShowShadowDelta] = useState(false);
+  const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
+  const shadowKey = useMemo(
+    () => (data?.blocks ?? []).map((block) => block.hash.toLowerCase()).sort().join(','),
+    [data?.blocks],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +59,25 @@ function BlocksContent() {
     };
   }, [chain, cursor]);
 
+  useEffect(() => {
+    if (!showShadowDelta || shadowKey.length === 0) {
+      setShadowCandidates({});
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const hashes = shadowKey.split(',');
+
+    tipsApi
+      .shadowCandidatesBatch(chain, hashes, controller.signal)
+      .then((response) => setShadowCandidates(response))
+      .catch(() => setShadowCandidates({}));
+
+    return () => {
+      controller.abort();
+    };
+  }, [chain, shadowKey, showShadowDelta]);
+
   return (
     <div className="animate-in flex flex-col gap-6">
       <ExplorerNav chain={chain} active="blocks" />
@@ -74,6 +99,16 @@ function BlocksContent() {
         ) : null}
       </div>
 
+      <label className="inline-flex cursor-pointer select-none items-center gap-2 self-end text-sm text-bds-gray-60 dark:text-bds-gray-40">
+        <input
+          type="checkbox"
+          checked={showShadowDelta}
+          onChange={(event) => setShowShadowDelta(event.target.checked)}
+          className="h-4 w-4 accent-base-blue"
+        />
+        Show shadow Δ
+      </label>
+
       {error ? (
         <Card className="border-bds-red-30 bg-bds-red-0 p-4 dark:border-bds-red-60 dark:bg-bds-red-90/20">
           <Text variant="label.regular" className="text-bds-red-70 dark:text-bds-red-20">
@@ -91,7 +126,12 @@ function BlocksContent() {
             </Text>
           </div>
         ) : data && data.blocks.length > 0 ? (
-          <BlockTable blocks={data.blocks} chain={chain} />
+          <BlockTable
+            blocks={data.blocks}
+            chain={chain}
+            showShadowDelta={showShadowDelta}
+            shadowBlocks={shadowCandidates}
+          />
         ) : (
           <div className="py-12 text-center text-bds-gray-60 dark:text-bds-gray-40">
             No blocks available

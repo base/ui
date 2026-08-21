@@ -5,7 +5,13 @@ import { tipsHref } from '../library/links';
 
 // Shared sub-nav for the Basescan-style explorer surfaces (/tips/blocks, /tips/txs):
 // a back link to the TIPS dashboard plus links between the two list views.
-export function ExplorerNav({ chain, active }: { chain: TipsChain; active: 'blocks' | 'txs' }) {
+export function ExplorerNav({
+  chain,
+  active,
+}: {
+  chain: TipsChain;
+  active: 'blocks' | 'txs';
+}) {
   const linkClass =
     'text-sm text-bds-gray-60 transition-colors hover:text-black dark:text-bds-gray-40 dark:hover:text-white';
   const activeClass = 'text-sm font-medium text-black dark:text-white';
