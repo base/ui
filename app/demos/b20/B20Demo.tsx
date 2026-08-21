@@ -7,6 +7,7 @@ import { trackB20Action, trackB20ModuleSelect, trackB20WalletCreation } from '..
 import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../components/ui/cn';
+import { Select, type SelectGroup } from '../../components/ui/Select';
 import { Spinner } from '../../components/ui/Spinner';
 import { Tabs } from '../../components/ui/Tabs';
 import { textVariantClasses } from '../../components/ui/Text';
@@ -34,6 +35,7 @@ import {
 } from './lib/protocol';
 import { readRecent, readRecentPolicies, writeRecent, writeRecentPolicy } from './lib/recent';
 import { sampleTokenForAddress } from './lib/samples';
+import { canUseTokenForGas } from './lib/tokenGas';
 import {
   clearPayer,
   clearWallet,
@@ -100,7 +102,12 @@ export function B20Demo() {
   const [checks, setChecks] = useState<Record<string, boolean> | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [batchProgress, setBatchProgress] = useState<{ label: string; index: number; total: number } | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{
+    label: string;
+    detail?: string;
+    index: number;
+    total: number;
+  } | null>(null);
   const [isOperator, setIsOperator] = useState(false);
   const [isTokenAdmin, setIsTokenAdmin] = useState(false);
   const [tokenAdminLoading, setTokenAdminLoading] = useState(false);
@@ -326,7 +333,7 @@ export function B20Demo() {
   // DEFAULT_ADMIN (not OPERATOR_ROLE, which the stablecoin deploy skips), so
   // admin status is the gate. Drop back to sponsored when the active token
   // changes, isn't a stablecoin, or access is lost.
-  const tokenGasEligible = token?.variant === 'stablecoin' && (isTokenAdmin || isOperator);
+  const tokenGasEligible = canUseTokenForGas(token?.variant, isTokenAdmin, isOperator);
   useEffect(() => {
     if (!tokenGasEligible) setGasMode('sponsored');
   }, [tokenGasEligible]);
@@ -526,16 +533,24 @@ export function B20Demo() {
           wallet: storedWallet,
           deployment,
           batches,
-          onProgress: (label, index, total) => {
-            current = label;
-            setBatchProgress({ label, index, total });
-            setActivity((rows) => [{ label, state: 'pending' }, ...rows]);
+          onProgress: (batch, index, total) => {
+            current = batch.label;
+            setBatchProgress({ label: batch.label, detail: batch.detail, index, total });
+            setActivity((rows) => [
+              { label: batch.label, detail: batch.detail, state: 'pending' },
+              ...rows,
+            ]);
           },
-          onBatchResult: (label, result) => {
+          onBatchResult: (batch, result) => {
             setActivity((rows) =>
               rows.map((row) =>
-                row.label === label && row.state === 'pending'
-                  ? { ...row, state: 'success' as const, hash: result.hash, label: annotateMode(label, result.mode) }
+                row.label === batch.label && row.state === 'pending'
+                  ? {
+                      ...row,
+                      state: 'success' as const,
+                      hash: result.hash,
+                      label: annotateMode(batch.label, result.mode),
+                    }
                   : row,
               ),
             );
@@ -588,6 +603,40 @@ export function B20Demo() {
         : wallet
           ? 'external'
           : 'disconnected';
+  const selectedCreatedToken = recent.find(
+    (entry) => entry.address.toLowerCase() === tokenAddress.trim().toLowerCase(),
+  );
+  const headerToken = selectedCreatedToken ?? token;
+  const switchingCreatedToken =
+    busy === 'inspect' &&
+    selectedCreatedToken !== undefined &&
+    selectedCreatedToken.address.toLowerCase() !== token?.address.toLowerCase();
+  const headerTokenGroups: SelectGroup[] = [
+    {
+      label: 'Stablecoins · can pay network fees',
+      options: recent
+        .filter((entry) => entry.variant === 'stablecoin')
+        .map((entry) => ({
+          value: entry.address,
+          label:
+            entry.address.toLowerCase() === token?.address.toLowerCase() && tokenBalance !== null
+              ? `${formatAmount(tokenBalance, entry.decimals)} ${entry.symbol} · Stablecoin`
+              : `${entry.symbol} — ${entry.name} · Stablecoin`,
+        })),
+    },
+    {
+      label: 'Assets · sponsored fees only',
+      options: recent
+        .filter((entry) => entry.variant === 'asset')
+        .map((entry) => ({
+          value: entry.address,
+          label:
+            entry.address.toLowerCase() === token?.address.toLowerCase() && tokenBalance !== null
+              ? `${formatAmount(tokenBalance, entry.decimals)} ${entry.symbol} · Asset`
+              : `${entry.symbol} — ${entry.name} · Asset`,
+        })),
+    },
+  ].filter((group) => group.options.length > 0);
   return (
     <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-5 pb-6 text-foreground [&_.text-3xl]:hidden [&_.tracking-tight]:capitalize dark:text-white">
       <header className="flex flex-wrap items-center justify-end gap-3 border-b border-bds-gray-10 pb-4 dark:border-white/10">
@@ -607,20 +656,36 @@ export function B20Demo() {
               ) : (
                 <span>{`${Number(formatEther(walletBalance)).toFixed(3)} ETH`}</span>
               )}
-              {token && tokenBalance !== null ? (
+              {headerToken || recent.length > 1 ? (
                 <span className="animate-in inline-flex items-center gap-2">
                   <span aria-hidden="true">·</span>
-                  <span className="inline-flex items-baseline gap-1">
-                    <AnimatedAmount
-                      text={formatAmount(tokenBalance, token.decimals)}
-                      decimals={formatAmount(tokenBalance, token.decimals).split('.')[1]?.length ?? 0}
-                      group
+                  {recent.length > 1 ? (
+                    <Select
+                      value={selectedCreatedToken?.address ?? ''}
+                      onValueChange={(value) => {
+                        setTokenAddress(value);
+                        void inspect(value);
+                      }}
+                      groups={headerTokenGroups}
+                      placeholder={switchingCreatedToken ? 'Loading token…' : 'Choose token'}
+                      ariaLabel="Active token"
+                      disabled={busy === 'inspect'}
+                      className="h-8 w-auto min-w-[180px] border-0 bg-transparent px-2 text-[13px] dark:bg-transparent"
                     />
-                    {token.symbol}
-                  </span>
+                  ) : token && tokenBalance !== null ? (
+                    <span className="inline-flex items-baseline gap-1">
+                      <AnimatedAmount
+                        text={formatAmount(tokenBalance, token.decimals)}
+                        decimals={formatAmount(tokenBalance, token.decimals).split('.')[1]?.length ?? 0}
+                        group
+                      />
+                      {token.symbol}
+                      <span className="capitalize text-bds-gray-50">· {token.variant}</span>
+                    </span>
+                  ) : null}
                 </span>
               ) : null}
-              {token && tokenGasEligible ? (
+              {token && headerToken?.variant === 'stablecoin' && tokenGasEligible ? (
                 <span className="inline-flex items-center gap-1.5">
                   <span className="text-bds-gray-50">Fees:</span>
                   <span className="inline-flex overflow-hidden rounded-full border border-bds-gray-10 text-[11px] dark:border-white/10">
@@ -652,9 +717,9 @@ export function B20Demo() {
                     </button>
                   </span>
                 </span>
-              ) : (
-                <span className="text-bds-green-50">Gasless</span>
-              )}
+              ) : headerToken?.variant === 'stablecoin' ? (
+                <span className="text-bds-green-50">Fees sponsored</span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => (resetConfirm ? resetWallet() : setResetConfirm(true))}

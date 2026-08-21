@@ -69,7 +69,7 @@ export function MemoModule({
       if (v <= 0n) throw new Error('Enter an amount greater than zero.');
       if (!isAddress(to)) throw new Error('Paste a valid wallet address for the recipient.');
       const hash = await onSend(
-        'Transfer with memo',
+        token.variant === 'stablecoin' ? `Send ${token.symbol} with memo` : 'Transfer with memo',
         token.address,
         encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, m] }),
         'memo_transfer',
@@ -238,7 +238,13 @@ export function MemoModule({
             </p>
             <ErrorNote message={error} />
             <Button className="mt-5" onClick={() => void submit()} disabled={!!busy}>
-              {busy === 'memo_transfer' ? 'Sending…' : 'Submit transfer with memo'}
+              {busy === 'memo_transfer'
+                ? token.variant === 'stablecoin'
+                  ? `Sending ${token.symbol}…`
+                  : 'Sending…'
+                : token.variant === 'stablecoin'
+                  ? `Send ${token.symbol} with memo`
+                  : 'Submit transfer with memo'}
             </Button>
             <p className="mt-3 text-[12px] text-bds-gray-50">
               {feeNote

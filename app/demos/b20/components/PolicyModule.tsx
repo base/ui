@@ -8,6 +8,7 @@ import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
 import { InfoTooltip } from '../../../components/ui/InfoTooltip';
+import { Select, type SelectGroup } from '../../../components/ui/Select';
 import { Text } from '../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../vibenet/library/config';
 import { B20_HELP, SCOPE_HELP } from '../lib/glossary';
@@ -60,6 +61,21 @@ export function PolicyModule({
   const [showCreator, setShowCreator] = useState(false);
   const [suggestedPolicyId, setSuggestedPolicyId] = useState<bigint | null>(null);
   const isSample = tokenAccess === 'sample';
+  const selectedRecent = recent.find((entry) => entry.address.toLowerCase() === address.trim().toLowerCase());
+  const recentGroups: SelectGroup[] = [
+    {
+      label: 'Stablecoins · eligible for gas',
+      options: recent
+        .filter((entry) => entry.variant === 'stablecoin')
+        .map((entry) => ({ value: entry.address, label: `${entry.symbol} — ${entry.name}` })),
+    },
+    {
+      label: 'Assets · sponsored fees only',
+      options: recent
+        .filter((entry) => entry.variant === 'asset')
+        .map((entry) => ({ value: entry.address, label: `${entry.symbol} — ${entry.name}` })),
+    },
+  ].filter((group) => group.options.length > 0);
   return (
     <div className="flex flex-col gap-5">
       <section className="flex flex-wrap items-start justify-between gap-3">
@@ -140,22 +156,38 @@ export function PolicyModule({
               </Button>
             </div>
           </Field>
-          {recent.length ? (
+          {recent.length > 1 ? (
             <>
-              <p className="mt-4 text-[12px] text-bds-gray-50">Or choose a token you recently created.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {recent.map((entry) => (
-                  <button
-                    key={entry.address}
-                    type="button"
-                    onClick={() => onInspect(entry.address)}
-                    className="rounded-lg border border-bds-gray-10 px-3 py-2 text-left text-[12px] hover:border-base-blue dark:border-white/10"
-                  >
-                    <strong className="block text-base-blue">{entry.symbol}</strong>
-                    {entry.variant}
-                  </button>
-                ))}
-              </div>
+              <p className="mt-4 text-[12px] text-bds-gray-50">Or switch between tokens created by this wallet.</p>
+              <Select
+                value={selectedRecent?.address ?? ''}
+                onValueChange={(value) => {
+                  setAddress(value);
+                  onInspect(value);
+                }}
+                groups={recentGroups}
+                placeholder="Choose one of your tokens"
+                ariaLabel="Choose a recently created token"
+                disabled={busy === 'inspect'}
+                className="mt-3"
+              />
+            </>
+          ) : recent.length === 1 ? (
+            <>
+              <p className="mt-4 text-[12px] text-bds-gray-50">Or choose the token you recently created.</p>
+              <button
+                type="button"
+                onClick={() => onInspect(recent[0].address)}
+                className="mt-3 rounded-lg border border-bds-gray-10 px-3 py-2 text-left text-[12px] hover:border-base-blue dark:border-white/10"
+              >
+                <strong className="block text-base-blue">
+                  {recent[0].symbol} — {recent[0].name}
+                </strong>
+                <span className="capitalize">{recent[0].variant}</span>
+                <span className="text-bds-gray-50">
+                  {recent[0].variant === 'stablecoin' ? ' · Eligible for gas' : ' · Sponsored fees only'}
+                </span>
+              </button>
             </>
           ) : (
             <p className="mt-4 text-[12px] text-bds-gray-50">Tokens you create with this wallet will appear here.</p>

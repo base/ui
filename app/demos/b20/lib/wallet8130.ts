@@ -444,7 +444,7 @@ export async function sendSponsored8130(params: {
   }
 }
 
-export type SponsoredBatch = { label: string; calls: SponsoredCall[] };
+export type SponsoredBatch = { label: string; detail?: string; calls: SponsoredCall[] };
 
 /**
  * Run several sponsored transactions in sequence, one per batch.
@@ -452,9 +452,10 @@ export type SponsoredBatch = { label: string; calls: SponsoredCall[] };
  * The hosted payer's sponsorship budget covers only ~300k gas of execution per
  * transaction (its `maxCost` divided by the gas price) — heavier work has its
  * gas cut mid-phase and reverts, so flows like token deployment must be split
- * into transactions that each fit the budget. When the account is not deployed
- * yet, a no-op setup transaction runs first so the account-create change never
- * shares a budget with real work.
+ * into transactions that each fit the budget. The wallet address and key are
+ * created locally first; when that address has not been activated onchain yet,
+ * a no-op transaction deploys it separately so account activation never shares
+ * a sponsorship budget with the token deployment.
  *
  * Returns one tx hash per batch. Throws on the first failing batch; earlier
  * batches stay applied (callers should make batches individually meaningful).
@@ -463,9 +464,9 @@ export async function sendSponsoredBatches(params: {
   wallet: StoredB20Wallet;
   deployment: Eip8130Deployment;
   batches: SponsoredBatch[];
-  onProgress?: (label: string, index: number, total: number) => void;
+  onProgress?: (batch: SponsoredBatch, index: number, total: number) => void;
   /** Fires as each batch confirms, with its tx result. */
-  onBatchResult?: (label: string, result: SendResult) => void;
+  onBatchResult?: (batch: SponsoredBatch, result: SendResult) => void;
 }): Promise<SendResult[]> {
   const { wallet, deployment, batches, onProgress, onBatchResult } = params;
   const address = walletAddress(wallet, deployment);
@@ -473,7 +474,13 @@ export async function sendSponsoredBatches(params: {
   const deployed = typeof code === 'string' && code !== '0x';
   const all: SponsoredBatch[] = deployed
     ? batches
-    : [{ label: 'Set up your wallet onchain', calls: [{ to: address, data: '0x' }] }, ...batches];
+    : [
+        {
+          label: 'Registering wallet',
+          calls: [{ to: address, data: '0x' }],
+        },
+        ...batches,
+      ];
 
   // The public RPC is served by replicas whose heads can differ, so a nonce
   // read taken right after a transaction may lag behind it. Read a few times,
@@ -487,7 +494,7 @@ export async function sendSponsoredBatches(params: {
 
   const results: SendResult[] = [];
   for (const [index, batch] of all.entries()) {
-    onProgress?.(batch.label, index, all.length);
+    onProgress?.(batch, index, all.length);
     try {
       const result = await sendSponsored8130({
         wallet,
@@ -499,7 +506,7 @@ export async function sendSponsoredBatches(params: {
         assumeDeployed: deployed || index > 0,
       });
       results.push(result);
-      onBatchResult?.(batch.label, result);
+      onBatchResult?.(batch, result);
     } catch (error) {
       throw new Error(
         `${batch.label} failed: ${payerErrorMessage(error) ?? (error instanceof Error ? error.message : String(error))}`,
