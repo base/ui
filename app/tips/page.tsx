@@ -17,12 +17,14 @@ import { ChainToggle } from './components/ChainToggle';
 import { MeteringCard } from './components/MeteringCard';
 import type { TipsChain } from './chains';
 import { tipsApi } from './library/client';
+import { formatSignedGas, formatSignedInteger, formatSignedPct } from './library/explorer-format';
 import { formatGasPrice, formatHexValue, shortHash, timeAgoFromSeconds } from './library/format';
 import { tipsHref } from './library/links';
 import {
   formatRejectionReason,
   type BlockSummary,
   type RejectedTransaction,
+  type ShadowBlockSummary,
 } from './library/types';
 import { useTipsChain } from './library/useTipsChain';
 
@@ -93,7 +95,31 @@ function SearchBar({ chain, onError }: { chain: TipsChain; onError: (error: stri
 
 // --- Blocks ---------------------------------------------------------------
 
-function BlockRow({ block, chain }: { block: BlockSummary; chain: TipsChain }) {
+function BlockRow({
+  block,
+  chain,
+  showShadowDelta,
+  shadowBlock,
+}: {
+  block: BlockSummary;
+  chain: TipsChain;
+  showShadowDelta: boolean;
+  shadowBlock?: ShadowBlockSummary;
+}) {
+  const gasDiffPct = shadowBlock?.gasDiffPct;
+  const gasDiffAbs = shadowBlock?.gasDiffAbs;
+  const txCountDiff = shadowBlock?.txCountDiff;
+  const canonicalTxCount = shadowBlock?.canonicalTxCount;
+  const txDiffPct =
+    canonicalTxCount && canonicalTxCount > 0 && txCountDiff !== undefined
+      ? (txCountDiff / canonicalTxCount) * 100
+      : undefined;
+  const hasGasDelta = gasDiffPct !== undefined && gasDiffAbs !== undefined;
+  const gasDeltaClass =
+    gasDiffPct !== undefined && Math.abs(gasDiffPct) > 50
+      ? 'text-bds-red-70 dark:text-bds-red-20'
+      : 'text-foreground';
+
   return (
     <Link
       href={tipsHref(`/tips/block/${block.hash}`, chain)}
@@ -132,6 +158,27 @@ function BlockRow({ block, chain }: { block: BlockSummary; chain: TipsChain }) {
         </Text>
         <span className="text-xs text-bds-gray-60 dark:text-bds-gray-40">txns</span>
       </div>
+      {showShadowDelta ? (
+        <div className="shrink-0 text-right">
+          <div className="text-xs text-bds-gray-50 dark:text-bds-gray-40">Gas Δ</div>
+          <div
+            className={cn(
+              'whitespace-nowrap text-sm font-medium',
+              hasGasDelta ? gasDeltaClass : 'text-bds-gray-60 dark:text-bds-gray-40',
+            )}
+          >
+            {hasGasDelta ? `${formatSignedPct(gasDiffPct)} (${formatSignedGas(gasDiffAbs)})` : '—'}
+          </div>
+          <div className="mt-1 text-xs text-bds-gray-50 dark:text-bds-gray-40">Tx Δ</div>
+          <div className="whitespace-nowrap text-xs text-bds-gray-60 dark:text-bds-gray-40">
+            {txCountDiff !== undefined
+              ? `${txDiffPct !== undefined ? `${formatSignedPct(txDiffPct)} ` : ''}(${formatSignedInteger(
+                  txCountDiff,
+                )})`
+              : '—'}
+          </div>
+        </div>
+      ) : null}
       <svg
         className="h-4 w-4 shrink-0 text-bds-gray-40"
         fill="none"
@@ -148,6 +195,8 @@ function BlockRow({ block, chain }: { block: BlockSummary; chain: TipsChain }) {
 function BlocksTab({ chain }: { chain: TipsChain }) {
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showShadowDelta, setShowShadowDelta] = useState(false);
+  const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -172,9 +221,39 @@ function BlocksTab({ chain }: { chain: TipsChain }) {
     };
   }, [chain]);
 
+  useEffect(() => {
+    if (!showShadowDelta || blocks.length === 0) {
+      setShadowCandidates({});
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const hashes = blocks.map((block) => block.hash);
+
+    tipsApi
+      .shadowCandidatesBatch(chain, hashes, controller.signal)
+      .then((response) => setShadowCandidates(response))
+      .catch(() => setShadowCandidates({}));
+
+    return () => {
+      controller.abort();
+    };
+  }, [blocks, chain, showShadowDelta]);
+
   return (
     <section className="flex flex-col gap-4">
-      <Text variant="headline">Latest Blocks</Text>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Text variant="headline">Latest Blocks</Text>
+        <label className="inline-flex cursor-pointer select-none items-center gap-2 text-sm text-bds-gray-60 dark:text-bds-gray-40">
+          <input
+            type="checkbox"
+            checked={showShadowDelta}
+            onChange={(event) => setShowShadowDelta(event.target.checked)}
+            className="h-4 w-4 accent-base-blue"
+          />
+          Show shadow Δ
+        </label>
+      </div>
       <Card className="overflow-hidden bg-background dark:bg-white/5">
         {loading && blocks.length === 0 ? (
           <div className="flex items-center justify-center gap-3 py-12">
@@ -186,7 +265,13 @@ function BlocksTab({ chain }: { chain: TipsChain }) {
         ) : blocks.length > 0 ? (
           <div className="divide-y divide-bds-gray-10 dark:divide-white/10">
             {blocks.map((block) => (
-              <BlockRow key={block.hash} block={block} chain={chain} />
+              <BlockRow
+                key={block.hash}
+                block={block}
+                chain={chain}
+                showShadowDelta={showShadowDelta}
+                shadowBlock={shadowCandidates[block.hash]?.[0]}
+              />
             ))}
           </div>
         ) : (

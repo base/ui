@@ -43,6 +43,43 @@ export function formatInteger(value: NumericValue): string {
   return parsed === null ? '—' : parsed.toLocaleString();
 }
 
+export function formatSignedInteger(value: number): string {
+  return `${value > 0 ? '+' : ''}${value.toLocaleString()}`;
+}
+
+export function formatSignedPct(value: number): string {
+  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+}
+
+function trimTrailingZeros(value: string): string {
+  if (!value.includes('.')) return value;
+  const trimmed = value.replace(/0+$/, '');
+  return trimmed.endsWith('.') ? trimmed.slice(0, -1) : trimmed;
+}
+
+export function formatSignedGas(value: number): string {
+  if (value === 0) return '0';
+  const sign = value > 0 ? '+' : '-';
+  const absValue = Math.abs(value);
+
+  if (absValue < 1_000) {
+    return `${sign}${Math.round(absValue)}`;
+  }
+
+  if (absValue < 1_000_000) {
+    const formatted = trimTrailingZeros((absValue / 1_000).toFixed(1));
+    return `${sign}${formatted}K`;
+  }
+
+  if (absValue < 1_000_000_000) {
+    const formatted = trimTrailingZeros((absValue / 1_000_000).toFixed(2));
+    return `${sign}${formatted}M`;
+  }
+
+  const formatted = trimTrailingZeros((absValue / 1_000_000_000).toFixed(2));
+  return `${sign}${formatted}B`;
+}
+
 export function formatEth(value: NumericValue): string {
   const formatted = formatUnits(value, WEI_PER_ETH, 6);
   return formatted === '—' ? formatted : `${formatted} ETH`;

@@ -10,12 +10,15 @@ import {
   formatEth,
   formatGwei,
   formatInteger,
+  formatSignedGas,
+  formatSignedInteger,
+  formatSignedPct,
   type NumericValue,
   shortAddress,
   shortHash,
 } from '../library/explorer-format';
 import { tipsHref } from '../library/links';
-import type { BlockSummary } from '../library/types';
+import type { BlockSummary, ShadowBlockSummary } from '../library/types';
 
 export interface TransactionTableItem {
   hash: string;
@@ -43,10 +46,21 @@ function Cell({ children, className }: { children: React.ReactNode; className?: 
   return <td className={cn('px-4 py-3 text-black dark:text-white', className)}>{children}</td>;
 }
 
-export function BlockTable({ blocks, chain }: { blocks: BlockSummary[]; chain: TipsChain }) {
+export function BlockTable({
+  blocks,
+  chain,
+  showShadowDelta,
+  shadowBlocks,
+}: {
+  blocks: BlockSummary[];
+  chain: TipsChain;
+  showShadowDelta?: boolean;
+  shadowBlocks?: Record<string, ShadowBlockSummary[]>;
+}) {
+  const showDelta = Boolean(showShadowDelta);
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[680px] text-sm">
+      <table className={cn('w-full text-sm', showDelta ? 'min-w-[840px]' : 'min-w-[680px]')}>
         <thead className="border-b border-bds-gray-10 bg-bds-gray-5/60 dark:border-white/10 dark:bg-white/[0.03]">
           <tr>
             <TableHeader>Block</TableHeader>
@@ -55,28 +69,70 @@ export function BlockTable({ blocks, chain }: { blocks: BlockSummary[]; chain: T
             <TableHeader>Gas Used</TableHeader>
             <TableHeader>Gas Limit</TableHeader>
             <TableHeader>Base Fee</TableHeader>
+            {showDelta ? <TableHeader>Gas Δ</TableHeader> : null}
+            {showDelta ? <TableHeader>Tx Δ</TableHeader> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-bds-gray-10 dark:divide-white/10">
-          {blocks.map((block) => (
-            <tr key={block.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
-              <Cell>
-                <Link href={tipsHref(`/tips/block/${block.number}`, chain)} className={cn('font-medium', linkClass)}>
-                  #{formatInteger(block.number)}
-                </Link>
-                <div className="mt-0.5 font-mono text-xs text-bds-gray-50 dark:text-bds-gray-40">
-                  {shortHash(block.hash)}
-                </div>
-              </Cell>
-              <Cell className="whitespace-nowrap text-bds-gray-60 dark:text-bds-gray-40">
-                {formatAge(block.timestamp)}
-              </Cell>
-              <Cell>{formatInteger(block.transactionCount)}</Cell>
-              <Cell className="whitespace-nowrap">{formatInteger(block.gasUsed)}</Cell>
-              <Cell className="whitespace-nowrap">{formatInteger(block.gasLimit)}</Cell>
-              <Cell className="whitespace-nowrap">{formatGwei(block.baseFeePerGas)}</Cell>
-            </tr>
-          ))}
+          {blocks.map((block) => {
+            const shadowBlock = shadowBlocks?.[block.hash]?.[0];
+            const gasDiffPct = shadowBlock?.gasDiffPct;
+            const gasDiffAbs = shadowBlock?.gasDiffAbs;
+            const txCountDiff = shadowBlock?.txCountDiff;
+            const canonicalTxCount = shadowBlock?.canonicalTxCount;
+            const txDiffPct =
+              canonicalTxCount && canonicalTxCount > 0 && txCountDiff !== undefined
+                ? (txCountDiff / canonicalTxCount) * 100
+                : undefined;
+            const hasGasDelta = gasDiffPct !== undefined && gasDiffAbs !== undefined;
+            const gasDeltaClass =
+              gasDiffPct !== undefined && Math.abs(gasDiffPct) > 50
+                ? 'text-bds-red-70 dark:text-bds-red-20'
+                : 'text-black dark:text-white';
+
+            return (
+              <tr key={block.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
+                <Cell>
+                  <Link href={tipsHref(`/tips/block/${block.number}`, chain)} className={cn('font-medium', linkClass)}>
+                    #{formatInteger(block.number)}
+                  </Link>
+                  <div className="mt-0.5 font-mono text-xs text-bds-gray-50 dark:text-bds-gray-40">
+                    {shortHash(block.hash)}
+                  </div>
+                </Cell>
+                <Cell className="whitespace-nowrap text-bds-gray-60 dark:text-bds-gray-40">
+                  {formatAge(block.timestamp)}
+                </Cell>
+                <Cell>{formatInteger(block.transactionCount)}</Cell>
+                <Cell className="whitespace-nowrap">{formatInteger(block.gasUsed)}</Cell>
+                <Cell className="whitespace-nowrap">{formatInteger(block.gasLimit)}</Cell>
+                <Cell className="whitespace-nowrap">{formatGwei(block.baseFeePerGas)}</Cell>
+                {showDelta ? (
+                  <Cell className="whitespace-nowrap">
+                    {hasGasDelta ? (
+                      <span className={cn('font-medium', gasDeltaClass)}>
+                        {formatSignedPct(gasDiffPct)} ({formatSignedGas(gasDiffAbs)})
+                      </span>
+                    ) : (
+                      <span className="text-bds-gray-50 dark:text-bds-gray-40">—</span>
+                    )}
+                  </Cell>
+                ) : null}
+                {showDelta ? (
+                  <Cell className="whitespace-nowrap">
+                    {txCountDiff !== undefined ? (
+                      <span>
+                        {txDiffPct !== undefined ? `${formatSignedPct(txDiffPct)} ` : ''}(
+                        {formatSignedInteger(txCountDiff)})
+                      </span>
+                    ) : (
+                      <span className="text-bds-gray-50 dark:text-bds-gray-40">—</span>
+                    )}
+                  </Cell>
+                ) : null}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
