@@ -1,13 +1,11 @@
 import { resolveTipsChain } from '../../../tips/chains';
 import { getShadowMetricsUrl } from '../config';
 import { tipsDisabledResponse } from '../guard';
-import {
-  ShadowNotFoundError,
-  ShadowUnavailableError,
-  fetchShadowCandidates,
-} from '../shadow';
+import { fetchShadowCandidates } from '../shadow';
 
 export const runtime = 'nodejs';
+
+const HASH_PATTERN = /^0x[0-9a-f]{64}$/i;
 
 // Re-export for client typing.
 export type { ShadowBlockSummary } from '../shadow';
@@ -23,23 +21,16 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Missing canonical hash' }, { status: 400 });
   }
 
+  const normalized = canonical.trim().toLowerCase();
+  if (!HASH_PATTERN.test(normalized)) {
+    return Response.json({ error: 'Invalid canonical hash' }, { status: 400 });
+  }
+
   const baseUrl = getShadowMetricsUrl(chain);
   if (!baseUrl) {
     return Response.json({ error: 'Shadow metrics not configured' }, { status: 503 });
   }
 
-  try {
-    const candidates = await fetchShadowCandidates(baseUrl, canonical);
-    return Response.json({ candidates });
-  } catch (error) {
-    if (error instanceof ShadowNotFoundError) {
-      return Response.json({ candidates: [] });
-    }
-
-    console.error('Error fetching shadow candidates:', error);
-    return Response.json(
-      { error: 'Shadow candidates unavailable' },
-      { status: error instanceof ShadowUnavailableError ? 503 : 500 },
-    );
-  }
+  const candidates = await fetchShadowCandidates(baseUrl, normalized);
+  return Response.json({ candidates });
 }

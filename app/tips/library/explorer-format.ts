@@ -2,6 +2,8 @@
 // (blocks / txs / txn detail). Client-safe: no env, no server imports — usable
 // from both the server list modules and client components.
 
+import type { ShadowBlockSummary } from './types';
+
 export type NumericValue = bigint | number | string | null | undefined;
 
 const WEI_PER_GWEI = 10n ** 9n;
@@ -48,7 +50,9 @@ export function formatSignedInteger(value: number): string {
 }
 
 export function formatSignedPct(value: number): string {
-  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+  const rounded = Number(value.toFixed(1));
+  const clamped = Object.is(rounded, -0) ? 0 : rounded;
+  return `${clamped > 0 ? '+' : ''}${clamped.toFixed(1)}%`;
 }
 
 function trimTrailingZeros(value: string): string {
@@ -63,21 +67,71 @@ export function formatSignedGas(value: number): string {
   const absValue = Math.abs(value);
 
   if (absValue < 1_000) {
-    return `${sign}${Math.round(absValue)}`;
+    const rounded = Math.round(absValue);
+    return rounded === 0 ? '0' : `${sign}${rounded}`;
   }
 
   if (absValue < 1_000_000) {
-    const formatted = trimTrailingZeros((absValue / 1_000).toFixed(1));
+    const rounded = Number((absValue / 1_000).toFixed(1));
+    if (rounded >= 1000) {
+      const formatted = trimTrailingZeros((absValue / 1_000_000).toFixed(2));
+      return `${sign}${formatted}M`;
+    }
+    const formatted = trimTrailingZeros(rounded.toFixed(1));
     return `${sign}${formatted}K`;
   }
 
   if (absValue < 1_000_000_000) {
-    const formatted = trimTrailingZeros((absValue / 1_000_000).toFixed(2));
+    const rounded = Number((absValue / 1_000_000).toFixed(2));
+    if (rounded >= 1000) {
+      const formatted = trimTrailingZeros((absValue / 1_000_000_000).toFixed(2));
+      return `${sign}${formatted}B`;
+    }
+    const formatted = trimTrailingZeros(rounded.toFixed(2));
     return `${sign}${formatted}M`;
   }
 
   const formatted = trimTrailingZeros((absValue / 1_000_000_000).toFixed(2));
   return `${sign}${formatted}B`;
+}
+
+function toNumber(value: NumericValue): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'bigint') {
+    const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
+    if (value > maxSafe || value < -maxSafe) return null;
+    return Number(value);
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function calculateShadowDelta(
+  canonicalGasUsed: NumericValue,
+  canonicalTxCount: NumericValue,
+  shadow: ShadowBlockSummary,
+): {
+  gasDiffAbs: number;
+  gasDiffPct?: number;
+  txDiffAbs: number;
+  txDiffPct?: number;
+} | null {
+  const canonicalGas = toNumber(canonicalGasUsed);
+  const canonicalTx = toNumber(canonicalTxCount);
+  const shadowGas = toNumber(shadow.shadowGasUsed);
+  const shadowTx = toNumber(shadow.shadowTxCount);
+
+  if (canonicalGas === null || canonicalTx === null || shadowGas === null || shadowTx === null) {
+    return null;
+  }
+
+  const gasDiffAbs = shadowGas - canonicalGas;
+  const gasDiffPct = canonicalGas > 0 ? (gasDiffAbs / canonicalGas) * 100 : undefined;
+  const txDiffAbs = shadowTx - canonicalTx;
+  const txDiffPct = canonicalTx > 0 ? (txDiffAbs / canonicalTx) * 100 : undefined;
+
+  return { gasDiffAbs, gasDiffPct, txDiffAbs, txDiffPct };
 }
 
 export function formatEth(value: NumericValue): string {

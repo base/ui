@@ -231,15 +231,7 @@ function ShadowCandidatesTable({
                   </div>
                 </td>
                 <td className="px-4 py-3 text-black dark:text-white">
-                  <div className="flex flex-col gap-0.5 font-mono text-xs">
-                    <span>{block.shadowBuilderVersion}</span>
-                    {block.canonicalBuilderVersion &&
-                    block.canonicalBuilderVersion !== block.shadowBuilderVersion ? (
-                      <span className="text-bds-gray-50 dark:text-bds-gray-40">
-                        canon: {block.canonicalBuilderVersion}
-                      </span>
-                    ) : null}
-                  </div>
+                  <div className="font-mono text-xs">{block.shadowBuilderVersion}</div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-bds-gray-60 dark:text-bds-gray-40">
                   {formatAge(block.timestamp)}

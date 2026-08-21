@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { cn } from '../../components/ui/cn';
 import type { TipsChain } from '../chains';
 import {
+  calculateShadowDelta,
   formatAction,
   formatAge,
   formatEth,
@@ -75,20 +76,31 @@ export function BlockTable({
         </thead>
         <tbody className="divide-y divide-bds-gray-10 dark:divide-white/10">
           {blocks.map((block) => {
-            const shadowBlock = shadowBlocks?.[block.hash]?.[0];
-            const gasDiffPct = shadowBlock?.gasDiffPct;
-            const gasDiffAbs = shadowBlock?.gasDiffAbs;
-            const txCountDiff = shadowBlock?.txCountDiff;
-            const canonicalTxCount = shadowBlock?.canonicalTxCount;
-            const txDiffPct =
-              canonicalTxCount && canonicalTxCount > 0 && txCountDiff !== undefined
-                ? (txCountDiff / canonicalTxCount) * 100
-                : undefined;
-            const hasGasDelta = gasDiffPct !== undefined && gasDiffAbs !== undefined;
+            const shadowBlock = shadowBlocks?.[block.hash.toLowerCase()]?.[0];
+            const delta = shadowBlock
+              ? calculateShadowDelta(block.gasUsed, block.transactionCount, shadowBlock)
+              : null;
+            const gasDiffPct = delta?.gasDiffPct;
+            const gasDiffAbs = delta?.gasDiffAbs;
+            const txDiffAbs = delta?.txDiffAbs;
+            const txDiffPct = delta?.txDiffPct;
+            const hasGasDelta = gasDiffAbs !== undefined;
             const gasDeltaClass =
               gasDiffPct !== undefined && Math.abs(gasDiffPct) > 50
                 ? 'text-bds-red-70 dark:text-bds-red-20'
                 : 'text-black dark:text-white';
+            const gasDeltaText =
+              gasDiffAbs !== undefined
+                ? `${gasDiffPct !== undefined ? `${formatSignedPct(gasDiffPct)} ` : ''}(${formatSignedGas(
+                    gasDiffAbs,
+                  )})`
+                : '—';
+            const txDeltaText =
+              txDiffAbs !== undefined
+                ? `${txDiffPct !== undefined ? `${formatSignedPct(txDiffPct)} ` : ''}(${formatSignedInteger(
+                    txDiffAbs,
+                  )})`
+                : '—';
 
             return (
               <tr key={block.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
@@ -110,9 +122,7 @@ export function BlockTable({
                 {showDelta ? (
                   <Cell className="whitespace-nowrap">
                     {hasGasDelta ? (
-                      <span className={cn('font-medium', gasDeltaClass)}>
-                        {formatSignedPct(gasDiffPct)} ({formatSignedGas(gasDiffAbs)})
-                      </span>
+                      <span className={cn('font-medium', gasDeltaClass)}>{gasDeltaText}</span>
                     ) : (
                       <span className="text-bds-gray-50 dark:text-bds-gray-40">—</span>
                     )}
@@ -120,11 +130,8 @@ export function BlockTable({
                 ) : null}
                 {showDelta ? (
                   <Cell className="whitespace-nowrap">
-                    {txCountDiff !== undefined ? (
-                      <span>
-                        {txDiffPct !== undefined ? `${formatSignedPct(txDiffPct)} ` : ''}(
-                        {formatSignedInteger(txCountDiff)})
-                      </span>
+                    {txDiffAbs !== undefined ? (
+                      <span>{txDeltaText}</span>
                     ) : (
                       <span className="text-bds-gray-50 dark:text-bds-gray-40">—</span>
                     )}

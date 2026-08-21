@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
@@ -28,6 +28,10 @@ function BlocksContent() {
   const [error, setError] = useState<string | null>(null);
   const [showShadowDelta, setShowShadowDelta] = useState(false);
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
+  const shadowKey = useMemo(
+    () => (data?.blocks ?? []).map((block) => block.hash.toLowerCase()).sort().join(','),
+    [data?.blocks],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -56,13 +60,13 @@ function BlocksContent() {
   }, [chain, cursor]);
 
   useEffect(() => {
-    if (!showShadowDelta || !data?.blocks.length) {
+    if (!showShadowDelta || shadowKey.length === 0) {
       setShadowCandidates({});
       return undefined;
     }
 
     const controller = new AbortController();
-    const hashes = data.blocks.map((block) => block.hash);
+    const hashes = shadowKey.split(',');
 
     tipsApi
       .shadowCandidatesBatch(chain, hashes, controller.signal)
@@ -72,7 +76,7 @@ function BlocksContent() {
     return () => {
       controller.abort();
     };
-  }, [chain, data?.blocks, showShadowDelta]);
+  }, [chain, shadowKey, showShadowDelta]);
 
   return (
     <div className="animate-in flex flex-col gap-6">
