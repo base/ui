@@ -42,7 +42,7 @@ export const DEMOS: DemoEntry[] = [
     points: [
       'One-click 8130 wallet — faucet-seeded, gasless via payer sponsorship',
       'Pay gas with your own stablecoin (ERC-8168 token payment)',
-      'Policies, memos, and atomic approve + transferFrom batching',
+      'Policies, memos, and Asset announcements',
     ],
     available: true,
   },

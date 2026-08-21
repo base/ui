@@ -626,10 +626,8 @@ export function B20Demo() {
               token={token}
               tokenAccess={tokenAccess}
               addressBook={addressBook}
-              wallet={wallet}
               onDeploy={() => selectModule('deploy')}
               onSend={send}
-              onSendCalls={sendCalls}
               busy={busy}
               refreshKey={engine.activity.length}
               prefill={memoPrefill}
