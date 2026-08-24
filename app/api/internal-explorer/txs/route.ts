@@ -1,6 +1,6 @@
-import { resolveTipsChain } from '../../../internal-explorer/chains';
+import { resolveExplorerChain } from '../../../internal-explorer/chains';
 import { getRpcUrl } from '../config';
-import { tipsDisabledResponse } from '../guard';
+import { explorerDisabledResponse } from '../guard';
 import {
   InvalidTransactionListQueryError,
   listTransactions,
@@ -15,9 +15,9 @@ export const runtime = 'nodejs';
 export type { TransactionListItem, TransactionsResponse } from '../transaction-list';
 
 export async function GET(request: Request) {
-  const disabled = tipsDisabledResponse();
+  const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
 
   try {
     const query = parseTransactionListQuery(new URL(request.url).searchParams);

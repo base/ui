@@ -1,6 +1,6 @@
 import { type Hash } from 'viem';
 
-import { resolveTipsChain, type TipsChain } from '../../../../internal-explorer/chains';
+import { resolveExplorerChain, type ExplorerChain } from '../../../../internal-explorer/chains';
 import { calculateTransactionFee } from '../../../../internal-explorer/library/explorer-format';
 import {
   bundleHistoryFromAuditEvents,
@@ -10,7 +10,7 @@ import {
   transactionMetadataFromAuditEvents,
 } from '../../audit-events';
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
-import { tipsDisabledResponse } from '../../guard';
+import { explorerDisabledResponse } from '../../guard';
 import { getTransactionReceiptSummaries } from '../../receipts';
 import {
   cacheBlockData,
@@ -157,7 +157,7 @@ function isBlockNumber(identifier: string): boolean {
 }
 
 async function enrichTransactionFromS3(
-  chain: TipsChain,
+  chain: ExplorerChain,
   txHash: string,
 ): Promise<{
   bundleId: string | null;
@@ -190,7 +190,7 @@ async function enrichTransactionFromS3(
 
 // Audit-first, S3-fallback per-transaction enrichment (bundle id + metering).
 async function enrichTransactionWithBundleData(
-  chain: TipsChain,
+  chain: ExplorerChain,
   txHash: string,
 ): Promise<{
   bundleId: string | null;
@@ -222,7 +222,7 @@ async function enrichTransactionWithBundleData(
 }
 
 async function getBlockEventHistory(
-  chain: TipsChain,
+  chain: ExplorerChain,
   hash: string,
   number: bigint,
 ): Promise<BundleEvent[]> {
@@ -246,7 +246,7 @@ async function getBlockEventHistory(
   }
 }
 
-async function buildBlockData(chain: TipsChain, rpcBlock: ParsedFullBlock): Promise<BlockData> {
+async function buildBlockData(chain: ExplorerChain, rpcBlock: ParsedFullBlock): Promise<BlockData> {
   const rpcUrl = getRpcUrl(chain);
   const receiptByHash = await getTransactionReceiptSummaries(
     rpcUrl,
@@ -293,7 +293,7 @@ async function buildBlockData(chain: TipsChain, rpcBlock: ParsedFullBlock): Prom
 // Build live from RPC (audit-first enrichment), writing through to the block
 // cache, which also serves as a fallback when the RPC is unavailable.
 async function buildAndCacheBlockData(
-  chain: TipsChain,
+  chain: ExplorerChain,
   rpcBlock: ParsedFullBlock,
 ): Promise<BlockData> {
   const blockData = await buildBlockData(chain, rpcBlock);
@@ -302,9 +302,9 @@ async function buildAndCacheBlockData(
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
-  const disabled = tipsDisabledResponse();
+  const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
   const rpcUrl = getRpcUrl(chain);
 
   try {

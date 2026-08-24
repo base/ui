@@ -3,29 +3,29 @@
 // the URL (?chain=) and passed to /api/internal-explorer/* which resolves
 // per-chain S3 + RPC.
 
-export type TipsChain = 'mainnet' | 'sepolia' | 'zeronet';
+export type ExplorerChain = 'mainnet' | 'sepolia' | 'zeronet';
 
-export type TipsChainInfo = {
-  id: TipsChain;
+export type ExplorerChainInfo = {
+  id: ExplorerChain;
   label: string;
   // Public block-explorer base URL for this chain's links. Overridable via
   // NEXT_PUBLIC_TIPS_<CHAIN>_EXPLORER_URL; defaults below.
   explorerUrl: string;
 };
 
-const DEFAULT_EXPLORERS: Record<TipsChain, string> = {
+const DEFAULT_EXPLORERS: Record<ExplorerChain, string> = {
   mainnet: 'https://base.blockscout.com',
   sepolia: 'https://base-sepolia.blockscout.com',
   zeronet: '',
 };
 
-function explorerFor(chain: TipsChain): string {
+function explorerFor(chain: ExplorerChain): string {
   const key = `NEXT_PUBLIC_TIPS_${chain.toUpperCase()}_EXPLORER_URL`;
   const configured = process.env[key];
   return configured && configured.length > 0 ? configured : DEFAULT_EXPLORERS[chain];
 }
 
-export const TIPS_CHAINS: readonly TipsChainInfo[] = (
+export const EXPLORER_CHAINS: readonly ExplorerChainInfo[] = (
   ['mainnet', 'sepolia', 'zeronet'] as const
 ).map((id) => ({
   id,
@@ -33,24 +33,24 @@ export const TIPS_CHAINS: readonly TipsChainInfo[] = (
   explorerUrl: explorerFor(id),
 }));
 
-export const DEFAULT_TIPS_CHAIN: TipsChain = 'mainnet';
+export const DEFAULT_EXPLORER_CHAIN: ExplorerChain = 'mainnet';
 
-export function isTipsChain(value: string | null | undefined): value is TipsChain {
+export function isExplorerChain(value: string | null | undefined): value is ExplorerChain {
   return value === 'mainnet' || value === 'sepolia' || value === 'zeronet';
 }
 
 /** Normalize an unknown ?chain= value to a valid chain (falls back to default). */
-export function resolveTipsChain(value: string | null | undefined): TipsChain {
-  return isTipsChain(value) ? value : DEFAULT_TIPS_CHAIN;
+export function resolveExplorerChain(value: string | null | undefined): ExplorerChain {
+  return isExplorerChain(value) ? value : DEFAULT_EXPLORER_CHAIN;
 }
 
-export function tipsChainInfo(chain: TipsChain): TipsChainInfo {
-  return TIPS_CHAINS.find((c) => c.id === chain) ?? TIPS_CHAINS[0];
+export function explorerChainInfo(chain: ExplorerChain): ExplorerChainInfo {
+  return EXPLORER_CHAINS.find((c) => c.id === chain) ?? EXPLORER_CHAINS[0];
 }
 
 /** Explorer link for a chain, or null when that chain has no explorer configured. */
-export function tipsExplorerHref(chain: TipsChain, path: string): string | null {
-  const base = tipsChainInfo(chain).explorerUrl;
+export function publicExplorerHref(chain: ExplorerChain, path: string): string | null {
+  const base = explorerChainInfo(chain).explorerUrl;
   if (!base) return null;
   return `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
 }

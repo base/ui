@@ -1,12 +1,12 @@
 // Per-chain server config for the Internal Explorer API. One deployment serves all chains, so
-// the S3 client, bucket, and RPC/audit URLs are resolved per TipsChain from
+// the S3 client, bucket, and RPC/audit URLs are resolved per ExplorerChain from
 // TIPS_<CHAIN>_* env vars. Server-only: never import from client.
 import { S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
 
-import type { TipsChain } from '../../internal-explorer/chains';
+import type { ExplorerChain } from '../../internal-explorer/chains';
 
 // Env var infix for each chain: TIPS_MAINNET_*, TIPS_SEPOLIA_*, TIPS_ZERONET_*.
-const ENV_PREFIX: Record<TipsChain, string> = {
+const ENV_PREFIX: Record<ExplorerChain, string> = {
   mainnet: 'MAINNET',
   sepolia: 'SEPOLIA',
   zeronet: 'ZERONET',
@@ -24,7 +24,7 @@ function envValue(names: string[]): string | undefined {
   return names.map((name) => process.env[name]).find(Boolean);
 }
 
-function getS3Config(chain: TipsChain): ChainS3Config {
+function getS3Config(chain: ExplorerChain): ChainS3Config {
   const prefix = ENV_PREFIX[chain];
   return {
     bucket: envValue([`TIPS_${prefix}_S3_BUCKET`]) ?? 'tips',
@@ -35,12 +35,12 @@ function getS3Config(chain: TipsChain): ChainS3Config {
   };
 }
 
-const s3Clients = new Map<TipsChain, S3Client>();
+const s3Clients = new Map<ExplorerChain, S3Client>();
 
 // Path-style S3 client (optional endpoint + optional static credentials),
 // memoized per chain. With no endpoint or credentials this behaves like the
 // default AWS SDK config.
-export function getS3Client(chain: TipsChain): S3Client {
+export function getS3Client(chain: ExplorerChain): S3Client {
   const existing = s3Clients.get(chain);
   if (existing) {
     return existing;
@@ -68,21 +68,21 @@ export function getS3Client(chain: TipsChain): S3Client {
   return client;
 }
 
-export function getBucketName(chain: TipsChain): string {
+export function getBucketName(chain: ExplorerChain): string {
   return getS3Config(chain).bucket;
 }
 
-export function getRpcUrl(chain: TipsChain): string {
+export function getRpcUrl(chain: ExplorerChain): string {
   return envValue([`TIPS_${ENV_PREFIX[chain]}_RPC_URL`]) ?? 'http://localhost:8545';
 }
 
 // Audit events JSON-RPC endpoint for a chain. Unlike S3/RPC there is no default:
 // audit is opt-in per chain via TIPS_<CHAIN>_AUDIT_RPC_URL. When unset, the audit
 // source is treated as disabled and the routes fall back to the S3 archive.
-export function getAuditRpcUrl(chain: TipsChain): string | undefined {
+export function getAuditRpcUrl(chain: ExplorerChain): string | undefined {
   return envValue([`TIPS_${ENV_PREFIX[chain]}_AUDIT_RPC_URL`]);
 }
 
-export function isAuditConfigured(chain: TipsChain): boolean {
+export function isAuditConfigured(chain: ExplorerChain): boolean {
   return Boolean(getAuditRpcUrl(chain));
 }

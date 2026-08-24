@@ -66,6 +66,6 @@ export function trackB20PromptCopy(module: string, prompt: string): void {
 // --- Internal Explorer: chain selection ---
 
 // Fired when the user switches the Internal Explorer chain (Mainnet / Sepolia / Zeronet).
-export function trackTipsChainSelect(chain: string): void {
-  track('tips_chain_select', { chain });
+export function trackExplorerChainSelect(chain: string): void {
+  track('explorer_chain_select', { chain });
 }

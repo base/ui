@@ -1,5 +1,5 @@
-import { resolveTipsChain } from '../../../../internal-explorer/chains';
-import { tipsDisabledResponse } from '../../guard';
+import { resolveExplorerChain } from '../../../../internal-explorer/chains';
+import { explorerDisabledResponse } from '../../guard';
 import {
   InvalidTransactionHashError,
   lookupTransaction,
@@ -14,9 +14,9 @@ export const runtime = 'nodejs';
 export type TransactionHistoryResponse = TransactionLookupResponse;
 
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
-  const disabled = tipsDisabledResponse();
+  const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
 
   try {
     const { hash } = await params;

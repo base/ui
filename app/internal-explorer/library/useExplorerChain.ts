@@ -3,27 +3,27 @@
 import { useCallback } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
-import { resolveTipsChain, type TipsChain } from '../chains';
+import { resolveExplorerChain, type ExplorerChain } from '../chains';
 
-type UseTipsChain = {
-  /** The chain currently selected in the URL (defaults via resolveTipsChain). */
-  chain: TipsChain;
+type UseExplorerChain = {
+  /** The chain currently selected in the URL (defaults via resolveExplorerChain). */
+  chain: ExplorerChain;
   /** Update `?chain=` in place, preserving the path and other query params. */
-  setChain: (next: TipsChain) => void;
+  setChain: (next: ExplorerChain) => void;
 };
 
 // Reads the active chain from the URL (`?chain=`) and provides a setter that
 // rewrites just that query param via router.replace — so the chain persists
 // across navigation, stays shareable, and never pushes a new history entry.
-export function useTipsChain(): UseTipsChain {
+export function useExplorerChain(): UseExplorerChain {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const chain = resolveTipsChain(searchParams.get('chain'));
+  const chain = resolveExplorerChain(searchParams.get('chain'));
 
   const setChain = useCallback(
-    (next: TipsChain) => {
+    (next: ExplorerChain) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set('chain', next);
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });

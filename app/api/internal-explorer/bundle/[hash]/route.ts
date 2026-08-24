@@ -1,15 +1,15 @@
 import { type Hash } from 'viem';
 
-import { resolveTipsChain, type TipsChain } from '../../../../internal-explorer/chains';
+import { resolveExplorerChain, type ExplorerChain } from '../../../../internal-explorer/chains';
 import {
   bundleHistoryFromAuditEvents,
   getJoinedAuditEventsByBundle,
 } from '../../audit-events';
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
-import { tipsDisabledResponse } from '../../guard';
+import { explorerDisabledResponse } from '../../guard';
 import { getBundleHistory } from '../../s3';
 import type { BundleEvent, BundleHistory, BundleTransaction } from '../../transaction-data';
-import { publicClientFor, type TipsPublicClient } from '../../viem';
+import { publicClientFor, type ExplorerPublicClient } from '../../viem';
 
 export const runtime = 'nodejs';
 
@@ -27,7 +27,7 @@ function numberToHex(value: number | null | undefined): string {
 }
 
 function bundleTransactionFromViem(
-  tx: Awaited<ReturnType<TipsPublicClient['getTransaction']>>,
+  tx: Awaited<ReturnType<ExplorerPublicClient['getTransaction']>>,
 ): BundleTransaction {
   return {
     signer: tx.from,
@@ -93,9 +93,9 @@ async function enrichBundleTransactionsFromRpc(
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
-  const disabled = tipsDisabledResponse();
+  const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
 
   try {
     const { hash } = await params;
@@ -121,7 +121,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
 }
 
 async function getAuditBundleHistory(
-  chain: TipsChain,
+  chain: ExplorerChain,
   hash: string,
 ): Promise<BundleHistory | null> {
   const auditRpcUrl = getAuditRpcUrl(chain);

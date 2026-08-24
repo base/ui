@@ -1,7 +1,7 @@
 import { BENCHMARK_ENABLED } from './benchmark/flag';
-import { TIPS_ENABLED, TIPS_LABEL, TIPS_PATH } from './internal-explorer/flag';
+import { EXPLORER_ENABLED, EXPLORER_LABEL } from './internal-explorer/flag';
 
-export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'tips' | 'benchmark' | 'runs' | 'loadtest';
+export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
 
 export type NavChild = {
   label: string;
@@ -37,8 +37,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
   // Internal Explorer is internal-only; present only in the internal build
   // target (deploy.config.mjs). See app/internal-explorer/flag.ts.
-  ...(TIPS_ENABLED
-    ? [{ label: TIPS_LABEL, href: TIPS_PATH, icon: 'tips', enabled: true } as NavItem]
+  ...(EXPLORER_ENABLED
+    ? [{ label: EXPLORER_LABEL, href: '/internal-explorer', icon: 'internal-explorer', enabled: true } as NavItem]
     : []),
   // Benchmark is internal-only; present only in the internal build target
   // (deploy.config.mjs). See app/benchmark/flag.ts. The two children were the

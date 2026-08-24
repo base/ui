@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
 import { cn } from '../../components/ui/cn';
-import { tipsExplorerHref, type TipsChain } from '../chains';
+import { publicExplorerHref, type ExplorerChain } from '../chains';
 
-type TipsExplorerLinkProps = {
-  chain: TipsChain;
+type ExplorerLinkProps = {
+  chain: ExplorerChain;
   type: 'tx' | 'address' | 'block';
   value: string;
   children: ReactNode;
@@ -12,18 +12,18 @@ type TipsExplorerLinkProps = {
 };
 
 // External link into the selected chain's public block explorer via the chain-
-// aware tipsExplorerHref; renders plain text when the chain has no explorer
+// aware publicExplorerHref; renders plain text when the chain has no explorer
 // configured (e.g. Zeronet).
-export function TipsExplorerLink({
+export function ExplorerLink({
   chain,
   type,
   value,
   children,
   className,
-}: TipsExplorerLinkProps) {
+}: ExplorerLinkProps) {
   const path =
     type === 'tx' ? `/tx/${value}` : type === 'address' ? `/address/${value}` : `/block/${value}`;
-  const href = tipsExplorerHref(chain, path);
+  const href = publicExplorerHref(chain, path);
 
   if (!href) {
     return <span className={className}>{children}</span>;

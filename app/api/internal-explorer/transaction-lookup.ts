@@ -6,7 +6,7 @@
 // Server-only.
 import { type Hash } from 'viem';
 
-import type { TipsChain } from '../../internal-explorer/chains';
+import type { ExplorerChain } from '../../internal-explorer/chains';
 import {
   type AuditTransactionEventRecord,
   DEFAULT_AUDIT_EVENT_QUERY_LIMIT,
@@ -21,7 +21,7 @@ import {
 import { getAuditRpcUrl, getRpcUrl, isAuditConfigured } from './config';
 import { getBundleHistory, getTransactionMetadataByHash } from './s3';
 import type { BundleEvent, BundleHistory, TransactionMetadata } from './transaction-data';
-import { publicClientFor, type TipsPublicClient } from './viem';
+import { publicClientFor, type ExplorerPublicClient } from './viem';
 
 export type CoverageState = 'available' | 'empty' | 'disabled' | 'unavailable' | 'not_applicable';
 
@@ -136,7 +136,7 @@ export class InvalidTransactionHashError extends Error {
 }
 
 export async function lookupTransaction(
-  chain: TipsChain,
+  chain: ExplorerChain,
   inputHash: string,
   dependencies: TransactionLookupDependencies = defaultDependencies(chain),
 ): Promise<{
@@ -234,7 +234,7 @@ async function loadChainData(
   }
 }
 
-function defaultDependencies(chain: TipsChain): TransactionLookupDependencies {
+function defaultDependencies(chain: ExplorerChain): TransactionLookupDependencies {
   const auditRpcUrl = getAuditRpcUrl(chain) ?? '';
   const rpcUrl = getRpcUrl(chain);
   return {
@@ -425,7 +425,7 @@ async function getChainDataFromRpc(rpcUrl: string, hash: string): Promise<ChainL
 }
 
 function serializeTransaction(
-  transaction: Awaited<ReturnType<TipsPublicClient['getTransaction']>>,
+  transaction: Awaited<ReturnType<ExplorerPublicClient['getTransaction']>>,
 ): ChainTransaction {
   return {
     hash: transaction.hash,
@@ -452,7 +452,7 @@ function serializeTransaction(
 }
 
 function serializeReceipt(
-  receipt: Awaited<ReturnType<TipsPublicClient['getTransactionReceipt']>>,
+  receipt: Awaited<ReturnType<ExplorerPublicClient['getTransactionReceipt']>>,
 ): ChainReceipt {
   return {
     transactionHash: receipt.transactionHash,

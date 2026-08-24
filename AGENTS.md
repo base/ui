@@ -84,7 +84,7 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackB20WalletConnection(status)` | `app/demos/b20/B20Demo.tsx` — injected wallet connection |
    | `trackB20Action(module, action, status)` | `app/demos/b20/B20Demo.tsx` — B20 broadcasts |
    | `trackB20PromptCopy(module, prompt)` | `app/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
-   | `trackTipsChainSelect(chain)` | `app/internal-explorer/components/ChainToggle.tsx` — chain toggle |
+   | `trackExplorerChainSelect(chain)` | `app/internal-explorer/components/ChainToggle.tsx` — chain toggle |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.

@@ -15,22 +15,22 @@ import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 import { ChainToggle } from './components/ChainToggle';
 import { MeteringCard } from './components/MeteringCard';
-import type { TipsChain } from './chains';
-import { tipsApi } from './library/client';
+import type { ExplorerChain } from './chains';
+import { explorerApi } from './library/client';
 import { formatGasPrice, formatHexValue, shortHash, timeAgoFromSeconds } from './library/format';
-import { tipsHref } from './library/links';
+import { explorerHref } from './library/links';
 import {
   formatRejectionReason,
   type BlockSummary,
   type RejectedTransaction,
 } from './library/types';
-import { useTipsChain } from './library/useTipsChain';
+import { useExplorerChain } from './library/useExplorerChain';
 
 type Tab = 'blocks' | 'rejected';
 
 // --- Search ---------------------------------------------------------------
 
-function SearchBar({ chain, onError }: { chain: TipsChain; onError: (error: string | null) => void }) {
+function SearchBar({ chain, onError }: { chain: ExplorerChain; onError: (error: string | null) => void }) {
   const router = useRouter();
   const [searchHash, setSearchHash] = useState('');
   const [loading, setLoading] = useState(false);
@@ -45,7 +45,7 @@ function SearchBar({ chain, onError }: { chain: TipsChain; onError: (error: stri
     // transaction is not part of a bundle), so route straight to it.
     setLoading(true);
     onError(null);
-    router.push(tipsHref(`/txn/${hash}`, chain));
+    router.push(explorerHref(`/txn/${hash}`, chain));
   };
 
   return (
@@ -93,10 +93,10 @@ function SearchBar({ chain, onError }: { chain: TipsChain; onError: (error: stri
 
 // --- Blocks ---------------------------------------------------------------
 
-function BlockRow({ block, chain }: { block: BlockSummary; chain: TipsChain }) {
+function BlockRow({ block, chain }: { block: BlockSummary; chain: ExplorerChain }) {
   return (
     <Link
-      href={tipsHref(`/block/${block.hash}`, chain)}
+      href={explorerHref(`/block/${block.hash}`, chain)}
       className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-bds-gray-5/60 dark:hover:bg-white/5"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bds-blue-0">
@@ -145,7 +145,7 @@ function BlockRow({ block, chain }: { block: BlockSummary; chain: TipsChain }) {
   );
 }
 
-function BlocksTab({ chain }: { chain: TipsChain }) {
+function BlocksTab({ chain }: { chain: ExplorerChain }) {
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -155,7 +155,7 @@ function BlocksTab({ chain }: { chain: TipsChain }) {
 
     async function load() {
       try {
-        const data = await tipsApi.blocks(chain);
+        const data = await explorerApi.blocks(chain);
         if (!cancelled) setBlocks(data.blocks);
       } catch {
         // Transient errors are expected between polls; keep the last good data.
@@ -209,7 +209,7 @@ function RejectedTxRow({
   onToggle,
 }: {
   tx: RejectedTransaction;
-  chain: TipsChain;
+  chain: ExplorerChain;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -348,7 +348,7 @@ function RejectedTxRow({
   );
 }
 
-function RejectedTransactionsTab({ chain }: { chain: TipsChain }) {
+function RejectedTransactionsTab({ chain }: { chain: ExplorerChain }) {
   const [transactions, setTransactions] = useState<RejectedTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -361,7 +361,7 @@ function RejectedTransactionsTab({ chain }: { chain: TipsChain }) {
 
     async function load() {
       try {
-        const data = await tipsApi.rejected(chain);
+        const data = await explorerApi.rejected(chain);
         if (!cancelled) setTransactions(data.transactions);
       } catch {
         // Keep last good data across transient poll failures.
@@ -485,8 +485,8 @@ function RejectedTransactionsTab({ chain }: { chain: TipsChain }) {
 
 // --- Page shell -----------------------------------------------------------
 
-function TipsDashboard() {
-  const { chain } = useTipsChain();
+function ExplorerDashboard() {
+  const { chain } = useExplorerChain();
   const [activeTab, setActiveTab] = useState<Tab>('blocks');
   const [error, setError] = useState<string | null>(null);
 
@@ -522,13 +522,13 @@ function TipsDashboard() {
       {activeTab === 'blocks' ? (
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <Link
-            href={tipsHref('/blocks', chain)}
+            href={explorerHref('/blocks', chain)}
             className="text-base-blue hover:underline dark:text-bds-blue-20"
           >
             All blocks →
           </Link>
           <Link
-            href={tipsHref('/txs', chain)}
+            href={explorerHref('/txs', chain)}
             className="text-base-blue hover:underline dark:text-bds-blue-20"
           >
             All transactions →
@@ -558,16 +558,16 @@ function TipsDashboard() {
   );
 }
 
-export default function TipsPage() {
-  // useTipsChain reads useSearchParams; wrap in Suspense per Next 15 App Router.
+export default function ExplorerPage() {
+  // useExplorerChain reads useSearchParams; wrap in Suspense per Next 15 App Router.
   return (
-    <Suspense fallback={<TipsDashboardFallback />}>
-      <TipsDashboard />
+    <Suspense fallback={<ExplorerDashboardFallback />}>
+      <ExplorerDashboard />
     </Suspense>
   );
 }
 
-function TipsDashboardFallback() {
+function ExplorerDashboardFallback() {
   return (
     <div className="flex items-center justify-center gap-3 py-16">
       <Spinner className="text-base-blue" />

@@ -1,4 +1,4 @@
-import { resolveTipsChain } from '../../../internal-explorer/chains';
+import { resolveExplorerChain } from '../../../internal-explorer/chains';
 import {
   BlockListUnavailableError,
   InvalidBlockListQueryError,
@@ -6,7 +6,7 @@ import {
   parseBlockListQuery,
 } from '../block-list';
 import { getRpcUrl } from '../config';
-import { tipsDisabledResponse } from '../guard';
+import { explorerDisabledResponse } from '../guard';
 
 export const runtime = 'nodejs';
 
@@ -15,9 +15,9 @@ export const runtime = 'nodejs';
 export type { BlockSummary, BlocksPage, BlocksResponse } from '../block-list';
 
 export async function GET(request: Request) {
-  const disabled = tipsDisabledResponse();
+  const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
 
   try {
     const query = parseBlockListQuery(new URL(request.url).searchParams);

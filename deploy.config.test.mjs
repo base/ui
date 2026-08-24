@@ -26,7 +26,7 @@ describe('deploy.config', () => {
   describe('external target', () => {
     it('excludes internal-only surfaces', async () => {
       const c = await loadWithTarget('external');
-      expect(c.surfaceEnabled('tips')).toBe(false);
+      expect(c.surfaceEnabled('internal-explorer')).toBe(false);
       expect(c.surfaceEnabled('benchmark')).toBe(false);
     });
 
@@ -51,7 +51,7 @@ describe('deploy.config', () => {
     it('includes internal-only surfaces', async () => {
       const c = await loadWithTarget('internal');
       expect(c.TARGET).toBe('internal');
-      expect(c.surfaceEnabled('tips')).toBe(true);
+      expect(c.surfaceEnabled('internal-explorer')).toBe(true);
       expect(c.surfaceEnabled('benchmark')).toBe(true);
     });
 

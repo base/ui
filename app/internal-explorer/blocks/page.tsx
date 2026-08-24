@@ -9,16 +9,16 @@ import { Spinner } from '../../components/ui/Spinner';
 import { Text } from '../../components/ui/Text';
 import { BlockTable } from '../components/ExplorerTables';
 import { ExplorerNav } from '../components/ExplorerNav';
-import { tipsApi } from '../library/client';
+import { explorerApi } from '../library/client';
 import { formatInteger } from '../library/explorer-format';
-import { tipsHref } from '../library/links';
+import { explorerHref } from '../library/links';
 import type { BlocksResponse } from '../library/types';
-import { useTipsChain } from '../library/useTipsChain';
+import { useExplorerChain } from '../library/useExplorerChain';
 
 const PAGE_LIMIT = 25;
 
 function BlocksContent() {
-  const { chain } = useTipsChain();
+  const { chain } = useExplorerChain();
   const searchParams = useSearchParams();
   const cursorParam = searchParams.get('cursor');
   const cursor = cursorParam !== null ? Number(cursorParam) : undefined;
@@ -34,7 +34,7 @@ function BlocksContent() {
     setError(null);
     setData(null);
 
-    tipsApi
+    explorerApi
       .blocksPage(chain, { cursor, limit: PAGE_LIMIT }, controller.signal)
       .then((next) => {
         if (!cancelled) setData(next);
@@ -66,7 +66,7 @@ function BlocksContent() {
         </div>
         {cursor !== undefined ? (
           <Link
-            href={tipsHref('/blocks', chain)}
+            href={explorerHref('/blocks', chain)}
             className="shrink-0 text-sm text-base-blue hover:underline dark:text-bds-blue-20"
           >
             Latest blocks
@@ -107,7 +107,7 @@ function BlocksContent() {
             </span>
             {data.page.nextCursor !== null ? (
               <Link
-                href={tipsHref(`/blocks?cursor=${data.page.nextCursor}`, chain)}
+                href={explorerHref(`/blocks?cursor=${data.page.nextCursor}`, chain)}
                 className="font-medium text-base-blue hover:underline dark:text-bds-blue-20"
               >
                 Older blocks →

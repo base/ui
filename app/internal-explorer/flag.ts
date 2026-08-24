@@ -7,13 +7,6 @@
 // routes below, and the API routes 404 via app/api/internal-explorer/guard.ts.
 import { surfaceEnabled } from '../../deploy.config.mjs';
 
-export const TIPS_ENABLED: boolean = surfaceEnabled('tips');
+export const EXPLORER_ENABLED: boolean = surfaceEnabled('internal-explorer');
 
-/** User-facing name. */
-export const TIPS_LABEL = 'Internal Explorer';
-
-/** User-facing UI path. */
-export const TIPS_PATH = '/internal-explorer';
-
-/** User-facing API path. */
-export const TIPS_API_PATH = '/api/internal-explorer';
+export const EXPLORER_LABEL = 'Internal Explorer';

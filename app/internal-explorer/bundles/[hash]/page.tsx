@@ -11,14 +11,14 @@ import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import { CopyButton } from '../../components/CopyButton';
 import { MeteringCard } from '../../components/MeteringCard';
-import { TipsExplorerLink } from '../../components/TipsExplorerLink';
-import type { TipsChain } from '../../chains';
-import { TIPS_LABEL } from '../../flag';
-import { tipsApi, TipsApiError } from '../../library/client';
+import { ExplorerLink } from '../../components/ExplorerLink';
+import type { ExplorerChain } from '../../chains';
+import { EXPLORER_LABEL } from '../../flag';
+import { explorerApi, ExplorerApiError } from '../../library/client';
 import { formatGasPrice, formatHexValue, shortHash } from '../../library/format';
-import { tipsHref } from '../../library/links';
+import { explorerHref } from '../../library/links';
 import type { BundleEvent, BundleHistoryResponse, BundleTransaction } from '../../library/types';
-import { useTipsChain } from '../../library/useTipsChain';
+import { useExplorerChain } from '../../library/useExplorerChain';
 
 interface PageProps {
   params: Promise<{ hash: string }>;
@@ -54,7 +54,7 @@ function TransactionDetails({
   index,
 }: {
   tx: BundleTransaction;
-  chain: TipsChain;
+  chain: ExplorerChain;
   index: number;
 }) {
   const [expanded, setExpanded] = useState(index === 0);
@@ -109,19 +109,19 @@ function TransactionDetails({
                   <td className="py-2 text-right">
                     <span className="inline-flex items-center gap-1">
                       <Link
-                        href={tipsHref(`/txn/${tx.hash}`, chain)}
+                        href={explorerHref(`/txn/${tx.hash}`, chain)}
                         className="break-all font-mono text-base-blue hover:underline dark:text-bds-blue-20"
                       >
                         {tx.hash}
                       </Link>
-                      <TipsExplorerLink
+                      <ExplorerLink
                         chain={chain}
                         type="tx"
                         value={tx.hash}
                         className="shrink-0 text-bds-gray-50 hover:text-black dark:hover:text-white"
                       >
                         ↗
-                      </TipsExplorerLink>
+                      </ExplorerLink>
                       <CopyButton text={tx.hash} />
                     </span>
                   </td>
@@ -130,9 +130,9 @@ function TransactionDetails({
                   <td className="py-2 align-top text-bds-gray-60 dark:text-bds-gray-40">From</td>
                   <td className="py-2 text-right">
                     <span className="inline-flex items-center gap-1">
-                      <TipsExplorerLink chain={chain} type="address" value={tx.signer} className="break-all font-mono">
+                      <ExplorerLink chain={chain} type="address" value={tx.signer} className="break-all font-mono">
                         {tx.signer}
-                      </TipsExplorerLink>
+                      </ExplorerLink>
                       <CopyButton text={tx.signer} />
                     </span>
                   </td>
@@ -142,9 +142,9 @@ function TransactionDetails({
                   <td className="py-2 text-right">
                     {tx.to ? (
                       <span className="inline-flex items-center gap-1">
-                        <TipsExplorerLink chain={chain} type="address" value={tx.to} className="break-all font-mono">
+                        <ExplorerLink chain={chain} type="address" value={tx.to} className="break-all font-mono">
                           {tx.to}
-                        </TipsExplorerLink>
+                        </ExplorerLink>
                         <CopyButton text={tx.to} />
                       </span>
                     ) : (
@@ -178,13 +178,13 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TimelineEventDetails({ event, chain }: { event: BundleEvent; chain: TipsChain }) {
+function TimelineEventDetails({ event, chain }: { event: BundleEvent; chain: ExplorerChain }) {
   if (event.event === 'BlockIncluded' && event.data?.block_hash) {
     return (
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="success">{event.event}</Badge>
         <Link
-          href={tipsHref(`/block/${event.data.block_hash}`, chain)}
+          href={explorerHref(`/block/${event.data.block_hash}`, chain)}
           className="font-mono text-xs text-base-blue hover:underline"
         >
           Block #{event.data.block_number}
@@ -216,7 +216,7 @@ function TimelineEventDetails({ event, chain }: { event: BundleEvent; chain: Tip
   return <Badge>{event.event}</Badge>;
 }
 
-function Timeline({ events, chain }: { events: BundleEvent[]; chain: TipsChain }) {
+function Timeline({ events, chain }: { events: BundleEvent[]; chain: ExplorerChain }) {
   if (events.length === 0) return null;
 
   return (
@@ -242,7 +242,7 @@ function Timeline({ events, chain }: { events: BundleEvent[]; chain: TipsChain }
 }
 
 function BundleContent({ params }: PageProps) {
-  const { chain } = useTipsChain();
+  const { chain } = useExplorerChain();
   const [hash, setHash] = useState('');
   const [data, setData] = useState<BundleHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -258,7 +258,7 @@ function BundleContent({ params }: PageProps) {
 
     async function load() {
       try {
-        const next = await tipsApi.bundle(hash, chain);
+        const next = await explorerApi.bundle(hash, chain);
         if (!cancelled) {
           setData(next);
           setError(null);
@@ -266,7 +266,7 @@ function BundleContent({ params }: PageProps) {
       } catch (err) {
         if (cancelled) return;
         setError(
-          err instanceof TipsApiError && err.status === 404
+          err instanceof ExplorerApiError && err.status === 404
             ? 'Bundle not found'
             : 'Failed to fetch bundle data',
         );
@@ -304,10 +304,10 @@ function BundleContent({ params }: PageProps) {
     <div className="animate-in flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
-          href={tipsHref('', chain)}
+          href={explorerHref('', chain)}
           className="text-sm text-base-blue hover:underline"
         >
-          ← {TIPS_LABEL}
+          ← {EXPLORER_LABEL}
         </Link>
         <div className="flex min-w-0 items-center gap-2">
           <code className="truncate rounded bg-bds-gray-5 px-2 py-1 font-mono text-xs text-bds-gray-60 dark:bg-white/5 dark:text-bds-gray-40">

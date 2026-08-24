@@ -10,15 +10,15 @@ import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import { CopyButton } from '../../components/CopyButton';
 import { EventHistoryRow } from '../../components/EventHistoryRow';
-import { TipsExplorerLink } from '../../components/TipsExplorerLink';
-import type { TipsChain } from '../../chains';
-import { TIPS_LABEL } from '../../flag';
-import { tipsApi, TipsApiError } from '../../library/client';
+import { ExplorerLink } from '../../components/ExplorerLink';
+import type { ExplorerChain } from '../../chains';
+import { EXPLORER_LABEL } from '../../flag';
+import { explorerApi, ExplorerApiError } from '../../library/client';
 import { formatGwei } from '../../library/explorer-format';
 import { shortHash } from '../../library/format';
-import { tipsHref } from '../../library/links';
+import { explorerHref } from '../../library/links';
 import type { BlockDetailResponse, BlockDetailTransaction } from '../../library/types';
-import { useTipsChain } from '../../library/useTipsChain';
+import { useExplorerChain } from '../../library/useExplorerChain';
 
 interface PageProps {
   params: Promise<{ hash: string }>;
@@ -53,7 +53,7 @@ function TransactionRow({
   maxTotalTime,
 }: {
   tx: BlockDetailTransaction;
-  chain: TipsChain;
+  chain: ExplorerChain;
   maxTotalTime: number;
 }) {
   const hasBundle = tx.bundleId !== null;
@@ -75,9 +75,9 @@ function TransactionRow({
         {tx.index}
       </div>
       <div className="min-w-0 flex-1">
-        <TipsExplorerLink chain={chain} type="tx" value={tx.hash} className="break-all font-mono text-sm">
+        <ExplorerLink chain={chain} type="tx" value={tx.hash} className="break-all font-mono text-sm">
           {tx.hash}
-        </TipsExplorerLink>
+        </ExplorerLink>
         <div className="mt-0.5 text-xs text-bds-gray-60 dark:text-bds-gray-40">
           {tx.from.slice(0, 6)}…{tx.from.slice(-4)}
           {tx.to ? (
@@ -106,7 +106,7 @@ function TransactionRow({
   );
 
   if (hasBundle) {
-    return <Link href={tipsHref(`/bundles/${tx.bundleId}`, chain)}>{content}</Link>;
+    return <Link href={explorerHref(`/bundles/${tx.bundleId}`, chain)}>{content}</Link>;
   }
   return content;
 }
@@ -182,7 +182,7 @@ function BlockToolbar({
   hash,
   block,
 }: {
-  chain: TipsChain;
+  chain: ExplorerChain;
   hash: string;
   block: BlockDetailResponse | null;
 }) {
@@ -193,17 +193,17 @@ function BlockToolbar({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-2">
         <Link
-          href={tipsHref('', chain)}
+          href={explorerHref('', chain)}
           className="text-sm text-base-blue hover:underline"
         >
-          ← {TIPS_LABEL}
+          ← {EXPLORER_LABEL}
         </Link>
         {blockNumber !== null ? (
           <>
             <span className="text-bds-gray-30">/</span>
             {blockNumber > 0 ? (
               <Link
-                href={tipsHref(`/block/${blockNumber - 1}`, chain)}
+                href={explorerHref(`/block/${blockNumber - 1}`, chain)}
                 className="rounded-md px-2 py-1 text-sm text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
                 title="Previous block"
               >
@@ -213,7 +213,7 @@ function BlockToolbar({
               <span className="cursor-not-allowed px-2 py-1 text-sm text-bds-gray-30">← Prev</span>
             )}
             <Link
-              href={tipsHref(`/block/${blockNumber + 1}`, chain)}
+              href={explorerHref(`/block/${blockNumber + 1}`, chain)}
               className="rounded-md px-2 py-1 text-sm text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
               title="Next block"
             >
@@ -227,7 +227,7 @@ function BlockToolbar({
           {shortHash(displayHash)}
         </code>
         <CopyButton text={displayHash} />
-        <TipsExplorerLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
+        <ExplorerLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <title>View on block explorer</title>
             <path
@@ -237,14 +237,14 @@ function BlockToolbar({
               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
             />
           </svg>
-        </TipsExplorerLink>
+        </ExplorerLink>
       </div>
     </div>
   );
 }
 
 function BlockContent({ params }: PageProps) {
-  const { chain } = useTipsChain();
+  const { chain } = useExplorerChain();
   const [hash, setHash] = useState('');
   const [data, setData] = useState<BlockDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -263,7 +263,7 @@ function BlockContent({ params }: PageProps) {
 
     async function load() {
       try {
-        const next = await tipsApi.block(hash, chain);
+        const next = await explorerApi.block(hash, chain);
         if (!cancelled) {
           setData(next);
           setError(null);
@@ -271,7 +271,7 @@ function BlockContent({ params }: PageProps) {
       } catch (err) {
         if (cancelled) return;
         setError(
-          err instanceof TipsApiError && err.status === 404
+          err instanceof ExplorerApiError && err.status === 404
             ? 'Block not found'
             : 'Failed to fetch block data',
         );

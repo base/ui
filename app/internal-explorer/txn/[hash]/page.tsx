@@ -10,19 +10,19 @@ import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import { CopyButton } from '../../components/CopyButton';
 import { EventHistoryRow } from '../../components/EventHistoryRow';
-import { TipsExplorerLink } from '../../components/TipsExplorerLink';
-import type { TipsChain } from '../../chains';
-import { TIPS_LABEL } from '../../flag';
-import { tipsApi, TipsApiError } from '../../library/client';
+import { ExplorerLink } from '../../components/ExplorerLink';
+import type { ExplorerChain } from '../../chains';
+import { EXPLORER_LABEL } from '../../flag';
+import { explorerApi, ExplorerApiError } from '../../library/client';
 import { formatEth, formatGwei, formatInteger, shortHash } from '../../library/explorer-format';
-import { tipsHref } from '../../library/links';
+import { explorerHref } from '../../library/links';
 import type {
   BundleEvent,
   CoverageState,
   MeterBundleResponse,
   TransactionHistoryResponse,
 } from '../../library/types';
-import { useTipsChain } from '../../library/useTipsChain';
+import { useExplorerChain } from '../../library/useExplorerChain';
 
 interface PageProps {
   params: Promise<{ hash: string }>;
@@ -106,7 +106,7 @@ function ChainCard({
   chain,
 }: {
   data: NonNullable<TransactionHistoryResponse['chain']>;
-  chain: TipsChain;
+  chain: ExplorerChain;
 }) {
   const receipt = data.receipt;
   const included = receipt !== null;
@@ -132,7 +132,7 @@ function ChainCard({
           </Text>
           {blockHash ? (
             <Link
-              href={tipsHref(`/block/${blockHash}`, chain)}
+              href={explorerHref(`/block/${blockHash}`, chain)}
               className="mt-1 block font-mono text-base-blue hover:underline dark:text-bds-blue-20"
             >
               #{formatHexInteger(blockNumberValue)}
@@ -148,14 +148,14 @@ function ChainCard({
         <StatCell label="Gas used" value={formatHexInteger(receipt?.gasUsed)} mono />
       </div>
       <div className="border-t border-bds-gray-10 px-5 py-3 dark:border-white/10">
-        <TipsExplorerLink
+        <ExplorerLink
           chain={chain}
           type="tx"
           value={data.transaction.hash}
           className="text-xs font-medium text-base-blue hover:underline dark:text-bds-blue-20"
         >
           View on block explorer ↗
-        </TipsExplorerLink>
+        </ExplorerLink>
       </div>
     </Card>
   );
@@ -253,7 +253,7 @@ function ProvenanceFooter({
   chain,
 }: {
   data: TransactionHistoryResponse;
-  chain: TipsChain;
+  chain: ExplorerChain;
 }) {
   return (
     <footer className="border-t border-bds-gray-10 pt-6 dark:border-white/10">
@@ -277,7 +277,7 @@ function ProvenanceFooter({
           {data.bundle_ids.map((bundleId) => (
             <Link
               key={bundleId}
-              href={tipsHref(`/bundles/${bundleId}`, chain)}
+              href={explorerHref(`/bundles/${bundleId}`, chain)}
               className="rounded bg-bds-gray-5 px-2 py-1 font-mono text-base-blue hover:underline dark:bg-white/5 dark:text-bds-blue-20"
             >
               {shortHash(bundleId)}
@@ -296,7 +296,7 @@ function ProvenanceFooter({
 }
 
 function TransactionContent({ params }: PageProps) {
-  const { chain } = useTipsChain();
+  const { chain } = useExplorerChain();
   const [hash, setHash] = useState('');
   const [data, setData] = useState<TransactionHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -315,14 +315,14 @@ function TransactionContent({ params }: PageProps) {
 
     async function load() {
       try {
-        const next = await tipsApi.txn(hash, chain);
+        const next = await explorerApi.txn(hash, chain);
         if (cancelled) return;
         setData(next);
         setError(null);
       } catch (err) {
         if (cancelled) return;
         setError(
-          err instanceof TipsApiError && err.status === 404
+          err instanceof ExplorerApiError && err.status === 404
             ? 'Transaction not found'
             : 'Failed to fetch transaction data',
         );
@@ -354,10 +354,10 @@ function TransactionContent({ params }: PageProps) {
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={tipsHref('', chain)}
+            href={explorerHref('', chain)}
             className="text-sm text-base-blue hover:underline dark:text-bds-blue-20"
           >
-            ← {TIPS_LABEL}
+            ← {EXPLORER_LABEL}
           </Link>
         </div>
         <div>

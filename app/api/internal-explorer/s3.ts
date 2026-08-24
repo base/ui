@@ -1,5 +1,5 @@
 // S3 data access for the Internal Explorer API. Every data function is chain-aware: it takes a
-// TipsChain and resolves the per-chain S3 client + bucket from config.ts, so one
+// ExplorerChain and resolves the per-chain S3 client + bucket from config.ts, so one
 // deployment can serve all chains. S3 is the fallback source — routes prefer the
 // audit events RPC (audit-events.ts) and fall back here when audit is not
 // configured or returns nothing. getBlockFromCache / cacheBlockData are this app's
@@ -11,7 +11,7 @@ import {
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 
-import type { TipsChain } from '../../internal-explorer/chains';
+import type { ExplorerChain } from '../../internal-explorer/chains';
 import { getBucketName, getS3Client } from './config';
 import type {
   BlockData,
@@ -37,7 +37,7 @@ export type {
 } from './transaction-data';
 export { formatRejectionReason } from './transaction-data';
 
-async function getObjectContent(chain: TipsChain, key: string): Promise<string | null> {
+async function getObjectContent(chain: ExplorerChain, key: string): Promise<string | null> {
   try {
     const command = new GetObjectCommand({
       Bucket: getBucketName(chain),
@@ -53,7 +53,7 @@ async function getObjectContent(chain: TipsChain, key: string): Promise<string |
 }
 
 export async function getTransactionMetadataByHash(
-  chain: TipsChain,
+  chain: ExplorerChain,
   hash: string,
 ): Promise<TransactionMetadata | null> {
   const key = `transactions/by_hash/${hash}`;
@@ -72,7 +72,7 @@ export async function getTransactionMetadataByHash(
 }
 
 export async function getBundleHistory(
-  chain: TipsChain,
+  chain: ExplorerChain,
   bundleKey: string,
 ): Promise<BundleHistory | null> {
   const prefix = `bundles/${bundleKey}/`;
@@ -104,7 +104,7 @@ export async function getBundleHistory(
 }
 
 export async function getBlockFromCache(
-  chain: TipsChain,
+  chain: ExplorerChain,
   blockHash: string,
 ): Promise<BlockData | null> {
   const key = `blocks/${blockHash}`;
@@ -161,7 +161,7 @@ export interface RejectedTransactionSummary {
 }
 
 export async function listRejectedTransactions(
-  chain: TipsChain,
+  chain: ExplorerChain,
   limit = 100,
 ): Promise<RejectedTransactionSummary[]> {
   try {
@@ -195,7 +195,7 @@ export async function listRejectedTransactions(
 }
 
 export async function getRejectedTransaction(
-  chain: TipsChain,
+  chain: ExplorerChain,
   blockNumber: number,
   txHash: string,
 ): Promise<RejectedTransaction | null> {
@@ -214,7 +214,7 @@ export async function getRejectedTransaction(
   }
 }
 
-export async function cacheBlockData(chain: TipsChain, blockData: BlockData): Promise<void> {
+export async function cacheBlockData(chain: ExplorerChain, blockData: BlockData): Promise<void> {
   const key = `blocks/${blockData.hash}`;
 
   try {

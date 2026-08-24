@@ -20,4 +20,4 @@ export function publicClientFor(rpcUrl: string) {
   return client;
 }
 
-export type TipsPublicClient = ReturnType<typeof publicClientFor>;
+export type ExplorerPublicClient = ReturnType<typeof publicClientFor>;

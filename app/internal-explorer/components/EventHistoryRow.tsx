@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { cn } from '../../components/ui/cn';
-import type { TipsChain } from '../chains';
-import { tipsHref } from '../library/links';
+import type { ExplorerChain } from '../chains';
+import { explorerHref } from '../library/links';
 import type { BundleEvent } from '../library/types';
 
 function EventChip({ children }: { children: React.ReactNode }) {
@@ -56,7 +56,7 @@ function formatLatency(milliseconds: number): string {
   return `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
-function BlockFlashblockContext({ event, chain }: { event: BundleEvent; chain: TipsChain }) {
+function BlockFlashblockContext({ event, chain }: { event: BundleEvent; chain: ExplorerChain }) {
   const blockNumber = event.data.block_number;
   const flashblockIndex = event.data.flashblock_index;
 
@@ -76,7 +76,7 @@ function BlockFlashblockContext({ event, chain }: { event: BundleEvent; chain: T
   if (event.data.block_hash) {
     return (
       <Link
-        href={tipsHref(`/block/${event.data.block_hash}`, chain)}
+        href={explorerHref(`/block/${event.data.block_hash}`, chain)}
         className={cn(className, 'hover:text-base-blue hover:underline dark:hover:text-bds-blue-20')}
       >
         {label}
@@ -119,7 +119,7 @@ export function EventHistoryRow({
   event: BundleEvent;
   isLast: boolean;
   startTimestamp: number;
-  chain: TipsChain;
+  chain: ExplorerChain;
   highlightIncluded?: boolean;
 }) {
   const [jsonExpanded, setJsonExpanded] = useState(false);

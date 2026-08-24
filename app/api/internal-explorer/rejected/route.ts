@@ -1,10 +1,10 @@
-import { resolveTipsChain, type TipsChain } from '../../../internal-explorer/chains';
+import { resolveExplorerChain, type ExplorerChain } from '../../../internal-explorer/chains';
 import {
   getAuditRejectedTransactionEvents,
   rejectedTransactionFromAuditEvent,
 } from '../audit-events';
 import { getAuditRpcUrl } from '../config';
-import { tipsDisabledResponse } from '../guard';
+import { explorerDisabledResponse } from '../guard';
 import { getRejectedTransaction, listRejectedTransactions } from '../s3';
 import type { RejectedTransaction } from '../transaction-data';
 
@@ -15,9 +15,9 @@ export interface RejectedTransactionsResponse {
 }
 
 export async function GET(request: Request) {
-  const disabled = tipsDisabledResponse();
+  const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveTipsChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
 
   try {
     // Audit-first, S3 fallback: use the S3 archive only when audit is not
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   }
 }
 
-async function getAuditRejectedTransactions(chain: TipsChain): Promise<RejectedTransaction[]> {
+async function getAuditRejectedTransactions(chain: ExplorerChain): Promise<RejectedTransaction[]> {
   const auditRpcUrl = getAuditRpcUrl(chain);
   if (!auditRpcUrl) {
     return [];
@@ -50,7 +50,7 @@ async function getAuditRejectedTransactions(chain: TipsChain): Promise<RejectedT
   }
 }
 
-async function getS3RejectedTransactions(chain: TipsChain): Promise<RejectedTransaction[]> {
+async function getS3RejectedTransactions(chain: ExplorerChain): Promise<RejectedTransaction[]> {
   const summaries = await listRejectedTransactions(chain, 100);
   const transactions = await Promise.all(
     summaries.map((summary) => getRejectedTransaction(chain, summary.blockNumber, summary.txHash)),

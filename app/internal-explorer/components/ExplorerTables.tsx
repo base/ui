@@ -1,9 +1,9 @@
 // Basescan-style shared tables for the blocks/txs explorer surfaces. Chain-aware:
-// internal links carry ?chain= via tipsHref.
+// internal links carry ?chain= via explorerHref.
 import Link from 'next/link';
 
 import { cn } from '../../components/ui/cn';
-import type { TipsChain } from '../chains';
+import type { ExplorerChain } from '../chains';
 import {
   formatAction,
   formatAge,
@@ -14,7 +14,7 @@ import {
   shortAddress,
   shortHash,
 } from '../library/explorer-format';
-import { tipsHref } from '../library/links';
+import { explorerHref } from '../library/links';
 import type { BlockSummary } from '../library/types';
 
 export interface TransactionTableItem {
@@ -43,7 +43,7 @@ function Cell({ children, className }: { children: React.ReactNode; className?: 
   return <td className={cn('px-4 py-3 text-black dark:text-white', className)}>{children}</td>;
 }
 
-export function BlockTable({ blocks, chain }: { blocks: BlockSummary[]; chain: TipsChain }) {
+export function BlockTable({ blocks, chain }: { blocks: BlockSummary[]; chain: ExplorerChain }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[680px] text-sm">
@@ -61,7 +61,7 @@ export function BlockTable({ blocks, chain }: { blocks: BlockSummary[]; chain: T
           {blocks.map((block) => (
             <tr key={block.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
               <Cell>
-                <Link href={tipsHref(`/block/${block.number}`, chain)} className={cn('font-medium', linkClass)}>
+                <Link href={explorerHref(`/block/${block.number}`, chain)} className={cn('font-medium', linkClass)}>
                   #{formatInteger(block.number)}
                 </Link>
                 <div className="mt-0.5 font-mono text-xs text-bds-gray-50 dark:text-bds-gray-40">
@@ -89,7 +89,7 @@ export function TransactionTable({
   emptyMessage = 'No transactions found',
 }: {
   transactions: TransactionTableItem[];
-  chain: TipsChain;
+  chain: ExplorerChain;
   emptyMessage?: string;
 }) {
   if (transactions.length === 0) {
@@ -118,7 +118,7 @@ export function TransactionTable({
             <tr key={transaction.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
               <Cell>
                 <Link
-                  href={tipsHref(`/txn/${transaction.hash}`, chain)}
+                  href={explorerHref(`/txn/${transaction.hash}`, chain)}
                   className={cn('font-mono', linkClass)}
                   title={transaction.hash}
                 >
@@ -130,7 +130,7 @@ export function TransactionTable({
               </Cell>
               <Cell className="whitespace-nowrap">
                 <Link
-                  href={tipsHref(`/block/${String(transaction.blockNumber)}`, chain)}
+                  href={explorerHref(`/block/${String(transaction.blockNumber)}`, chain)}
                   className={linkClass}
                 >
                   #{formatInteger(transaction.blockNumber)}

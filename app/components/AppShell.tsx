@@ -249,7 +249,7 @@ function NavGlyph({ name }: NavGlyphProps) {
           <path d="M30 30.3125L23.0674 23.3799M23.0674 23.3799C24.5189 21.9284 25.4167 19.9232 25.4167 17.7083C25.4167 13.2785 21.8256 9.6875 17.3958 9.6875C12.966 9.6875 9.375 13.2785 9.375 17.7083C9.375 22.1381 12.966 25.7292 17.3958 25.7292C19.6107 25.7292 21.6159 24.8314 23.0674 23.3799Z" strokeLinecap="round" />
         </svg>
       );
-    case 'tips':
+    case 'internal-explorer':
       return (
         <svg {...common} className="nav-internal-explorer-icon">
           <path d="M4 19h4v2H4zM10 15h4v6h-4zM16 9h4v12h-4z" strokeLinecap="round" strokeLinejoin="round" />

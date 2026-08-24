@@ -7,9 +7,9 @@ import { Spinner } from '../../components/ui/Spinner';
 import { Text } from '../../components/ui/Text';
 import { ExplorerNav } from '../components/ExplorerNav';
 import { TransactionTable, type TransactionTableItem } from '../components/ExplorerTables';
-import { tipsApi } from '../library/client';
+import { explorerApi } from '../library/client';
 import type { TransactionListItem } from '../library/types';
-import { useTipsChain } from '../library/useTipsChain';
+import { useExplorerChain } from '../library/useExplorerChain';
 
 const PAGE_LIMIT = 50;
 
@@ -28,7 +28,7 @@ function asTableItems(transactions: TransactionListItem[]): TransactionTableItem
 }
 
 function TransactionsContent() {
-  const { chain } = useTipsChain();
+  const { chain } = useExplorerChain();
   const [transactions, setTransactions] = useState<TransactionListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,7 @@ function TransactionsContent() {
     setTransactions([]);
     setNextCursor(null);
 
-    tipsApi
+    explorerApi
       .txs(chain, { limit: PAGE_LIMIT }, controller.signal)
       .then((result) => {
         if (cancelled) return;
@@ -70,7 +70,7 @@ function TransactionsContent() {
     setLoadingMore(true);
     setError(null);
     try {
-      const result = await tipsApi.txs(chain, { cursor: nextCursor, limit: PAGE_LIMIT });
+      const result = await explorerApi.txs(chain, { cursor: nextCursor, limit: PAGE_LIMIT });
       setTransactions((current) => [...current, ...result.transactions]);
       setNextCursor(result.nextCursor);
     } catch {
