@@ -124,8 +124,11 @@ jobs:
 
           fail=0
 
-          # Internal-only routes must 404 on the public build.
-          for route in /tips /tips/block/0x1 /tips/bundles/0x1 /api/tips/blocks \
+          # Internal-only routes must 404 on the public build. Include the
+          # legacy /tips prefixes so old URLs stay absent too.
+          for route in /internal-explorer /internal-explorer/block/0x1 \
+                       /internal-explorer/bundles/0x1 /api/internal-explorer/blocks \
+                       /tips /tips/block/0x1 /tips/bundles/0x1 /api/tips/blocks \
                        /benchmark /benchmark/run/latest /benchmark/run-comparison/1 \
                        /benchmark/load-tests/sepolia; do
             code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000${route}")
@@ -145,7 +148,7 @@ jobs:
           done
 
           # No nav link to, or sitemap entry for, an internal-only section.
-          for section in /tips /benchmark; do
+          for section in /internal-explorer /tips /benchmark; do
             if curl -s http://localhost:3000/ | grep -q "href=\"${section}\""; then
               echo "FAIL: public homepage links to ${section}"
               fail=1
