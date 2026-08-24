@@ -15,18 +15,23 @@ const nextConfig = {
   // ignores this and uses its own runtime, so it's a no-op there.
   output: 'standalone',
 
-  // Demos moved from /vibenet/demos to the top-level /demos. Both old paths
-  // were in the published sitemap and /vibenet/demos/account is linked from the
-  // site-wide announcement banner, so they are permanently redirected rather
-  // than left to 404 for existing links and search results.
+  // Demos live under /vibenet/demos. They briefly sat at the top-level /demos,
+  // whose paths were published in the sitemap and linked externally, so those
+  // old paths are permanently redirected rather than left to 404 for existing
+  // links and search results.
   //
   // Internal Explorer moved from /tips to /internal-explorer. Legacy redirects
   // are internal-only: the public build 404s both prefixes via middleware so
   // it never advertises the internal surface.
   async redirects() {
     return [
-      { source: '/vibenet/demos', destination: '/demos', permanent: true },
-      { source: '/vibenet/demos/:path*', destination: '/demos/:path*', permanent: true },
+      // The old demos index merged into the Vibenet overview; deep demo links
+      // map straight to their new home under /vibenet/demos.
+      { source: '/demos', destination: '/vibenet', permanent: true },
+      { source: '/demos/:path*', destination: '/vibenet/demos/:path*', permanent: true },
+      // /vibenet/demos has no index page — the demo list lives on the Vibenet
+      // overview, so send the bare path there.
+      { source: '/vibenet/demos', destination: '/vibenet', permanent: true },
       ...(TARGET === 'internal'
         ? [
             { source: '/tips', destination: '/internal-explorer', permanent: true },

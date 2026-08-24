@@ -31,7 +31,6 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'Explorer', href: '/vibenet/explorer', icon: 'explorer' },
     ],
   },
-  { label: 'Demos', href: '/demos', icon: 'demos', enabled: true },
   { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
   { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
   { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
