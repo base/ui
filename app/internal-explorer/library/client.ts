@@ -10,6 +10,8 @@ import type {
   BlocksResponse,
   BundleHistoryResponse,
   RejectedTransactionsResponse,
+  ShadowBlockDetail,
+  ShadowBlockSummary,
   TransactionHistoryResponse,
   TransactionsResponse,
 } from './types';
@@ -88,4 +90,22 @@ export const explorerApi = {
     get<RejectedTransactionsResponse>('/api/internal-explorer/rejected', chain, signal),
   bundle: (hash: string, chain: ExplorerChain, signal?: AbortSignal) =>
     get<BundleHistoryResponse>(`/api/internal-explorer/bundle/${enc(hash)}`, chain, signal),
+  shadowCandidates: (chain: ExplorerChain, canonicalHash: string, signal?: AbortSignal) =>
+    get<{ candidates: ShadowBlockSummary[] }>(
+      withQuery('/api/internal-explorer/shadow-candidates', { canonical: canonicalHash }),
+      chain,
+      signal,
+    ),
+  shadowCandidatesBatch: (chain: ExplorerChain, hashes: string[], signal?: AbortSignal) =>
+    get<Record<string, ShadowBlockSummary[]>>(
+      withQuery('/api/internal-explorer/shadow-candidates-batch', { canonical: hashes.join(',') }),
+      chain,
+      signal,
+    ),
+  shadowBlock: (hash: string, chain: ExplorerChain, signal?: AbortSignal) =>
+    get<{ summary: ShadowBlockSummary; detail: ShadowBlockDetail }>(
+      `/api/internal-explorer/shadow-block/${enc(hash)}`,
+      chain,
+      signal,
+    ),
 };
