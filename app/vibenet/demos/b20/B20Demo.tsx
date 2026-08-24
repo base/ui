@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { formatEther, isAddress, type Address, type Hex } from 'viem';
 
@@ -384,45 +383,36 @@ export function B20Demo() {
           : 'disconnected';
   return (
     <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-5 pb-6 text-foreground [&_.text-3xl]:hidden [&_.tracking-tight]:capitalize dark:text-white">
-      <header className="flex flex-wrap items-center justify-end gap-3 border-b border-bds-gray-10 pb-4 dark:border-white/10">
-        <div className={cn('flex flex-wrap items-center gap-2', textVariantClasses.label)}>
-          <span className="rounded-full border border-bds-gray-10 px-3 py-2 dark:border-white/10">
-            <span className="mr-2 text-bds-green-50">●</span>Vibenet
-          </span>
-          <Link
-            href="/vibenet/faucet"
-            className="rounded-full border border-bds-gray-10 px-3 py-2 hover:border-base-blue dark:border-white/10"
-          >
-            Faucet
-          </Link>
-          {wallet ? (
-            <div className="inline-flex items-center gap-2 rounded-full border border-bds-gray-10 px-3 py-1.5 dark:border-white/10">
-              <CopyableValue value={wallet} display={shortAddress(wallet)} />
-              <span aria-hidden="true">·</span>
-              <span>{walletBalance === null ? '…' : `${Number(formatEther(walletBalance)).toFixed(3)} ETH`}</span>
-              <button
-                type="button"
-                onClick={disconnect}
-                className="rounded-full px-2 py-1 text-[11px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
-              >
-                Disconnect
-              </button>
-            </div>
-          ) : (
-            <Button size="sm" onClick={() => void connect()}>
-              Connect wallet
-            </Button>
-          )}
-        </div>
-      </header>
       <div className="flex min-h-0 flex-1 flex-col gap-5">
-        <div className="overflow-x-auto">
-          <Tabs
-            items={MODULES}
-            value={module}
-            onChange={(value) => selectModule(value as Module)}
-            ariaLabel="B20 modules"
-          />
+        <div className="flex items-center justify-between gap-3 border-b border-bds-gray-10 pb-4 dark:border-white/10">
+          <div className="min-w-0 overflow-x-auto">
+            <Tabs
+              items={MODULES}
+              value={module}
+              onChange={(value) => selectModule(value as Module)}
+              ariaLabel="B20 modules"
+            />
+          </div>
+          <div className={cn('flex shrink-0 items-center', textVariantClasses.label)}>
+            {wallet ? (
+              <div className="inline-flex items-center gap-2 rounded-full border border-bds-gray-10 px-3 py-1.5 dark:border-white/10">
+                <CopyableValue value={wallet} display={shortAddress(wallet)} />
+                <span aria-hidden="true">·</span>
+                <span>{walletBalance === null ? '…' : `${Number(formatEther(walletBalance)).toFixed(3)} ETH`}</span>
+                <button
+                  type="button"
+                  onClick={disconnect}
+                  className="rounded-full px-2 py-1 text-[11px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <Button size="sm" onClick={() => void connect()}>
+                Connect wallet
+              </Button>
+            )}
+          </div>
         </div>
         <main className="min-w-0 flex-1">
           {module === 'policy' ? (
