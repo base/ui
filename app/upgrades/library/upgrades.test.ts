@@ -54,6 +54,7 @@ describe('upgrades route helpers', () => {
       title: '200ms Blocks',
       category: 'execution',
       upgrade: 'denim',
+      specUrl: 'https://docs.base.org/base-chain/specs/upgrades/denim/200ms-native-blocks',
     });
 
     const execution = categoryGroupsForUpgrade('denim').find(

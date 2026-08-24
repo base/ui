@@ -351,13 +351,13 @@ export const changes: Change[] = [
       '<p>Base will produce native L2 blocks at a 200ms cadence. Each block has its own number, hash, state root, receipts, and unsafe-to-finalized lifecycle.</p><p class="mt-4">Unlike Flashblocks, which expose sub-second updates while building one block, this change runs the full rollup block lifecycle every 200ms.</p><div class="mt-4 rounded-lg border border-bds-orange-20 border-l-4 border-l-bds-orange-50 bg-bds-orange-5 px-4 py-3"><p class="text-[11px] font-semibold uppercase tracking-wide text-bds-orange-70">Deprecation Notice</p><p class="mt-1"><strong>Flashblocks will be deprecated as part of this release.</strong> Because native 200ms blocks deliver the same sub-second confirmation experience directly on the canonical chain, the Flashblocks WebSocket stream is no longer needed and will be removed. Migrate off the Flashblocks WebSocket stream before Denim activation.</p></div><p class="mt-4">Ethereum block headers and <code>block.timestamp</code> remain in whole seconds. The BaseTime predeploy records the sub-second component before user transactions, while optional <code>timestampMs</code> and <code>blockTimestampMs</code> RPC fields expose the complete millisecond timestamp to applications and infrastructure.</p>',
     migrationNotes:
       '<p><strong>Application developers</strong></p><p class="mt-2 pb-4">Existing contracts and applications remain compatible. Use the BaseTime <code>timestampMs()</code> getter when contracts need same-block millisecond precision; continue using <code>block.timestamp</code> when second-level precision is sufficient.</p><p><strong>RPC and indexing providers</strong></p><p class="mt-2 pb-4">Support the optional <code>timestampMs</code> block and header field and <code>blockTimestampMs</code> on mined transactions and logs. Do not infer millisecond timestamps from the whole-second header value.</p><p><strong>Node operators</strong></p><p class="mt-2">Upgrade to a Denim-compatible release before activation. Plan capacity for the higher native block rate across execution, storage, RPC events, and peer-to-peer propagation.</p>',
-    lastUpdated: '2026-08-10',
+    lastUpdated: '2026-08-24',
     relatedRepos: [
       'https://github.com/base/base',
       'https://github.com/base/contracts/blob/4848ec70d8f1062fec59470d6e731e13ece8a728/src/L2/BaseTime.sol',
     ],
     githubIssues: [],
-    specUrl: '',
+    specUrl: 'https://docs.base.org/base-chain/specs/upgrades/denim/200ms-native-blocks',
   },
 ];
 
