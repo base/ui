@@ -65,6 +65,15 @@ export class ShadowNotFoundError extends Error {
 
 const SHADOW_FETCH_TIMEOUT_MS = 4000;
 
+function logShadow(level: 'info' | 'error', event: string, fields: Record<string, unknown>): void {
+  const line = JSON.stringify({ source: 'shadow-proxy', level, event, ...fields });
+  if (level === 'error') {
+    console.error(line);
+  } else {
+    console.log(line);
+  }
+}
+
 function parseShadowNumber(value: string | number): number {
   if (typeof value === 'number') return value;
   const parsed = Number(value);
@@ -91,8 +100,14 @@ async function fetchShadowMetrics<T>(url: string): Promise<T> {
   let response: Response;
   try {
     response = await fetch(url, { cache: 'no-store', signal: controller.signal });
-  } catch {
-    if (controller.signal.aborted) {
+  } catch (error) {
+    const aborted = controller.signal.aborted;
+    logShadow('error', aborted ? 'upstream_timeout' : 'upstream_unreachable', {
+      url,
+      timeoutMs: SHADOW_FETCH_TIMEOUT_MS,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (aborted) {
       throw new ShadowUnavailableError('shadow-metrics request timed out');
     }
     throw new ShadowUnavailableError('failed to reach shadow-metrics');
@@ -101,13 +116,17 @@ async function fetchShadowMetrics<T>(url: string): Promise<T> {
   }
 
   if (response.status === 404) {
+    logShadow('info', 'upstream_not_found', { url, status: 404 });
     throw new ShadowNotFoundError();
   }
 
   if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    logShadow('error', 'upstream_non_ok', { url, status: response.status, body: body.slice(0, 300) });
     throw new ShadowUnavailableError(`shadow-metrics responded ${response.status}`);
   }
 
+  logShadow('info', 'upstream_ok', { url, status: response.status });
   return (await response.json()) as T;
 }
 
@@ -132,15 +151,41 @@ export async function fetchShadowCandidatesBatch(
   const timeout = setTimeout(() => controller.abort(), SHADOW_FETCH_TIMEOUT_MS);
   try {
     const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
-    if (!response.ok) return {};
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      logShadow('error', 'batch_non_ok', {
+        host: root,
+        status: response.status,
+        canonicalCount: hashes.length,
+        sampleCanonical: hashes[0],
+        body: body.slice(0, 300),
+      });
+      return {};
+    }
     const data = (await response.json()) as Record<string, ShadowBlockSummaryWire[]>;
-    return Object.fromEntries(
+    const result = Object.fromEntries(
       Object.entries(data).map(([hash, summaries]) => [
         hash.toLowerCase(),
         summaries.map(normalizeShadowSummary),
       ]),
     );
-  } catch {
+    logShadow('info', 'batch_ok', {
+      host: root,
+      status: response.status,
+      canonicalCount: hashes.length,
+      sampleCanonical: hashes[0],
+      matchedGroups: Object.keys(result).length,
+    });
+    return result;
+  } catch (error) {
+    const aborted = controller.signal.aborted;
+    logShadow('error', aborted ? 'batch_timeout' : 'batch_failed', {
+      host: root,
+      canonicalCount: hashes.length,
+      sampleCanonical: hashes[0],
+      timeoutMs: SHADOW_FETCH_TIMEOUT_MS,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {};
   } finally {
     clearTimeout(timeout);
