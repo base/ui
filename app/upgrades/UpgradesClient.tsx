@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { SlideInUp } from '../components/ui/SlideInUp';
@@ -13,6 +14,7 @@ import { Text } from '../components/ui/Text';
 
 import { StatusPill } from './components/Badges';
 import { UpgradeIllustration } from './components/UpgradeIllustration';
+import { ChangelogClient } from './changelog/ChangelogClient';
 import { changes } from './data/changes';
 import { upgrades } from './data/upgrades';
 import {
@@ -24,7 +26,11 @@ import { formatLifecycleDate } from './library/format';
 import { getLifecycleState } from './library/lifecycle';
 import type { Lifecycle, LifecycleState } from './library/types';
 
-type View = 'timeline' | 'upgrade';
+type View = 'timeline' | 'upgrade' | 'changelog';
+
+function parseView(value: string | null): View {
+  return value === 'timeline' || value === 'changelog' ? value : 'upgrade';
+}
 
 const GridIcon = (
   <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -41,9 +47,16 @@ const TimelineIcon = (
   </svg>
 );
 
+const ChangelogIcon = (
+  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+  </svg>
+);
+
 const VIEW_TABS = [
   { value: 'upgrade', label: 'Grid', icon: GridIcon },
   { value: 'timeline', label: 'Timeline', icon: TimelineIcon },
+  { value: 'changelog', label: 'Changelog', icon: ChangelogIcon },
 ];
 
 const MONTH_NAMES = [
@@ -291,9 +304,20 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
 }
 
 export function UpgradesClient() {
-  const [view, setView] = useState<View>('upgrade');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const view = parseView(searchParams.get('tab'));
   const reducedMotion = useReducedMotion();
   const nowMs = Date.now();
+
+  function handleViewChange(next: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === 'upgrade') params.delete('tab');
+    else params.set('tab', next);
+
+    const query = params.toString();
+    router.replace(query ? `/upgrades?${query}` : '/upgrades', { scroll: false });
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-4 text-foreground">
@@ -301,7 +325,7 @@ export function UpgradesClient() {
         <Tabs
           items={VIEW_TABS}
           value={view}
-          onChange={(v) => setView(v as View)}
+          onChange={handleViewChange}
           ariaLabel="View mode"
         />
       </header>
@@ -309,27 +333,21 @@ export function UpgradesClient() {
       {/* `initial={false}`: the crossfade is for switching views, not for first paint —
           on mount it fades up over a just-removed skeleton, leaving the column blank. */}
       <AnimatePresence mode="wait" initial={false}>
-        {view === 'timeline' ? (
-          <motion.div
-            key="timeline"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
-          >
+        <motion.div
+          key={view}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: reducedMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
+        >
+          {view === 'timeline' ? (
             <TimelineView nowMs={nowMs} />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="upgrade"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
-          >
+          ) : view === 'changelog' ? (
+            <ChangelogClient />
+          ) : (
             <UpgradeView nowMs={nowMs} />
-          </motion.div>
-        )}
+          )}
+        </motion.div>
       </AnimatePresence>
     </div>
   );

@@ -206,12 +206,6 @@ function NavGlyph({ name }: NavGlyphProps) {
           />
         </svg>
       );
-    case 'changelog':
-      return (
-        <svg {...common} viewBox="0 0 24 24" strokeWidth={1.8} className="nav-changelog-icon">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
-        </svg>
-      );
     case 'vibenet':
       return (
         <svg {...common} viewBox="4 3 34 34" strokeWidth={2.5} className="nav-vibenet-icon">
@@ -773,7 +767,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 return (
                   <Breadcrumb
                     parentLabel="Changelog"
-                    parentHref="/upgrades/changelog"
+                    parentHref="/upgrades?tab=changelog"
                     childLabel={change?.title ?? slugMatch[1]}
                   />
                 );

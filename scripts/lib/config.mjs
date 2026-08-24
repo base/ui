@@ -115,7 +115,6 @@ export const DEFAULTS = {
     '/snapshots': 'daily',
     '/vibenet/explorer': 'daily',
     '/upgrades': 'per release',
-    '/upgrades/changelog': 'per release',
     '/vibenet/faucet': 'monthly',
   },
 

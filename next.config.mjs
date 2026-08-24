@@ -9,10 +9,15 @@ const nextConfig = {
   // were in the published sitemap and /vibenet/demos/account is linked from the
   // site-wide announcement banner, so they are permanently redirected rather
   // than left to 404 for existing links and search results.
+  //
+  // The changelog listing moved from its own page into a tab on /upgrades
+  // (grid | timeline | changelog); /upgrades/changelog/[slug] detail pages are
+  // unaffected and still live at their own route.
   async redirects() {
     return [
       { source: '/vibenet/demos', destination: '/demos', permanent: true },
       { source: '/vibenet/demos/:path*', destination: '/demos/:path*', permanent: true },
+      { source: '/upgrades/changelog', destination: '/upgrades?tab=changelog', permanent: true },
     ];
   },
 };

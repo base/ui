@@ -15,7 +15,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes: Array<{ path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] }> = [
     { path: '/', priority: 1.0, changeFrequency: 'weekly' },
     { path: '/upgrades', priority: 0.8, changeFrequency: 'weekly' },
-    { path: '/upgrades/changelog', priority: 0.7, changeFrequency: 'weekly' },
     { path: '/snapshots', priority: 0.7, changeFrequency: 'daily' },
     // TIPS and Benchmark are internal-only and never on the public
     // chain.base.org, so they are deliberately absent from this public SEO
