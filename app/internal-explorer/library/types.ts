@@ -34,6 +34,7 @@ export type {
   TransactionLookupResponse,
 } from '../../api/internal-explorer/transaction-lookup';
 export type { AuditTransactionEventRecord } from '../../api/internal-explorer/audit-events';
+export type { ShadowBlockDetail, ShadowBlockSummary, ShadowTxSummary } from '../../api/internal-explorer/shadow';
 
 import type { BundleEvent } from '../../api/internal-explorer/s3';
 import type { MeterBundleResponse, MeterBundleResult, RejectionReason } from '../../api/internal-explorer/s3';

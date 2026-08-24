@@ -5,17 +5,21 @@ import Link from 'next/link';
 import { cn } from '../../components/ui/cn';
 import type { ExplorerChain } from '../chains';
 import {
+  calculateShadowDelta,
   formatAction,
   formatAge,
   formatEth,
   formatGwei,
   formatInteger,
+  formatSignedGas,
+  formatSignedInteger,
+  formatSignedPct,
   type NumericValue,
   shortAddress,
   shortHash,
 } from '../library/explorer-format';
 import { explorerHref } from '../library/links';
-import type { BlockSummary } from '../library/types';
+import type { BlockSummary, ShadowBlockSummary } from '../library/types';
 
 export interface TransactionTableItem {
   hash: string;
@@ -43,10 +47,21 @@ function Cell({ children, className }: { children: React.ReactNode; className?: 
   return <td className={cn('px-4 py-3 text-black dark:text-white', className)}>{children}</td>;
 }
 
-export function BlockTable({ blocks, chain }: { blocks: BlockSummary[]; chain: ExplorerChain }) {
+export function BlockTable({
+  blocks,
+  chain,
+  showShadowDelta,
+  shadowBlocks,
+}: {
+  blocks: BlockSummary[];
+  chain: ExplorerChain;
+  showShadowDelta?: boolean;
+  shadowBlocks?: Record<string, ShadowBlockSummary[]>;
+}) {
+  const showDelta = Boolean(showShadowDelta);
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[680px] text-sm">
+      <table className={cn('w-full text-sm', showDelta ? 'min-w-[840px]' : 'min-w-[680px]')}>
         <thead className="border-b border-bds-gray-10 bg-bds-gray-5/60 dark:border-white/10 dark:bg-white/[0.03]">
           <tr>
             <TableHeader>Block</TableHeader>
@@ -55,28 +70,76 @@ export function BlockTable({ blocks, chain }: { blocks: BlockSummary[]; chain: E
             <TableHeader>Gas Used</TableHeader>
             <TableHeader>Gas Limit</TableHeader>
             <TableHeader>Base Fee</TableHeader>
+            {showDelta ? <TableHeader>Gas Δ</TableHeader> : null}
+            {showDelta ? <TableHeader>Tx Δ</TableHeader> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-bds-gray-10 dark:divide-white/10">
-          {blocks.map((block) => (
-            <tr key={block.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
-              <Cell>
-                <Link href={explorerHref(`/block/${block.number}`, chain)} className={cn('font-medium', linkClass)}>
-                  #{formatInteger(block.number)}
-                </Link>
-                <div className="mt-0.5 font-mono text-xs text-bds-gray-50 dark:text-bds-gray-40">
-                  {shortHash(block.hash)}
-                </div>
-              </Cell>
-              <Cell className="whitespace-nowrap text-bds-gray-60 dark:text-bds-gray-40">
-                {formatAge(block.timestamp)}
-              </Cell>
-              <Cell>{formatInteger(block.transactionCount)}</Cell>
-              <Cell className="whitespace-nowrap">{formatInteger(block.gasUsed)}</Cell>
-              <Cell className="whitespace-nowrap">{formatInteger(block.gasLimit)}</Cell>
-              <Cell className="whitespace-nowrap">{formatGwei(block.baseFeePerGas)}</Cell>
-            </tr>
-          ))}
+          {blocks.map((block) => {
+            const shadowBlock = shadowBlocks?.[block.hash.toLowerCase()]?.[0];
+            const delta = shadowBlock
+              ? calculateShadowDelta(block.gasUsed, block.transactionCount, shadowBlock)
+              : null;
+            const gasDiffPct = delta?.gasDiffPct;
+            const gasDiffAbs = delta?.gasDiffAbs;
+            const txDiffAbs = delta?.txDiffAbs;
+            const txDiffPct = delta?.txDiffPct;
+            const hasGasDelta = gasDiffAbs !== undefined;
+            const gasDeltaClass =
+              gasDiffPct !== undefined && Math.abs(gasDiffPct) > 50
+                ? 'text-bds-red-70 dark:text-bds-red-20'
+                : 'text-black dark:text-white';
+            const gasDeltaText =
+              gasDiffAbs !== undefined
+                ? `${gasDiffPct !== undefined ? `${formatSignedPct(gasDiffPct)} ` : ''}(${formatSignedGas(
+                    gasDiffAbs,
+                  )})`
+                : '—';
+            const txDeltaText =
+              txDiffAbs !== undefined
+                ? `${txDiffPct !== undefined ? `${formatSignedPct(txDiffPct)} ` : ''}(${formatSignedInteger(
+                    txDiffAbs,
+                  )})`
+                : '—';
+
+            return (
+              <tr key={block.hash} className="hover:bg-bds-gray-5/60 dark:hover:bg-white/5">
+                <Cell>
+                  <Link href={explorerHref(`/block/${block.number}`, chain)} className={cn('font-medium', linkClass)}>
+                    #{formatInteger(block.number)}
+                  </Link>
+                  <div className="mt-0.5 font-mono text-xs text-bds-gray-50 dark:text-bds-gray-40">
+                    {shortHash(block.hash)}
+                  </div>
+                </Cell>
+                <Cell className="whitespace-nowrap text-bds-gray-60 dark:text-bds-gray-40">
+                  {formatAge(block.timestamp)}
+                </Cell>
+                <Cell>{formatInteger(block.transactionCount)}</Cell>
+                <Cell className="whitespace-nowrap">{formatInteger(block.gasUsed)}</Cell>
+                <Cell className="whitespace-nowrap">{formatInteger(block.gasLimit)}</Cell>
+                <Cell className="whitespace-nowrap">{formatGwei(block.baseFeePerGas)}</Cell>
+                {showDelta ? (
+                  <Cell className="whitespace-nowrap">
+                    {hasGasDelta ? (
+                      <span className={cn('font-medium', gasDeltaClass)}>{gasDeltaText}</span>
+                    ) : (
+                      <span className="text-bds-gray-50 dark:text-bds-gray-40">—</span>
+                    )}
+                  </Cell>
+                ) : null}
+                {showDelta ? (
+                  <Cell className="whitespace-nowrap">
+                    {txDiffAbs !== undefined ? (
+                      <span>{txDeltaText}</span>
+                    ) : (
+                      <span className="text-bds-gray-50 dark:text-bds-gray-40">—</span>
+                    )}
+                  </Cell>
+                ) : null}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

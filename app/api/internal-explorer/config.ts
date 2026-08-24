@@ -83,6 +83,10 @@ export function getAuditRpcUrl(chain: ExplorerChain): string | undefined {
   return envValue([`TIPS_${ENV_PREFIX[chain]}_AUDIT_RPC_URL`]);
 }
 
+export function getShadowMetricsUrl(chain: ExplorerChain): string | undefined {
+  return envValue([`TIPS_${ENV_PREFIX[chain]}_SHADOW_METRICS_URL`]);
+}
+
 export function isAuditConfigured(chain: ExplorerChain): boolean {
   return Boolean(getAuditRpcUrl(chain));
 }
