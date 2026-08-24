@@ -13,8 +13,7 @@
 
 ## Network state
 - [Base Chain](https://chain.base.org/): Dashboards and tools for Base Chain, in one place.
-- [Upgrades · Base Chain](https://chain.base.org/upgrades): Track Base network upgrades and their activation status across Base Sepolia and Mainnet. (changes per release; re-fetch before relying on it)
-- [Changelog · Base Upgrades](https://chain.base.org/upgrades/changelog): Search and filter Base protocol changes across upgrades and Vibenet testing. (changes per release; re-fetch before relying on it)
+- [Upgrades · Base Chain](https://chain.base.org/upgrades): Track Base network upgrades and search protocol changes across Base Sepolia and Mainnet. (changes per release; re-fetch before relying on it)
 - [Snapshots · Base Chain](https://chain.base.org/snapshots): Download the latest Base node snapshots for Mainnet and Base Sepolia to sync a node quickly. (changes daily; re-fetch before relying on it)
 
 ## Vibenet developer network
