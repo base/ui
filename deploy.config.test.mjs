@@ -32,11 +32,13 @@ describe('deploy.config', () => {
 
     it('reports the disabled route + api prefixes and subtree globs', async () => {
       const c = await loadWithTarget('external');
-      expect(c.disabledRoutePrefixes()).toEqual(['/tips', '/benchmark']);
+      expect(c.disabledRoutePrefixes()).toEqual(['/internal-explorer', '/tips', '/benchmark']);
       // Benchmark contributes no api prefix: it calls the report API directly
       // from the browser rather than through a route handler in this app.
-      expect(c.disabledApiPrefixes()).toEqual(['/api/tips']);
+      expect(c.disabledApiPrefixes()).toEqual(['/api/internal-explorer', '/api/tips']);
       expect(c.disabledRouteGlobs()).toEqual([
+        '/internal-explorer',
+        '/internal-explorer/**',
         '/tips',
         '/tips/**',
         '/benchmark',

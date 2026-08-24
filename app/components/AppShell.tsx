@@ -251,7 +251,7 @@ function NavGlyph({ name }: NavGlyphProps) {
       );
     case 'tips':
       return (
-        <svg {...common} className="nav-tips-icon">
+        <svg {...common} className="nav-internal-explorer-icon">
           <path d="M4 19h4v2H4zM10 15h4v6h-4zM16 9h4v12h-4z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );

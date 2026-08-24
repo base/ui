@@ -84,7 +84,7 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackB20WalletConnection(status)` | `app/demos/b20/B20Demo.tsx` — injected wallet connection |
    | `trackB20Action(module, action, status)` | `app/demos/b20/B20Demo.tsx` — B20 broadcasts |
    | `trackB20PromptCopy(module, prompt)` | `app/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
-   | `trackTipsChainSelect(chain)` | `app/tips/components/ChainToggle.tsx` — chain toggle |
+   | `trackTipsChainSelect(chain)` | `app/internal-explorer/components/ChainToggle.tsx` — chain toggle |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.
@@ -107,10 +107,10 @@ absent from the map ships everywhere — the map is an exception list, so **an
 internal-only page with no entry will fail open and publish**. A disabled surface
 is *unreachable* in that build (routes + API 404, dropped from nav/sitemap/llms);
 its client chunks may still be emitted, so treat this as a reachability
-guarantee, not secrecy. **TIPS** and **Benchmark** are internal-only today, and
-the `public-build-excludes-internal` CI job enforces their absence from the
-public build — extend that job's path list when you add another internal-only
-surface.
+guarantee, not secrecy. **Internal Explorer** (`/internal-explorer`) and
+**Benchmark** are internal-only today, and the `public-build-excludes-internal`
+CI job enforces their absence from the public build — extend that job's path
+list when you add another internal-only surface.
 
 When you add or change an environment-specific section:
 
@@ -118,8 +118,8 @@ When you add or change an environment-specific section:
    routes (`disabledRoutePrefixes()`) and drops it from the generated
    llms/agents artifacts (`llms.config.mjs` uses `disabledRouteGlobs()`).
 2. Gate the per-section surfaces that aren't automatic: the nav entry
-   (`app/tips/flag.ts` → `app/navigation.ts`), a layout `notFound()` backstop,
-   and the API routes (`app/api/tips/guard.ts` pattern). Use `surfaceEnabled(...)`.
+   (`app/internal-explorer/flag.ts` → `app/navigation.ts`), a layout `notFound()` backstop,
+   and the API routes (`app/api/internal-explorer/guard.ts` pattern). Use `surfaceEnabled(...)`.
    A section with no API routes of its own needs no guard and no `apiPrefixes`
    entry — Benchmark is the example: its browser code calls the report API
    directly via `NEXT_PUBLIC_BENCHMARK_API_BASE_URL`.

@@ -12,18 +12,18 @@ internal Nx template so it builds and ships with the standard Next toolchain.
 npm install
 cp .env.example .env.local   # fill in values as needed
 npm run dev                  # http://localhost:3000  (external — public site)
-npm run dev:internal         # http://localhost:3000  (internal — includes TIPS)
+npm run dev:internal         # http://localhost:3000  (internal — includes Internal Explorer)
 ```
 
 `npm run dev` runs the **external** build (what ships to Vercel); internal-only
-sections like TIPS are absent (their routes/API 404). Use `npm run dev:internal`
+sections like Internal Explorer are absent (their routes/API 404). Use `npm run dev:internal`
 to run the **internal** build locally with those sections visible. See
 [Deployment targets](#deployment-targets).
 
 ## Scripts
 
 - `npm run dev` — dev server (external target)
-- `npm run dev:internal` — dev server with internal-only sections (e.g. TIPS)
+- `npm run dev:internal` — dev server with internal-only sections (e.g. Internal Explorer)
 - `npm run build` — production build (external target)
 - `npm run build:internal` — production build with internal-only sections
 - `npm run start` — serve the production build
@@ -101,8 +101,8 @@ map). The scripts set `NEXT_PUBLIC_DEPLOY_TARGET`. A section not included in a
 target is **unreachable** there: its routes and API return 404, and it's dropped
 from the nav, sitemap, and llms files. (Its client chunks may still be built —
 this repo is public, so the guarantee is unreachability, not omission from the
-bundle.) **TIPS** is internal-only today, and CI enforces its absence from the
-public build.
+bundle.) **Internal Explorer** (`/internal-explorer`) is internal-only today,
+and CI enforces its absence from the public build.
 
 To run the other variant locally you can either use the `*:internal` scripts or
 set `NEXT_PUBLIC_DEPLOY_TARGET` in `.env.local` to pin a default. The scripts take
