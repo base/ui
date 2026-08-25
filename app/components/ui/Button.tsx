@@ -41,9 +41,9 @@ export function Button({
   if (size === 'sm') {
     sizeClasses = 'h-[34px] px-3 gap-1 pb-px';
   } else if (arrow) {
-    sizeClasses = 'h-12 pl-5 pr-4 gap-1';
+    sizeClasses = 'h-10 pl-4 pr-3 gap-1';
   } else {
-    sizeClasses = 'h-12 pl-5 pr-5 gap-3';
+    sizeClasses = 'h-10 px-4 gap-2';
   }
 
   const classes = cn(

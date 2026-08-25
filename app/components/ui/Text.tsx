@@ -54,7 +54,7 @@ export const textVariantClasses: Record<TextVariant, string> = {
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-mono font-[400] tracking-[0px]',
   caption:
     'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[500] tracking-[0px] uppercase',
-  button: 'text-[15px] md:text-[16px] leading-[140%] font-base font-[400] tracking-[-0.01em]',
+  button: 'text-[14px] md:text-[15px] leading-[20px] font-base font-[400] tracking-[-0.01em]',
   footnote: 'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[400] tracking-[0px]',
 };
 
