@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
 
 import { trackB20PromptCopy } from '../../../../analytics/events';
-import { CheckIcon, ClipboardIcon } from '../../../../components/ui/icons';
+import { CHECK_MORPH_ICON, CLIPBOARD_MORPH_ICON } from '../../../../components/ui/icons';
 import { cn } from '../../../../components/ui/cn';
 import type { B20Prompt } from '../lib/prompts';
 
@@ -50,11 +51,12 @@ export function CopyPromptButton({ prompt, module, className }: CopyPromptButton
         className,
       )}
     >
-      {copied ? (
-        <CheckIcon size={14} className="text-bds-green-60" />
-      ) : (
-        <ClipboardIcon size={14} />
-      )}
+      <MorphIcon
+        icon={copied ? CHECK_MORPH_ICON : CLIPBOARD_MORPH_ICON}
+        size={14}
+        strokeWidth={2}
+        className={copied ? 'text-bds-green-60' : undefined}
+      />
       {copied ? 'Copied' : 'Copy developer instructions'}
     </button>
   );

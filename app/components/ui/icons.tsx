@@ -93,6 +93,13 @@ export function ClipboardIcon({ size = 16, className }: { size?: number; classNa
   );
 }
 
+// Raw path data (24x24 grid, matching ClipboardIcon/CheckIcon below) for
+// morphicons' <MorphIcon>, which morphs between two icons on state change
+// instead of an instant swap.
+export const CLIPBOARD_MORPH_ICON =
+  'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z';
+export const CHECK_MORPH_ICON = 'M5 13l4 4L19 7';
+
 export function CheckIcon({ size = 16, className }: { size?: number; className?: string }) {
   return (
     <svg
