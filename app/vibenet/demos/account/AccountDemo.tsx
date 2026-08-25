@@ -30,7 +30,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '../../../components/ui/Button';
-import { Card } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
 import { CloseIcon } from '../../../components/ui/icons';
 import { Modal } from '../../../components/ui/Modal';
@@ -48,6 +47,7 @@ import { AccountSwitcher } from '../_shared/AccountSwitcher';
 import { AddressAutocomplete, type AddressBookEntry } from '../_shared/AddressAutocomplete';
 import { ActivityLog } from './components/ActivityLog';
 import { AppCard, AppCardPlaceholder, AppsNetworkNotice } from './components/AppsView';
+import { FeatureGridCard, FeatureGridPlaceholder } from './components/FeatureGridCard';
 import { Badge, CheckIcon, KindBadge } from '../_shared/primitives';
 import { DEMO_APPS, type DemoApp } from './library/apps';
 import { DEMO_CHAINS, estimateTxGas, PAYER_URL } from './library/chains';
@@ -241,6 +241,7 @@ export function AccountDemo() {
     extraChanges: string[] = [],
   ) => {
     setResult({ serialized, txHash, by: by.label, kind: by.kind, pending, gasNote });
+    toast.success(pending ? 'Submitted — awaiting confirmation' : 'Transaction landed onchain');
     pushActivity({
       kind: a.deployed && !pending ? 'transact' : 'create',
       txHash,
@@ -278,16 +279,21 @@ export function AccountDemo() {
           ...pendingScope.map((o) => `scope ${o.label} → ${scopeLabel(o.toScope)}`),
         ];
 
+  const surfaceSendError = (message: string) => {
+    setError(message);
+    toast.error(message);
+  };
+
   // Transact: native offline sign, own ETH gas.
   const doSignNative = async () => {
     if (!acct || !txSigner || !callsValid) return;
     const sessionPolicy = activeSessionKey?.policy;
     if (txIsSession && gasMode !== 'free') {
-      setError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
+      surfaceSendError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
       return;
     }
     if (txIsSession && !acct.deployed && !activeSessionKey?.pendingAuth) {
-      setError('Authorize this session key with an owner key first (Apply now).');
+      surfaceSendError('Authorize this session key with an owner key first (Apply now).');
       return;
     }
     setSigning(true);
@@ -335,7 +341,7 @@ export function AccountDemo() {
     } catch (err) {
       if (handleSeqMismatch(err, seqCtx)) return false;
       const e = err as { message?: string; name?: string };
-      setError(conciseError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err))));
+      surfaceSendError(conciseError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err))));
       return false;
     } finally {
       setSigning(false);
@@ -352,11 +358,11 @@ export function AccountDemo() {
     if (!acct || !txSigner || !callsValid) return;
     const sessionPolicy = activeSessionKey?.policy;
     if (txIsSession && gasMode !== 'free') {
-      setError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
+      surfaceSendError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
       return;
     }
     if (txIsSession && !acct.deployed && !activeSessionKey?.pendingAuth) {
-      setError('Authorize this session key with an owner key first (Apply now).');
+      surfaceSendError('Authorize this session key with an owner key first (Apply now).');
       return;
     }
     setSigning(true);
@@ -453,7 +459,7 @@ export function AccountDemo() {
       if (handleSeqMismatch(err, seqCtx)) return false;
       const e = err as { message?: string; name?: string };
       const msg = e.message ?? String(err);
-      setError(
+      surfaceSendError(
         conciseError(
           e.name === 'NotAllowedError'
             ? 'Signature was dismissed.'
@@ -700,7 +706,9 @@ export function AccountDemo() {
           {FEATURES.map((feature) => (
             <FeatureCard key={feature.id} feature={feature} />
           ))}
-          <Text variant="headline">Features</Text>
+          <Text variant="headline" className="mt-5 -mb-5">
+            Features
+          </Text>
 
           {/* Transact + the app cards, as peers in one grid. `initial={false}`:
               the crossfade is for switching accounts, not first paint. */}
@@ -722,7 +730,7 @@ export function AccountDemo() {
             </motion.div>
           </AnimatePresence>
 
-          {error && !estimateBlocked ? (
+          {error && !estimateBlocked && !transactModalOpen ? (
             <div
               role="alert"
               className="flex items-start justify-between gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
@@ -855,40 +863,32 @@ export function AccountDemo() {
 
   function renderTransact() {
     if (!acct) return (
-      <Card className="flex flex-col items-center gap-3 bg-background px-6 py-12 text-center dark:bg-white/5">
-        <Text variant="headline">Advanced Transactions</Text>
-        <Text variant="label.regular" tone="muted">Create and select an account to transact.</Text>
-      </Card>
+      <FeatureGridPlaceholder
+        title="Advanced Transactions"
+        message="Create and select an account to transact."
+      />
     );
     return (
       <>
-        <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 dark:border-white/10"
-              aria-hidden="true"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M2 10L18 2L10 18L8 11L2 10Z"
-                  stroke="black"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <span className="min-w-0 flex-1 truncate text-[15px] font-normal">Advanced Transactions</span>
-          </div>
-          <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-            Compose and send EIP-8130 transactions from your account.
-          </p>
-          <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-bds-gray-10 pt-3 dark:border-white/10">
-            <Button size="sm" onClick={() => openTransactModal()} className="ml-auto">
-              Create Transaction
-            </Button>
-          </div>
-        </Card>
+        <FeatureGridCard
+          icon={
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M2 10L18 2L10 18L8 11L2 10Z"
+                stroke="black"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          }
+          title="Advanced Transactions"
+          description="Compose and send EIP-8130 transactions from your account."
+        >
+          <Button size="sm" onClick={() => openTransactModal()}>
+            Create Transaction
+          </Button>
+        </FeatureGridCard>
 
         <Modal
           open={transactModalOpen}
@@ -1139,165 +1139,137 @@ export function AccountDemo() {
   }
 
   function renderSponsorship() {
-    if (!acct) return (
-      <Card className="flex flex-col items-center gap-3 bg-background px-6 py-12 text-center dark:bg-white/5">
-        <Text variant="headline">Sponsorship</Text>
-        <Text variant="label.regular" tone="muted">Create and select an account to send a sponsored transaction.</Text>
-      </Card>
-    );
+    if (!acct) {
+      return (
+        <FeatureGridPlaceholder
+          title="Sponsorship"
+          message="Create and select an account to send a sponsored transaction."
+        />
+      );
+    }
     return (
-      <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
-        <div className="flex items-center gap-3">
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 dark:border-white/10"
-            aria-hidden="true"
-          >
-            <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M9 1L17 4V9C17 14 13.5 17.5 9 19C4.5 17.5 1 14 1 9V4L9 1Z"
-                stroke="black"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-              <path d="M6 9.5L8 11.5L12 7" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-normal">Sponsorship</span>
-        </div>
-        <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-          Send a transaction with its gas paid by a payer — no ETH required in your account.
-        </p>
-        <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-bds-gray-10 pt-3 dark:border-white/10">
-          <Button
-            size="sm"
-            onClick={() =>
-              openTransactModal({
-                calls: [newCallRow({ to: acct.address, value: '0', data: '0x' })],
-                gasMode: 'free',
-                metadata: 'Sponsored transaction',
-              })
-            }
-            className="ml-auto"
-          >
-            Send Transaction
-          </Button>
-        </div>
-      </Card>
+      <FeatureGridCard
+        icon={
+          <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M9 1L17 4V9C17 14 13.5 17.5 9 19C4.5 17.5 1 14 1 9V4L9 1Z"
+              stroke="black"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+            <path d="M6 9.5L8 11.5L12 7" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        }
+        title="Sponsorship"
+        description="Send a transaction with its gas paid by a payer — no ETH required in your account."
+      >
+        <Button
+          size="sm"
+          onClick={() =>
+            openTransactModal({
+              calls: [newCallRow({ to: acct.address, value: '0', data: '0x' })],
+              gasMode: 'free',
+              metadata: 'Sponsored transaction',
+            })
+          }
+        >
+          Send Transaction
+        </Button>
+      </FeatureGridCard>
     );
   }
 
   function renderOwners() {
-    if (!acct) return (
-      <Card className="flex flex-col items-center gap-3 bg-background px-6 py-12 text-center dark:bg-white/5">
-        <Text variant="headline">Modify Owners</Text>
-        <Text variant="label.regular" tone="muted">Create and select an account to manage owners.</Text>
-      </Card>
-    );
+    if (!acct) {
+      return (
+        <FeatureGridPlaceholder
+          title="Modify Owners"
+          message="Create and select an account to manage owners."
+        />
+      );
+    }
     return (
-      <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
-        <div className="flex items-center gap-3">
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 dark:border-white/10"
-            aria-hidden="true"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="6" cy="6" r="4" stroke="black" strokeWidth="1.6" />
-              <path
-                d="M9 9L18 18M14 14L17 11M16 16L18.5 13.5"
-                stroke="black"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-normal">Modify Owners</span>
-        </div>
-        <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-          Add or revoke owner keys and rotate signers — swap keys anytime without ever migrating
-          accounts.
-        </p>
-        <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-bds-gray-10 pt-3 dark:border-white/10">
-          <Button size="sm" onClick={openOwnersManager} className="ml-auto">
-            Manage Owners
-          </Button>
-        </div>
-      </Card>
+      <FeatureGridCard
+        icon={
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="6" cy="6" r="4" stroke="black" strokeWidth="1.6" />
+            <path
+              d="M9 9L18 18M14 14L17 11M16 16L18.5 13.5"
+              stroke="black"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        }
+        title="Modify Owners"
+        description="Add or revoke owner keys and rotate signers — swap keys anytime without ever migrating accounts."
+      >
+        <Button size="sm" onClick={openOwnersManager}>
+          Manage Owners
+        </Button>
+      </FeatureGridCard>
     );
   }
 
   function renderBatchedCalls() {
-    if (!acct) return (
-      <Card className="flex flex-col items-center gap-3 bg-background px-6 py-12 text-center dark:bg-white/5">
-        <Text variant="headline">Batched Calls</Text>
-        <Text variant="label.regular" tone="muted">Create and select an account to send a batched transaction.</Text>
-      </Card>
-    );
+    if (!acct) {
+      return (
+        <FeatureGridPlaceholder
+          title="Batched Calls"
+          message="Create and select an account to send a batched transaction."
+        />
+      );
+    }
     return (
-      <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
-        <div className="flex items-center gap-3">
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 dark:border-white/10"
-            aria-hidden="true"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 2L18 6L10 10L2 6L10 2Z" stroke="black" strokeWidth="1.6" strokeLinejoin="round" />
-              <path d="M2 10L10 14L18 10" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M2 14L10 18L18 14" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-normal">Batched Calls</span>
-        </div>
-        <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-          Send multiple actions in one transaction — e.g. approve and swap — so they either all land
-          together or none do.
-        </p>
-        <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-bds-gray-10 pt-3 dark:border-white/10">
-          <Button size="sm" onClick={sendBatchedCallsDemo} className="ml-auto">
-            Send Transaction
-          </Button>
-        </div>
-      </Card>
+      <FeatureGridCard
+        icon={
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2L18 6L10 10L2 6L10 2Z" stroke="black" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M2 10L10 14L18 10" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 14L10 18L18 14" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        }
+        title="Batched Calls"
+        description="Send multiple actions in one transaction — e.g. approve and swap — so they either all land together or none do."
+      >
+        <Button size="sm" onClick={sendBatchedCallsDemo}>
+          Send Transaction
+        </Button>
+      </FeatureGridCard>
     );
   }
 
   function renderGasToken() {
-    if (!acct) return (
-      <Card className="flex flex-col items-center gap-3 bg-background px-6 py-12 text-center dark:bg-white/5">
-        <Text variant="headline">Pay Gas in Any Token</Text>
-        <Text variant="label.regular" tone="muted">Create and select an account to pay gas in a token.</Text>
-      </Card>
-    );
+    if (!acct) {
+      return (
+        <FeatureGridPlaceholder
+          title="Pay Gas in Any Token"
+          message="Create and select an account to pay gas in a token."
+        />
+      );
+    }
     return (
-      <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
-        <div className="flex items-center gap-3">
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 dark:border-white/10"
-            aria-hidden="true"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="10" cy="10" r="8" stroke="black" strokeWidth="1.6" />
-              <path
-                d="M10 5.5V14.5M12.2 7.6C12.2 6.7 11.2 6 10 6C8.8 6 7.8 6.7 7.8 7.6C7.8 8.4 8.8 9 10 9C11.2 9 12.2 9.6 12.2 10.5C12.2 11.3 11.2 12 10 12C8.8 12 7.8 11.3 7.8 10.4"
-                stroke="black"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-normal">Pay Gas in Any Token</span>
-        </div>
-        <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-          Pay gas with any supported token including stablecoins — settle a batched transaction&apos;s
-          fees in USDV with no ETH in your account.
-        </p>
-        <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-bds-gray-10 pt-3 dark:border-white/10">
-          <Button size="sm" onClick={sendGasTokenDemo} className="ml-auto">
-            Send Transaction
-          </Button>
-        </div>
-      </Card>
+      <FeatureGridCard
+        icon={
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="10" cy="10" r="8" stroke="black" strokeWidth="1.6" />
+            <path
+              d="M10 5.5V14.5M12.2 7.6C12.2 6.7 11.2 6 10 6C8.8 6 7.8 6.7 7.8 7.6C7.8 8.4 8.8 9 10 9C11.2 9 12.2 9.6 12.2 10.5C12.2 11.3 11.2 12 10 12C8.8 12 7.8 11.3 7.8 10.4"
+              stroke="black"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        }
+        title="Pay Gas in Any Token"
+        description="Pay gas with any supported token including stablecoins — settle a batched transaction's fees in USDV with no ETH in your account."
+      >
+        <Button size="sm" onClick={sendGasTokenDemo}>
+          Send Transaction
+        </Button>
+      </FeatureGridCard>
     );
   }
 }
@@ -1745,9 +1717,8 @@ type SubmittedResult = {
 } | null;
 
 // Third stage of the Transact modal: shown once "Send" is pressed. Renders the
-// in-flight signing/broadcast status, then whichever of success or error the
-// send actually resolved to — this is the single place a sent transaction's
-// outcome is surfaced (no toasts).
+// in-flight signing/broadcast status, then success or error. Outcomes also
+// fire a sonner toast so the result is visible if the modal is dismissed.
 function SubmittedBody({
   signing,
   submitStatus,
