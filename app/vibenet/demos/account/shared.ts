@@ -32,6 +32,13 @@ export type Persisted = {
   genesisHash?: string;
 };
 
+/**
+ * Top-level choice in the create-account modal's "Account Type" selector.
+ * `default`/`passkey` are one-click flows (auto-pick or mint a key); `advanced`
+ * exposes the full smart-vs-EOA + keys + salt controls.
+ */
+export type CreateMode = 'default' | 'passkey' | 'advanced';
+
 export const KIND_LABEL: Record<SignerKind, string> = {
   k1: 'K1',
   p256: 'P-256',
