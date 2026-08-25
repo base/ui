@@ -5033,7 +5033,7 @@ function hexToBytes2(hex) {
     const n1 = asciiToBase16(hex.charCodeAt(hi));
     const n2 = asciiToBase16(hex.charCodeAt(hi + 1));
     if (n1 === undefined || n2 === undefined) {
-      const char = hex[hi] + hex[hi + 1];
+      const char = hex.substring(hi, hi + 2);
       throw new Error('hex string expected, got non-hex character "' + char + '" at index ' + hi);
     }
     array[ai] = n1 * 16 + n2;
@@ -12225,8 +12225,10 @@ function uid(length = 11) {
   if (!buffer || index + length > size4 * 2) {
     buffer = "";
     index = 0;
+    const bytes4 = new Uint8Array(size4);
+    globalThis.crypto.getRandomValues(bytes4);
     for (let i = 0;i < size4; i++) {
-      buffer += (256 + Math.random() * 256 | 0).toString(16).substring(1);
+      buffer += (256 + bytes4[i]).toString(16).substring(1);
     }
   }
   return buffer.substring(index, index++ + length);
