@@ -1,4 +1,5 @@
-import { resolveExplorerChain, type ExplorerChain } from '../../../internal-explorer/chains';
+import type { ExplorerChain } from '../../../internal-explorer/chains';
+import { resolveExplorerChainFromRequest } from '../chain';
 import {
   getAuditRejectedTransactionEvents,
   rejectedTransactionFromAuditEvent,
@@ -17,7 +18,7 @@ export interface RejectedTransactionsResponse {
 export async function GET(request: Request) {
   const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChainFromRequest(request);
 
   try {
     // Audit-first, S3 fallback: use the S3 archive only when audit is not

@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { getExplorerHosts } from '../api/internal-explorer/config';
+
 import { EXPLORER_ENABLED, EXPLORER_LABEL } from './flag';
+import { originFromHostHeader } from './hosts';
+import { ExplorerHostsProvider } from './library/ExplorerHostsProvider';
 
 // Metadata for Internal Explorer. The app-wide chrome (sidebar, header)
 // comes from AppShell; this layout just constrains the content column, matching
@@ -13,10 +18,21 @@ export const metadata: Metadata = {
     'Inspect blocks, bundles, transactions, and rejected transactions across Base chains.',
 };
 
-export default function ExplorerLayout({ children }: { children: ReactNode }) {
+export default async function ExplorerLayout({ children }: { children: ReactNode }) {
   // Server guard: 404 the whole /internal-explorer subtree on a direct visit
   // when Internal Explorer is disabled. With the flag off this branch is a
   // compile-time constant, so the section is unreachable in the public build.
   if (!EXPLORER_ENABLED) notFound();
-  return <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">{children}</div>;
+
+  const headerList = await headers();
+  const origin = originFromHostHeader(
+    headerList.get('host'),
+    headerList.get('x-forwarded-host'),
+  );
+
+  return (
+    <ExplorerHostsProvider hosts={getExplorerHosts()} origin={origin}>
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">{children}</div>
+    </ExplorerHostsProvider>
+  );
 }

@@ -4,6 +4,7 @@
 import { S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
 
 import type { ExplorerChain } from '../../internal-explorer/chains';
+import type { ExplorerHostMap } from '../../internal-explorer/hosts';
 
 // Env var infix for each chain: TIPS_MAINNET_*, TIPS_SEPOLIA_*, TIPS_ZERONET_*.
 const ENV_PREFIX: Record<ExplorerChain, string> = {
@@ -89,4 +90,22 @@ export function getShadowMetricsUrl(chain: ExplorerChain): string | undefined {
 
 export function isAuditConfigured(chain: ExplorerChain): boolean {
   return Boolean(getAuditRpcUrl(chain));
+}
+
+// Public origin that serves observability for a chain. Unset locally so the
+// client stays on the current origin with no host-switch prompt. Set at runtime
+// (not NEXT_PUBLIC_*) so the same image can default zeronet on aws-dev and
+// mainnet on aws prod. Helm: BASE_UI_<CHAIN>_HOST.
+export function getExplorerHost(chain: ExplorerChain): string | undefined {
+  const value = envValue([`BASE_UI_${ENV_PREFIX[chain]}_HOST`])?.trim();
+  return value || undefined;
+}
+
+export function getExplorerHosts(): ExplorerHostMap {
+  const hosts: ExplorerHostMap = {};
+  for (const chain of ['mainnet', 'sepolia', 'zeronet'] as const) {
+    const host = getExplorerHost(chain);
+    if (host) hosts[chain] = host;
+  }
+  return hosts;
 }

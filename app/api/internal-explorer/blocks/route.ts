@@ -1,4 +1,4 @@
-import { resolveExplorerChain } from '../../../internal-explorer/chains';
+import { resolveExplorerChainFromRequest } from '../chain';
 import {
   BlockListUnavailableError,
   InvalidBlockListQueryError,
@@ -17,7 +17,7 @@ export type { BlockSummary, BlocksPage, BlocksResponse } from '../block-list';
 export async function GET(request: Request) {
   const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChainFromRequest(request);
 
   try {
     const query = parseBlockListQuery(new URL(request.url).searchParams);

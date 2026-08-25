@@ -1,4 +1,4 @@
-import { resolveExplorerChain } from '../../../internal-explorer/chains';
+import { resolveExplorerChainFromRequest } from '../chain';
 import { getShadowMetricsUrl } from '../config';
 import { explorerDisabledResponse } from '../guard';
 import { fetchShadowCandidatesBatch } from '../shadow';
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   if (disabled) return disabled;
 
   const url = new URL(request.url);
-  const chain = resolveExplorerChain(url.searchParams.get('chain'));
+  const chain = resolveExplorerChainFromRequest(request);
   const canonical = url.searchParams.get('canonical');
   if (!canonical) {
     return Response.json({ error: 'Missing canonical hashes' }, { status: 400 });

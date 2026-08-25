@@ -1,4 +1,4 @@
-import { resolveExplorerChain } from '../../../../internal-explorer/chains';
+import { resolveExplorerChainFromRequest } from '../../chain';
 import { getShadowMetricsUrl } from '../../config';
 import { explorerDisabledResponse } from '../../guard';
 import {
@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
   if (disabled) return disabled;
 
   const url = new URL(request.url);
-  const chain = resolveExplorerChain(url.searchParams.get('chain'));
+  const chain = resolveExplorerChainFromRequest(request);
   const baseUrl = getShadowMetricsUrl(chain);
   if (!baseUrl) {
     return Response.json({ error: 'Shadow metrics not configured' }, { status: 503 });

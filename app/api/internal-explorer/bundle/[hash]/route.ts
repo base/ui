@@ -1,6 +1,7 @@
 import { type Hash } from 'viem';
 
-import { resolveExplorerChain, type ExplorerChain } from '../../../../internal-explorer/chains';
+import { type ExplorerChain } from '../../../../internal-explorer/chains';
+import { resolveExplorerChainFromRequest } from '../../chain';
 import {
   bundleHistoryFromAuditEvents,
   getJoinedAuditEventsByBundle,
@@ -95,7 +96,7 @@ async function enrichBundleTransactionsFromRpc(
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
   const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChainFromRequest(request);
 
   try {
     const { hash } = await params;

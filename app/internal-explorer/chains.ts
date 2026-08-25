@@ -3,6 +3,8 @@
 // the URL (?chain=) and passed to /api/internal-explorer/* which resolves
 // per-chain S3 + RPC.
 
+import { defaultExplorerChainForOrigin, type ExplorerHostMap } from './hosts';
+
 export type ExplorerChain = 'mainnet' | 'sepolia' | 'zeronet';
 
 export type ExplorerChainInfo = {
@@ -39,9 +41,14 @@ export function isExplorerChain(value: string | null | undefined): value is Expl
   return value === 'mainnet' || value === 'sepolia' || value === 'zeronet';
 }
 
-/** Normalize an unknown ?chain= value to a valid chain (falls back to default). */
-export function resolveExplorerChain(value: string | null | undefined): ExplorerChain {
-  return isExplorerChain(value) ? value : DEFAULT_EXPLORER_CHAIN;
+/** Keep an explicit `?chain=`. When it is missing, default from the request origin. */
+export function resolveExplorerChain(
+  value: string | null | undefined,
+  origin?: string | null,
+  hosts?: ExplorerHostMap | null,
+): ExplorerChain {
+  if (isExplorerChain(value)) return value;
+  return defaultExplorerChainForOrigin(origin ?? '', hosts ?? {});
 }
 
 export function explorerChainInfo(chain: ExplorerChain): ExplorerChainInfo {
