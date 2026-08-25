@@ -6,12 +6,11 @@ import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Toaster } from 'sonner';
 
-import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
+import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
 import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { demoLabel } from '../vibenet/demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
-import { titleForPath } from '../navigation';
 
 import { trackNavClick } from '../analytics/events';
 import { navSlideDirection } from './nav-motion';
@@ -369,11 +368,6 @@ function opensInNewTab(event: ReactMouseEvent): boolean {
   return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
 }
 
-function isChildActive(child: NavChild, pathname: string): boolean {
-  if (child.exact) return pathname === child.href;
-  return pathname === child.href || pathname.startsWith(`${child.href}/`);
-}
-
 const slideVariants = {
   enter: (direction: number) => ({ x: direction > 0 ? '60%' : '-60%', opacity: 0 }),
   center: { x: 0, opacity: 1 },
@@ -427,8 +421,8 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
   // sub-nav slide sitting still for the whole navigation — the tap felt dead, then
   // everything moved at once.
   const [pendingPath, setPendingPath] = useState<string | null>(null);
-  const activePath = pendingPath ?? pathname;
-  const activeParent = getActiveParent(activePath);
+  const activePath = navHighlightPath(pendingPath, pathname);
+  const activeParent = navActiveParent(pendingPath, pathname);
   const directionRef = useRef(1);
   const prevParentRef = useRef<string | null>(activeParent?.href ?? null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -451,7 +445,9 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
   }, [pathname]);
 
   useEffect(() => {
-    if (!pendingPath) return;
+    // '/' is the back-header view: the route will not commit, so a timeout
+    // would snap the submenu back. Only time out real pending navigations.
+    if (!pendingPath || pendingPath === '/') return;
     const timer = setTimeout(() => setPendingPath(null), PENDING_PATH_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [pendingPath]);
@@ -465,7 +461,9 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
 
   const selectPath = (href: string) => {
     setPendingPath(href);
-    onNavigate?.();
+    // Keep the drawer open when the tap is the section root (Vibenet,
+    // Benchmark). getActiveParent already knows which hrefs have a submenu.
+    if (getActiveParent(href)?.href !== href) onNavigate?.();
   };
 
   const direction = directionRef.current;
@@ -499,7 +497,10 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                     style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: 'var(--bds-gray-50)' }}
                     onClick={(event) => {
                       if (opensInNewTab(event)) return;
-                      selectPath('/');
+                      // Stay on the current page and keep the mobile drawer
+                      // open. href="/" remains for modified clicks (new tab).
+                      event.preventDefault();
+                      setPendingPath('/');
                     }}
                   >
                     <svg
@@ -553,31 +554,19 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                   style={styles.navPane}
                 >
                   <nav style={styles.nav}>
-                    {NAV_ITEMS.filter((item) => item.icon).map((item) => {
-                      let active: boolean;
-                      if (item.href === '/') {
-                        active = activePath === '/';
-                      } else {
-                        const isMatch = activePath === item.href || activePath.startsWith(`${item.href}/`);
-                        const hasMoreSpecific = NAV_ITEMS.some(
-                          (other) => other.href !== item.href && other.href.startsWith(item.href) && (activePath === other.href || activePath.startsWith(`${other.href}/`)),
-                        );
-                        active = isMatch && !hasMoreSpecific;
-                      }
-                      return (
-                        <NavRow
-                          key={item.href}
-                          icon={item.icon}
-                          label={item.label}
-                          href={item.href}
-                          active={active}
-                          enabled={item.enabled}
-                          hasChildren={!!item.children}
-                          onNavigate={() => selectPath(item.href)}
-                          layoutScope={layoutScope}
-                        />
-                      );
-                    })}
+                    {NAV_ITEMS.filter((item) => item.icon).map((item) => (
+                      <NavRow
+                        key={item.href}
+                        icon={item.icon}
+                        label={item.label}
+                        href={item.href}
+                        active={isTopNavActive(item, activePath)}
+                        enabled={item.enabled}
+                        hasChildren={!!item.children}
+                        onNavigate={() => selectPath(item.href)}
+                        layoutScope={layoutScope}
+                      />
+                    ))}
                   </nav>
                 </motion.div>
               )}
@@ -727,10 +716,6 @@ export function AppShell({ children }: PropsWithChildren) {
   };
 
   useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     if (!menuOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
     document.addEventListener('keydown', onKey);
@@ -750,7 +735,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <GlobalBanner
         dismissed={bannerDismissed}
         onDismiss={() => setBannerDismissed(true)}
-        className="hidden md:flex"
+        className="hidden md:block"
       />
       <div style={styles.root}>
         {/* Desktop sidebar */}
@@ -762,7 +747,7 @@ export function AppShell({ children }: PropsWithChildren) {
         <header className="mobile-header">
           {/* Static on touch: the morph is hover-driven, so base.org leaves its
               mobile mark static too. */}
-          <Link href="/" aria-label="Base home" style={styles.brandLink}>
+          <Link href="/" aria-label="Base home" style={styles.brandLink} onClick={() => setMenuOpen(false)}>
             <BaseMark size={MOBILE_BRAND_MARK_SIZE} />
           </Link>
           <button
@@ -805,7 +790,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <GlobalBanner
             dismissed={bannerDismissed}
             onDismiss={() => setBannerDismissed(true)}
-            className="flex md:hidden"
+            className="block md:hidden"
           />
           <header className="topbar-desktop" style={{ ...styles.topbar, position: 'relative', zIndex: 40 }}>
             <div id="topbar-actions-slot" className="absolute right-7 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2" />

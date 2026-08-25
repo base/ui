@@ -58,21 +58,22 @@ export const NAV_ITEMS: NavItem[] = [
     : []),
 ];
 
+/** Prefix match unless `exact` or the href is `/`. */
+export function pathMatches(href: string, pathname: string, exact = false): boolean {
+  if (exact || href === '/') return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function titleForPath(pathname: string): string {
   if (pathname === '/') return 'Home';
   for (const item of NAV_ITEMS) {
     if (item.children) {
       for (const child of item.children) {
-        if (child.exact && pathname === child.href) return child.label;
-        if (!child.exact && (pathname === child.href || pathname.startsWith(`${child.href}/`))) {
-          return child.label;
-        }
+        if (pathMatches(child.href, pathname, child.exact)) return child.label;
       }
     }
   }
-  const matches = NAV_ITEMS.filter(
-    (item) => item.href !== '/' && (pathname === item.href || pathname.startsWith(`${item.href}/`)),
-  );
+  const matches = NAV_ITEMS.filter((item) => pathMatches(item.href, pathname));
   if (matches.length === 0) return '';
   matches.sort((a, b) => b.href.length - a.href.length);
   return matches[0].label;
@@ -80,6 +81,31 @@ export function titleForPath(pathname: string): string {
 
 export function getActiveParent(pathname: string): NavItem | null {
   return NAV_ITEMS.find(
-    (item) => item.children && item.enabled && (pathname === item.href || pathname.startsWith(`${item.href}/`)),
+    (item) => item.children && item.enabled && pathMatches(item.href, pathname),
   ) ?? null;
+}
+
+/**
+ * Path for the active-row pill. `pendingPath === '/'` is the back-header
+ * pane only — the page has not moved, so highlight still follows `pathname`.
+ */
+export function navHighlightPath(pendingPath: string | null, pathname: string): string {
+  return pendingPath && pendingPath !== '/' ? pendingPath : pathname;
+}
+
+/** Which sliding pane to show. Back-header (`'/'`) forces the root list. */
+export function navActiveParent(pendingPath: string | null, pathname: string): NavItem | null {
+  if (pendingPath === '/') return null;
+  return getActiveParent(pendingPath ?? pathname);
+}
+
+export function isChildActive(child: NavChild, pathname: string): boolean {
+  return pathMatches(child.href, pathname, child.exact);
+}
+
+export function isTopNavActive(item: NavItem, pathname: string): boolean {
+  if (!pathMatches(item.href, pathname)) return false;
+  return !NAV_ITEMS.some(
+    (other) => other.href !== item.href && other.href.startsWith(item.href) && pathMatches(other.href, pathname),
+  );
 }
