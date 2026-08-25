@@ -1136,6 +1136,23 @@ export function useAccountEngine() {
       ? account.delegate(a.delegate ?? chain.deployment.accounts.default)
       : (account as ReturnType<typeof toAccount>).create();
 
+  // Wait for a broadcast tx to be included and check that it — and every 8130
+  // phase in it — succeeded. Throws TxPendingError if it is still not included
+  // when the timeout runs out, a plain Error if anything reverted.
+  const awaitInclusion = async (txHash: Hex, timeout = 30_000): Promise<Hex> => {
+    try {
+      const receipt = await waitForTransactionReceipt(makeRpcClient() as never, { hash: txHash, timeout });
+      if (receipt.status === '0x0') throw new Error(`Transaction reverted onchain (${txHash}).`);
+      const phases = receipt.eip8130?.phaseStatuses ?? [];
+      const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
+      if (failedPhase !== -1) throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
+    } catch (err) {
+      if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
+      throw err;
+    }
+    return txHash;
+  };
+
   // Broadcast a signed 8130 tx and wait for inclusion. Throws TxPendingError on
   // timeout (submitted but unconfirmed), a plain Error if any phase reverts.
   const broadcast8130 = async (signedTx: Hex, onStatus?: (s: 'submitting' | 'confirming') => void): Promise<Hex> => {
@@ -1146,17 +1163,7 @@ export function useAccountEngine() {
       params: [signedTx],
     })) as Hex;
     onStatus?.('confirming');
-    try {
-      const receipt = await waitForTransactionReceipt(client as never, { hash: txHash, timeout: 30_000 });
-      if (receipt.status === '0x0') throw new Error(`Transaction reverted onchain (${txHash}).`);
-      const phases = receipt.eip8130?.phaseStatuses ?? [];
-      const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
-      if (failedPhase !== -1) throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
-    } catch (err) {
-      if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
-      throw err;
-    }
-    return txHash;
+    return awaitInclusion(txHash);
   };
 
   // Live EIP-8130 state used while preparing a transaction. This is the only
@@ -1532,25 +1539,72 @@ export function useAccountEngine() {
       if (count !== null && count > startSequence) startSequence = count;
     }
 
+    // An account's code and the actors bound to it reach every replica a moment
+    // after the transaction that wrote them lands, so a batch prepared right
+    // behind the one that deployed the account is validated against a replica
+    // that has not seen it yet and is rejected with "actor is not bound" before
+    // it is ever broadcast. Wait for the state to catch up and prepare it again.
+    // A transaction that expired without landing is definitively dropped, so
+    // that one can go straight back out. Everything else — a revert, a rejected
+    // call, a broadcast whose receipt never arrived — is real and propagates.
+    const attemptBatch = async (send: () => Promise<Hex>): Promise<Hex> => {
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          return await send();
+        } catch (error) {
+          if (attempt >= 3) throw error;
+          // Broadcast but not included in time. Give it a little longer, then
+          // ask the node whether it still holds the transaction: one it has
+          // dropped is never coming back, so the batch is signed and sent again
+          // on the same nonce. One it still holds must be left alone — a second
+          // copy would only collide with it.
+          if (error instanceof TxPendingError) {
+            const landed = await awaitInclusion(error.txHash, 15_000).catch((err) => {
+              if (err instanceof TxPendingError) return null;
+              throw err;
+            });
+            if (landed) return landed;
+            const known = await makeRpcClient()
+              .request({ method: 'eth_getTransactionByHash', params: [error.txHash] })
+              .catch(() => 'unreadable');
+            if (known !== null) throw error;
+            continue;
+          }
+          const message = error instanceof Error ? error.message : String(error);
+          const expired = /expired before landing/i.test(message);
+          if (!expired && !/actor is not bound/i.test(message)) throw error;
+          await new Promise((resolve) => setTimeout(resolve, expired ? 1_000 : 5_000));
+        }
+      }
+    };
+
     const results: { hash: Hex; serialized: Hex; mode: 'self' | 'token' }[] = [];
     const mode: 'self' | 'token' = tokenGas ? 'token' : 'self';
     for (const [index, batch] of batches.entries()) {
       onBatchStart?.(index, batches.length);
       const first = index === 0;
-      const { serialized, nextSeq } = await signComposed(
-        acct,
-        signer,
-        batch.calls.map((call) => newCallRow({ ...call, value: '0' })),
-        first ? presigned : [],
-        first ? changeSeq : null,
-        undefined,
-        undefined,
-        payerOpt,
-        { nonceSequence: startSequence + BigInt(index), assumeDeployed: !first || undefined },
-      );
-      const hash = await broadcast8130(serialized);
-      if (first) applyLandedBundle(acct, nextSeq, bundle);
-      const result = { hash, serialized, mode };
+      // Written by whichever signing attempt produced the transaction that
+      // landed — a retry re-signs, so these can't be read from the first one.
+      let landedSeq: number | null = null;
+      let landedSerialized: Hex = '0x';
+      const hash = await attemptBatch(async () => {
+        const { serialized, nextSeq } = await signComposed(
+          acct,
+          signer,
+          batch.calls.map((call) => newCallRow({ ...call, value: '0' })),
+          first ? presigned : [],
+          first ? changeSeq : null,
+          undefined,
+          undefined,
+          payerOpt,
+          { nonceSequence: startSequence + BigInt(index), assumeDeployed: !first || undefined },
+        );
+        landedSeq = nextSeq;
+        landedSerialized = serialized;
+        return broadcast8130(serialized);
+      });
+      if (first && landedSeq !== null) applyLandedBundle(acct, landedSeq, bundle);
+      const result = { hash, serialized: landedSerialized, mode };
       results.push(result);
       onBatchResult?.(index, result);
     }
