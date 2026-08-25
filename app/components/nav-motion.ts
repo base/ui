@@ -22,8 +22,9 @@ export type ScrollEdges = {
 };
 
 /**
- * Fade band size in px at each vertical edge. Matches Base UI's viewport mask:
- * `min(40px, var(--scroll-area-overflow-y-start|end))`. The CSS variables are
+ * Fade band size in px at each vertical edge. The sidebar viewport only
+ * paints the bottom band (`--scroll-area-overflow-y-end`); the start value
+ * is kept so callers can still reason about both edges. The CSS variable is
  * the pixel distance from that edge; the mask grows from 0 to 40px as you
  * scroll away, then holds. Both are 0 when content fits the viewport.
  */

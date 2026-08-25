@@ -467,21 +467,20 @@ button {
   overscroll-behavior: contain;
   scrollbar-width: none;
   background: var(--bds-gray-0);
-  /* Base UI overflow vars are the px distance from each edge. The mask band
-     grows from 0 to --fade-size as you scroll away, then holds. End fallback
-     0px so a short list does not flash a bottom fade before hydrate. */
+  /* Bottom fade only — the logo sits at the top of this scroller, so a top
+     band would wash it out. Base UI's overflow var is the px distance from
+     the end; the mask grows from 0 to --fade-size as you scroll, then holds.
+     0px fallback so a short list does not flash a fade before hydrate. */
   mask-image: linear-gradient(
     to bottom,
-    transparent 0,
-    black min(var(--fade-size), var(--scroll-area-overflow-y-start, 0px)),
+    black 0,
     black calc(100% - min(var(--fade-size), var(--scroll-area-overflow-y-end, 0px))),
     transparent 100%
   );
   mask-repeat: no-repeat;
   -webkit-mask-image: linear-gradient(
     to bottom,
-    transparent 0,
-    black min(var(--fade-size), var(--scroll-area-overflow-y-start, 0px)),
+    black 0,
     black calc(100% - min(var(--fade-size), var(--scroll-area-overflow-y-end, 0px))),
     transparent 100%
   );
@@ -546,16 +545,13 @@ button {
 }
 
 /* Extra 8px so the mark still lines up with the nav icons (row padding 10px).
-   Top inset is half of the old 64px brand row (28px mark); the other half
-   scrolls away as padding on `.sidebar-gutter-below-brand`. */
+   18px above and below the 28px mark — the old 64px brand row, now inside
+   the scroller so it rolls away with the list. */
 .sidebar-brand.sidebar-gutter {
   padding-top: 18px;
+  padding-bottom: 18px;
   padding-left: 20px;
   padding-right: 20px;
-}
-
-.sidebar-gutter-below-brand {
-  padding-top: 18px;
 }
 
 /* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below

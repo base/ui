@@ -62,21 +62,26 @@ const styles: Record<string, CSSProperties> = {
     position: 'relative',
   },
   brandLink: { display: 'inline-block', lineHeight: 0 },
-  // Slot between logo and pinned footer. Overflow hidden clips the popLayout
-  // slide; each pane inside scrolls on its own (`NavScrollArea`).
+  // Slot between the pinned footer and the top of the sidebar. Overflow hidden
+  // clips the popLayout slide; scroll lives on NavScrollArea, which wraps the
+  // logo and the sliding panes so the mark rolls away with the list.
   navSlot: {
     flex: 1,
     minHeight: 0,
     position: 'relative',
     overflow: 'hidden',
   },
-  // Fills the slot. Overflow lives on NavScrollArea inside, not on this pane,
-  // so popLayout can still slide in-flow.
+  // Sizes to its links. Height used to be 100% when each pane owned the
+  // scroller; now the scroller is outside and a stretched pane would loop
+  // against the content height.
   navPane: {
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
-    minHeight: 0,
+  },
+  // Clips the pane's horizontal slide so it never becomes overflow-x on the
+  // scroll viewport. Height is content-sized, so this does not clip vertically.
+  navSlideClip: {
+    overflow: 'hidden',
   },
   // `isolation` makes the nav a stacking context so the active-row pill (which
   // renders at z-index -1 and travels across rows while animating) paints behind
@@ -422,6 +427,8 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
   const activeParent = getActiveParent(activePath);
   const directionRef = useRef(1);
   const prevParentRef = useRef<string | null>(activeParent?.href ?? null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const paneKey = activeParent?.href ?? 'main';
 
   // Direction must update during render. An effect applies one commit late,
   // so the first click of the section back-header still slid as if going in.
@@ -445,6 +452,13 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
     return () => clearTimeout(timer);
   }, [pendingPath]);
 
+  // Shared scroller keeps one logo across pane swaps, so a leftover scrollTop
+  // from the previous list would hide it. Jump back to the top on each swap.
+  useEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (viewport) viewport.scrollTop = 0;
+  }, [paneKey]);
+
   const selectPath = (href: string) => {
     setPendingPath(href);
     onNavigate?.();
@@ -454,119 +468,118 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
 
   return (
     <>
-      {!hideBrand && (
-        <div style={styles.brand} className="sidebar-gutter sidebar-brand">
-          <AnimatedBaseLogo size={BRAND_MARK_SIZE} />
-        </div>
-      )}
-
       <div style={styles.navSlot}>
-        <AnimatePresence mode="popLayout" initial={false} custom={direction}>
-          {activeParent ? (
-            <motion.div
-              key={`sub-nav:${activeParent.href}`}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={slideTransition}
-              className="sidebar-nav-pane"
-              style={styles.navPane}
-            >
-              <NavScrollArea belowBrand={!hideBrand}>
-              <Link
-                href="/"
-                className="nav-header-hover group"
-                style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: 'var(--bds-gray-50)' }}
-                onClick={(event) => {
-                  if (opensInNewTab(event)) return;
-                  selectPath('/');
-                }}
-              >
-                <svg
-                  width={16}
-                  height={16}
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  aria-hidden="true"
-                  style={{ transform: 'scaleX(-1)', flexShrink: 0 }}
-                >
-                  <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth={1.5} />
-                  <path
-                    d="M13.5 10H0"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    strokeDasharray="13.5"
-                    strokeDashoffset="13.5"
-                    className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]"
-                  />
-                </svg>
-                <Text as="span" variant="label.medium" style={{ flex: 1, textAlign: 'center', paddingRight: 16 }}>{activeParent.label}</Text>
-              </Link>
-              <nav style={styles.nav}>
-                {activeParent.children!.map((child) => {
-                  const active = isChildActive(child, activePath);
-                  return (
-                    <NavRow
-                      key={child.href}
-                      icon={child.icon}
-                      label={child.label}
-                      href={child.href}
-                      active={active}
-                      enabled={true}
-                      onNavigate={() => selectPath(child.href)}
-                      layoutScope={`${layoutScope}-sub`}
-                    />
-                  );
-                })}
-              </nav>
-              </NavScrollArea>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="main-nav"
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={slideTransition}
-              className="sidebar-nav-pane"
-              style={styles.navPane}
-            >
-              <NavScrollArea belowBrand={!hideBrand}>
-              <nav style={styles.nav}>
-                {NAV_ITEMS.filter((item) => item.icon).map((item) => {
-                  let active: boolean;
-                  if (item.href === '/') {
-                    active = activePath === '/';
-                  } else {
-                    const isMatch = activePath === item.href || activePath.startsWith(`${item.href}/`);
-                    const hasMoreSpecific = NAV_ITEMS.some(
-                      (other) => other.href !== item.href && other.href.startsWith(item.href) && (activePath === other.href || activePath.startsWith(`${other.href}/`)),
-                    );
-                    active = isMatch && !hasMoreSpecific;
-                  }
-                  return (
-                    <NavRow
-                      key={item.href}
-                      icon={item.icon}
-                      label={item.label}
-                      href={item.href}
-                      active={active}
-                      enabled={item.enabled}
-                      hasChildren={!!item.children}
-                      onNavigate={() => selectPath(item.href)}
-                      layoutScope={layoutScope}
-                    />
-                  );
-                })}
-              </nav>
-              </NavScrollArea>
-            </motion.div>
+        <NavScrollArea viewportRef={scrollViewportRef}>
+          {!hideBrand && (
+            <div style={styles.brand} className="sidebar-gutter sidebar-brand">
+              <AnimatedBaseLogo size={BRAND_MARK_SIZE} />
+            </div>
           )}
-        </AnimatePresence>
+          <div className="sidebar-gutter" style={styles.navSlideClip}>
+            <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+              {activeParent ? (
+                <motion.div
+                  key={`sub-nav:${activeParent.href}`}
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={slideTransition}
+                  className="sidebar-nav-pane"
+                  style={styles.navPane}
+                >
+                  <Link
+                    href="/"
+                    className="nav-header-hover group"
+                    style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: 'var(--bds-gray-50)' }}
+                    onClick={(event) => {
+                      if (opensInNewTab(event)) return;
+                      selectPath('/');
+                    }}
+                  >
+                    <svg
+                      width={16}
+                      height={16}
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      aria-hidden="true"
+                      style={{ transform: 'scaleX(-1)', flexShrink: 0 }}
+                    >
+                      <path d="M7.5 4L13.5 10L7.5 16" stroke="currentColor" strokeWidth={1.5} />
+                      <path
+                        d="M13.5 10H0"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                        strokeDasharray="13.5"
+                        strokeDashoffset="13.5"
+                        className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]"
+                      />
+                    </svg>
+                    <Text as="span" variant="label.medium" style={{ flex: 1, textAlign: 'center', paddingRight: 16 }}>{activeParent.label}</Text>
+                  </Link>
+                  <nav style={styles.nav}>
+                    {activeParent.children!.map((child) => {
+                      const active = isChildActive(child, activePath);
+                      return (
+                        <NavRow
+                          key={child.href}
+                          icon={child.icon}
+                          label={child.label}
+                          href={child.href}
+                          active={active}
+                          enabled={true}
+                          onNavigate={() => selectPath(child.href)}
+                          layoutScope={`${layoutScope}-sub`}
+                        />
+                      );
+                    })}
+                  </nav>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="main-nav"
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={slideTransition}
+                  className="sidebar-nav-pane"
+                  style={styles.navPane}
+                >
+                  <nav style={styles.nav}>
+                    {NAV_ITEMS.filter((item) => item.icon).map((item) => {
+                      let active: boolean;
+                      if (item.href === '/') {
+                        active = activePath === '/';
+                      } else {
+                        const isMatch = activePath === item.href || activePath.startsWith(`${item.href}/`);
+                        const hasMoreSpecific = NAV_ITEMS.some(
+                          (other) => other.href !== item.href && other.href.startsWith(item.href) && (activePath === other.href || activePath.startsWith(`${other.href}/`)),
+                        );
+                        active = isMatch && !hasMoreSpecific;
+                      }
+                      return (
+                        <NavRow
+                          key={item.href}
+                          icon={item.icon}
+                          label={item.label}
+                          href={item.href}
+                          active={active}
+                          enabled={item.enabled}
+                          hasChildren={!!item.children}
+                          onNavigate={() => selectPath(item.href)}
+                          layoutScope={layoutScope}
+                        />
+                      );
+                    })}
+                  </nav>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </NavScrollArea>
       </div>
 
       <div style={styles.sidebarFooter} className="sidebar-gutter">
