@@ -58,14 +58,8 @@ export default async function ChangePage(props: ChangePageProps) {
             {change.title}
           </Text>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
-          {change.specUrl ? (
-            <Button href={change.specUrl} target="_blank" rel="noopener noreferrer" variant="outline" size="sm">
-              Documentation
-              <ExternalLinkIcon />
-            </Button>
-          ) : null}
-          {change.kind === 'eip' ? (
+        {change.kind === 'eip' ? (
+          <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
             <Button
               href={change.upstreamUrl}
               target="_blank"
@@ -76,8 +70,8 @@ export default async function ChangePage(props: ChangePageProps) {
               Upstream EIP
               <ExternalLinkIcon />
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </header>
       <ChangeDetailClient change={change} />
     </div>

@@ -113,6 +113,23 @@ export function ChangeDetailClient({ change }: ChangeDetailClientProps) {
                 <Text as="div" variant="body" dangerouslySetInnerHTML={migrationNotesHtml} />
               </div>
             ) : null}
+            {change.specUrl ? (
+              <div>
+                <Text variant="label.medium" tone="muted" className="mb-2">
+                  Specification
+                </Text>
+                <Button
+                  href={change.specUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="outline"
+                  size="sm"
+                >
+                  Read specification
+                  <ExternalLinkIcon />
+                </Button>
+              </div>
+            ) : null}
             {change.relatedRepos && change.relatedRepos.length > 0 ? (
               <div>
                 <Text variant="label.medium" tone="muted" className="mb-2">
