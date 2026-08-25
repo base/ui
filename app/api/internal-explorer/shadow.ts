@@ -50,8 +50,8 @@ export interface ShadowBlockDetail {
 }
 
 export class ShadowUnavailableError extends Error {
-  constructor(message = 'shadow metrics unavailable') {
-    super(message);
+  constructor(message = 'shadow metrics unavailable', options?: ErrorOptions) {
+    super(message, options);
     this.name = 'ShadowUnavailableError';
   }
 }
@@ -91,11 +91,11 @@ async function fetchShadowMetrics<T>(url: string): Promise<T> {
   let response: Response;
   try {
     response = await fetch(url, { cache: 'no-store', signal: controller.signal });
-  } catch {
+  } catch (error) {
     if (controller.signal.aborted) {
-      throw new ShadowUnavailableError('shadow-metrics request timed out');
+      throw new ShadowUnavailableError('shadow-metrics request timed out', { cause: error });
     }
-    throw new ShadowUnavailableError('failed to reach shadow-metrics');
+    throw new ShadowUnavailableError('failed to reach shadow-metrics', { cause: error });
   } finally {
     clearTimeout(timeout);
   }
@@ -128,22 +128,27 @@ export async function fetchShadowCandidatesBatch(
   const canonical = encodeURIComponent(hashes.join(','));
   const url = `${root}/shadow-candidates?canonical=${canonical}`;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SHADOW_FETCH_TIMEOUT_MS);
+  let data: Record<string, ShadowBlockSummaryWire[]>;
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
-    if (!response.ok) return {};
-    const data = (await response.json()) as Record<string, ShadowBlockSummaryWire[]>;
+    data = await fetchShadowMetrics<Record<string, ShadowBlockSummaryWire[]>>(url);
+  } catch (error) {
+    // Unlike its siblings this degrades instead of throwing, because candidates
+    // only decorate the block views. Log it: otherwise an unreachable
+    // shadow-metrics looks identical to a block with no candidates.
+    console.error('Error fetching shadow candidates:', { url, hashCount: hashes.length }, error);
+    return {};
+  }
+
+  try {
     return Object.fromEntries(
       Object.entries(data).map(([hash, summaries]) => [
         hash.toLowerCase(),
         summaries.map(normalizeShadowSummary),
       ]),
     );
-  } catch {
+  } catch (error) {
+    console.error('Error parsing shadow candidates:', { url }, error);
     return {};
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
