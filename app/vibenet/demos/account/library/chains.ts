@@ -11,12 +11,14 @@ import { isAddress } from "../../../library/format";
  * Last-known-good vibenet EIP-8130 system contracts — a STATIC FALLBACK only.
  *
  * vibenet is ephemeral: a reset redeploys the enshrined system contracts, and
- * several land at NEW addresses (accountConfiguration, DefaultAccount, high-rate
- * payer, DelegateAuthenticator, PolicyManager, SessionPolicy). The account
- * address is a CREATE2 of `keccak(0xff ‖ accountConfiguration ‖ salt ‖
- * keccak(proxyCode→DefaultAccount))`, so with stale addresses the client derives
- * a `from` the node can't reproduce → "EIP-8130 validation failed: create
- * address does not match the sender".
+ * several land at NEW addresses (DefaultAccount, high-rate payer,
+ * DelegateAuthenticator, PolicyManager, SessionPolicy). The keystore
+ * (`keystoreAddress`) itself is fixed/enshrined and not part of this record —
+ * see `@aa`'s `keystoreAddress`. The account address is a CREATE2 of
+ * `keccak(0xff ‖ keystoreAddress ‖ salt ‖ keccak(proxyCode→DefaultAccount))`,
+ * so with stale addresses the client derives a `from` the node can't
+ * reproduce → "EIP-8130 validation failed: create address does not match the
+ * sender".
  *
  * Rather than re-hardcode after every reset, the demo resolves these at runtime
  * from https://api.vibes.base.org/api/vibenet/contracts via {@link deploymentFromContracts}.
@@ -27,7 +29,6 @@ import { isAddress } from "../../../library/format";
  */
 const VIBENET_DEPLOYMENT = {
   ...vibenetDevnetDeployment,
-  accountConfiguration: "0x81305d4f4976220D2af17E5Dc246848E235600AC",
   accounts: {
     ...vibenetDevnetDeployment.accounts,
     default: "0x813078f98b3eb214046C8Dc93A771ac9de5AaDEf",
@@ -52,7 +53,8 @@ const VIBENET_DEPLOYMENT = {
  * API omits (K1 precompile; `upgradeable`/`erc4337`, unused on the native path),
  * and returns `null` when the payload lacks the core address-derivation
  * contracts (Keystore/AccountConfiguration + DefaultAccount) so callers keep the
- * static set.
+ * static set. The keystore address is validated but not stored — it's fixed
+ * upstream and no longer part of {@link Eip8130Deployment}.
  */
 export function deploymentFromContracts(
   contracts: Record<string, unknown> | null | undefined,
@@ -74,7 +76,6 @@ export function deploymentFromContracts(
 
   const fb = VIBENET_DEPLOYMENT;
   return {
-    accountConfiguration: keystore as Address,
     accounts: {
       upgradeable: fb.accounts.upgradeable, // not deployed on native vibenet
       default: eip8130.DefaultAccount as Address,

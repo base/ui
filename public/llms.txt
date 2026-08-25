@@ -17,8 +17,8 @@ Freshness: /snapshots and /vibenet/explorer change daily. /vibenet/faucet change
 
 ## Vibenet developer network
 - [Vibenet · Base Chain](https://chain.base.org/vibenet): Explore Vibenet, the Base devnet for testing in-flight protocol features.
-- [Native Account Abstraction · Vibenet](https://chain.base.org/vibenet/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
-- [B20 Playground · Vibenet](https://chain.base.org/vibenet/demos/b20): Explore, configure, and issue Base-native B20 tokens on Vibenet.
+- [Accounts · Vibenet](https://chain.base.org/vibenet/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
+- [Tokens · Vibenet](https://chain.base.org/vibenet/demos/b20): Explore, configure, and issue Base-native B20 tokens on Vibenet.
 - [Explorer · Vibenet](https://chain.base.org/vibenet/explorer): Browse blocks, transactions, and addresses on the Vibenet devnet.
 - [Faucet · Vibenet](https://chain.base.org/vibenet/faucet): Request testnet tokens on Vibenet to fund accounts and try in-flight Base features.
 

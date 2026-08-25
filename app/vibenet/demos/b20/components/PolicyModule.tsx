@@ -10,6 +10,7 @@ import { cn } from '../../../../components/ui/cn';
 import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
+import type { AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { B20_HELP, SCOPE_HELP } from '../lib/glossary';
 import { formatAmount, MAX_SUPPLY_CAP, policyKindFromId, policyKindLabel, shortAddress } from '../lib/protocol';
 import { READ_POLICY_PROMPT } from '../lib/prompts';
@@ -38,6 +39,7 @@ export function PolicyModule({
   onPolicyCreated,
   tokenAdminStatus,
   recentPolicies,
+  addressBook,
 }: {
   token: TokenInfo | null;
   tokenAccess: TokenAccess;
@@ -56,6 +58,7 @@ export function PolicyModule({
   onPolicyCreated: (policy: CreatedPolicy) => void;
   tokenAdminStatus: TokenAdminStatus;
   recentPolicies: RecentPolicy[];
+  addressBook: AddressBookEntry[];
 }) {
   const [showCreator, setShowCreator] = useState(false);
   const [suggestedPolicyId, setSuggestedPolicyId] = useState<bigint | null>(null);
@@ -63,14 +66,11 @@ export function PolicyModule({
   return (
     <div className="flex flex-col gap-5">
       <section className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-3xl">♢</span>
-          <div>
-            <Text variant="title2">Policies</Text>
-            <Text variant="body" tone="muted">
-              See who can send, receive, move, or mint this token before you use it.
-            </Text>
-          </div>
+        <div>
+          <Text variant="title2">Policies</Text>
+          <Text variant="body" tone="muted">
+            See who can send, receive, move, or mint this token before you use it.
+          </Text>
         </div>
         {!isSample ? (
           <Button size="sm" variant="outline" onClick={() => setShowCreator((shown) => !shown)}>
@@ -82,6 +82,7 @@ export function PolicyModule({
         <CreatePolicy
           wallet={wallet}
           recentPolicies={recentPolicies}
+          addressBook={addressBook}
           canAttachToToken={!!token && tokenAdminStatus === 'allowed'}
           onRequestAttach={(id) => {
             setSuggestedPolicyId(id);

@@ -1,25 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { formatEther, isAddress, type Address, type Hex } from 'viem';
+import { isAddress, type Address, type Hex } from 'viem';
 
-import { trackB20Action, trackB20ModuleSelect, trackB20WalletConnection } from '../../../analytics/events';
-import { Button } from '../../../components/ui/Button';
-import { cn } from '../../../components/ui/cn';
+import { trackB20Action, trackB20ModuleSelect } from '../../../analytics/events';
 import { Tabs } from '../../../components/ui/Tabs';
-import { textVariantClasses } from '../../../components/ui/Text';
-import { CopyableValue } from '../../components/CopyableValue';
-import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from '../../library/config';
-import {
-  addEthereumChain,
-  getChainId,
-  getEthereum,
-  isUnrecognizedChain,
-  isUserRejection,
-  switchEthereumChain,
-  walletErrorMessage,
-} from '../../library/wallet';
-import { Activity } from './components/Activity';
+import { walletErrorMessage } from '../../library/wallet';
+import { useAccountEngine } from '../account/useAccountEngine';
+import { AccountDemoShell } from '../_components/AccountDemoShell';
+import { ActivityRows } from './components/Activity';
 import { AnnouncementModule, SampleAnnouncementViewer } from './components/AnnouncementModule';
 import { DeployModule } from './components/DeployModule';
 import { MemoModule } from './components/MemoModule';
@@ -36,7 +25,6 @@ import {
   POLICY_SCOPES,
   roleId,
   scopeId,
-  shortAddress,
 } from './lib/protocol';
 import { readRecent, readRecentPolicies, writeRecent, writeRecentPolicy } from './lib/recent';
 import { sampleTokenForAddress } from './lib/samples';
@@ -52,8 +40,19 @@ import type {
 
 export function B20Demo() {
   const [module, setModule] = useState<Module>('policy');
-  const [wallet, setWallet] = useState<Address | null>(null);
-  const [walletBalance, setWalletBalance] = useState<bigint | null>(null);
+  // Local EIP-8130 accounts, shared with the account demo via localStorage. B20
+  // transacts from the active account and signs with its stored signers, and
+  // shares the account demo's full create/delete/details engine so the dropdown
+  // is identical between the two demos.
+  const engine = useAccountEngine();
+
+  // The account the modules operate on — the active local account. Every module
+  // use of `wallet` is address-keyed, so its address stands in for the wallet.
+  const activeAccount = engine.acct;
+  const wallet = (activeAccount?.address as Address | undefined) ?? null;
+
+  const addressBook = engine.addressBook;
+
   const [recent, setRecent] = useState<RecentToken[]>([]);
   const [recentPolicies, setRecentPolicies] = useState<RecentPolicy[]>([]);
   const [tokenAddress, setTokenAddress] = useState('');
@@ -71,27 +70,22 @@ export function B20Demo() {
   // tabs and coming back to Native Deployment.
   const [created, setCreated] = useState<CreatedToken | null>(null);
 
-  const refreshWallet = useCallback(async (account: Address | null) => {
-    if (!account) return;
-    const balance = await client.getBalance({ address: account }).catch(() => null);
-    setWalletBalance(balance);
+  // Load the recent tokens / policies scoped to an account address (they are
+  // keyed by address in localStorage), or clear them when no account is active.
+  const refreshWallet = useCallback((account: Address | null) => {
+    if (!account) {
+      setRecent([]);
+      setRecentPolicies([]);
+      return;
+    }
     setRecent(readRecent(account));
     setRecentPolicies(readRecentPolicies(account));
   }, []);
 
+  // Reload recent tokens / policies whenever the active account changes.
   useEffect(() => {
-    const eth = getEthereum();
-    if (!eth) return;
-    eth
-      .request({ method: 'eth_accounts' })
-      .then((value) => {
-        const account =
-          Array.isArray(value) && typeof value[0] === 'string' && isAddress(value[0]) ? (value[0] as Address) : null;
-        setWallet(account);
-        void refreshWallet(account);
-      })
-      .catch(() => {});
-  }, [refreshWallet]);
+    refreshWallet(wallet);
+  }, [wallet, refreshWallet]);
 
   // Operator status is a function of (token address, wallet) only. send()
   // re-inspects the token after every tx, which yields a fresh `token` object
@@ -156,53 +150,6 @@ export function B20Demo() {
       cancelled = true;
     };
   }, [activeTokenAddress, wallet]);
-
-  const connect = useCallback(async () => {
-    const eth = getEthereum();
-    trackB20WalletConnection('started');
-    if (!eth) {
-      trackB20WalletConnection('error');
-      setInspectError('We could not find a browser wallet. Install or unlock one, then try again.');
-      return;
-    }
-    try {
-      const accounts = (await eth.request({ method: 'eth_requestAccounts' })) as string[];
-      const account = accounts[0];
-      if (!account || !isAddress(account)) throw new Error('Wallet did not return an account.');
-      if ((await getChainId(eth)) !== CHAIN_ID) {
-        try {
-          await switchEthereumChain(eth, CHAIN_ID);
-        } catch (error) {
-          if (!isUnrecognizedChain(error)) throw error;
-          await addEthereumChain(eth, {
-            chainId: CHAIN_ID,
-            chainName: 'base vibenet',
-            rpcUrl: VIBENET_RPC_URL,
-            explorerUrl: `${window.location.origin}${VIBENET_EXPLORER_PATH}`,
-          });
-        }
-      }
-      setWallet(account);
-      await refreshWallet(account);
-      trackB20WalletConnection('success');
-    } catch (error) {
-      trackB20WalletConnection('error');
-      setInspectError(isUserRejection(error) ? 'Wallet request dismissed.' : walletErrorMessage(error));
-    }
-  }, [refreshWallet]);
-
-  const disconnect = useCallback(() => {
-    // EIP-1193 providers do not expose a portable disconnect method. Clear the
-    // app's session instead; the wallet's site permission remains unchanged.
-    setWallet(null);
-    setWalletBalance(null);
-    setRecent([]);
-    setRecentPolicies([]);
-    setIsOperator(false);
-    setIsTokenAdmin(false);
-    setTokenAdminLoading(false);
-    setTokenAdminCheckedFor(null);
-  }, []);
 
   const inspect = useCallback(
     async (candidate = tokenAddress) => {
@@ -311,32 +258,24 @@ export function B20Demo() {
 
   const send = useCallback(
     async (label: string, to: Address, data: Hex, action: string): Promise<Hex | null> => {
-      const eth = getEthereum();
-      if (!wallet || !eth) {
-        setInspectError('Connect a Vibenet wallet before you continue.');
+      if (!activeAccount) {
+        setInspectError('Select an account before you continue.');
         return null;
       }
       setBusy(action);
       trackB20Action(module, action, 'submitted');
       setActivity((rows) => [{ label, state: 'pending' }, ...rows]);
       try {
-        // Use the RPC estimate when available so wallets do not apply an oversized
-        // fallback gas limit to custom precompile calls. Estimation remains
-        // optional because some injected wallets can still submit when it fails.
-        const estimatedGas = await client.estimateGas({ account: wallet, to, data }).catch(() => undefined);
-        const gas = estimatedGas ? `0x${((estimatedGas * 120n) / 100n).toString(16)}` : undefined;
-        const hash = (await eth.request({
-          method: 'eth_sendTransaction',
-          params: [{ from: wallet, to, data, value: '0x0', ...(gas ? { gas } : {}) }],
-        })) as Hex;
-        const receipt = await client.waitForTransactionReceipt({ hash });
-        if (receipt.status !== 'success') throw new Error('The transaction did not complete. Check your wallet and try again.');
+        // Sign + broadcast through the shared account engine so account deploy,
+        // sub-account, gas-estimation, and staged-settings behavior stays in one
+        // implementation across demos.
+        const { hash } = await engine.sendActiveCall({ to, data });
         setActivity((rows) => [
           { label, hash, state: 'success' },
           ...rows.filter((row) => row.label !== label || row.state !== 'pending'),
         ]);
         trackB20Action(module, action, 'success');
-        await refreshWallet(wallet);
+        refreshWallet(activeAccount.address as Address);
         if (token) await inspect(token.address);
         return hash;
       } catch (error) {
@@ -352,7 +291,7 @@ export function B20Demo() {
         setBusy(null);
       }
     },
-    [inspect, module, refreshWallet, token, wallet],
+    [inspect, module, refreshWallet, token, activeAccount, engine],
   );
 
   useEffect(() => {
@@ -382,9 +321,15 @@ export function B20Demo() {
           ? 'external'
           : 'disconnected';
   return (
-    <div className="animate-in -mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-5 pb-6 text-foreground [&_.text-3xl]:hidden [&_.tracking-tight]:capitalize dark:text-white">
+    <AccountDemoShell
+      engine={engine}
+      activity={<ActivityRows rows={activity} />}
+      activityCount={activity.length}
+      activityEmptyMessage="Nothing has happened yet."
+      className="animate-in gap-5 pb-6 dark:text-white"
+    >
       <div className="flex min-h-0 flex-1 flex-col gap-5">
-        <div className="flex items-center justify-between gap-3 border-b border-bds-gray-10 pb-4 dark:border-white/10">
+        <div className="flex items-center gap-3 border-b border-bds-gray-10 pb-4 dark:border-white/10">
           <div className="min-w-0 overflow-x-auto">
             <Tabs
               items={MODULES}
@@ -392,26 +337,6 @@ export function B20Demo() {
               onChange={(value) => selectModule(value as Module)}
               ariaLabel="B20 modules"
             />
-          </div>
-          <div className={cn('flex shrink-0 items-center', textVariantClasses.label)}>
-            {wallet ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-bds-gray-10 px-3 py-1.5 dark:border-white/10">
-                <CopyableValue value={wallet} display={shortAddress(wallet)} />
-                <span aria-hidden="true">·</span>
-                <span>{walletBalance === null ? '…' : `${Number(formatEther(walletBalance)).toFixed(3)} ETH`}</span>
-                <button
-                  type="button"
-                  onClick={disconnect}
-                  className="rounded-full px-2 py-1 text-[11px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <Button size="sm" onClick={() => void connect()}>
-                Connect wallet
-              </Button>
-            )}
           </div>
         </div>
         <main className="min-w-0 flex-1">
@@ -435,6 +360,7 @@ export function B20Demo() {
                 if (wallet) setRecentPolicies(writeRecentPolicy(wallet, policy));
               }}
               recentPolicies={recentPolicies}
+              addressBook={addressBook}
               tokenAdminStatus={
                 !wallet
                   ? 'disconnected'
@@ -453,6 +379,7 @@ export function B20Demo() {
             <MemoModule
               token={token}
               tokenAccess={tokenAccess}
+              addressBook={addressBook}
               onDeploy={() => selectModule('deploy')}
               onSend={send}
               busy={busy}
@@ -477,6 +404,7 @@ export function B20Demo() {
               wallet={wallet}
               onSend={send}
               recentPolicies={recentPolicies}
+              addressBook={addressBook}
               onPolicyCreated={(policy) => {
                 if (wallet) setRecentPolicies(writeRecentPolicy(wallet, policy));
               }}
@@ -502,7 +430,6 @@ export function B20Demo() {
           {inspectError}
         </div>
       ) : null}
-      <Activity rows={activity} />
-    </div>
+    </AccountDemoShell>
   );
 }

@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 // generator resolves a template to its `default` and would publish the bare page
 // title, disagreeing with what the browser renders.
 export const metadata: Metadata = {
-  title: 'Native Account Abstraction · Vibenet',
+  title: 'Accounts · Vibenet',
   description:
     'Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.',
 };
