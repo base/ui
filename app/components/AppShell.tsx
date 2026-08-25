@@ -9,7 +9,7 @@ import { Toaster } from 'sonner';
 import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
 import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
-import { demoLabel } from '../demos/catalogue';
+import { demoLabel } from '../vibenet/demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 import { titleForPath } from '../navigation';
 
@@ -641,7 +641,7 @@ function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
           <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
           <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Native Account Abstraction</Text>
           <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
-          <Link href="/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
+          <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
             <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
             <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
           </Link>
@@ -789,27 +789,19 @@ export function AppShell({ children }: PropsWithChildren) {
                   />
                 );
               }
-              const demoMatch = pathname.match(/^\/demos\/(.+)$/);
-              if (demoMatch) {
-                const slug = demoMatch[1].split('/')[0];
-                return (
-                  <Breadcrumb
-                    parentLabel="Demos"
-                    parentHref="/demos"
-                    childLabel={demoLabel(slug)}
-                  />
-                );
-              }
               if (pathname.startsWith('/vibenet') && pathname !== '/vibenet') {
                 let childLabel = title;
                 let middle: { label: string; href: string } | undefined;
                 const explorerDetailMatch = pathname.match(/^\/vibenet\/explorer\/(tx|block|address)\/(.+)$/);
+                const demoMatch = pathname.match(/^\/vibenet\/demos\/(.+)$/);
                 if (explorerDetailMatch) {
                   middle = { label: 'Explorer', href: '/vibenet/explorer' };
                   const raw = explorerDetailMatch[2];
                   childLabel = raw.startsWith('0x') && raw.length > 12
                     ? `${raw.slice(0, 6)}…${raw.slice(-4)}`
                     : raw;
+                } else if (demoMatch) {
+                  childLabel = demoLabel(demoMatch[1].split('/')[0]);
                 }
                 return (
                   <Breadcrumb

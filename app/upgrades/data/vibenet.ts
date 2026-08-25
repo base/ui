@@ -21,12 +21,12 @@ const vibenetAvailability: VibenetAvailability[] = [
     timestamp: '2026-07-02',
     featured: true,
     image: '/images/upgrades/layered-squares.png',
-    demo: '/demos/account'
+    demo: '/vibenet/demos/account'
   },
   {
     changeId: 'base-0005',
     status: 'live',
-    demo: '/demos/b20'
+    demo: '/vibenet/demos/b20'
   },
 ];
 

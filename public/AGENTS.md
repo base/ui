@@ -27,7 +27,7 @@ Machine-readable entry point for agents working with Base Chain network state.
 | /upgrades/changelog | per release | re-fetch before stating an activation status |
 | /vibenet/faucet | monthly | stable within a session |
 | /api/snapshots | daily | re-fetch every session; never cache across sessions |
-| /, /demos, /demos/account, /demos/b20, /vibenet | infrequent | stable within a session |
+| /, /vibenet, /vibenet/demos/account, /vibenet/demos/b20 | infrequent | stable within a session |
 
 ## Machine-readable endpoints
 
@@ -86,14 +86,10 @@ Discovered from the Next.js app directory.
 **Vibenet developer network**
 
 - [/vibenet](https://chain.base.org/vibenet) — Explore Vibenet, the Base devnet for testing in-flight protocol features.
+- [/vibenet/demos/account](https://chain.base.org/vibenet/demos/account) — Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
+- [/vibenet/demos/b20](https://chain.base.org/vibenet/demos/b20) — Explore, configure, and issue Base-native B20 tokens on Vibenet.
 - [/vibenet/explorer](https://chain.base.org/vibenet/explorer) — Browse blocks, transactions, and addresses on the Vibenet devnet.
 - [/vibenet/faucet](https://chain.base.org/vibenet/faucet) — Request testnet tokens on Vibenet to fund accounts and try in-flight Base features.
-
-**Other**
-
-- [/demos](https://chain.base.org/demos) — Interactive demos of in-flight Base features. Each demo runs on the test network that carries the feature it shows.
-- [/demos/account](https://chain.base.org/demos/account) — Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
-- [/demos/b20](https://chain.base.org/demos/b20) — Explore, configure, and issue Base-native B20 tokens on Vibenet.
 
 ## Generation
 

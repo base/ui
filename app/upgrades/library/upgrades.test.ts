@@ -178,7 +178,7 @@ describe('upgrades route helpers', () => {
   it('links the B20 changelog entry to its Vibenet demo', () => {
     const b20 = getVibenetChangeById('base-0005');
     expect(b20?.vibenet.status).toBe('live');
-    expect(b20?.vibenet.demo).toBe('/demos/b20');
+    expect(b20?.vibenet.demo).toBe('/vibenet/demos/b20');
     // Not featured — the demo link surfaces on the changelog entry, not the
     // featured-changes rail.
     expect(b20?.vibenet.featured).toBe(false);
