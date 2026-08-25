@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { cn } from '../../../../components/ui/cn';
-import { Text } from '../../../../components/ui/Text';
-import type { SignerKind } from '../library/model';
-import { KIND_LABEL, short } from '../shared';
+import { cn } from '../../../components/ui/cn';
+import { Text } from '../../../components/ui/Text';
+import type { SignerKind } from '../account/library/model';
+import { KIND_LABEL, short } from '../account/shared';
 
 export function CheckIcon({ size = 16, className }: { size?: number; className?: string }) {
   return (
@@ -14,14 +14,11 @@ export function CheckIcon({ size = 16, className }: { size?: number; className?:
   );
 }
 
-// Small colored account marker.
-export function AccountDot({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const dim = size === 'lg' ? 'h-3.5 w-3.5' : size === 'sm' ? 'h-2 w-2' : 'h-2.5 w-2.5';
+export function TrashIcon({ size = 16, className }: { size?: number; className?: string }) {
   return (
-    <span
-      aria-hidden="true"
-      className={cn('shrink-0 rounded-full bg-gradient-to-br from-base-blue to-bds-purple-60', dim)}
-    />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H6a1 1 0 01-1-1V6" />
+    </svg>
   );
 }
 
@@ -52,10 +49,16 @@ const KIND_BADGE: Record<SignerKind, string> = {
   passkey: 'bg-bds-teal-0 text-bds-teal-70',
 };
 
-export function AccountAvatar({ variant = 'default' }: { variant?: 'default' | 'spending' }) {
+export function AccountAvatar({
+  variant = 'default',
+  size = 40,
+}: {
+  variant?: 'default' | 'spending';
+  size?: number;
+}) {
   if (variant === 'spending') {
     return (
-      <svg width="40" height="40" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+      <svg width={size} height={size} viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
         <rect x="0.5" y="0.5" width="16" height="16" rx="8" fill="#F8F8F8" stroke="#EFEFEF" />
         <path d="M8.5 9.5C11.2664 9.5 13.6573 11.1051 14.7939 13.4346C13.3293 15.3 11.0556 16.5 8.5 16.5C5.94435 16.5 3.67065 15.3 2.20605 13.4346C3.34271 11.1051 5.73357 9.5 8.5 9.5Z" fill="#A7E66B" />
         <path d="M10 4.5C10.2761 4.5 10.5 4.72386 10.5 5L10.5 8C10.5 8.27614 10.2761 8.5 10 8.5L7 8.5C6.72386 8.5 6.5 8.27614 6.5 8L6.5 5C6.5 4.72386 6.72386 4.5 7 4.5L10 4.5Z" fill="#A7E66B" />
@@ -63,20 +66,13 @@ export function AccountAvatar({ variant = 'default' }: { variant?: 'default' | '
     );
   }
   return (
-    <svg width="40" height="40" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
+    <svg width={size} height={size} viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
       <rect x="0.5" y="0.5" width="16" height="16" rx="8" fill="#F8F8F8" stroke="#EFEFEF" />
       <path d="M8.5 9.5C11.2664 9.5 13.6573 11.1051 14.7939 13.4346C13.3293 15.3 11.0556 16.5 8.5 16.5C5.94435 16.5 3.67065 15.3 2.20605 13.4346C3.34271 11.1051 5.73357 9.5 8.5 9.5Z" fill="#FEA8CD" />
       <path d="M10 4.5C10.2761 4.5 10.5 4.72386 10.5 5L10.5 8C10.5 8.27614 10.2761 8.5 10 8.5L7 8.5C6.72386 8.5 6.5 8.27614 6.5 8L6.5 5C6.5 4.72386 6.72386 4.5 7 4.5L10 4.5Z" fill="#FEA8CD" />
     </svg>
   );
 }
-
-const CopyIcon = (
-  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
-    <path d="M10.5 5.5V3.5C10.5 2.67 9.83 2 9 2H3.5C2.67 2 2 2.67 2 3.5V9C2 9.83 2.67 10.5 3.5 10.5H5.5" />
-  </svg>
-);
 
 export function AccountIdentity({
   label,

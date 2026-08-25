@@ -1,38 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-import { Button } from '../components/ui/Button';
 import { Card, LinkCard } from '../components/ui/Card';
 import { Text } from '../components/ui/Text';
 
 import { CopyableValue } from './components/CopyableValue';
-import { FeatureCard } from './components/FeatureCard';
-import { WatchAssetButton } from './components/WatchAssetButton';
-import { Badge } from './demos/account/components/primitives';
 import { DEMOS, type DemoEntry } from './demos/catalogue';
-import { resolveContracts } from './data/contracts';
-import { FEATURES, featuresFromConfig } from './data/features';
 import type { ConfigResponse } from './library/api-types';
 import { vibenetApi } from './library/client';
 import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from './library/config';
-import {
-  addEthereumChain,
-  getChainId,
-  getEthereum,
-  isUnrecognizedChain,
-  isUserRejection,
-  switchEthereumChain,
-  walletErrorMessage,
-} from './library/wallet';
 
 export default function VibenetHomePage() {
   const [config, setConfig] = useState<Partial<ConfigResponse>>({});
-  const [contracts, setContracts] = useState<Record<string, unknown> | null>(null);
   const [chainId, setChainId] = useState('');
-  const [walletStatus, setWalletStatus] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -42,14 +24,6 @@ export default function VibenetHomePage() {
         if (!cancelled) setConfig(next);
       })
       .catch(() => {});
-    vibenetApi
-      .contracts()
-      .then((next) => {
-        if (!cancelled) setContracts(next);
-      })
-      .catch(() => {
-        if (!cancelled) setContracts({});
-      });
     vibenetApi.faucet
       .status()
       .then((status) => {
@@ -60,88 +34,6 @@ export default function VibenetHomePage() {
       cancelled = true;
     };
   }, []);
-
-  const handleAddToWallet = useCallback(() => {
-    async function run() {
-      const eth = getEthereum();
-      if (!eth) {
-        setWalletStatus('No browser wallet detected on this page.');
-        return;
-      }
-      const target = Number(chainId);
-      // Already on vibenet — nothing to do, and no prompt to dismiss.
-      if ((await getChainId(eth)) === target) {
-        setWalletStatus('Already connected to base vibenet.');
-        return;
-      }
-      try {
-        // Prefer switching (works when the chain is already added); only add it
-        // when the wallet reports it's unrecognized (EIP-3326 4902).
-        try {
-          await switchEthereumChain(eth, target);
-          setWalletStatus('Switched to base vibenet.');
-        } catch (err) {
-          if (isUserRejection(err)) {
-            setWalletStatus('Request dismissed — no changes made.');
-            return;
-          }
-          if (!isUnrecognizedChain(err)) throw err;
-          await addEthereumChain(eth, {
-            chainId: target,
-            chainName: config.title ?? 'base vibenet',
-            rpcUrl: VIBENET_RPC_URL,
-            explorerUrl: `${window.location.origin}${VIBENET_EXPLORER_PATH}`,
-          });
-          setWalletStatus('Network added. Your wallet should now be on base vibenet.');
-        }
-      } catch (err) {
-        if (isUserRejection(err)) {
-          setWalletStatus('Request dismissed — no changes made.');
-          return;
-        }
-        setWalletStatus(`Wallet did not add the network: ${walletErrorMessage(err)}`);
-      }
-    }
-    void run();
-  }, [chainId, config.title]);
-
-  const dynamicFeatures = featuresFromConfig(config.features);
-  const contractRows = resolveContracts(contracts);
-
-  let contractsBody: ReactNode;
-  if (!contractRows) {
-    contractsBody = (
-      <Text variant="label.regular" tone="muted" className="p-4">
-        Loading…
-      </Text>
-    );
-  } else if (contractRows.length === 0) {
-    contractsBody = (
-      <Text variant="label.regular" tone="muted" className="p-4">
-        No contracts deployed on this vibe.
-      </Text>
-    );
-  } else {
-    contractsBody = contractRows.map((contract) => (
-      <div
-        key={contract.key}
-        className="flex flex-wrap items-center gap-3 py-4"
-      >
-        <span className="w-32 shrink-0 text-[14px] text-bds-gray-50 dark:text-bds-gray-40">
-          {contract.label}
-        </span>
-        <Link
-          href={`${VIBENET_EXPLORER_PATH}/address/${contract.address}`}
-          className="min-w-0 flex-1 truncate text-[14px] text-foreground transition-colors hover:text-base-blue hover:underline dark:text-white"
-        >
-          {contract.address}
-        </Link>
-        {contract.watch ? (
-          <WatchAssetButton address={contract.address} token={contract.watch} />
-        ) : null}
-      </div>
-    ));
-  }
 
   const branch = config.branch && config.branch !== 'unknown' ? config.branch : null;
   const commit = config.commit && config.commit !== 'unknown' ? config.commit : null;
@@ -174,32 +66,8 @@ export default function VibenetHomePage() {
               {VIBENET_EXPLORER_PATH}
             </Link>
           </div>
-          <div className="mt-4 flex items-center gap-3">
-            <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
-              Add to Wallet
-            </Button>
-            {walletStatus ? (
-              <Text variant="footnote" tone="muted">{walletStatus}</Text>
-            ) : null}
-          </div>
         </Card>
       </header>
-
-      <section className="flex flex-col gap-6">
-        <Text variant="headline">Features</Text>
-        <div className="flex flex-col gap-4">
-          {FEATURES.map((feature) => (
-            <FeatureCard key={feature.id} feature={feature} />
-          ))}
-        </div>
-        {dynamicFeatures.length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
-            {dynamicFeatures.map((feature) => (
-              <FeatureCard key={feature.id} feature={feature} />
-            ))}
-          </div>
-        ) : null}
-      </section>
 
       <section className="flex flex-col gap-6">
         <Text variant="headline">Demos</Text>
@@ -246,22 +114,7 @@ export default function VibenetHomePage() {
               {VIBENET_EXPLORER_PATH}
             </Link>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" size="sm" onClick={handleAddToWallet} disabled={!chainId}>
-              Add to Wallet
-            </Button>
-            {walletStatus ? (
-              <Text variant="footnote" tone="muted">{walletStatus}</Text>
-            ) : null}
-          </div>
         </Card>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <Text variant="headline">Deployed Contracts</Text>
-        <div className="flex flex-col divide-y divide-bds-gray-10 border-y border-bds-gray-10 dark:divide-white/10 dark:border-white/10">
-          {contractsBody}
-        </div>
       </section>
 
       <footer className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-2 pb-4 text-[12px] text-bds-gray-30">
@@ -306,7 +159,6 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
       <div>
         <div className="flex items-center gap-2">
           <Text variant="headline">{demo.title}</Text>
-          <Badge>{demo.eyebrow}</Badge>
           {!demo.available ? (
             <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
               Coming soon
