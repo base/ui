@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { disabledRoutePrefixes } from './deploy.config.mjs';
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   // Surfaces not shipped to this build target (deploy.config.mjs) 404 at the
   // edge. This is the authoritative status block: a disabled section's page may
   // be statically prerendered, so its layout notFound() serves 404 content with
