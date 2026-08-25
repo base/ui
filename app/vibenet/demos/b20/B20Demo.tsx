@@ -7,11 +7,11 @@ import { trackB20Action, trackB20ModuleSelect } from '../../../analytics/events'
 import { cn } from '../../../components/ui/cn';
 import { Tabs } from '../../../components/ui/Tabs';
 import { walletErrorMessage } from '../../library/wallet';
-import { ActivityLog } from '../account/components/ActivityLog';
 import { useAccountEngine } from '../account/useAccountEngine';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { Select, type SelectGroup } from '../../../components/ui/Select';
+import { Activity } from './components/Activity';
 import { AnnouncementModule, SampleAnnouncementViewer } from './components/AnnouncementModule';
 import { DeployModule } from './components/DeployModule';
 import { MemoModule } from './components/MemoModule';
@@ -457,39 +457,46 @@ export function B20Demo() {
       setBusy(action);
       setInspectError('');
       trackB20Action(module, action, 'submitted');
-      const hashes: Hex[] = [];
+      const tokenGas =
+        gasMode === 'token' && token?.variant === 'stablecoin' && storedPayer
+          ? {
+              token: token.address,
+              decimals: token.decimals,
+              payer: payerSigner(storedPayer),
+              fee: tokenGasFee(token.decimals),
+            }
+          : undefined;
       try {
-        for (const [index, batch] of batches.entries()) {
-          setBatchProgress({ label: batch.label, detail: batch.detail, index, total: batches.length });
-          const tokenGas =
-            gasMode === 'token' && token?.variant === 'stablecoin' && storedPayer
-              ? {
-                  token: token.address,
-                  decimals: token.decimals,
-                  payer: payerSigner(storedPayer),
-                  fee: tokenGasFee(token.decimals),
-                }
-              : undefined;
-          if (storedPayer && tokenGas) await ensurePayerFunded(storedPayer);
-          const { hash, serialized, mode } = await engine.sendActiveCalls({
-            calls: batch.calls,
-            ...(tokenGas ? { tokenGas } : {}),
-          });
-          hashes.push(hash);
-          engine.pushActivity({
-            kind: 'transact',
-            title: annotateMode(batch.label, mode, token?.symbol),
-            detail: batch.detail,
-            txHash: hash,
-            serialized,
-            network: engine.chain.name,
-            mode: engine.chain.mode,
-            account: activeAccount.address as Address,
-          });
-        }
+        // The payer underwrites the gas in ETH, so it has to be funded before
+        // it co-signs — the first token-paid send follows key creation closely.
+        if (storedPayer && tokenGas) await ensurePayerFunded(storedPayer);
+        // One engine call, not one per batch: it pins the nonce and deployment
+        // state across the whole run so a lagging RPC replica can't make the
+        // second transaction collide with the first.
+        const results = await engine.sendActiveCallsBatches({
+          batches,
+          ...(tokenGas ? { tokenGas } : {}),
+          onBatchStart: (index, total) => {
+            const batch = batches[index];
+            setBatchProgress({ label: batch.label, detail: batch.detail, index, total });
+          },
+          onBatchResult: (index, { hash, serialized, mode }) => {
+            const batch = batches[index];
+            engine.pushActivity({
+              kind: 'transact',
+              title: annotateMode(batch.label, mode, token?.symbol),
+              detail: batch.detail,
+              txHash: hash,
+              serialized,
+              network: engine.chain.name,
+              mode: engine.chain.mode,
+              account: activeAccount.address as Address,
+            });
+          },
+        });
         trackB20Action(module, action, 'success');
         refreshWallet(activeAccount.address as Address);
-        return hashes;
+        return results.map((result) => result.hash);
       } catch (error) {
         const detail = payerErrorMessage(error) ?? walletErrorMessage(error);
         trackB20Action(module, action, 'error');
@@ -566,9 +573,6 @@ export function B20Demo() {
   return (
     <AccountDemoShell
       engine={engine}
-      activity={<ActivityLog activity={engine.activity} accounts={engine.accounts} />}
-      activityCount={engine.activity.length}
-      activityEmptyMessage="Nothing has happened yet."
       className="animate-in gap-5 pb-6 dark:text-white"
     >
       <div className="flex min-h-0 flex-1 flex-col gap-5">
@@ -748,6 +752,7 @@ export function B20Demo() {
           {inspectError}
         </div>
       ) : null}
+      <Activity activity={engine.activity} accounts={engine.accounts} />
     </AccountDemoShell>
   );
 }

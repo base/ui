@@ -6,7 +6,9 @@
 //     on mobile (the top bar is hidden there);
 //   - a full-page DemoGate (empty state until a local account exists);
 //   - the shared create/details account-management modals;
-//   - the collapsible ActivityDrawer pinned to the bottom.
+//   - the collapsible ActivityDrawer pinned to the bottom, for demos that hand
+//     it activity (B20 keeps its log in the page flow instead, so it passes
+//     none and the drawer is skipped).
 // Each demo owns one AccountEngine and passes it here, avoiding duplicate store
 // instances and repeated account-settings wiring.
 
@@ -29,9 +31,9 @@ type AccountDemoShellProps = {
   // Empty-state copy.
   gateTitle?: string;
   gateDescription?: string;
-  // Activity drawer.
-  activity: ReactNode;
-  activityCount: number;
+  // Activity drawer. Omit `activity` to render no drawer at all.
+  activity?: ReactNode;
+  activityCount?: number;
   activityEmptyMessage?: string;
   // Extra classes for the root (gap, demo-specific tweaks).
   className?: string;
@@ -44,7 +46,7 @@ export function AccountDemoShell({
   gateTitle,
   gateDescription,
   activity,
-  activityCount,
+  activityCount = 0,
   activityEmptyMessage,
   className,
   children,
@@ -87,9 +89,11 @@ export function AccountDemoShell({
           {/* Mobile only — desktop uses the top-bar switcher. */}
           <div className="shrink-0 md:hidden">{switcher}</div>
           {children}
-          <ActivityDrawer count={activityCount} emptyMessage={activityEmptyMessage}>
-            {activity}
-          </ActivityDrawer>
+          {activity ? (
+            <ActivityDrawer count={activityCount} emptyMessage={activityEmptyMessage}>
+              {activity}
+            </ActivityDrawer>
+          ) : null}
         </DemoGate>
       </div>
 

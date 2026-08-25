@@ -1212,6 +1212,12 @@ export function useAccountEngine() {
     // B20 stablecoin as the fee). Without it the tx is serialized with an empty
     // `payerAuth` for a hosted payer service to co-sign out of band.
     payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[]; localSigner?: Signer },
+    // Set by callers that run several transactions back to back. The public RPC
+    // is served by replicas whose heads can differ, so re-reading the nonce (or
+    // probing for code) between two sends can answer from a replica that hasn't
+    // seen the previous one yet. Such a caller reads both once up front and
+    // pins them here instead.
+    seqOpt?: { nonceSequence?: bigint; assumeDeployed?: boolean },
   ): Promise<{ serialized: Hex; nextSeq: number }> => {
     const signer = await buildSigner(signerWS);
     const account = nativeAccountFor(a, signer, signerWS.authenticator);
@@ -1235,7 +1241,12 @@ export function useAccountEngine() {
 
     // Resolve deployment + both config counters once at the composition
     // boundary. Lower-level signing never consults the persisted account flags.
-    const { deployed: effectivelyDeployed } = await fetchOnChainAccountState(account.address as Address);
+    // A caller running several transactions back to back pins the deployment
+    // state instead: an earlier transaction in that run already deployed the
+    // account, and a code probe can still lag it and wrongly re-attach the
+    // create change.
+    const effectivelyDeployed =
+      seqOpt?.assumeDeployed ?? (await fetchOnChainAccountState(account.address as Address)).deployed;
     const bootstrapChange = effectivelyDeployed ? undefined : firstDeployChange(a, account);
     if (bootstrapChange) accountChanges.push(bootstrapChange);
     if (effectivelyDeployed !== a.deployed) updateAccount(a.id, { deployed: effectivelyDeployed });
@@ -1273,10 +1284,12 @@ export function useAccountEngine() {
     const plainCallCount = Math.max(totalCalls - heavyCallCount, 1);
     const wire = encodeWalletCalls({ account: account.address, calls: phases });
 
-    const nonceSequence = await getTransactionCount(makeRpcClient(), {
-      address: account.address as Address,
-      nonceKey: 0n,
-    });
+    const nonceSequence =
+      seqOpt?.nonceSequence ??
+      (await getTransactionCount(makeRpcClient(), {
+        address: account.address as Address,
+        nonceKey: 0n,
+      }));
 
     // Authenticator hint so estimateGas shapes the senderAuth stub for the
     // actual signer. A delegate-signed sub-account acts via the parent's delegate
@@ -1459,6 +1472,89 @@ export function useAccountEngine() {
     const hash = await broadcast8130(serialized);
     applyLandedBundle(acct, nextSeq, bundle);
     return { hash, serialized, mode: tokenGas ? 'token' : 'self' };
+  };
+
+  /**
+   * Run several transactions from the active account back to back.
+   *
+   * Not a loop over `sendActiveCalls`: the reads that call depends on — the
+   * account's nonce and whether it has code — are answered by load-balanced RPC
+   * replicas whose heads can differ, so re-reading them between two sends can
+   * return a view that predates the previous one. That drops the second
+   * transaction as a duplicate nonce, or re-attaches the create change to an
+   * account that already exists. Both reads happen once here, and each batch
+   * gets its sequence counted from there.
+   *
+   * Pending owner/session changes ride the first batch only. Returns one result
+   * per batch; throws on the first failure, leaving earlier batches applied
+   * (callers should make each batch meaningful on its own).
+   */
+  const sendActiveCallsBatches = async ({
+    batches,
+    tokenGas,
+    onBatchStart,
+    onBatchResult,
+  }: {
+    batches: { calls: { to: Address; data: Hex }[] }[];
+    tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
+    onBatchStart?: (index: number, total: number) => void;
+    onBatchResult?: (index: number, result: { hash: Hex; serialized: Hex; mode: 'self' | 'token' }) => void;
+  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token' }[]> => {
+    if (!acct) throw new Error('Select an account before you continue.');
+    if (!batches.length) throw new Error('No calls to send.');
+    const signer =
+      postChangeOwnerSigners.find((s) => s.id === activeSignerId) ??
+      postChangeOwnerSigners[0] ??
+      activeSigner;
+    if (!signer) throw new Error('No local owner key found for this account.');
+
+    const bundle = pendingBundleFor({ mode: 'owner-send' });
+    const presigned = bundle.map((item) => item.change);
+    const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
+    const payerOpt = tokenGas
+      ? {
+          address: tokenGas.payer.address,
+          phase0: [
+            (({ to, data }) => ({ to, data }))(
+              encodeTokenTransfer({ token: tokenGas.token, to: tokenGas.payer.address, amount: tokenGas.fee }),
+            ),
+          ],
+          localSigner: tokenGas.payer,
+        }
+      : undefined;
+
+    // Read the starting nonce a few times and keep the highest: a single read
+    // can land on a replica that is a block behind.
+    const address = acct.address as Address;
+    let startSequence = 0n;
+    for (let i = 0; i < 3; i += 1) {
+      const count = await getTransactionCount(makeRpcClient(), { address, nonceKey: 0n }).catch(() => null);
+      if (count !== null && count > startSequence) startSequence = count;
+    }
+
+    const results: { hash: Hex; serialized: Hex; mode: 'self' | 'token' }[] = [];
+    const mode: 'self' | 'token' = tokenGas ? 'token' : 'self';
+    for (const [index, batch] of batches.entries()) {
+      onBatchStart?.(index, batches.length);
+      const first = index === 0;
+      const { serialized, nextSeq } = await signComposed(
+        acct,
+        signer,
+        batch.calls.map((call) => newCallRow({ ...call, value: '0' })),
+        first ? presigned : [],
+        first ? changeSeq : null,
+        undefined,
+        undefined,
+        payerOpt,
+        { nonceSequence: startSequence + BigInt(index), assumeDeployed: !first || undefined },
+      );
+      const hash = await broadcast8130(serialized);
+      if (first) applyLandedBundle(acct, nextSeq, bundle);
+      const result = { hash, serialized, mode };
+      results.push(result);
+      onBatchResult?.(index, result);
+    }
+    return results;
   };
 
   const sendActiveCall = async ({ to, data }: { to: Address; data: Hex }) => {
@@ -2381,6 +2477,7 @@ export function useAccountEngine() {
     signComposed,
     sendActiveCall,
     sendActiveCalls,
+    sendActiveCallsBatches,
     applyLandedBundle,
     handleSeqMismatch,
     pendingBundleFor,
