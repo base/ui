@@ -8,7 +8,7 @@ import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { type ActivityEntry, type StoredAccount, formatTime } from '../library/model';
 import { short } from '../shared';
-import { AccountIdentity, Badge } from './primitives';
+import { AccountIdentity, Badge } from '../../_shared/primitives';
 
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 

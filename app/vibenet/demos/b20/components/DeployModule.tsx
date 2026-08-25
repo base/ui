@@ -40,6 +40,7 @@ import {
   shortAddress,
 } from '../lib/protocol';
 import type { CreatedPolicy, CreatedToken, Module, PolicyKind, RecentPolicy } from '../lib/types';
+import type { AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { CreatePolicy } from './CreatePolicy';
 import { ErrorNote, Field, Input, ModuleHeading } from './primitives';
 
@@ -115,6 +116,7 @@ export function DeployModule({
   busy,
   recentPolicies,
   onPolicyCreated,
+  addressBook,
 }: {
   wallet: Address | null;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
@@ -125,6 +127,7 @@ export function DeployModule({
   busy: string | null;
   recentPolicies: RecentPolicy[];
   onPolicyCreated: (policy: CreatedPolicy) => void;
+  addressBook: AddressBookEntry[];
 }) {
   const [variant, setVariant] = useState<'asset' | 'stablecoin'>('asset');
   const [name, setName] = useState('Example Rewards');
@@ -460,6 +463,7 @@ export function DeployModule({
                 <CreatePolicy
                   wallet={wallet}
                   recentPolicies={recentPolicies}
+                  addressBook={addressBook}
                   canAttachToToken={false}
                   onRequestAttach={() => {}}
                   onSend={onSend}

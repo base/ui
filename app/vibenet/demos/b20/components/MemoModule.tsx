@@ -7,6 +7,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
 import { walletErrorMessage } from '../../../library/wallet';
+import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { B20_HELP } from '../lib/glossary';
 import { amount, b20Abi, formatAmount, memoToBytes32, shortAddress } from '../lib/protocol';
 import { READ_MEMO_PROMPT } from '../lib/prompts';
@@ -19,12 +20,14 @@ import { EmptyToken, ErrorNote, Field, Input, ModuleHeading } from './primitives
 export function MemoModule({
   token,
   tokenAccess,
+  addressBook,
   onDeploy,
   onSend,
   busy,
 }: {
   token: TokenInfo | null;
   tokenAccess: TokenAccess;
+  addressBook: AddressBookEntry[];
   onDeploy: () => void;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
   busy: string | null;
@@ -131,7 +134,12 @@ export function MemoModule({
           <>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <Field label="Wallet receiving tokens">
-                <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Paste a wallet address" />
+                <AddressAutocomplete
+                  value={to}
+                  onChange={setTo}
+                  accounts={addressBook}
+                  placeholder="0x… wallet address or account name"
+                />
               </Field>
               <Field label={`Amount (${token.symbol})`}>
                 <Input

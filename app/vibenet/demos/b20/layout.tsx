@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 // Title convention: a page inside a section is "{Page} · {Section}".
 export const metadata: Metadata = {
-  title: 'B20 Playground · Vibenet',
+  title: 'Tokens · Vibenet',
   description: 'Explore, configure, and issue Base-native B20 tokens on Vibenet.',
 };
 

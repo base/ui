@@ -46,10 +46,6 @@ export function trackB20ModuleSelect(module: string): void {
   track('b20_module_select', { module });
 }
 
-export function trackB20WalletConnection(status: 'started' | 'success' | 'error'): void {
-  track('b20_wallet_connection', { status });
-}
-
 export function trackB20Action(
   module: string,
   action: string,

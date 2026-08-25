@@ -80,10 +80,9 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackSnapshotPresetSelect(name)` | `app/snapshots/SnapshotsClient.tsx` — `selectPreset()` |
    | `trackSnapshotCommandCopy(network, preset)` | `app/snapshots/SnapshotsClient.tsx` — `InlineCommand` `onCopy` |
    | `trackFaucetRequest(token, status)` | `app/vibenet/faucet/page.tsx` — `runDrip()` |
-   | `trackB20ModuleSelect(module)` | `app/demos/b20/B20Demo.tsx` — module navigation |
-   | `trackB20WalletConnection(status)` | `app/demos/b20/B20Demo.tsx` — injected wallet connection |
-   | `trackB20Action(module, action, status)` | `app/demos/b20/B20Demo.tsx` — B20 broadcasts |
-   | `trackB20PromptCopy(module, prompt)` | `app/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
+   | `trackB20ModuleSelect(module)` | `app/vibenet/demos/b20/B20Demo.tsx` — module navigation |
+   | `trackB20Action(module, action, status)` | `app/vibenet/demos/b20/B20Demo.tsx` — B20 broadcasts |
+   | `trackB20PromptCopy(module, prompt)` | `app/vibenet/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
    | `trackExplorerChainSelect(chain)` | `app/internal-explorer/components/ChainToggle.tsx` — chain toggle |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you

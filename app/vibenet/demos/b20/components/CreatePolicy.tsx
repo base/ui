@@ -12,6 +12,7 @@ import { Text } from '../../../../components/ui/Text';
 import { CopyableValue } from '../../../components/CopyableValue';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
+import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { client } from '../lib/constants';
 import {
   ACTIVATION_REGISTRY,
@@ -40,6 +41,7 @@ type ChildDraft = { kind: SimplePolicyKind; label: string; members: string; admi
 export function CreatePolicy({
   wallet,
   recentPolicies,
+  addressBook,
   canAttachToToken,
   onRequestAttach,
   onSend,
@@ -49,6 +51,7 @@ export function CreatePolicy({
 }: {
   wallet: Address | null;
   recentPolicies: RecentPolicy[];
+  addressBook: AddressBookEntry[];
   canAttachToToken: boolean;
   onRequestAttach: (id: bigint) => void;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
@@ -247,7 +250,14 @@ export function CreatePolicy({
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <Field label={mode === 'composite' ? 'Combined policy name (optional)' : 'Policy name (optional)'} hint="Saved only in this browser; it is not stored on-chain."><Input value={label} onChange={(event) => setLabel(event.target.value)} placeholder={mode === 'composite' ? 'KYC or partner approved' : 'KYC approved'} /></Field>
-        <Field label="Policy admin wallet" hint="This wallet can update the policy after creation."><Input value={admin} onChange={(event) => { adminFollowsWallet.current = false; setAdmin(event.target.value); }} placeholder="0x…" /></Field>
+        <Field label="Policy admin wallet" hint="This wallet can update the policy after creation.">
+          <AddressAutocomplete
+            value={admin}
+            onChange={(value) => { adminFollowsWallet.current = false; setAdmin(value); }}
+            accounts={addressBook}
+            placeholder="0x… wallet address or account name"
+          />
+        </Field>
       </div>
       {mode === 'simple' ? (
         <>

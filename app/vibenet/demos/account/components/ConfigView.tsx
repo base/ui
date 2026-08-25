@@ -24,21 +24,19 @@ import {
   formatExpiry,
   formatUnits,
   scopeChips,
-  type SignerKind,
-  type StoredAccount,
 } from '../library/model';
 import {
   type LimitDraft,
   OWNER_SCOPE_PRESETS,
   PERIOD_PRESETS,
   periodLabel,
-  type ScopeDraft,
   scopeLabel,
   SELECTOR_PRESETS,
   stableSymbol,
 } from '../library/policy';
-import { type Balances, KIND_LABEL, short, signerIdentity, type WalletSigner } from '../shared';
-import { AccountAvatar, AccountIdentity, Badge, CheckIcon, KindBadge } from './primitives';
+import { KIND_LABEL, short, signerIdentity } from '../shared';
+import { AccountAvatar, AccountIdentity, Badge, CheckIcon, KindBadge } from '../../_shared/primitives';
+import type { AccountEngine } from '../useAccountEngine';
 
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -50,90 +48,24 @@ const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue';
 
 type CfgTab = 'assets' | 'owners' | 'session' | 'subaccounts';
 
-type PolicyRemaining = Record<
-  string,
-  Record<string, { remaining: bigint; allowance: bigint; symbol: string; decimals: number; period: number }>
->;
-
 export type ConfigViewProps = {
-  acct: StoredAccount;
-  copied: string | null;
-  copy: (text: string, k: string) => void;
-  cfgTab: CfgTab;
-  setCfgTab: (t: CfgTab) => void;
-  explorerHref: string;
-  onTransact: () => void;
+  engine: AccountEngine;
+  /** Omitted where there is no Transact modal (e.g. B20) — hides the button. */
+  onTransact?: () => void;
+};
 
-  // Assets
-  assetBals: Record<string, Balances | null>;
-  assetsLoading: boolean;
-  faucetBusy: string | null;
-  requestFaucet: () => void;
-
-  // Owners
-  signers: WalletSigner[];
-  ownerDraft: string[];
-  scopeDraft: Record<string, number>;
-  ownersEditing: boolean;
-  setOwnersEditing: (v: boolean) => void;
-  pendingAuthorize: WalletSigner[];
-  pendingRevoke: { signerId: string; label: string; kind: SignerKind }[];
-  pendingScope: { signerId: string; label: string; toScope: number }[];
-  keyChangeCount: number;
-  ownerChangeSigned: boolean;
-  configTx: { hash: Hex; label: string } | null;
-  applying: boolean;
-  busy: SignerKind | null;
-  stageAddOwner: (id: string) => void;
-  stageRemoveOwner: (id: string, eoaSelf: boolean) => void;
-  setOwnerScope: (id: string, scope: number) => void;
-  mintOwner: (kind: SignerKind) => void;
-  signOwnerChange: () => void;
-  applyOwnerNow: () => void;
-  discardOwnerChanges: () => void;
-
-  // Session keys
-  sessionAdding: boolean;
-  setSessionAdding: (v: boolean) => void;
-  skSignerId: string;
-  setSkSignerId: (v: string) => void;
-  skChainShort: string;
-  setSkChainShort: (v: string) => void;
-  skExpiryId: string;
-  setSkExpiryId: (v: string) => void;
-  skLimits: LimitDraft[];
-  patchLimit: (id: string, patch: Partial<LimitDraft>) => void;
-  addLimit: () => void;
-  removeLimit: (id: string) => void;
-  skScopes: ScopeDraft[];
-  patchScope: (id: string, patch: Partial<ScopeDraft>) => void;
-  addScope: () => void;
-  removeScope: (id: string) => void;
-  toggleScopeSelector: (id: string, sel: Hex) => void;
-  setScopeAll: (id: string) => void;
-  skBusy: boolean;
-  skApplyingId: string | null;
-  skRevokingId: string | null;
-  policyRemaining: PolicyRemaining;
-  formPolicyEmpty: boolean;
-  submitStatus: '' | 'submitting' | 'confirming';
-  registerSessionKey: () => void;
-  applySessionKeyNow: (skId: string) => void;
-  revokeSessionKey: (id: string) => void;
-  undoStagedRevoke: (id: string) => void;
-
-  // Sub-accounts
-  saLabel: string;
-  setSaLabel: (v: string) => void;
-  saBusy: boolean;
-  createSubAccount: () => void;
+type ConfigViewModel = Omit<AccountEngine, 'acct'> & {
+  acct: NonNullable<AccountEngine['acct']>;
+  onTransact?: () => void;
 };
 
 // Config view for a selected account: hero + tabbed Assets / Owners / Session
 // keys / Sub-accounts. The owner-change and session-key flows sign + broadcast
 // through the parent's handlers.
-export function ConfigView(p: ConfigViewProps) {
-  const { acct } = p;
+export function ConfigView({ engine, onTransact }: ConfigViewProps) {
+  const { acct } = engine;
+  if (!acct) return null;
+  const p: ConfigViewModel = { ...engine, acct, onTransact };
   const tabs: { id: CfgTab; label: string; count: number | null }[] = [
     { id: 'assets', label: 'Assets', count: null },
     { id: 'owners', label: 'Owners', count: acct.owners.length },
@@ -157,10 +89,12 @@ export function ConfigView(p: ConfigViewProps) {
           className="min-w-0 flex-1"
         />
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={p.onTransact}>
-            Transact
-          </Button>
-          <Button variant="outline" size="sm" href={p.explorerHref}>
+          {p.onTransact ? (
+            <Button variant="secondary" size="sm" onClick={p.onTransact}>
+              Transact
+            </Button>
+          ) : null}
+          <Button variant="outline" size="sm" href={p.explorerAddrHref}>
             Explorer
           </Button>
         </div>
@@ -220,7 +154,7 @@ export function ConfigView(p: ConfigViewProps) {
   );
 }
 
-function AssetsTab({ p }: { p: ConfigViewProps }) {
+function AssetsTab({ p }: { p: ConfigViewModel }) {
   const [faucetDone, setFaucetDone] = useState(false);
   const prevBusy = useRef(p.faucetBusy);
   useEffect(() => {
@@ -294,7 +228,7 @@ function AssetsTab({ p }: { p: ConfigViewProps }) {
   );
 }
 
-function OwnersTab({ p }: { p: ConfigViewProps }) {
+function OwnersTab({ p }: { p: ConfigViewModel }) {
   const { acct } = p;
   const isEoaSelf = (signerId: string) =>
     acct.type === 'eoa' && signerId === acct.initialActors[0]?.signerId;
@@ -511,7 +445,7 @@ function OwnersTab({ p }: { p: ConfigViewProps }) {
   );
 }
 
-function SessionKeysTab({ p }: { p: ConfigViewProps }) {
+function SessionKeysTab({ p }: { p: ConfigViewModel }) {
   const { acct } = p;
   return (
     <section className="flex flex-col gap-4">
@@ -648,7 +582,7 @@ function SessionKeysTab({ p }: { p: ConfigViewProps }) {
   );
 }
 
-function SessionForm({ p }: { p: ConfigViewProps }) {
+function SessionForm({ p }: { p: ConfigViewModel }) {
   const { acct } = p;
   const impliedScopes: { key: string; label: string; note: string }[] = [];
   for (const l of p.skLimits) {
@@ -859,7 +793,7 @@ function SessionForm({ p }: { p: ConfigViewProps }) {
   );
 }
 
-function SubAccountsTab({ p }: { p: ConfigViewProps }) {
+function SubAccountsTab({ p }: { p: ConfigViewModel }) {
   const { acct } = p;
   const [creating, setCreating] = useState(false);
   return (

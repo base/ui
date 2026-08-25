@@ -1,0 +1,2349 @@
+'use client';
+
+// The EIP-8130 account engine shared by every vibenet demo that transacts from
+// local accounts (Account demo, B20, …): chain/network resolution, signer +
+// account CRUD, owner / session-key / sub-account management, and the
+// underlying native-8130 signing/broadcast primitives. Extracted from
+// AccountDemo.tsx so other demos (B20) get the exact same create/delete/
+// details capability instead of a stripped-down local reimplementation.
+//
+// Demo-specific UI (the Transact modal's calls builder, gas-mode picker, Apps
+// directory orchestration) stays in each demo and calls into this engine's
+// shared primitives (signComposed, pendingBundleFor, applyLandedBundle,
+// handleSeqMismatch, broadcast8130) exactly as AccountDemo's own transact flow
+// does — those primitives are used by both config-apply and transact sends, so
+// they have to live in one place, not two.
+
+import {
+  type AaAccountChange,
+  type Address,
+  authorizeActor,
+  canonicalAuthenticators,
+  computeAddress,
+  createPublicClient,
+  createWebAuthnCredential,
+  defineSessionPolicy,
+  delegateAuthSize,
+  ecrecoverAuthenticator,
+  type Eip8130Deployment,
+  encodeSessionPolicyConfig,
+  encodeWalletCalls,
+  estimateGas,
+  generatePrivateKey,
+  getConfigSequence,
+  getTransactionCount,
+  type Hex,
+  http,
+  keccak256,
+  key,
+  privateKeyToAccount,
+  revokeActor,
+  sessionPolicyAbi,
+  type Signer,
+  toAccount,
+  toDelegateSigner,
+  toEoaAccount,
+  toHex,
+  toP256Signer,
+  toWebAuthnAccount,
+  toWebAuthnSigner,
+  upgradeableProxyBytecode,
+  waitForTransactionReceipt,
+} from '@aa';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
+
+import { vibenetApi } from '../../library/client';
+import { ACCOUNT_RPC_URL, VIBENET_EXPLORER_PATH } from '../../library/config';
+import {
+  DEMO_CHAINS,
+  type DemoChain,
+  deploymentFromContracts,
+  estimateTxGas,
+  getDemoChain,
+} from './library/chains';
+import { buildPhases, type CallRow, newCallRow, safeGasLimit, valueBearingCallCount } from './library/calls';
+import {
+  type AccountType,
+  type AppPolicy,
+  type AppSessionKey,
+  type AppSubAccount,
+  EXPIRY_PRESETS,
+  formatExpiry,
+  SCOPE,
+  scopeChips,
+  type SignerKind,
+  type StoredAccount,
+  type StoredActor,
+} from './library/model';
+import {
+  buildSessionConfig,
+  type LimitDraft,
+  newLimitDraft,
+  newScopeDraft,
+  PERIOD_PRESETS,
+  type PolicySpec,
+  resolveStable,
+  type ScopeDraft,
+  scopeLabel,
+  wrapSessionCalls,
+  ZERO_ADDR,
+} from './library/policy';
+import {
+  type Balances,
+  KIND_LABEL,
+  type Persisted,
+  short,
+  signerIdentity,
+  type WalletSigner,
+} from './shared';
+import { useAccounts } from './useAccounts';
+
+const fundAccount = (address: Address) =>
+  Promise.all([
+    vibenetApi.faucet.drip({ address }),
+    vibenetApi.faucet.dripUsdv({ address }),
+  ]);
+
+// `createAccount`/`importAccount` bootstrap an account with its LOCAL config
+// sequence set to 1 (it doubles as the "initialized" flag). So the first
+// local-channel actor change (a session-key authorize) is sequence 1, not 0. The
+// MULTICHAIN counter (owner changes) is untouched by create and starts at 0.
+const POST_CREATE_LOCAL_SEQ = 1;
+
+/** Fold a landed batch of session-key config changes into the key list:
+ *  - a key whose staged REVOKE landed is removed entirely, and
+ *  - a key whose staged AUTHORIZE landed has its `pendingAuth` cleared.
+ *  `landedIds` are the session ids whose changes rode the confirmed tx. */
+function commitLandedSessions(a: StoredAccount, landedIds: Set<string>): AppSessionKey[] {
+  return a.sessionKeys
+    .filter((sk) => !(landedIds.has(sk.id) && sk.pendingRevoke))
+    .map((sk) => (landedIds.has(sk.id) && sk.pendingAuth ? { ...sk, pendingAuth: undefined } : sk));
+}
+
+/** Add a PolicyManager address to the trusted-executor set (dedup, case-insensitive). */
+function mergeManagerAddr(existing: readonly Address[] | undefined, add: Address): Address[] {
+  const list = existing ? [...existing] : [];
+  return list.some((m) => m.toLowerCase() === add.toLowerCase()) ? list : [...list, add];
+}
+
+/** After deferred session keys land, fold any managers they registered
+ *  (`pendingAuth.registeredManager`) into `trustedManagers`, so a later authorize
+ *  won't try to re-register an already-present manager (which reverts). The manager
+ *  is intentionally never removed on revoke — other keys may share it. */
+function mergeLandedManagers(a: StoredAccount, landedIds: Set<string>): Address[] | undefined {
+  let out = a.trustedManagers;
+  for (const sk of a.sessionKeys)
+    if (landedIds.has(sk.id) && sk.pendingAuth?.registeredManager && sk.policy?.manager)
+      out = mergeManagerAddr(out, sk.policy.manager);
+  return out;
+}
+
+/** Best-effort human reason from a viem/RPC error (unwraps the "Missing or invalid
+ *  parameters" boilerplate to the underlying details). */
+function estimateFailureReason(err: unknown): string {
+  const e = err as {
+    shortMessage?: string;
+    details?: string;
+    message?: string;
+    cause?: { shortMessage?: string; message?: string };
+  };
+  if (e && typeof e === 'object') {
+    const short = e.shortMessage?.trim();
+    const generic = short && /^Missing or invalid parameters/i.test(short);
+    return (
+      (generic ? e.details : short) ??
+      e.details ??
+      short ??
+      e.cause?.shortMessage ??
+      e.cause?.message ??
+      e.message ??
+      String(err)
+    );
+  }
+  return String(err);
+}
+
+/** True when an error is an EIP-8130 config-change sequence mismatch: a staged
+ *  change's sequence went stale (the on-chain counter advanced since it was signed)
+ *  so it can never land as-is and must be re-signed at the current sequence — or
+ *  dropped. */
+function isSeqMismatch(err: unknown): boolean {
+  const s = `${estimateFailureReason(err)} ${err instanceof Error ? err.message : String(err)}`;
+  return /config change sequence mismatch/i.test(s);
+}
+
+/** Collapse a giant viem error dump to its `Details:` line (or first line) for display. */
+export function conciseError(message: string): string {
+  const detail = message.match(/Details:\s*([\s\S]*?)(?:\s*Version:\s|$)/);
+  if (detail?.[1]?.trim()) return detail[1].trim();
+  const firstLine = message
+    .split('\n')
+    .map((l) => l.trim())
+    .find(Boolean);
+  return firstLine ?? message;
+}
+
+/** True when a gas-estimate error means the node simply lacks the EIP-8130
+ *  `eth_estimateGas` extension — the ONE case where silently falling back to the
+ *  structural floor is still correct. Any OTHER estimate revert now indicates the
+ *  tx would actually fail (the node can simulate session-key + policy bundles once
+ *  `senderActorId` is supplied), so it must be surfaced rather than swallowed. */
+function isUnsupportedRpcError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as {
+    code?: number;
+    message?: string;
+    shortMessage?: string;
+    details?: string;
+    cause?: { code?: number; message?: string };
+  };
+  if (e.code === -32601 || e.cause?.code === -32601) return true;
+  const text = [e.message, e.shortMessage, e.details, e.cause?.message]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return (
+    text.includes('method not found') ||
+    text.includes('not whitelisted') ||
+    text.includes('does not exist') ||
+    text.includes('unsupported method') ||
+    text.includes('method not supported')
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Module-scope helpers.
+// ---------------------------------------------------------------------------
+
+const HEX32 = /^0x[0-9a-fA-F]{64}$/;
+
+function randomHex32(): string {
+  const b = new Uint8Array(32);
+  crypto.getRandomValues(b);
+  return `0x${Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function normalizeSalt(field: string): Hex {
+  const v = field.trim();
+  if (HEX32.test(v)) return v as Hex;
+  return keccak256(toHex(v || 'vibes'));
+}
+
+function actorPairs(actors: { actorId: Hex; authenticator: Address }[]) {
+  return actors.map((a) => ({ actorId: a.actorId, authenticator: a.authenticator }));
+}
+
+function sortActors<T extends { actorId: Hex }>(actors: T[]): T[] {
+  // Must match the vendor's exact ordering: `createAccount`/`computeAddress`
+  // require initialActors sorted by `actorId` as a BIGINT in strictly ascending
+  // order (no duplicates). A lexicographic string sort diverges from numeric
+  // ordering whenever actorIds differ in hex width or case (e.g. an unpadded or
+  // upper-cased id), which surfaces as "initialActors are not sorted".
+  return [...actors].sort((a, b) => {
+    const av = BigInt(a.actorId);
+    const bv = BigInt(b.actorId);
+    return av < bv ? -1 : av > bv ? 1 : 0;
+  });
+}
+
+function toStoredActor(s: WalletSigner): StoredActor {
+  return {
+    signerId: s.id,
+    actorId: s.actorId,
+    authenticator: s.authenticator,
+    kind: s.kind,
+    label: s.label,
+    identity: signerIdentity(s),
+  };
+}
+
+// Build a viem-compatible Signer from a stored wallet signer.
+async function buildSigner(s: WalletSigner): Promise<Signer> {
+  if (s.kind === 'k1') return privateKeyToAccount(s.privateKey as Hex);
+  if (s.kind === 'p256') return toP256Signer({ privateKey: s.privateKey as Hex });
+  return toWebAuthnSigner(
+    toWebAuthnAccount({ credential: s.credential as { id: string; publicKey: Hex } }),
+  );
+}
+
+// An owner change signed in its own wallet step, waiting to be carried on-chain
+// (by "Apply now" or the next Transact). The config signature is captured once;
+// the carrying tx adds only its own senderAuth.
+type SignedOwnerChange = {
+  accountId: string;
+  change: AaAccountChange;
+  sequence: number;
+  resultingOwners: StoredActor[];
+  summary: string[];
+};
+
+/** Thrown when a tx was broadcast but not confirmed before the timeout. */
+export class TxPendingError extends Error {
+  readonly txHash: Hex;
+  constructor(hash: Hex) {
+    super(`Transaction is pending — not yet included (${hash}).`);
+    this.txHash = hash;
+  }
+}
+
+type PendingChangeItem = {
+  change: AaAccountChange;
+  sequence: number;
+  sessionId?: string;
+  resultingOwners?: StoredActor[];
+};
+
+// ---------------------------------------------------------------------------
+
+export function useAccountEngine() {
+  const {
+    signers,
+    setSigners,
+    accounts,
+    setAccounts,
+    activeAccountId,
+    setActiveAccountId,
+    activity,
+    setActivity,
+    networkShort,
+    setNetworkShort,
+    genesisHash,
+    setGenesisHash,
+    hydrated,
+    addAccount,
+    deleteAccount,
+  } = useAccounts();
+
+  const [busy, setBusy] = useState<SignerKind | null>(null);
+  const [error, setError] = useState<string>('');
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const [activeSignerId, setActiveSignerId] = useState<string | null>(null);
+
+  // Balances (Assets tab, both networks).
+  const [assetBals, setAssetBals] = useState<Record<string, Balances | null>>({});
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [faucetBusy, setFaucetBusy] = useState<string | null>(null);
+
+  const [submitStatus, setSubmitStatus] = useState<'' | 'submitting' | 'confirming'>('');
+
+  // Regenesis (devnet reset) detection.
+  const [regenesisNotice, setRegenesisNotice] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Create modal.
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<AccountType>('eoa');
+  const [modalLabel, setModalLabel] = useState('');
+  const [modalSalt, setModalSalt] = useState(() => randomHex32());
+  const [modalIds, setModalIds] = useState<string[]>([]);
+  const [modalEoaId, setModalEoaId] = useState<string | null>(null);
+
+  // Config view (owners / session keys / sub-accounts).
+  const [cfgTab, setCfgTab] = useState<'assets' | 'owners' | 'session' | 'subaccounts'>('assets');
+  const [ownersEditing, setOwnersEditing] = useState(false);
+  const [ownerDraft, setOwnerDraft] = useState<string[]>([]);
+  const [scopeDraft, setScopeDraft] = useState<Record<string, number>>({});
+  const [signedChange, setSignedChange] = useState<SignedOwnerChange | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [configTx, setConfigTx] = useState<{ hash: Hex; label: string } | null>(null);
+
+  // Session-key form + apply state.
+  const [sessionAdding, setSessionAdding] = useState(false);
+  const [skSignerId, setSkSignerId] = useState('');
+  const [skExpiryId, setSkExpiryId] = useState('7d');
+  const [skChainShort, setSkChainShort] = useState('vibenet');
+  const [skApplyingId, setSkApplyingId] = useState<string | null>(null);
+  const [skRevokingId, setSkRevokingId] = useState<string | null>(null);
+  // A reverting gas estimate (with `senderActorId` the node can simulate, so a
+  // revert means the tx would actually fail). Surfaces a "Send anyway" escape
+  // hatch rather than silently broadcasting a doomed tx on a heuristic floor.
+  const [estimateBlocked, setEstimateBlocked] = useState<string | null>(null);
+  // One-shot: when true, the next estimate that would block instead prices the tx
+  // at a high ceiling and broadcasts (the user chose "Send anyway").
+  const overrideEstimateRef = useRef(false);
+  // True only while a Transact send is composing — the "Send anyway" escape hatch
+  // retries the transact flow, so only transact sends surface `estimateBlocked`.
+  // Config apply flows (owner/session) keep the over-provisioned floor fallback.
+  const blockOnRevertRef = useRef(false);
+  // Transient success/info line (e.g. after a re-sign or drop recovery).
+  const [infoMsg, setInfoMsg] = useState('');
+  // Recovery prompt shown when a staged config change reverts "config change
+  // sequence mismatch": offer to re-sign it at the current sequence, or drop it.
+  const [seqRecovery, setSeqRecovery] = useState<{
+    what: string;
+    resign: () => Promise<void> | void;
+    drop: () => void;
+    busy?: boolean;
+  } | null>(null);
+  const [skLimits, setSkLimits] = useState<LimitDraft[]>(() => [newLimitDraft()]);
+  const [skScopes, setSkScopes] = useState<ScopeDraft[]>([]);
+  const [skBusy, setSkBusy] = useState(false);
+  const [policyRemaining, setPolicyRemaining] = useState<
+    Record<
+      string,
+      Record<string, { remaining: bigint; allowance: bigint; symbol: string; decimals: number; period: number }>
+    >
+  >({});
+
+  // Sub-account form.
+  const [saLabel, setSaLabel] = useState('');
+  const [saBusy, setSaBusy] = useState(false);
+
+  // EIP-8130 system-contract addresses, resolved live from the dataplane so a
+  // devnet reset (which redeploys them to new addresses) never needs a code
+  // change. `null` until the first fetch lands → the static fallback in
+  // chains.ts is used. See the fetch effect below.
+  const [liveDeployment, setLiveDeployment] = useState<Eip8130Deployment | null>(null);
+  // Overlay the live deployment onto a demo chain (vibenet only — Base Sepolia
+  // is a persistent testnet whose canonical addresses don't move).
+  const resolveChain = useCallback(
+    (short: string): DemoChain => {
+      const base = getDemoChain(short);
+      return liveDeployment && base.shortName === 'vibenet'
+        ? { ...base, deployment: liveDeployment }
+        : base;
+    },
+    [liveDeployment],
+  );
+
+  const chain = useMemo(() => resolveChain(networkShort), [resolveChain, networkShort]);
+  // Proxy code for a smart account. MUST target a DEPLOYED implementation: with a
+  // codeless impl, policy-gated session-key sends route PolicyManager.execute ->
+  // account.executeBatch into empty code — the tx "succeeds", the policy consumes
+  // its spend counter, `PolicyExecuted` fires, yet no funds move.
+  //
+  // `accounts.upgradeable` (UpgradeableAccount) was removed from the canonical
+  // eip-8130 deploy and is NOT deployed on the devnet, which caused exactly that
+  // failure. Use `accounts.default` (deployed DefaultAccount).
+  const code = useMemo(() => upgradeableProxyBytecode(chain.deployment.accounts.default), [chain]);
+
+  // A viem public client pointed at vibenet's cross-origin RPC route — reads
+  // nonces / receipts and broadcasts native 8130 txs, plus the genesis hash.
+  const makeRpcClient = useCallback(
+    () =>
+      createPublicClient({
+        chain: {
+          id: chain.id || 84538453,
+          name: 'Vibenet',
+          nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+          rpcUrls: { default: { http: [ACCOUNT_RPC_URL] } },
+        },
+        transport: http(ACCOUNT_RPC_URL),
+      }),
+    [chain],
+  );
+
+  // --- regenesis detection ----------------------------------------------
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    const checkGenesis = async () => {
+      let hash: string | null = null;
+      try {
+        const block = await makeRpcClient().getBlock({ blockNumber: 0n });
+        hash = block.hash ?? null;
+      } catch {
+        return;
+      }
+      if (!hash || cancelled) return;
+      setGenesisHash((prev) => {
+        if (prev && prev !== hash) {
+          setAccounts((accts) => accts.map((a) => (a.deployed ? { ...a, deployed: false } : a)));
+          setRegenesisNotice(true);
+        }
+        return hash;
+      });
+    };
+    checkGenesis();
+    const t = setInterval(checkGenesis, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [hydrated, makeRpcClient, setAccounts, setGenesisHash]);
+
+  // --- live EIP-8130 deployment resolution ------------------------------
+  // Fetch the system-contract addresses from the dataplane on mount and again
+  // whenever a reset is detected (`genesisHash` changes). This is what makes the
+  // demo survive an arbitrary devnet reset with no code change. Keeps the same
+  // object identity when addresses are unchanged so `chain`/`code`/rpc-client
+  // memos don't churn.
+  useEffect(() => {
+    const controller = new AbortController();
+    vibenetApi
+      .contracts(controller.signal)
+      .then((contracts) => {
+        const next = deploymentFromContracts(contracts);
+        if (!next) return; // malformed payload → keep static fallback
+        setLiveDeployment((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      })
+      .catch(() => {
+        /* offline / aborted → keep last-known-good deployment */
+      });
+    return () => controller.abort();
+  }, [genesisHash]);
+
+  const acct = useMemo(() => accounts.find((a) => a.id === activeAccountId) ?? null, [accounts, activeAccountId]);
+  const addressBook = useMemo(
+    () => accounts.map((a) => ({ label: a.label, address: a.address })),
+    [accounts],
+  );
+
+  const explorerAddrHref = acct ? `${VIBENET_EXPLORER_PATH}/address/${acct.address}` : VIBENET_EXPLORER_PATH;
+
+  // Owner signers for the active account. A sub-account is controlled by its
+  // parent (via key.delegate), so key selection resolves to the parent's owner
+  // signers — plus any direct owners the sub holds itself (e.g. a minted spare key).
+  const ownerSigners = useMemo(() => {
+    if (!acct) return [] as WalletSigner[];
+    const parent = acct.parentId ? (accounts.find((a) => a.id === acct.parentId) ?? null) : null;
+    const ownerIds = new Set<string>();
+    for (const o of acct.owners) if (o.signerId) ownerIds.add(o.signerId);
+    if (parent) for (const o of parent.owners) if (o.signerId) ownerIds.add(o.signerId);
+    return signers.filter((s) => ownerIds.has(s.id));
+  }, [acct, accounts, signers]);
+  const activeSigner = ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? null;
+
+  // Session-key signers held in the wallet (scoped actors, not owners).
+  const sessionSigners = useMemo(() => {
+    if (!acct) return [] as WalletSigner[];
+    const ownerIds = new Set(acct.owners.map((o) => o.signerId));
+    const seen = new Set<string>();
+    return acct.sessionKeys
+      .map((sk) => signers.find((s) => s.id === sk.signerId))
+      .filter((s): s is WalletSigner => {
+        if (!s || ownerIds.has(s.id) || seen.has(s.id)) return false;
+        seen.add(s.id);
+        return true;
+      });
+  }, [acct, signers]);
+
+  // Staged owner changes (draft vs applied owners).
+  const pendingAuthorize = useMemo(() => {
+    if (!acct) return [] as WalletSigner[];
+    return signers.filter((s) => ownerDraft.includes(s.id) && !acct.owners.some((o) => o.signerId === s.id));
+  }, [acct, signers, ownerDraft]);
+  const pendingRevoke = useMemo(() => {
+    if (!acct) return [] as StoredActor[];
+    return acct.owners.filter((o) => !ownerDraft.includes(o.signerId));
+  }, [acct, ownerDraft]);
+  const pendingScope = useMemo(() => {
+    if (!acct) return [] as (StoredActor & { fromScope: number; toScope: number })[];
+    return acct.owners
+      .filter((o) => ownerDraft.includes(o.signerId))
+      .map((o) => {
+        const fromScope = o.scope ?? 0;
+        const toScope = scopeDraft[o.signerId] ?? fromScope;
+        return { ...o, fromScope, toScope };
+      })
+      .filter((o) => o.toScope !== o.fromScope);
+  }, [acct, ownerDraft, scopeDraft]);
+  const keyChangeCount = pendingAuthorize.length + pendingRevoke.length + pendingScope.length;
+
+  // Owners valid *after* the staged changes apply — the keys eligible to sign a
+  // tx that carries the change.
+  const postChangeOwnerSigners = useMemo(() => {
+    if (!acct) return [] as WalletSigner[];
+    const revokedIds = new Set(pendingRevoke.map((o) => o.signerId));
+    const kept = ownerSigners.filter((s) => !revokedIds.has(s.id));
+    const keptIds = new Set(kept.map((s) => s.id));
+    const added = pendingAuthorize.filter((s) => !keptIds.has(s.id));
+    return [...kept, ...added];
+  }, [acct, ownerSigners, pendingRevoke, pendingAuthorize]);
+
+  // A current owner able to authorize config changes (must be valid *before* the
+  // change). Prefer the tx signer when it's already a current owner — callers
+  // that have a concept of a "tx signer" (e.g. AccountDemo's Transact flow) pass
+  // it in; engine-internal callers pass `null`.
+  const configChangeSignerFor = useCallback(
+    (txSigner: WalletSigner | null): WalletSigner | null => {
+      if (keyChangeCount === 0) return null;
+      if (txSigner && ownerSigners.some((s) => s.id === txSigner.id)) return txSigner;
+      return ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? null;
+    },
+    [keyChangeCount, ownerSigners, activeSignerId],
+  );
+  const configChangeSigner = useMemo(() => configChangeSignerFor(null), [configChangeSignerFor]);
+
+  const ownerChangeSigned = !!(acct && signedChange && signedChange.accountId === acct.id);
+
+  // Which staged changes ride an outgoing tx. Owner sends never install a
+  // session policy; session sends carry that key's authorize+install (plus any
+  // lower-sequence prerequisites for continuity).
+  const pendingChanges = useMemo<PendingChangeItem[]>(() => {
+    if (!acct) return [];
+    const items: PendingChangeItem[] = [];
+    if (signedChange && signedChange.accountId === acct.id)
+      items.push({
+        change: signedChange.change,
+        sequence: signedChange.sequence,
+        resultingOwners: signedChange.resultingOwners,
+      });
+    for (const sk of acct.sessionKeys) {
+      if (sk.pendingAuth)
+        items.push({ change: sk.pendingAuth.change, sequence: sk.pendingAuth.sequence, sessionId: sk.id });
+      // A staged revoke is a local-counter change too — carry it like an
+      // authorization so it rides a session send / apply-all.
+      if (sk.pendingRevoke)
+        items.push({ change: sk.pendingRevoke.change, sequence: sk.pendingRevoke.sequence, sessionId: sk.id });
+    }
+    return items.sort((a, b) => a.sequence - b.sequence);
+  }, [acct, signedChange]);
+
+  const pendingBundleFor = (opts: { mode: 'owner-send' | 'session-send' | 'apply-all'; sessionId?: string }): PendingChangeItem[] => {
+    if (opts.mode === 'apply-all') return pendingChanges;
+    if (opts.mode === 'owner-send')
+      return pendingChanges.filter(
+        (i) => !i.sessionId && !pendingChanges.some((s) => s.sessionId && s.sequence < i.sequence),
+      );
+    const active = pendingChanges.find((i) => i.sessionId === opts.sessionId);
+    if (!active) return pendingChanges.filter((i) => !i.sessionId);
+    return pendingChanges.filter((i) => i.sequence <= active.sequence);
+  };
+
+  // Count of staged (signed, not-yet-landed) config changes — each consumes one
+  // config sequence. A NEW change binds to `liveSeq + this` so stacked changes
+  // get consecutive sequences.
+  const pendingChangeCount = (opts?: { includeOwner?: boolean }) => {
+    const includeOwner = opts?.includeOwner ?? true;
+    const sessions = (acct?.sessionKeys ?? []).filter((sk) => sk.pendingAuth || sk.pendingRevoke).length;
+    const owner = includeOwner && !!acct && !!signedChange && signedChange.accountId === acct.id ? 1 : 0;
+    return sessions + owner;
+  };
+
+  // Re-sync owner draft + config-related state when the active account changes.
+  // Demo-local (transact-modal) state resets in a separate effect owned by the
+  // caller (e.g. AccountDemo's own `[activeAccountId]` effect for txSignerId/
+  // result/txStep), since this hook has no notion of a transact modal.
+  useEffect(() => {
+    setOwnerDraft(acct ? acct.owners.map((o) => o.signerId) : []);
+    setScopeDraft(acct ? Object.fromEntries(acct.owners.map((o) => [o.signerId, o.scope ?? 0])) : {});
+    setActiveSignerId(acct ? (acct.owners[0]?.signerId ?? null) : null);
+    setSignedChange(null);
+    setOwnersEditing(false);
+    setSessionAdding(false);
+    setSkChainShort(networkShort);
+    setSkLimits([newLimitDraft()]);
+    setSkScopes([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId]);
+
+  // --- assets: ETH + stablecoin across demo networks --------------------
+  // Re-fetches on `detailsOpen` too (not just `acct`) so reopening the details
+  // popup for the same already-active account still pulls fresh balances,
+  // instead of showing whatever was last fetched.
+  useEffect(() => {
+    if (!acct || !detailsOpen) return;
+    let cancelled = false;
+    setAssetsLoading(true);
+    setAssetBals({});
+    Promise.all(
+      DEMO_CHAINS.map((c) => c.shortName as 'vibenet' | 'base-sepolia').map((net) =>
+        vibenetApi.account
+          .balances(acct.address, net)
+          .then((b) => [net, b] as const)
+          .catch(() => [net, null] as const),
+      ),
+    )
+      .then((entries) => {
+        if (!cancelled) setAssetBals(Object.fromEntries(entries));
+      })
+      .finally(() => {
+        if (!cancelled) setAssetsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [acct, detailsOpen]);
+
+  // --- session-key live spend remaining ----------------------------------
+  // Read each installed session key's per-token budget from the SessionPolicy
+  // (getTokenLimit → cap + window, getCurrentSpend → usage) for the card's
+  // "remaining" readout. Pending (not-yet-installed) keys are skipped.
+  const sessionPolicyKey = useMemo(
+    () =>
+      (acct?.sessionKeys ?? [])
+        .map((sk) => `${sk.id}:${sk.policy?.commitment ?? ''}:${sk.pendingAuth ? 'p' : 'd'}`)
+        .join('|'),
+    [acct],
+  );
+  useEffect(() => {
+    if (!acct) {
+      setPolicyRemaining({});
+      return;
+    }
+    const keys = acct.sessionKeys.filter((sk) => !sk.pendingAuth && sk.policy?.commitment && sk.policy.policy);
+    if (keys.length === 0) {
+      setPolicyRemaining({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const client = makeRpcClient() as unknown as {
+        readContract: (args: unknown) => Promise<unknown>;
+      };
+      const nowSecs = BigInt(Math.floor(Date.now() / 1000));
+      const stable = await resolveStable(chain.shortName).catch(() => null);
+      const out: Record<
+        string,
+        Record<string, { remaining: bigint; allowance: bigint; symbol: string; decimals: number; period: number }>
+      > = {};
+      for (const sk of keys) {
+        const policy = sk.policy!;
+        const meta = new Map<string, { symbol: string; decimals: number }>();
+        for (const lim of policy.limits ?? [])
+          meta.set(lim.token.toLowerCase(), { symbol: lim.symbol, decimals: lim.decimals });
+        if (!meta.has(ZERO_ADDR.toLowerCase())) meta.set(ZERO_ADDR.toLowerCase(), { symbol: 'ETH', decimals: 18 });
+        if (stable && !meta.has(stable.address.toLowerCase()))
+          meta.set(stable.address.toLowerCase(), { symbol: stable.symbol, decimals: stable.decimals });
+
+        const perToken: Record<
+          string,
+          { remaining: bigint; allowance: bigint; symbol: string; decimals: number; period: number }
+        > = {};
+        for (const [token, info] of meta) {
+          try {
+            const [set, allowance, period] = (await client.readContract({
+              address: policy.policy,
+              abi: sessionPolicyAbi,
+              functionName: 'getTokenLimit',
+              args: [policy.commitment, token as Address],
+            })) as [boolean, bigint, number];
+            if (!set) continue;
+            const spend = (await client.readContract({
+              address: policy.policy,
+              abi: sessionPolicyAbi,
+              functionName: 'getCurrentSpend',
+              args: [policy.commitment, token as Address],
+            })) as { end: bigint | number; spend: bigint | number };
+            const end = BigInt(spend.end ?? 0);
+            const used = end !== 0n && nowSecs >= end ? 0n : BigInt(spend.spend ?? 0);
+            perToken[token] = {
+              remaining: allowance > used ? allowance - used : 0n,
+              allowance,
+              symbol: info.symbol,
+              decimals: info.decimals,
+              period: Number(period),
+            };
+          } catch {
+            /* RPC/read failure — fall back to the static cap */
+          }
+        }
+        if (Object.keys(perToken).length > 0) out[sk.id] = perToken;
+      }
+      if (!cancelled) setPolicyRemaining(out);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionPolicyKey, chain.shortName]);
+
+  // --- helpers -----------------------------------------------------------
+  const copy = async (text: string, k: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(k);
+      setTimeout(() => setCopied(null), 1400);
+    } catch {
+      /* noop */
+    }
+  };
+
+  const pushActivity = (e: Omit<Persisted['activity'][number], 'id' | 'ts'>) =>
+    setActivity((prev) => [{ id: crypto.randomUUID(), ts: Date.now(), ...e }, ...prev]);
+
+  const updateAccount = useCallback(
+    (id: string, patch: Partial<StoredAccount> | ((a: StoredAccount) => StoredAccount)) =>
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === id ? (typeof patch === 'function' ? patch(a) : { ...a, ...patch }) : a)),
+      ),
+    [setAccounts],
+  );
+
+  const refreshVibenetBalances = async (): Promise<Balances | null> => {
+    if (!acct) return null;
+    const b = await vibenetApi.account.balances(acct.address, 'vibenet').catch(() => null);
+    setAssetBals((prev) => ({ ...prev, vibenet: b }));
+    return b;
+  };
+
+  const requestFaucet = async () => {
+    if (!acct) return;
+    setFaucetBusy('eth+usdv');
+    setError('');
+    try {
+      await fundAccount(acct.address);
+      const ethBefore = BigInt(assetBals.vibenet?.eth_wei ?? '0');
+      const deadline = Date.now() + 8_000;
+      let credited = false;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 500));
+        const fresh = await refreshVibenetBalances();
+        if (BigInt(fresh?.eth_wei ?? '0') > ethBefore) {
+          credited = true;
+          break;
+        }
+      }
+      if (credited) {
+        toast.success('Topped up successfully');
+      } else {
+        toast.error("Top up didn't go through — Vibenet may be down for maintenance. Please try again shortly.");
+      }
+    } catch (e) {
+      setError((e as Error).message);
+      toast.error('Top up failed');
+    } finally {
+      setFaucetBusy(null);
+    }
+  };
+
+  const autoFundNewAccount = (address: Address) => {
+    void fundAccount(address)
+      .then(() => toast.success('New account funded from the faucet'))
+      .catch(() => toast.error('Auto top-up failed — use Top Up to retry'));
+  };
+
+  const createSigner = async (kind: SignerKind): Promise<WalletSigner | null> => {
+    setError('');
+    setBusy(kind);
+    try {
+      const n = signers.filter((s) => s.kind === kind).length + 1;
+      const label = `${KIND_LABEL[kind]} ${n}`;
+      let ws: WalletSigner;
+      if (kind === 'k1') {
+        const pk = generatePrivateKey();
+        const owner = privateKeyToAccount(pk);
+        const a = key.k1(owner.address);
+        ws = {
+          id: crypto.randomUUID(),
+          kind,
+          label,
+          privateKey: pk,
+          address: owner.address,
+          actorId: a.actorId,
+          authenticator: a.authenticator,
+        };
+      } else if (kind === 'p256') {
+        const pk = generatePrivateKey();
+        const s = toP256Signer({ privateKey: pk });
+        const a = key.p256(s.publicKey);
+        ws = {
+          id: crypto.randomUUID(),
+          kind,
+          label,
+          privateKey: pk,
+          publicKey: s.publicKey,
+          actorId: a.actorId,
+          authenticator: a.authenticator,
+        };
+      } else {
+        const credential = await createWebAuthnCredential({ name: label });
+        const a = key.passkey(credential.publicKey);
+        ws = {
+          id: crypto.randomUUID(),
+          kind,
+          label,
+          credential: { id: credential.id, publicKey: credential.publicKey },
+          actorId: a.actorId,
+          authenticator: a.authenticator,
+        };
+      }
+      if (signers.some((s) => s.actorId === ws.actorId)) {
+        setError('That key is already in your wallet (same actor). Skipped.');
+        return null;
+      }
+      setSigners((prev) => [...prev, ws]);
+      return ws;
+    } catch (err) {
+      const e = err as { message?: string; name?: string };
+      setError(e.name === 'NotAllowedError' ? 'Passkey prompt was dismissed.' : (e.message ?? String(err)));
+      return null;
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const openCreate = () => {
+    // Default to EOA — the simplest account to reason about (your key is the
+    // account); Smart is one click away in the modal.
+    setModalType('eoa');
+    setModalLabel('');
+    setModalSalt(randomHex32());
+    setModalIds([]);
+    setModalEoaId(null);
+    setError('');
+    setModalOpen(true);
+  };
+
+  const randomizeCreateSalt = () => setModalSalt(randomHex32());
+
+  const removeAccount = (id: string) => {
+    deleteAccount(id);
+    setDetailsOpen(false);
+  };
+
+  const openAccountDetails = (id: string) => {
+    setActiveAccountId(id);
+    setDetailsOpen(true);
+  };
+
+  // Jump straight to the Owners tab of the active account's details popup, in
+  // edit mode — used by the "Modify Owners" feature card.
+  const openOwnersManager = () => {
+    if (!acct) return;
+    setCfgTab('owners');
+    setOwnersEditing(true);
+    setDetailsOpen(true);
+  };
+
+  // Signer ids referenced by any account — as an owner, a session key, or a
+  // sub-account owner. Keys outside this set are unused and safe to delete.
+  const usedSignerIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const a of accounts) {
+      for (const o of a.owners) ids.add(o.signerId);
+      for (const o of a.initialActors) ids.add(o.signerId);
+      for (const sk of a.sessionKeys) ids.add(sk.signerId);
+      for (const sub of a.subAccounts) for (const id of sub.signerIds) ids.add(id);
+    }
+    return ids;
+  }, [accounts]);
+
+  // Drop an unused wallet key. Also clears it from the create-modal selection so
+  // a deleted key can't linger in `modalIds` / `modalEoaId`.
+  const deleteSigner = useCallback(
+    (id: string) => {
+      if (usedSignerIds.has(id)) return;
+      setSigners((prev) => prev.filter((s) => s.id !== id));
+      setModalIds((prev) => prev.filter((x) => x !== id));
+      setModalEoaId((prev) => (prev === id ? null : prev));
+    },
+    [usedSignerIds, setSigners],
+  );
+
+  // Create-modal derivations.
+  const eoaSigners = useMemo(() => signers.filter((s) => s.kind === 'k1'), [signers]);
+  const modalEoaSigner = useMemo(() => eoaSigners.find((s) => s.id === modalEoaId) ?? null, [eoaSigners, modalEoaId]);
+  const modalSigners = useMemo(() => signers.filter((s) => modalIds.includes(s.id)), [signers, modalIds]);
+  const modalSalt32 = useMemo(() => normalizeSalt(modalSalt), [modalSalt]);
+  const modalAddress = useMemo<Address | null>(() => {
+    if (modalType === 'eoa') return modalEoaSigner?.address ?? null;
+    if (modalSigners.length === 0) return null;
+    const ids = new Set(modalSigners.map((s) => s.actorId));
+    if (ids.size !== modalSigners.length) return null;
+    try {
+      return computeAddress({
+        userSalt: modalSalt32,
+        code,
+        initialActors: sortActors(actorPairs(modalSigners)),
+      });
+    } catch {
+      return null;
+    }
+  }, [modalType, modalEoaSigner, modalSigners, modalSalt32, code]);
+
+  const createAccount = () => {
+    if (!modalAddress) return;
+    if (modalType === 'eoa') {
+      if (!modalEoaSigner) return;
+      const selfActor = toStoredActor(modalEoaSigner);
+      const account: StoredAccount = {
+        id: crypto.randomUUID(),
+        label: modalLabel.trim() || `Account ${accounts.length + 1}`,
+        type: 'eoa',
+        saltField: '',
+        salt: `0x${'00'.repeat(32)}` as Hex,
+        address: modalAddress,
+        delegate: chain.deployment.accounts.default,
+        initialActors: [selfActor],
+        owners: [selfActor],
+        deployed: false,
+        configSeq: 0,
+        sessionKeys: [],
+        subAccounts: [],
+        createdAt: Date.now(),
+      };
+      addAccount(account);
+      pushActivity({
+        kind: 'create',
+        title: `EOA account · ${account.label}`,
+        detail: 'Delegates to DefaultAccount on first use',
+        account: account.address,
+      });
+      autoFundNewAccount(account.address);
+      setModalOpen(false);
+      return;
+    }
+    if (modalSigners.length === 0) return;
+    const initialActors = modalSigners.map(toStoredActor);
+    const account: StoredAccount = {
+      id: crypto.randomUUID(),
+      label: modalLabel.trim() || `Account ${accounts.length + 1}`,
+      type: 'smart',
+      saltField: modalSalt,
+      salt: modalSalt32,
+      address: modalAddress,
+      initialActors,
+      owners: [...initialActors],
+      deployed: false,
+      configSeq: 0,
+      sessionKeys: [],
+      subAccounts: [],
+      createdAt: Date.now(),
+    };
+    addAccount(account);
+    pushActivity({
+      kind: 'create',
+      title: `Account created · ${account.label}`,
+      detail: 'Stored locally · deploys on first use',
+      changes: initialActors.map((a) => `${a.label} (${KIND_LABEL[a.kind]})`),
+      account: account.address,
+    });
+    autoFundNewAccount(account.address);
+    setModalOpen(false);
+  };
+
+  // --- 8130 account handle + first-deploy change -------------------------
+  const nativeAccountFor = (a: StoredAccount, signer: Signer, authenticator: Address) => {
+    const isDefaultEoaActor =
+      a.type === 'eoa' &&
+      authenticator === ecrecoverAuthenticator &&
+      !!signer.address &&
+      signer.address.toLowerCase() === a.address.toLowerCase();
+    if (isDefaultEoaActor) return toEoaAccount(signer);
+    if (a.type === 'eoa') {
+      return toAccount({ signer, address: a.address as Address, authenticator });
+    }
+    // Sub-account controlled by a parent via `key.delegate(parent)`. When the
+    // selected signer is NOT one of the sub's own direct owners (e.g. a minted
+    // spare key), it must be a PARENT admin owner vouching through the
+    // DelegateAuthenticator. Wrap it so the senderAuth is the delegate blob
+    // (DELEGATE || parent || nestedAuthenticator || nestedSignature) instead of a
+    // plain [ecrecover||sig], which the node rejects with "actor is not bound"
+    // (the parent's k1 actorId is not an actor on the sub — only the delegate is).
+    if (a.parentId) {
+      const parent = accounts.find((p) => p.id === a.parentId) ?? null;
+      const selfActorId = key.k1(signer.address as Address).actorId.toLowerCase();
+      const isDirectOwner = a.initialActors.some(
+        (o) =>
+          o.actorId.toLowerCase() === selfActorId &&
+          (o.authenticator ?? ecrecoverAuthenticator).toLowerCase() === ecrecoverAuthenticator.toLowerCase(),
+      );
+      if (parent && !isDirectOwner) {
+        const delegateSigner = toDelegateSigner({
+          delegateAccount: parent.address as Address,
+          nestedSigner: signer,
+          nestedAuthenticator: authenticator,
+        });
+        return toAccount({
+          signer: delegateSigner,
+          authenticator: delegateSigner.authenticator,
+          userSalt: a.salt,
+          code,
+          initialActors: sortActors(actorPairs(a.initialActors)),
+        });
+      }
+    }
+    return toAccount({
+      signer,
+      userSalt: a.salt,
+      code,
+      initialActors: sortActors(actorPairs(a.initialActors)),
+      authenticator,
+    });
+  };
+
+  const firstDeployChange = (a: StoredAccount, account: ReturnType<typeof nativeAccountFor>): AaAccountChange =>
+    a.type === 'eoa'
+      ? account.delegate(a.delegate ?? chain.deployment.accounts.default)
+      : (account as ReturnType<typeof toAccount>).create();
+
+  // Broadcast a signed 8130 tx and wait for inclusion. Throws TxPendingError on
+  // timeout (submitted but unconfirmed), a plain Error if any phase reverts.
+  const broadcast8130 = async (signedTx: Hex, onStatus?: (s: 'submitting' | 'confirming') => void): Promise<Hex> => {
+    const client = makeRpcClient();
+    onStatus?.('submitting');
+    const txHash = (await client.request({
+      method: 'eth_sendRawTransaction',
+      params: [signedTx],
+    })) as Hex;
+    onStatus?.('confirming');
+    try {
+      const receipt = await waitForTransactionReceipt(client as never, { hash: txHash, timeout: 30_000 });
+      if (receipt.status === '0x0') throw new Error(`Transaction reverted onchain (${txHash}).`);
+      const phases = receipt.eip8130?.phaseStatuses ?? [];
+      const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
+      if (failedPhase !== -1) throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
+    } catch (err) {
+      if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
+      throw err;
+    }
+    return txHash;
+  };
+
+  // Live on-chain config sequence for a deployed account (null on any error, so
+  // callers fall back to the stored value).
+  // Reads the account's two config-change counters:
+  //   - `multichain` (configChainId 0) — carries OWNER (actor) changes, so they
+  //     sequence independently of session-key authorizes.
+  //   - `local` (per-chain) — carries session-key authorizes.
+  // Keeping them on separate counters means a pending session key can't shift an
+  // owner change's sequence (or vice versa) — the classic "config change sequence
+  // mismatch". Never guess a live sequence (a wrong value reverts on-chain): on a
+  // read failure we THROW so the caller aborts signing instead of using a guess.
+  const fetchOnChainConfigSeq = async (address: Address): Promise<{ local: number; multichain: number }> => {
+    try {
+      const { local, multichain } = await getConfigSequence(makeRpcClient(), {
+        account: address,
+      });
+      return { local: Number(local), multichain: Number(multichain) };
+    } catch (err) {
+      const reason = (err as { message?: string })?.message ?? String(err);
+      throw new Error(
+        `Couldn't read the on-chain config sequence for ${address}: ${reason}. Not signing, to avoid a sequence mismatch.`,
+      );
+    }
+  };
+
+  // Compose + sign a native EIP-8130 transaction: first-use deploy change,
+  // any pre-signed owner/session config changes (carried in sequence order),
+  // optional payer pre-calls, and the user calls (wrapped through the
+  // PolicyManager when a session key signs — every execute carries the full
+  // committed binding, so there is no separate install phase). Returns the
+  // signed tx + the config sequence it advances to.
+  const signComposed = async (
+    a: StoredAccount,
+    signerWS: WalletSigner,
+    rows: CallRow[],
+    presignedChanges: AaAccountChange[],
+    changeSeq: number | null,
+    meta: Hex | undefined,
+    sessionPolicy?: AppPolicy,
+    payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[] },
+  ): Promise<{ serialized: Hex; nextSeq: number }> => {
+    const signer = await buildSigner(signerWS);
+    const account = nativeAccountFor(a, signer, signerWS.authenticator);
+    const chainId = chain.id || 84532;
+    const accountChanges: AaAccountChange[] = [];
+    let nextSeq = a.configSeq;
+
+    // Sub-account signed via the parent's delegate actor? Then the acting actor
+    // (for estimation) is the delegate, not the parent owner's own k1 actor — and
+    // its senderAuth is the longer delegate blob. Detect it the same way
+    // nativeAccountFor does (parent owner, not a direct sub owner).
+    const parentAcct = a.parentId ? (accounts.find((p) => p.id === a.parentId) ?? null) : null;
+    const isDirectSubOwner =
+      !!a.parentId &&
+      a.initialActors.some(
+        (o) =>
+          o.actorId.toLowerCase() === signerWS.actorId.toLowerCase() &&
+          (o.authenticator ?? ecrecoverAuthenticator).toLowerCase() === ecrecoverAuthenticator.toLowerCase(),
+      );
+    const isDelegateSub = !!parentAcct && !isDirectSubOwner;
+
+    // Reconcile the stored "deployed" flag against on-chain code in BOTH directions
+    // before composing (also repairs localStorage when the browser missed a receipt):
+    //   - code gone (e.g. devnet reset) → treat as undeployed, include create/delegate
+    //   - code exists after a timed-out/reverted later phase → do NOT recreate
+    let effectivelyDeployed = a.deployed;
+    try {
+      const codeAt = await makeRpcClient().request({
+        method: 'eth_getCode',
+        params: [account.address as `0x${string}`, 'latest'],
+      });
+      effectivelyDeployed = !!codeAt && codeAt !== '0x';
+      if (effectivelyDeployed !== a.deployed) updateAccount(a.id, { deployed: effectivelyDeployed });
+    } catch {
+      /* RPC unavailable — keep the stored flag */
+    }
+    if (!effectivelyDeployed) accountChanges.push(firstDeployChange(a, account));
+    if (presignedChanges.length > 0) {
+      nextSeq = changeSeq ?? a.configSeq;
+      accountChanges.push(...presignedChanges);
+    }
+
+    const { phase0: userPhase0, phase1: userPhase1 } = buildPhases(rows, account.address);
+    const phases: { to: Address; value?: bigint; data?: Hex }[][] = [];
+    if (sessionPolicy) {
+      // A gated session key may only reach the PolicyManager, so wrap every user
+      // call as `PolicyManager.execute` (each execute carries the full committed
+      // binding — no install phase). Any payer USDV payment is also wrapped.
+      const sessionPhase0: { to: Address; value?: bigint; data?: Hex }[] = [];
+      if (payerOpt?.phase0 && payerOpt.phase0.length > 0)
+        sessionPhase0.push(
+          ...wrapSessionCalls(
+            payerOpt.phase0.map((c) => ({ to: c.to, value: 0n, data: c.data })),
+            sessionPolicy,
+            account.address,
+          ),
+        );
+      if (sessionPhase0.length > 0) phases.push(sessionPhase0);
+      phases.push(wrapSessionCalls([...userPhase0, ...userPhase1], sessionPolicy, account.address));
+    } else {
+      // [payerPreCalls?, userPhase0?, userPhase1]
+      if (payerOpt?.phase0 && payerOpt.phase0.length > 0)
+        phases.push(payerOpt.phase0.map((c) => ({ to: c.to, value: 0n, data: c.data })));
+      if (userPhase0.length > 0) phases.push(userPhase0);
+      phases.push(userPhase1);
+    }
+
+    // Structural gas-floor accounting: wrapped session calls are "heavy"
+    // (PolicyManager frames + first-use SSTOREs); everything else plain.
+    const totalCalls = phases.reduce((n, p) => n + p.length, 0);
+    const heavyCallCount = sessionPolicy ? userPhase0.length + userPhase1.length : 0;
+    const plainCallCount = Math.max(totalCalls - heavyCallCount, 1);
+    const wire = encodeWalletCalls({ account: account.address, calls: phases });
+
+    let nonceSequence: bigint;
+    try {
+      nonceSequence = await getTransactionCount(makeRpcClient(), {
+        address: account.address as Address,
+        nonceKey: 0n,
+      });
+    } catch {
+      nonceSequence = effectivelyDeployed ? 1n : 0n;
+    }
+
+    // Authenticator hint so estimateGas shapes the senderAuth stub for the
+    // actual signer. A delegate-signed sub-account acts via the parent's delegate
+    // actor, whose senderAuth is the longer delegate blob — hint the delegate
+    // authenticator.
+    const senderAuthAuthenticator: Address = isDelegateSub
+      ? canonicalAuthenticators.delegate
+      : signerWS.kind === 'p256'
+        ? canonicalAuthenticators.p256
+        : signerWS.kind === 'passkey'
+          ? canonicalAuthenticators.passkey
+          : canonicalAuthenticators.k1;
+    const senderActorId: Hex =
+      isDelegateSub && parentAcct ? key.delegate(parentAcct.address as Address).actorId : signerWS.actorId;
+
+    // Structural gas floor. `false` = realistic-with-headroom (a floor UNDER a
+    // successful node estimate). `true` = 2x over-provision (used when no node
+    // estimate is available, so a heavy policy/payer send can't under-provision
+    // and OOG-revert — unused gas is refunded).
+    const floorGas = (fallback = false) =>
+      estimateTxGas({
+        mode: chain.mode,
+        deploy: !effectivelyDeployed,
+        calls: plainCallCount,
+        keyChanges: accountChanges.filter((c) => c.type === 'config').length,
+        policyCalls: heavyCallCount,
+        // Value-bearing user calls carry the stipend + cold-account cost the node
+        // estimate misses (policy-wrapped sends still forward the ETH value).
+        valueCalls: valueBearingCallCount(rows),
+        fallback,
+      });
+    let gasLimit: bigint;
+    if (chain.mode === 'eip8130-native') {
+      try {
+        const estimated = await estimateGas(makeRpcClient(), {
+          sender: account.address as Address,
+          // Name the acting actor so the node can fully simulate the tx —
+          // policy-gated session keys (resolving the actor's scope + PolicyManager
+          // binding) and payer (ERC-8168) bundles. Without it the node falls back
+          // to the account's self actor and mis-prices or reverts those shapes,
+          // which under-provisions a session send and OOG-reverts on-chain.
+          senderActorId,
+          accountChanges,
+          calls: phases,
+          nonceSequence: Number(nonceSequence),
+          senderAuthAuthenticator,
+          // The delegate authenticator has no fixed default auth-payload length,
+          // so hand the estimator the exact senderAuth size (delegate blob).
+          ...(isDelegateSub ? { senderAuthSize: delegateAuthSize() } : {}),
+          ...(payerOpt ? { payer: payerOpt.address } : {}),
+        });
+        gasLimit = safeGasLimit(estimated, floorGas(false));
+      } catch (err) {
+        // With `senderActorId` supplied the node CAN simulate session-key/policy/
+        // payer bundles, so a failed estimate now generally means the tx would
+        // actually revert. Only a few shapes are benign and fall back to the floor:
+        if (isUnsupportedRpcError(err)) {
+          // Node lacks the 8130 `eth_estimateGas` extension — floor is still correct.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        } else if (!effectivelyDeployed) {
+          // A tx carrying `create` can't be simulated (account doesn't exist yet;
+          // the node rejects with -32602) — but the create binds actors and lands.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        } else if (isDelegateSub) {
+          // Delegate sub-account: the nested (parent) vouch through the
+          // DelegateAuthenticator is a shape the node's estimator may not simulate,
+          // but a broadcast still lands — fall back to the generous floor.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        } else if (overrideEstimateRef.current) {
+          // User chose "Send anyway": price at a high ceiling so an under-estimate
+          // isn't the cause of a revert. If it still reverts, it's a genuine logic
+          // failure and the gas is spent (self-pay) / rejected (payer).
+          gasLimit = BigInt(Math.max(floorGas(true) * 2, 2_000_000));
+        } else if (blockOnRevertRef.current) {
+          // Genuine reverting estimate on a Transact send — surface it instead of
+          // broadcasting a doomed tx. The Transact view shows a "Send anyway" hatch.
+          setEstimateBlocked(estimateFailureReason(err));
+          throw new Error(`Gas estimate failed — this transaction would revert: ${estimateFailureReason(err)}`);
+        } else {
+          // Non-transact caller (config apply flows) — keep the over-provisioned
+          // floor so a genuine revert surfaces via the normal on-chain error path.
+          gasLimit = BigInt(floorGas(true) || 200_000);
+        }
+      }
+    } else {
+      gasLimit = BigInt(floorGas(true) || 200_000);
+    }
+
+    const serialized = await account.signTransaction({
+      chainId,
+      accountChanges,
+      calls: wire,
+      metadata: meta,
+      nonceKey: 0n,
+      nonceSequence,
+      maxFeePerGas: 1_000_000_000n,
+      maxPriorityFeePerGas: 1_000_000n,
+      gas: gasLimit,
+      ...(payerOpt ? { payer: payerOpt.address, payerAuth: '0x' as Hex } : {}),
+    });
+    return { serialized, nextSeq };
+  };
+
+  // Apply the on-chain effects a landed tx carried: mark deployed, advance the
+  // config sequence, apply a bundled owner change, clear bundled keys' pendingAuth,
+  // remove keys whose staged revoke landed, and record any newly-trusted managers.
+  const applyLandedBundle = (a: StoredAccount, nextSeq: number, bundle: PendingChangeItem[]) => {
+    const ownerItem = bundle.find((i) => i.resultingOwners);
+    const bundledSessionIds = new Set(bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])));
+    const newOwners = ownerItem?.resultingOwners ?? a.owners;
+    updateAccount(a.id, (acc) => ({
+      ...acc,
+      deployed: true,
+      configSeq: nextSeq,
+      owners: ownerItem?.resultingOwners ?? acc.owners,
+      sessionKeys: commitLandedSessions(acc, bundledSessionIds),
+      trustedManagers: mergeLandedManagers(acc, bundledSessionIds),
+    }));
+    if (ownerItem) {
+      setSignedChange(null);
+      setOwnerDraft(newOwners.map((o) => o.signerId));
+      setScopeDraft(Object.fromEntries(newOwners.map((o) => [o.signerId, o.scope ?? 0])));
+    }
+  };
+
+  // Shared owner-signed call path for account-backed demos outside the account
+  // transaction builder. It deliberately reuses the full compose/broadcast
+  // implementation so deployment reconciliation, sub-account delegation, gas
+  // estimation, and eligible staged account changes behave consistently.
+  const sendActiveCall = async ({ to, data }: { to: Address; data: Hex }) => {
+    if (!acct) throw new Error('Select an account before you continue.');
+    const signer =
+      postChangeOwnerSigners.find((s) => s.id === activeSignerId) ??
+      postChangeOwnerSigners[0] ??
+      activeSigner;
+    if (!signer) throw new Error('No local owner key found for this account.');
+
+    const bundle = pendingBundleFor({ mode: 'owner-send' });
+    const presigned = bundle.map((item) => item.change);
+    const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
+    const { serialized, nextSeq } = await signComposed(
+      acct,
+      signer,
+      [newCallRow({ to, data, value: '0' })],
+      presigned,
+      changeSeq,
+      undefined,
+      undefined,
+      undefined,
+    );
+    const hash = await broadcast8130(serialized);
+    applyLandedBundle(acct, nextSeq, bundle);
+    return { hash, serialized };
+  };
+
+  // --- owner changes -----------------------------------------------------
+  const invalidateSignedChange = () => setSignedChange(null);
+  const discardOwnerChanges = () => {
+    setSignedChange(null);
+    if (!acct) return;
+    setOwnerDraft(acct.owners.map((o) => o.signerId));
+    setScopeDraft(Object.fromEntries(acct.owners.map((o) => [o.signerId, o.scope ?? 0])));
+  };
+  const stageAddOwner = (id: string) => {
+    setOwnerDraft((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    invalidateSignedChange();
+  };
+  const stageRemoveOwner = (id: string, eoaSelf: boolean) => {
+    if (
+      eoaSelf &&
+      !window.confirm(
+        "Revoke the EOA's own key? The EOA will no longer be able to sign for this account — make sure another owner is authorized first.",
+      )
+    )
+      return;
+    setOwnerDraft((prev) => prev.filter((x) => x !== id));
+    invalidateSignedChange();
+  };
+  const setOwnerScope = (id: string, scope: number) => {
+    setScopeDraft((prev) => ({ ...prev, [id]: scope }));
+    invalidateSignedChange();
+  };
+  const mintOwner = async (kind: SignerKind) => {
+    const s = await createSigner(kind);
+    if (s) {
+      setOwnerDraft((prev) => [...prev, s.id]);
+      invalidateSignedChange();
+    }
+  };
+
+  const buildAuthorizeActions = (): { actorId: Hex; authenticator: Address; scope: number }[] => [
+    ...pendingAuthorize.map((s) => ({
+      actorId: s.actorId,
+      authenticator: s.authenticator,
+      scope: scopeDraft[s.id] ?? 0,
+    })),
+    ...pendingScope.map((o) => ({ actorId: o.actorId, authenticator: o.authenticator, scope: o.toScope })),
+  ];
+  const applyOwnerUpdate = (a: StoredAccount): StoredActor[] => {
+    const kept = a.owners
+      .filter((o) => ownerDraft.includes(o.signerId))
+      .map((o) => ({ ...o, scope: scopeDraft[o.signerId] ?? o.scope ?? 0 }));
+    const added = pendingAuthorize.map((s) => ({ ...toStoredActor(s), scope: scopeDraft[s.id] ?? 0 }));
+    return [...kept, ...added];
+  };
+
+  // Sign the owner change on its own (a current owner authorizes it). Captures
+  // the signed blob; it then rides the next Transact or an explicit "Apply now".
+  const signOwnerChange = async () => {
+    if (!acct || keyChangeCount === 0) return;
+    const changeWS = configChangeSigner ?? activeSigner;
+    if (!changeWS) return;
+    setApplying(true);
+    setError('');
+    try {
+      const changeSigner = await buildSigner(changeWS);
+      const changeAccount = nativeAccountFor(acct, changeSigner, changeWS.authenticator);
+      // Owner (actor) changes live on the GLOBAL multichain config counter
+      // (configChainId 0) so they sequence independently of session-key
+      // authorizes (per-chain local counter) — a pending session key can't shift
+      // this sequence, and vice versa.
+      const chainId = 0;
+      let nextSeq: number;
+      if (acct.deployed) {
+        // Read the live multichain sequence — never guess (fetch throws on failure).
+        const { multichain } = await fetchOnChainConfigSeq(changeAccount.address as Address);
+        nextSeq = multichain;
+      } else {
+        // Undeployed: the first-tx `create`/`delegation` change rides the SAME tx
+        // and does NOT consume the multichain counter, so the bundled owner change
+        // is sequence 0. `configSeq` is always 0 while undeployed, so it's the
+        // correct base here (no `+ 1`, which caused a sequence mismatch).
+        nextSeq = acct.configSeq;
+      }
+      const change = await changeAccount.change(
+        [
+          ...buildAuthorizeActions().map((s) =>
+            s.scope
+              ? authorizeActor({ actorId: s.actorId, authenticator: s.authenticator }, { scope: s.scope })
+              : authorizeActor({ actorId: s.actorId, authenticator: s.authenticator }),
+          ),
+          ...pendingRevoke.map((o) => revokeActor(o.actorId)),
+        ],
+        { chainId, sequence: BigInt(nextSeq) },
+      );
+      setSignedChange({
+        accountId: acct.id,
+        change,
+        sequence: nextSeq,
+        resultingOwners: applyOwnerUpdate(acct),
+        summary: [
+          ...pendingAuthorize.map((s) => `authorize ${s.label}`),
+          ...pendingRevoke.map((o) => `revoke ${o.label}`),
+          ...pendingScope.map((o) => `scope ${o.label} → ${scopeLabel(o.toScope)}`),
+        ],
+      });
+    } catch (err) {
+      const e = err as { message?: string; name?: string };
+      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  // Apply an already-signed owner change now: a post-change owner signs a no-op
+  // tx that carries it.
+  const applyOwnerNow = async () => {
+    if (!acct || !signedChange || signedChange.accountId !== acct.id) return;
+    const txWS = postChangeOwnerSigners.find((s) => s.id === activeSignerId) ?? postChangeOwnerSigners[0] ?? activeSigner;
+    if (!txWS) return;
+    const bundle = pendingBundleFor({ mode: 'owner-send' });
+    if (!bundle.some((i) => !i.sessionId)) {
+      setError('A pending session key is ahead in the config sequence. Apply or discard it first, then apply the owner change.');
+      return;
+    }
+    const presigned = bundle.map((i) => i.change);
+    const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : signedChange.sequence;
+    const summary = signedChange.summary;
+    setApplying(true);
+    setError('');
+    setConfigTx(null);
+    try {
+      const { serialized, nextSeq } = await signComposed(acct, txWS, [newCallRow()], presigned, changeSeq, undefined, undefined, undefined);
+      const txHash = await broadcast8130(serialized, setSubmitStatus);
+      applyLandedBundle(acct, nextSeq, bundle);
+      setConfigTx({ hash: txHash, label: 'Owner change' });
+      pushActivity({
+        kind: 'transact',
+        title: 'Key changes landed onchain',
+        txHash,
+        changes: summary,
+        network: chain.name,
+        mode: chain.mode,
+        serialized,
+        account: acct.address,
+      });
+    } catch (err) {
+      if (handleSeqMismatch(err, { sessionIds: [], hasOwner: true })) return;
+      const e = err as { message?: string; name?: string };
+      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+    } finally {
+      setApplying(false);
+      setSubmitStatus('');
+    }
+  };
+
+  // --- session keys ------------------------------------------------------
+  const formPolicySpec = (): PolicySpec => ({
+    limits: skLimits.map((l) => ({
+      token: l.token === 'custom' ? (l.custom.trim() as Address) : l.token,
+      amount: l.amount,
+      periodSecs: PERIOD_PRESETS.find((p) => p.id === l.periodId)?.seconds ?? 0,
+    })),
+    scopes: skScopes.filter((s) => s.target.trim()).map((s) => ({ target: s.target, selectors: s.all ? undefined : s.selectors })),
+  });
+  const formPolicyLabel = (): string => {
+    const parts: string[] = [];
+    if (skLimits.length) parts.push('Spend limit');
+    if (skScopes.some((s) => s.target.trim())) parts.push('Allowlist');
+    return parts.join(' + ') || 'Policy';
+  };
+  const formPolicyEmpty = skLimits.length === 0 && !skScopes.some((s) => s.target.trim());
+
+  const patchLimit = (id: string, patch: Partial<LimitDraft>) => setSkLimits((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  const addLimit = () => setSkLimits((ls) => [...ls, newLimitDraft()]);
+  const removeLimit = (id: string) => setSkLimits((ls) => ls.filter((l) => l.id !== id));
+  const patchScope = (id: string, patch: Partial<ScopeDraft>) => setSkScopes((ss) => ss.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const addScope = () => setSkScopes((ss) => [...ss, newScopeDraft()]);
+  const removeScope = (id: string) => setSkScopes((ss) => ss.filter((s) => s.id !== id));
+  const toggleScopeSelector = (id: string, sel: Hex) =>
+    setSkScopes((ss) =>
+      ss.map((s) => {
+        if (s.id !== id) return s;
+        const selectors = s.selectors.includes(sel) ? s.selectors.filter((x) => x !== sel) : [...s.selectors, sel];
+        return { ...s, selectors, all: selectors.length === 0 };
+      }),
+    );
+  const setScopeAll = (id: string) => setSkScopes((ss) => ss.map((s) => (s.id === id ? { ...s, all: true, selectors: [] } : s)));
+
+  // Mint the owner-signed authorization for a session key. `defer` captures it
+  // without broadcasting — the key authorizes on its first transaction (or via
+  // "Apply now"). Returns the stored key.
+  const doAuthorizeSession = async (
+    target: WalletSigner,
+    opts: {
+      expirySecs: number;
+      policyLabel: string;
+      spec: PolicySpec;
+      label: string;
+      chainShort: string;
+      // `true` (default): capture the owner-signed authorization and install on
+      // the key's first use. `false`: sign an immediate authorize+install tx now
+      // (the caller broadcasts the returned `serialized`, then calls `commit()`
+      // to persist the key + `deployed` state ONLY once the tx has landed).
+      defer?: boolean;
+    },
+  ): Promise<(AppSessionKey & { commit?: () => void }) | null> => {
+    const defer = opts.defer ?? true;
+    if (!acct || !activeSigner) return null;
+    const skChain = resolveChain(opts.chainShort);
+    const ownerSigner = await buildSigner(activeSigner);
+    const account = nativeAccountFor(acct, ownerSigner, activeSigner.authenticator);
+    // Every session key in this demo is policy-gated (an owner-signed authorize
+    // always binds a SessionPolicy via the PolicyManager — see below), so grant
+    // SCOPE.policy (key is constrained to its bound PolicyManager) plus SCOPE.nonce
+    // (the send path signs with the account's sequenced nonce key; without the
+    // nonce bit the node rejects the send with "actor scope insufficient"). This
+    // does NOT grant config-change rights (that's the admin scope 0, for owners).
+    const scope = SCOPE.policy | SCOPE.nonce;
+    const expiry = opts.expirySecs ? BigInt(Math.floor(Date.now() / 1000) + opts.expirySecs) : 0n;
+
+    if (!skChain.deployment.policies) throw new Error(`Session policies are not available on ${skChain.name}.`);
+    const { config, summary, limits } = await buildSessionConfig(opts.spec, skChain.shortName);
+    const policyConfig = encodeSessionPolicyConfig(config);
+    const session = defineSessionPolicy({
+      account: account.address,
+      policy: skChain.deployment.policies.sessionPolicy,
+      policyConfig,
+      manager: skChain.deployment.policies.manager,
+      validUntil: expiry,
+    });
+    const actorPolicy = session.actorPolicy;
+    const policy: AppPolicy = {
+      type: session.actorPolicy.type,
+      label: opts.policyLabel,
+      manager: session.manager,
+      policy: session.policy,
+      policyConfig,
+      // Persist the full binding so every later execute (see `sessionFor`)
+      // recomputes the same commitment the account authorized.
+      validAfter: session.binding.validAfter,
+      validUntil: session.binding.validUntil,
+      salt: session.binding.salt,
+      commitment: session.commitment,
+      params: summary,
+      limits,
+    };
+
+    // Session-key authorizes live on the per-chain LOCAL config counter,
+    // independent of owner changes (multichain counter). Offset only by OTHER
+    // pending session-key authorizes (same counter) so stacked keys get
+    // consecutive local sequences; a pending owner change is on a different
+    // counter and must NOT shift this one.
+    const chainId = skChain.id || 84532;
+    const seqOffset = pendingChangeCount({ includeOwner: false });
+    let nextSeq: number;
+    if (acct.deployed) {
+      // Read the live local sequence — never guess (fetch throws on failure).
+      const { local } = await fetchOnChainConfigSeq(account.address as Address);
+      nextSeq = local + seqOffset;
+    } else {
+      // Undeployed: the first-tx deploy change (`createAccount`/`importAccount`)
+      // sets the LOCAL sequence to 1 (doubles as the "initialized" flag), so the
+      // FIRST local-channel authorize is sequence 1 (POST_CREATE_LOCAL_SEQ), NOT 0
+      // — whether it rides the deploy tx or a later tx after a separate deploy.
+      nextSeq = POST_CREATE_LOCAL_SEQ + seqOffset;
+    }
+
+    // Register the manager as a trusted-executor actor on first use so its
+    // executeBatch callback into the account succeeds (skip if already trusted).
+    const configChanges = [
+      authorizeActor({ actorId: target.actorId, authenticator: target.authenticator }, { scope, expiry, policy: actorPolicy }),
+    ];
+    let registeredManager = false;
+    // The manager is a one-time, account-level registration that outlives any
+    // single session key (it is never revoked — see revokeSessionKey). Re-adding
+    // an already-registered actor reverts, so skip if it's already trusted: tracked
+    // explicitly in `trustedManagers`, or (legacy records / pre-landing) inferred
+    // from a live session key sharing the same manager.
+    const managerLc = policy.manager.toLowerCase();
+    const managerTrusted =
+      (acct.trustedManagers ?? []).some((m) => m.toLowerCase() === managerLc) ||
+      acct.sessionKeys.some((sk) => sk.policy?.manager?.toLowerCase() === managerLc);
+    if (!managerTrusted) {
+      configChanges.unshift(authorizeActor(key.trustedExecutor(policy.manager), { scope: SCOPE.sender }));
+      registeredManager = true;
+    }
+    const accountChanges: AaAccountChange[] = [];
+    if (!acct.deployed) accountChanges.push(firstDeployChange(acct, account));
+    const configChange = await account.change(configChanges, { chainId, sequence: BigInt(nextSeq) });
+    accountChanges.push(configChange);
+
+    // Defer: hold the owner-signed authorization on the key; it authorizes on the
+    // key's first transaction (or via "Apply now"). Nothing is broadcast now.
+    if (defer) {
+      const deferredKey: AppSessionKey = {
+        id: crypto.randomUUID(),
+        signerId: target.id,
+        label: opts.label,
+        kind: target.kind,
+        actorId: target.actorId,
+        authenticator: target.authenticator,
+        scope,
+        expiry,
+        chainId,
+        policy,
+        createdAt: Date.now(),
+        pendingAuth: { change: configChange, sequence: nextSeq, registeredManager },
+      };
+      updateAccount(acct.id, (a) => ({ ...a, sessionKeys: [...a.sessionKeys, deferredKey] }));
+      pushActivity({
+        kind: 'session',
+        title: `Session key staged · ${opts.label}`,
+        detail: scopeChips(scope).join(' · '),
+        changes: [
+          `authorize ${opts.label}`,
+          ...(registeredManager ? ['register manager as external caller'] : []),
+          `policy: ${policy.label}`,
+          'authorizes on first use',
+          expiry ? formatExpiry(expiry) : 'no expiry',
+        ],
+        network: skChain.name,
+        mode: skChain.mode,
+        account: acct.address,
+      });
+      return deferredKey;
+    }
+
+    // Immediate: sign the authorize tx now (owner-signed). There is no install
+    // call — the policy binding is committed entirely by the actor change; the
+    // caller broadcasts `serialized`.
+    let nonceSeqSk: bigint;
+    try {
+      nonceSeqSk = await getTransactionCount(makeRpcClient(), { address: account.address as Address, nonceKey: 0n });
+    } catch {
+      nonceSeqSk = acct.deployed ? 1n : 0n;
+    }
+    const skSenderAuthAuthenticator: Address =
+      activeSigner.kind === 'p256'
+        ? canonicalAuthenticators.p256
+        : activeSigner.kind === 'passkey'
+          ? canonicalAuthenticators.passkey
+          : canonicalAuthenticators.k1;
+    let skGas = 400_000n;
+    if (chain.mode === 'eip8130-native') {
+      try {
+        const estimated = await estimateGas(makeRpcClient(), {
+          sender: account.address as Address,
+          // Owner signs this authorize tx, so name the owner's actor for full
+          // node simulation (resolves the new actor's scope + policy binding).
+          senderActorId: activeSigner.actorId,
+          accountChanges,
+          calls: [],
+          nonceSequence: Number(nonceSeqSk),
+          senderAuthAuthenticator: skSenderAuthAuthenticator,
+        });
+        skGas = safeGasLimit(
+          estimated,
+          estimateTxGas({
+            mode: chain.mode,
+            deploy: !acct.deployed,
+            calls: 0,
+            keyChanges: accountChanges.filter((c) => c.type === 'config').length,
+          }),
+        );
+      } catch {
+        skGas = 400_000n;
+      }
+    }
+    const serialized = await account.signTransaction({
+      chainId,
+      accountChanges,
+      calls: [],
+      metadata: toHex(`authorize:${opts.label}`),
+      nonceKey: 0n,
+      nonceSequence: nonceSeqSk,
+      maxFeePerGas: 1_000_000_000n,
+      maxPriorityFeePerGas: 1_000_000n,
+      gas: skGas,
+    });
+    const sk: AppSessionKey = {
+      id: crypto.randomUUID(),
+      signerId: target.id,
+      label: opts.label,
+      kind: target.kind,
+      actorId: target.actorId,
+      authenticator: target.authenticator,
+      scope,
+      expiry,
+      chainId,
+      policy,
+      createdAt: Date.now(),
+      serialized,
+    };
+    // Don't persist the key, flip `deployed`, or advance `configSeq` yet: the
+    // subscribed/"Deployed" UI is derived from this local state, so committing
+    // before the tx lands would leave the account looking subscribed/deployed
+    // even if the authorize+install reverts. The caller broadcasts `serialized`
+    // and calls `commit()` only after the tx has landed successfully.
+    const commit = () => {
+      updateAccount(acct.id, (a) => ({
+        ...a,
+        deployed: true,
+        configSeq: nextSeq,
+        sessionKeys: [...a.sessionKeys, sk],
+      }));
+      pushActivity({
+        kind: 'session',
+        title: `Session key authorized · ${opts.label}`,
+        detail: scopeChips(scope).join(' · '),
+        changes: [
+          `authorize ${opts.label}`,
+          ...(registeredManager ? ['register manager as external caller'] : []),
+          `policy: ${policy.label}`,
+          `binding ${short(policy.commitment, 6, 4)}`,
+          expiry ? formatExpiry(expiry) : 'no expiry',
+        ],
+        network: skChain.name,
+        mode: skChain.mode,
+        serialized,
+        account: acct.address,
+      });
+    };
+    return { ...sk, commit };
+  };
+
+  const registerSessionKey = async () => {
+    if (!acct || !activeSigner) return;
+    const target = signers.find((s) => s.id === skSignerId);
+    if (!target) {
+      setError('Pick a signer to authorize as a session key.');
+      return;
+    }
+    if (acct.owners.some((o) => o.actorId === target.actorId)) {
+      setError(`${target.label} is already an owner of this account — pick a different signer.`);
+      return;
+    }
+    if (acct.sessionKeys.some((sk) => sk.actorId === target.actorId)) {
+      setError(`${target.label} is already an active session key — revoke it first to change its policy.`);
+      return;
+    }
+    if (formPolicyEmpty) {
+      setError('Add a spend limit or at least one allowed target.');
+      return;
+    }
+    setSkBusy(true);
+    setError('');
+    try {
+      await doAuthorizeSession(target, {
+        expirySecs: EXPIRY_PRESETS.find((p) => p.id === skExpiryId)!.seconds,
+        policyLabel: formPolicyLabel(),
+        spec: formPolicySpec(),
+        label: target.label,
+        chainShort: skChainShort,
+      });
+      setSkSignerId('');
+      setSessionAdding(false);
+    } catch (err) {
+      const e = err as { message?: string; name?: string };
+      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+    } finally {
+      setSkBusy(false);
+    }
+  };
+
+  // Apply a staged session-key change now: an owner signs a no-op tx carrying its
+  // authorize + install (plus lower-sequence prerequisites) — or its staged revoke.
+  const applySessionKeyNow = async (skId: string) => {
+    if (!acct || !activeSigner) return;
+    const sk = acct.sessionKeys.find((x) => x.id === skId);
+    if (!sk || (!sk.pendingAuth && !sk.pendingRevoke)) return;
+    const isRevoke = !!sk.pendingRevoke && !sk.pendingAuth;
+    const txWS = postChangeOwnerSigners.find((s) => s.id === activeSignerId) ?? postChangeOwnerSigners[0] ?? activeSigner;
+    const bundle = pendingBundleFor({ mode: 'session-send', sessionId: sk.id });
+    const presigned = bundle.map((i) => i.change);
+    const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : (sk.pendingAuth?.sequence ?? sk.pendingRevoke?.sequence ?? null);
+    setSkApplyingId(sk.id);
+    setError('');
+    setInfoMsg('');
+    setSeqRecovery(null);
+    try {
+      const { serialized, nextSeq } = await signComposed(acct, txWS, [newCallRow()], presigned, changeSeq, undefined, undefined, undefined);
+      const txHash = await broadcast8130(serialized, setSubmitStatus);
+      applyLandedBundle(acct, nextSeq, bundle);
+      setConfigTx({ hash: txHash, label: `Session key: ${sk.label}` });
+      pushActivity({
+        kind: isRevoke ? 'revoke' : 'session',
+        title: isRevoke ? `Session key revoked · ${sk.label}` : `Session key installed · ${sk.label}`,
+        detail: scopeChips(sk.scope).join(' · '),
+        changes: isRevoke
+          ? [`revoke ${sk.label}`, 'manager kept']
+          : [`authorize ${sk.label}`, ...(sk.policy ? [`policy: ${sk.policy.label}`, 'install'] : [])],
+        network: chain.name,
+        mode: chain.mode,
+        txHash,
+        serialized,
+        account: acct.address,
+      });
+    } catch (err) {
+      if (
+        handleSeqMismatch(err, {
+          sessionIds: bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])),
+          hasOwner: bundle.some((i) => i.resultingOwners),
+        })
+      )
+        return;
+      const e = err as { message?: string; name?: string };
+      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+    } finally {
+      setSkApplyingId(null);
+      setSubmitStatus('');
+    }
+  };
+
+  // Revoke a session key. A never-landed key (still staged for first use) or an
+  // undeployed account has no on-chain actor, so it's just discarded locally. An
+  // on-chain key is revoked by an owner-signed `revokeActor` config change on the
+  // per-chain LOCAL counter, STAGED (not broadcast): it rides the next session-key
+  // tx or an explicit "Apply now", and the key record is removed only once it
+  // lands. The PolicyManager is intentionally never revoked (other keys share it).
+  // Returns how the revoke resolved so callers can react: `'discarded'` (removed
+  // locally, nothing to apply), `'staged'` (an on-chain revoke is now pending and
+  // must be applied), `'noop'` (already staged), or `'error'`.
+  const revokeSessionKey = async (id: string): Promise<'discarded' | 'staged' | 'noop' | 'error'> => {
+    if (!acct) return 'error';
+    const sk = acct.sessionKeys.find((x) => x.id === id);
+    if (!sk) return 'error';
+
+    // Never-landed or undeployed → nothing on-chain to revoke; discard locally.
+    if (sk.pendingAuth || !acct.deployed) {
+      updateAccount(acct.id, (a) => ({ ...a, sessionKeys: a.sessionKeys.filter((x) => x.id !== id) }));
+      pushActivity({
+        kind: 'revoke',
+        title: `Session key discarded · ${sk.label}`,
+        detail: scopeChips(sk.scope).join(' · '),
+        account: acct.address,
+      });
+      return 'discarded';
+    }
+
+    // Already staged — no-op (use "Apply now" to land it, or "Undo" to discard).
+    if (sk.pendingRevoke) return 'noop';
+
+    const changeWS = ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
+    if (!changeWS) {
+      setError('Select an owner key to sign the revoke.');
+      return 'error';
+    }
+    setSkRevokingId(id);
+    setError('');
+    try {
+      const changeSigner = await buildSigner(changeWS);
+      const changeAccount = nativeAccountFor(acct, changeSigner, changeWS.authenticator);
+      // Session-key changes are on the per-chain LOCAL counter. Read it live (throws
+      // on failure — never guess) and offset by other pending local changes.
+      const chainId = chain.id || 84532;
+      const seqOffset = pendingChangeCount({ includeOwner: false });
+      const { local } = await fetchOnChainConfigSeq(changeAccount.address as Address);
+      const nextSeq = local + seqOffset;
+      const change = await changeAccount.change([revokeActor(sk.actorId)], { chainId, sequence: BigInt(nextSeq) });
+      updateAccount(acct.id, (a) => ({
+        ...a,
+        sessionKeys: a.sessionKeys.map((x) => (x.id === id ? { ...x, pendingRevoke: { change, sequence: nextSeq } } : x)),
+      }));
+      pushActivity({
+        kind: 'revoke',
+        title: `Session key revoke staged · ${sk.label}`,
+        detail: scopeChips(sk.scope).join(' · '),
+        changes: [`revoke ${sk.label}`, 'manager kept', 'applies on next tx'],
+        account: acct.address,
+      });
+      return 'staged';
+    } catch (err) {
+      const e = err as { message?: string; name?: string };
+      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      return 'error';
+    } finally {
+      setSkRevokingId(null);
+    }
+  };
+
+  // Discard a staged (signed-but-not-landed) revoke — the key stays active.
+  const undoStagedRevoke = (id: string) => {
+    if (!acct) return;
+    updateAccount(acct.id, (a) => ({
+      ...a,
+      sessionKeys: a.sessionKeys.map((x) => (x.id === id ? { ...x, pendingRevoke: undefined } : x)),
+    }));
+  };
+
+  // --- config-sequence recovery -----------------------------------------
+  // Re-sign every staged (not-yet-landed) session-key authorization at the current
+  // local sequence. Recovers from "config change sequence mismatch": the baked
+  // sequence went stale (the local counter advanced — e.g. another change landed).
+  // All pending keys share the per-chain local counter, so they re-sequence
+  // together (consecutive). Returns false if it couldn't run (no owner selected).
+  const resignPendingSessionKeys = async (): Promise<boolean> => {
+    if (!acct) return false;
+    const pending = acct.sessionKeys.filter((sk) => sk.pendingAuth && sk.policy);
+    if (pending.length === 0) return true;
+    const signerWS = ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
+    if (!signerWS) {
+      setError('Select an owner key to re-sign the session-key authorization.');
+      return false;
+    }
+    const ownerSigner = await buildSigner(signerWS);
+    const account = nativeAccountFor(acct, ownerSigner, signerWS.authenticator);
+    // Fresh base: live local counter when deployed, else the post-create local seq.
+    let base: number;
+    if (acct.deployed) {
+      const { local } = await fetchOnChainConfigSeq(account.address as Address);
+      base = local;
+    } else {
+      base = POST_CREATE_LOCAL_SEQ;
+    }
+    // Re-sign in current-sequence order so relative ordering is preserved.
+    const ordered = [...pending].sort((a, b) => (a.pendingAuth?.sequence ?? 0) - (b.pendingAuth?.sequence ?? 0));
+    const updates = new Map<string, NonNullable<AppSessionKey['pendingAuth']>>();
+    // Managers registered within THIS batch — so two keys sharing one manager don't
+    // both try to register it (the second would revert).
+    const registeredInBatch = new Set<string>();
+    let offset = 0;
+    for (const sk of ordered) {
+      if (!sk.policy || !sk.pendingAuth) continue;
+      const skChainId = sk.chainId ?? (chain.id || 84532);
+      const seq = base + offset;
+      const managerLc = sk.policy.manager.toLowerCase();
+      const managerTrusted =
+        (acct.trustedManagers ?? []).some((m) => m.toLowerCase() === managerLc) ||
+        acct.sessionKeys.some((k) => !k.pendingAuth && k.policy?.manager?.toLowerCase() === managerLc) ||
+        registeredInBatch.has(managerLc);
+      const session = defineSessionPolicy({
+        account: account.address,
+        policy: sk.policy.policy,
+        policyConfig: sk.policy.policyConfig,
+        manager: sk.policy.manager,
+        validUntil: sk.expiry,
+      });
+      const configChanges = [
+        authorizeActor({ actorId: sk.actorId, authenticator: sk.authenticator }, { scope: sk.scope, expiry: sk.expiry, policy: session.actorPolicy }),
+      ];
+      let registeredManager = false;
+      if (!managerTrusted) {
+        configChanges.unshift(authorizeActor(key.trustedExecutor(sk.policy.manager), { scope: SCOPE.sender }));
+        registeredManager = true;
+        registeredInBatch.add(managerLc);
+      }
+      const change = await account.change(configChanges, { chainId: skChainId, sequence: BigInt(seq) });
+      updates.set(sk.id, { change, sequence: seq, registeredManager });
+      offset++;
+    }
+    updateAccount(acct.id, (a) => ({
+      ...a,
+      sessionKeys: a.sessionKeys.map((sk) => {
+        const u = updates.get(sk.id);
+        return u ? { ...sk, pendingAuth: u } : sk;
+      }),
+    }));
+    return true;
+  };
+
+  // Drop staged (never-landed) session keys by id — they were never registered
+  // on-chain, so discarding them locally is all that's needed.
+  const dropPendingSessionKeys = (ids: string[]) => {
+    if (!acct || ids.length === 0) return;
+    const idSet = new Set(ids);
+    const dropped = acct.sessionKeys.filter((sk) => idSet.has(sk.id) && sk.pendingAuth);
+    if (dropped.length === 0) return;
+    updateAccount(acct.id, (a) => ({
+      ...a,
+      sessionKeys: a.sessionKeys.filter((sk) => !(idSet.has(sk.id) && sk.pendingAuth)),
+    }));
+    for (const sk of dropped)
+      pushActivity({
+        kind: 'revoke',
+        title: `Staged session key dropped · ${sk.label}`,
+        detail: scopeChips(sk.scope).join(' · '),
+        account: acct.address,
+      });
+  };
+
+  // Catch a "config change sequence mismatch" from a config-carrying broadcast and
+  // surface a recovery prompt (re-sign at current sequence / drop), scoped to what
+  // the failed tx carried. Returns true when it handled the error (caller should
+  // skip its own generic error handling).
+  const handleSeqMismatch = (err: unknown, ctx: { sessionIds: string[]; hasOwner: boolean }): boolean => {
+    if (!isSeqMismatch(err)) return false;
+    if (!ctx.hasOwner && ctx.sessionIds.length === 0) return false;
+    const parts: string[] = [];
+    if (ctx.hasOwner) parts.push('owner change');
+    if (ctx.sessionIds.length)
+      parts.push(`${ctx.sessionIds.length} session-key authorization${ctx.sessionIds.length === 1 ? '' : 's'}`);
+    const what = parts.join(' + ') || 'staged config change';
+    setError('');
+    setInfoMsg('');
+    setSeqRecovery({
+      what,
+      resign: async () => {
+        setSeqRecovery((r) => (r ? { ...r, busy: true } : r));
+        setError('');
+        try {
+          if (ctx.hasOwner) await signOwnerChange();
+          if (ctx.sessionIds.length) {
+            const ok = await resignPendingSessionKeys();
+            if (!ok) {
+              setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
+              return;
+            }
+          }
+          setSeqRecovery(null);
+          setInfoMsg('Re-signed at the current sequence — send again to apply it.');
+        } catch (e) {
+          const m = e as { message?: string; name?: string };
+          setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
+          setError(m.name === 'NotAllowedError' ? 'Signature was dismissed.' : (m.message ?? String(e)));
+        }
+      },
+      drop: () => {
+        if (ctx.hasOwner) discardOwnerChanges();
+        if (ctx.sessionIds.length) dropPendingSessionKeys(ctx.sessionIds);
+        setSeqRecovery(null);
+        setInfoMsg('Dropped the out-of-sequence config change.');
+      },
+    });
+    return true;
+  };
+
+  // --- sub-accounts ------------------------------------------------------
+  // Mint a dedicated app key (a K1 signer added to the demo key store).
+  const mintAppKey = (label: string): WalletSigner | null => {
+    const pk = generatePrivateKey();
+    const owner = privateKeyToAccount(pk);
+    const a = key.k1(owner.address);
+    if (signers.some((s) => s.actorId === a.actorId)) return null;
+    const ws: WalletSigner = {
+      id: crypto.randomUUID(),
+      kind: 'k1',
+      label,
+      privateKey: pk,
+      address: owner.address,
+      actorId: a.actorId,
+      authenticator: a.authenticator,
+    };
+    setSigners((prev) => [...prev, ws]);
+    return ws;
+  };
+
+  // Derive + store a delegated sub-account (its own address, controlled by this
+  // account via key.delegate). `withSpareKey` also mints a fresh owner key you
+  // hold, so you can spend from the sub-account without your main keys.
+  const doCreateSubAccount = (label: string, opts?: { withSpareKey?: boolean }): AppSubAccount | null => {
+    if (!acct) return null;
+    const subSalt = randomHex32() as Hex;
+    const actors = [key.delegate(acct.address)];
+    const signerIds: string[] = [];
+    let spare: WalletSigner | null = null;
+    if (opts?.withSpareKey) {
+      spare = mintAppKey(`${label.trim() || 'Spending Account'} key`);
+      if (spare?.address) {
+        actors.push(key.k1(spare.address));
+        signerIds.push(spare.id);
+      }
+    }
+    const initialActors = sortActors(actors);
+    const subAddress = computeAddress({
+      userSalt: subSalt,
+      code,
+      initialActors,
+    });
+    const sub: AppSubAccount = {
+      id: crypto.randomUUID(),
+      label: label.trim() || `Sub-account ${acct.subAccounts.length + 1}`,
+      salt: subSalt,
+      address: subAddress,
+      signerIds,
+      delegateTo: acct.address,
+      createdAt: Date.now(),
+    };
+    // Selectable account record for the sub. The on-chain owner is the parent (via
+    // key.delegate) — captured as a StoredActor with no wallet signerId so it never
+    // resolves to a local key; `ownerSigners` instead pulls the parent's owner
+    // signers for a record with `parentId` set. A minted spare key is a real direct
+    // owner and stays selectable on its own.
+    const delegateActor: StoredActor = {
+      signerId: '',
+      actorId: key.delegate(acct.address).actorId,
+      authenticator: canonicalAuthenticators.delegate,
+      kind: 'k1',
+      label: `${acct.label} (delegate)`,
+      identity: acct.address,
+      scope: 0,
+    };
+    const subStoredActors = sortActors([delegateActor, ...(spare ? [toStoredActor(spare)] : [])]);
+    const subRecord: StoredAccount = {
+      id: crypto.randomUUID(),
+      label: sub.label,
+      type: 'smart',
+      parentId: acct.id,
+      saltField: '',
+      salt: subSalt,
+      address: subAddress,
+      initialActors: subStoredActors,
+      owners: [...subStoredActors],
+      deployed: false,
+      configSeq: 0,
+      sessionKeys: [],
+      subAccounts: [],
+      createdAt: Date.now(),
+    };
+    updateAccount(acct.id, (a) => ({ ...a, subAccounts: [...a.subAccounts, sub] }));
+    setAccounts((prev) => [...prev, subRecord]);
+    pushActivity({
+      kind: 'subaccount',
+      title: `Sub-account created · ${sub.label}`,
+      detail: `Delegates to ${short(acct.address)}`,
+      changes: ['owner: this account', ...(spare ? [`owner: ${spare.label}`] : [])],
+      account: subAddress,
+    });
+    autoFundNewAccount(subAddress);
+    return sub;
+  };
+
+  const createSubAccount = () => {
+    if (!acct) return;
+    setSaBusy(true);
+    setError('');
+    try {
+      doCreateSubAccount(saLabel);
+      setSaLabel('');
+    } catch (err) {
+      setError((err as { message?: string }).message ?? String(err));
+    } finally {
+      setSaBusy(false);
+    }
+  };
+
+  return {
+    // useAccounts() passthrough
+    signers,
+    setSigners,
+    accounts,
+    activeAccountId,
+    setActiveAccountId,
+    addressBook,
+    activity,
+    networkShort,
+    setNetworkShort,
+    hydrated,
+    deleteAccount,
+
+    // Misc
+    busy,
+    error,
+    setError,
+    copied,
+    copy,
+    activeSignerId,
+    setActiveSignerId,
+    activeSigner,
+
+    // Chain / network
+    chain,
+
+    // Regenesis
+    regenesisNotice,
+    setRegenesisNotice,
+
+    // Account details modal
+    detailsOpen,
+    setDetailsOpen,
+    acct,
+    explorerAddrHref,
+    cfgTab,
+    setCfgTab,
+
+    // Assets
+    assetBals,
+    assetsLoading,
+    faucetBusy,
+    requestFaucet,
+
+    // Create modal
+    modalOpen,
+    setModalOpen,
+    modalType,
+    setModalType,
+    modalLabel,
+    setModalLabel,
+    modalSalt,
+    setModalSalt,
+    modalIds,
+    setModalIds,
+    modalEoaId,
+    setModalEoaId,
+    eoaSigners,
+    modalSigners,
+    modalAddress,
+    usedSignerIds,
+    deleteSigner,
+    createSigner,
+    createAccount,
+    randomizeCreateSalt,
+    openCreate,
+    removeAccount,
+    openAccountDetails,
+    openOwnersManager,
+
+    // Owners
+    ownerSigners,
+    sessionSigners,
+    pendingAuthorize,
+    pendingRevoke,
+    pendingScope,
+    keyChangeCount,
+    postChangeOwnerSigners,
+    ownerChangeSigned,
+    ownersEditing,
+    setOwnersEditing,
+    ownerDraft,
+    scopeDraft,
+    applying,
+    configTx,
+    setConfigTx,
+    stageAddOwner,
+    stageRemoveOwner,
+    setOwnerScope,
+    mintOwner,
+    signOwnerChange,
+    applyOwnerNow,
+    discardOwnerChanges,
+
+    // Signing engine (also used by each demo's own Transact flow)
+    broadcast8130,
+    signComposed,
+    sendActiveCall,
+    applyLandedBundle,
+    handleSeqMismatch,
+    pendingBundleFor,
+    estimateBlocked,
+    setEstimateBlocked,
+    overrideEstimateRef,
+    blockOnRevertRef,
+    infoMsg,
+    setInfoMsg,
+    seqRecovery,
+    setSeqRecovery,
+    submitStatus,
+    setSubmitStatus,
+    pushActivity,
+
+    // Session keys
+    sessionAdding,
+    setSessionAdding,
+    skSignerId,
+    setSkSignerId,
+    skChainShort,
+    setSkChainShort,
+    skExpiryId,
+    setSkExpiryId,
+    skLimits,
+    patchLimit,
+    addLimit,
+    removeLimit,
+    skScopes,
+    patchScope,
+    addScope,
+    removeScope,
+    toggleScopeSelector,
+    setScopeAll,
+    skBusy,
+    skApplyingId,
+    skRevokingId,
+    policyRemaining,
+    formPolicyEmpty,
+    registerSessionKey,
+    applySessionKeyNow,
+    revokeSessionKey,
+    undoStagedRevoke,
+    doAuthorizeSession,
+
+    // Sub-accounts
+    saLabel,
+    setSaLabel,
+    saBusy,
+    createSubAccount,
+    doCreateSubAccount,
+    mintAppKey,
+  };
+}
+
+export type AccountEngine = ReturnType<typeof useAccountEngine>;

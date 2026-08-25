@@ -8,6 +8,7 @@ import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
 import { DetailList, DetailRow } from '../../../components/DetailList';
 import { ExplorerLink } from '../../../components/ExplorerLink';
+import { useAccountNames } from '../../../components/useAccountNames';
 import type { ActorEntry, ExplorerAddressResponse } from '../../../library/api-types';
 import { vibenetApi, VibenetApiError } from '../../../library/client';
 import {
@@ -84,6 +85,7 @@ export default function ExplorerAddressPage({ params }: PageProps) {
   const { addr } = use(params);
   const [data, setData] = useState<ExplorerAddressResponse | null>(null);
   const [is404, setIs404] = useState(false);
+  const accountName = useAccountNames()[addr.toLowerCase()];
 
   useEffect(() => {
     let cancelled = false;
@@ -162,7 +164,7 @@ export default function ExplorerAddressPage({ params }: PageProps) {
   return (
     <div className="animate-in flex flex-col gap-6">
       <div>
-        <Text variant="title2">Address</Text>
+        <Text variant="title2">{accountName ?? 'Address'}</Text>
         <code className="mt-1 block break-all font-mono text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
           {addr}
         </code>

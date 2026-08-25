@@ -639,7 +639,7 @@ function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
         <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
           <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
-          <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Native Account Abstraction</Text>
+          <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
           <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
           <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
             <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
@@ -765,7 +765,8 @@ export function AppShell({ children }: PropsWithChildren) {
             onDismiss={() => setBannerDismissed(true)}
             className="flex md:hidden"
           />
-          <header className="topbar-desktop" style={styles.topbar}>
+          <header className="topbar-desktop" style={{ ...styles.topbar, position: 'relative', zIndex: 40 }}>
+            <div id="topbar-actions-slot" className="absolute right-7 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2" />
             {(() => {
               const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
               if (slugMatch) {

@@ -6,8 +6,6 @@
 export type DemoEntry = {
   /** Route for the demo, e.g. `/vibenet/demos/account`. */
   href: string;
-  /** Short tag shown beside the title on the card, usually the spec or network. */
-  eyebrow: string;
   /**
    * Full name of the demo. Also the page title, which by convention reads
    * `{title} · Demos` — set it in the demo's own layout metadata, since this
@@ -23,30 +21,28 @@ export type DemoEntry = {
 
 export const DEMOS: DemoEntry[] = [
   {
-    href: '/vibenet/demos/b20',
-    eyebrow: 'B20',
-    title: 'B20 Playground',
-    shortTitle: 'B20 Playground',
-    summary:
-      'Inspect policy scopes, attach transaction memos, publish Asset announcements, and create Base-native B20 tokens.',
-    points: [
-      'Asset and Stablecoin factory flows',
-      'Policy Registry inspection and address checks',
-      'Memo operations and Asset announcements',
-    ],
-    available: true,
-  },
-  {
     href: '/vibenet/demos/account',
-    eyebrow: 'EIP-8130',
-    title: 'Native Account Abstraction',
+    title: 'Accounts',
     shortTitle: 'Account',
     summary:
       'Create portable account-abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances across networks.',
     points: [
       'Smart & EOA accounts — deterministic addresses',
       'K1 / P-256 / passkey signers',
-      'Live balances on Vibenet + Base Sepolia',
+      'Live balances on Vibenet',
+    ],
+    available: true,
+  },
+  {
+    href: '/vibenet/demos/b20',
+    title: 'Tokens',
+    shortTitle: 'Tokens',
+    summary:
+      'Inspect policy scopes, attach transaction memos, publish Asset announcements, and create Base-native B20 tokens.',
+    points: [
+      'Asset and Stablecoin factory flows',
+      'Policy Registry inspection and address checks',
+      'Memo operations and Asset announcements',
     ],
     available: true,
   },
