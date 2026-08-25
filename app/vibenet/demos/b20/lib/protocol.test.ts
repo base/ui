@@ -5,6 +5,7 @@ import {
   encodeEventTopics,
   getAddress,
   keccak256,
+  toFunctionSelector,
   parseUnits,
   stringToHex,
   type Log,
@@ -12,6 +13,7 @@ import {
 
 import {
   amount,
+  assetAbi,
   b20Variant,
   bytes32ToMemo,
   DEFAULT_ADMIN_ROLE,
@@ -243,6 +245,26 @@ describe('B20 demo protocol helpers', () => {
     expect(formatAmount(1_234_000_000n, 6)).toBe('1,234');
     // Fraction is capped at 6 places.
     expect(formatAmount(1_123_456_789_000_000_000n, 18)).toBe('1.123456');
+  });
+
+  // The Asset variant is a native contract on Vibenet, so a mistyped function
+  // name is not a compile error — it encodes cleanly and only reverts once the
+  // wallet submits it. These selectors were read back off the live deployment.
+  it('pins the Asset selectors to the ones the deployment implements', () => {
+    const selectors = Object.fromEntries(
+      assetAbi.map((entry) => [
+        entry.name,
+        toFunctionSelector(`${entry.name}(${entry.inputs.map((input) => input.type).join(',')})`),
+      ]),
+    );
+    expect(selectors).toStrictEqual({
+      announce: '0x595135dd',
+      isAnnouncementIdUsed: '0xc0da474e',
+      effectiveAt: '0x97a4064f',
+      updateUIMultiplier: '0x628e600f',
+      cancelUIMultiplierUpdate: '0x2c97a0f0',
+      batchMint: '0x68573107',
+    });
   });
 
   it('round-trips text memos through bytes32 and rejects non-text', () => {

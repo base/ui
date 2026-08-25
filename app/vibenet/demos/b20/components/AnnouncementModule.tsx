@@ -180,7 +180,9 @@ export function AnnouncementModule({
           );
         const wad = amount(multiplier, 18);
         const time = BigInt(Math.floor(effectiveAtMs / 1000));
-        internalCalls.push(encodeFunctionData({ abi: assetAbi, functionName: 'setUIMultiplier', args: [wad, time] }));
+        internalCalls.push(
+          encodeFunctionData({ abi: assetAbi, functionName: 'updateUIMultiplier', args: [wad, time] }),
+        );
       }
       const data = encodeFunctionData({
         abi: assetAbi,

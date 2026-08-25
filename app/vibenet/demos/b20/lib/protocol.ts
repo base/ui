@@ -263,12 +263,12 @@ export const assetAbi = [
   { type: 'function', name: 'effectiveAt', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   {
     type: 'function',
-    name: 'setUIMultiplier',
+    name: 'updateUIMultiplier',
     stateMutability: 'nonpayable',
-    inputs: [{ type: 'uint256' }, { type: 'uint256' }],
+    inputs: [{ type: 'uint256', name: 'multiplier' }, { type: 'uint256', name: 'effectiveAt' }],
     outputs: [],
   },
-  { type: 'function', name: 'cancelScheduledMultiplier', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { type: 'function', name: 'cancelUIMultiplierUpdate', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   {
     type: 'function',
     name: 'batchMint',
