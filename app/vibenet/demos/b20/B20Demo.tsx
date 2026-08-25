@@ -6,9 +6,9 @@ import { isAddress, type Address, type Hex } from 'viem';
 import { trackB20Action, trackB20ModuleSelect } from '../../../analytics/events';
 import { Tabs } from '../../../components/ui/Tabs';
 import { walletErrorMessage } from '../../library/wallet';
+import { ActivityLog } from '../account/components/ActivityLog';
 import { useAccountEngine } from '../account/useAccountEngine';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
-import { ActivityRows } from './components/Activity';
 import { AnnouncementModule, SampleAnnouncementViewer } from './components/AnnouncementModule';
 import { DeployModule } from './components/DeployModule';
 import { MemoModule } from './components/MemoModule';
@@ -28,15 +28,7 @@ import {
 } from './lib/protocol';
 import { readRecent, readRecentPolicies, writeRecent, writeRecentPolicy } from './lib/recent';
 import { sampleTokenForAddress } from './lib/samples';
-import type {
-  ActivityItem,
-  CreatedToken,
-  Module,
-  RecentPolicy,
-  RecentToken,
-  TokenAccess,
-  TokenInfo,
-} from './lib/types';
+import type { CreatedToken, Module, RecentPolicy, RecentToken, TokenAccess, TokenInfo } from './lib/types';
 
 export function B20Demo() {
   const [module, setModule] = useState<Module>('policy');
@@ -60,7 +52,6 @@ export function B20Demo() {
   const [inspectError, setInspectError] = useState('');
   const [checkAddress, setCheckAddress] = useState('');
   const [checks, setChecks] = useState<Record<string, boolean> | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [isOperator, setIsOperator] = useState(false);
   const [isTokenAdmin, setIsTokenAdmin] = useState(false);
@@ -264,26 +255,27 @@ export function B20Demo() {
       }
       setBusy(action);
       trackB20Action(module, action, 'submitted');
-      setActivity((rows) => [{ label, state: 'pending' }, ...rows]);
       try {
         // Sign + broadcast through the shared account engine so account deploy,
         // sub-account, gas-estimation, and staged-settings behavior stays in one
-        // implementation across demos.
-        const { hash } = await engine.sendActiveCall({ to, data });
-        setActivity((rows) => [
-          { label, hash, state: 'success' },
-          ...rows.filter((row) => row.label !== label || row.state !== 'pending'),
-        ]);
+        // implementation across demos. Logging via pushActivity puts this send in
+        // the same history the account demo reads, so both demos share one trail.
+        const { hash, serialized } = await engine.sendActiveCall({ to, data });
+        engine.pushActivity({
+          kind: 'transact',
+          title: label,
+          txHash: hash,
+          serialized,
+          network: engine.chain.name,
+          mode: engine.chain.mode,
+          account: activeAccount.address as Address,
+        });
         trackB20Action(module, action, 'success');
         refreshWallet(activeAccount.address as Address);
         if (token) await inspect(token.address);
         return hash;
       } catch (error) {
         const detail = walletErrorMessage(error);
-        setActivity((rows) => [
-          { label, state: 'error', detail },
-          ...rows.filter((row) => row.label !== label || row.state !== 'pending'),
-        ]);
         trackB20Action(module, action, 'error');
         setInspectError(detail);
         return null;
@@ -323,8 +315,8 @@ export function B20Demo() {
   return (
     <AccountDemoShell
       engine={engine}
-      activity={<ActivityRows rows={activity} />}
-      activityCount={activity.length}
+      activity={<ActivityLog activity={engine.activity} accounts={engine.accounts} />}
+      activityCount={engine.activity.length}
       activityEmptyMessage="Nothing has happened yet."
       className="animate-in gap-5 pb-6 dark:text-white"
     >
