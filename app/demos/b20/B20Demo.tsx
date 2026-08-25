@@ -25,7 +25,7 @@ import { AnnouncementModule, SampleAnnouncementViewer } from './components/Annou
 import { DeployModule } from './components/DeployModule';
 import { MemoModule } from './components/MemoModule';
 import { PolicyModule } from './components/PolicyModule';
-import { client, CHAIN_ID, MODULES, SAMPLE_TOKEN } from './lib/constants';
+import { client, CHAIN_ID, MODULES } from './lib/constants';
 import {
   b20Abi,
   b20Variant,
@@ -40,6 +40,7 @@ import {
   shortAddress,
 } from './lib/protocol';
 import { readRecent, readRecentPolicies, writeRecent, writeRecentPolicy } from './lib/recent';
+import { sampleTokenForAddress } from './lib/samples';
 import type {
   ActivityItem,
   CreatedToken,
@@ -102,7 +103,7 @@ export function B20Demo() {
   useEffect(() => {
     let cancelled = false;
     setIsOperator(false);
-    if (!activeTokenAddress || !wallet || activeTokenAddress.toLowerCase() === SAMPLE_TOKEN.toLowerCase()) return;
+    if (!activeTokenAddress || !wallet || sampleTokenForAddress(activeTokenAddress)) return;
     client
       .readContract({
         address: activeTokenAddress,
@@ -128,7 +129,7 @@ export function B20Demo() {
     setTokenAdminCheckedFor(null);
     if (!activeTokenAddress || !wallet) return;
     const checkKey = `${activeTokenAddress.toLowerCase()}:${wallet.toLowerCase()}`;
-    if (activeTokenAddress.toLowerCase() === SAMPLE_TOKEN.toLowerCase()) {
+    if (sampleTokenForAddress(activeTokenAddress)) {
       setTokenAdminCheckedFor(checkKey);
       return;
     }
@@ -206,6 +207,14 @@ export function B20Demo() {
 
   const inspect = useCallback(
     async (candidate = tokenAddress) => {
+      const sampleToken = sampleTokenForAddress(candidate);
+      if (sampleToken) {
+        setInspectError('');
+        setChecks(null);
+        setToken(sampleToken);
+        setTokenAddress(sampleToken.address);
+        return;
+      }
       if (!isAddress(candidate)) {
         setInspectError('Paste a valid token address, then try again.');
         return;
@@ -235,13 +244,12 @@ export function B20Demo() {
         if (!isB20 || !initialized) throw new Error('This address is not a ready-to-use B20 token.');
         const variant = b20Variant(address);
         if (!variant) throw new Error('We could not identify this B20 token type.');
-        const [name, symbol, decimals, supply, cap, contractURI, policyRows] = await Promise.all([
+        const [name, symbol, decimals, supply, cap, policyRows] = await Promise.all([
           client.readContract({ address, abi: b20Abi, functionName: 'name' }),
           client.readContract({ address, abi: b20Abi, functionName: 'symbol' }),
           client.readContract({ address, abi: b20Abi, functionName: 'decimals' }),
           client.readContract({ address, abi: b20Abi, functionName: 'totalSupply' }),
           client.readContract({ address, abi: b20Abi, functionName: 'supplyCap' }),
-          client.readContract({ address, abi: b20Abi, functionName: 'contractURI' }),
           Promise.all(
             POLICY_SCOPES.map(async ([scope, label]) => {
               const id = await client.readContract({
@@ -268,7 +276,7 @@ export function B20Demo() {
             }),
           ),
         ]);
-        setToken({ address, name, symbol, decimals, variant, supply, cap, contractURI, policies: policyRows });
+        setToken({ address, name, symbol, decimals, variant, supply, cap, policies: policyRows });
         setTokenAddress(address);
       } catch (error) {
         setToken(null);
@@ -367,7 +375,7 @@ export function B20Demo() {
     trackB20ModuleSelect(next);
   };
   const tokenAccess: TokenAccess =
-    token?.address.toLowerCase() === SAMPLE_TOKEN.toLowerCase()
+    sampleTokenForAddress(token?.address)
       ? 'sample'
       : isOperator
         ? 'operator'
