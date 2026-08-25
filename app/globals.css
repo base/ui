@@ -453,6 +453,107 @@ button {
   background: rgba(255, 255, 255, 0.35);
 }
 
+/* Base UI scroll area for each sliding pane (main nav and section submenu).
+   Native bars stay hidden; the custom thumb is the only visible scroller. */
+.sidebar-scroll-area {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+
+.sidebar-scroll-viewport {
+  --fade-size: 40px;
+  height: 100%;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  background: var(--bds-gray-0);
+  /* Bottom fade only — the logo sits at the top of this scroller, so a top
+     band would wash it out. Base UI's overflow var is the px distance from
+     the end; the mask grows from 0 to --fade-size as you scroll, then holds.
+     0px fallback so a short list does not flash a fade before hydrate. */
+  mask-image: linear-gradient(
+    to bottom,
+    black 0,
+    black calc(100% - min(var(--fade-size), var(--scroll-area-overflow-y-end, 0px))),
+    transparent 100%
+  );
+  mask-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black 0,
+    black calc(100% - min(var(--fade-size), var(--scroll-area-overflow-y-end, 0px))),
+    transparent 100%
+  );
+  -webkit-mask-repeat: no-repeat;
+}
+
+.sidebar-scroll-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar-scroll-bar {
+  display: flex;
+  justify-content: center;
+  width: 5px;
+  margin: 2px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+
+.sidebar-scroll-bar[data-hovering],
+.sidebar-scroll-bar[data-scrolling] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sidebar-scroll-bar[data-scrolling] {
+  transition-duration: 0ms;
+}
+
+.sidebar-scroll-thumb {
+  width: 100%;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-scroll-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .sidebar-scroll-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .sidebar-scroll-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-scroll-bar {
+    transition: none;
+  }
+}
+
+/* Horizontal inset lives on the content inside the scroller (and on the logo /
+   footer, which sit outside it) so overflow is full-bleed. */
+.sidebar-gutter {
+  box-sizing: border-box;
+  width: 100%;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* Extra 8px so the mark still lines up with the nav icons (row padding 10px).
+   18px above and below the 28px mark — the old 64px brand row, now inside
+   the scroller so it rolls away with the list. */
+.sidebar-brand.sidebar-gutter {
+  padding-top: 18px;
+  padding-bottom: 18px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
 /* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below
    the selected pill at -1 and below every label — so the pill can animate *over*
    the hover surface of the row it lands on (light gray deepens to the selected
@@ -482,23 +583,6 @@ button {
 .nav-row-hover:hover::before,
 .nav-header-hover:hover {
   background-color: var(--bds-gray-5);
-}
-
-/* Pulled out of flow so the switch shares the sidebar's bottom row with the last
-   footer link, which lives inside the sliding nav pane the switch sits outside of.
-   The insets match each container's own bottom/right padding: the desktop sidebar
-   pads `0 12px 20px`, the mobile drawer `12px 8px 20px`. Both are already
-   positioned (`relative` and `fixed`), so each is its own containing block. */
-.theme-switch-footer {
-  position: absolute;
-  right: 12px;
-  bottom: 20px;
-}
-
-@media (max-width: 767px) {
-  .theme-switch-footer {
-    right: 8px;
-  }
 }
 
 /* Theme switch. The thumb is offset with a transform (see `switchThumbOn` in
@@ -676,6 +760,16 @@ button {
 }
 
 @media (max-width: 767px) {
+  .sidebar-gutter {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .sidebar-brand.sidebar-gutter {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
   .sidebar-desktop {
     display: none !important;
   }
@@ -709,8 +803,8 @@ button {
     bottom: 0;
     z-index: 100;
     background: var(--bds-gray-0);
-    padding: 12px 8px 20px;
-    overflow-y: auto;
+    padding: 12px 0 20px;
+    overflow: hidden;
   }
 
   .mobile-content-offset {
