@@ -312,6 +312,10 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
       {active && (
         <motion.div
           layoutId={`nav-active-bg-${layoutScope}`}
+          // Only remasure when the highlighted row changes. Theme toggles,
+          // banner dismiss, and other sidebar rerenders shift this pill's
+          // page position; without a dependency Motion would slide it there.
+          layoutDependency={href}
           style={{
             position: 'absolute',
             inset: 0,
