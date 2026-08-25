@@ -3,7 +3,7 @@
 import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
@@ -660,34 +660,44 @@ type GlobalBannerProps = {
 };
 
 function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
-  if (dismissed) return null;
+  const reducedMotion = useReducedMotion();
+  const transition = reducedMotion ? { duration: 0 } : slideTransition;
+
   return (
-    <div
-      className={cn(
-        'relative items-center justify-center border-b border-bds-gray-10 bg-bds-gray-5 py-2 pl-4 pr-10 sm:px-10',
-        className,
+    <AnimatePresence initial={false}>
+      {!dismissed && (
+        <motion.div
+          key="global-banner"
+          className={cn(className, 'relative overflow-clip after:inset-x-0 after:absolute after:bottom-0 after:border-b after:border-bds-gray-10 bg-bds-gray-5')}
+          initial={false}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={transition}
+        >
+          <div className="relative flex w-full items-center justify-center border-b border-transparent py-2 pl-4 pr-10 sm:px-10">
+            <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
+              <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
+                <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
+                <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
+                <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
+                <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
+                  <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
+                  <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
+                </Link>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
+              aria-label="Dismiss banner"
+            >
+              <CloseIcon size={10} />
+            </button>
+          </div>
+        </motion.div>
       )}
-    >
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
-        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
-          <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
-          <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
-          <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
-          <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
-            <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
-            <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
-          </Link>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
-        aria-label="Dismiss banner"
-      >
-        <CloseIcon size={10} />
-      </button>
-    </div>
+    </AnimatePresence>
   );
 }
 
