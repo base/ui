@@ -1,4 +1,4 @@
-import { resolveExplorerChain } from '../../../../internal-explorer/chains';
+import { resolveExplorerChainFromRequest } from '../../chain';
 import { explorerDisabledResponse } from '../../guard';
 import {
   InvalidTransactionHashError,
@@ -16,7 +16,7 @@ export type TransactionHistoryResponse = TransactionLookupResponse;
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
   const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChainFromRequest(request);
 
   try {
     const { hash } = await params;

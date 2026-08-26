@@ -1,4 +1,4 @@
-import { resolveExplorerChain } from '../../../internal-explorer/chains';
+import { resolveExplorerChainFromRequest } from '../chain';
 import { getRpcUrl } from '../config';
 import { explorerDisabledResponse } from '../guard';
 import {
@@ -17,7 +17,7 @@ export type { TransactionListItem, TransactionsResponse } from '../transaction-l
 export async function GET(request: Request) {
   const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
-  const chain = resolveExplorerChain(new URL(request.url).searchParams.get('chain'));
+  const chain = resolveExplorerChainFromRequest(request);
 
   try {
     const query = parseTransactionListQuery(new URL(request.url).searchParams);
