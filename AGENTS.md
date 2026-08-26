@@ -59,6 +59,18 @@ of a single commit, use `SKIP_DOCS_HOOK=1` or put `[skip-docs]` in the message.
 
 - TypeScript strict mode
 - Follow the existing formatter config; do not reformat unrelated files
+- **Icons**: there is no icon library; icons are hand-authored inline SVGs,
+  with the commonly reused ones centralized in `app/components/ui/icons.tsx`.
+  When adding or touching an icon that toggles between two states based on
+  props/state (e.g. copy → check, menu → close) — not just shown/hidden —
+  consider animating the transition with `morphicons` instead of an instant
+  swap: `<MorphIcon icon={condition ? A : B} />` from `morphicons/react`, fed
+  path data on a shared 24x24 grid (`fitIcon()` first if the source art isn't
+  already on that grid). See `CLIPBOARD_MORPH_ICON`/`CHECK_MORPH_ICON` in
+  `app/components/ui/icons.tsx` and their use in
+  `app/demos/b20/components/CopyPromptButton.tsx`,
+  `app/internal-explorer/components/CopyButton.tsx`, and
+  `app/vibenet/components/CopyableValue.tsx`.
 
 ## Testing
 
