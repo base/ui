@@ -34,7 +34,7 @@ const NETWORK_LABELS: Record<string, string> = {
 const REQUIRED_COMPONENTS = new Set(['state', 'headers']);
 
 const SHIMMER_GRADIENT =
-  'linear-gradient(90deg, currentColor 0%, currentColor 40%, var(--bds-brand) 50%, currentColor 60%, currentColor 100%)';
+  'linear-gradient(90deg, currentColor 0%, currentColor 40%, var(--shimmer-highlight) 50%, currentColor 60%, currentColor 100%)';
 
 function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -95,7 +95,7 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
           >
             <span
               ref={shimmerRef}
-              className="bg-[length:300%_100%] bg-clip-text bg-no-repeat"
+              className="bg-[length:300%_100%] bg-clip-text bg-no-repeat [--shimmer-highlight:var(--bds-blue-15)] dark:[--shimmer-highlight:var(--bds-brand)]"
               style={{ backgroundImage: SHIMMER_GRADIENT, WebkitTextFillColor: 'transparent' }}
             >
               <Text as="span" variant="label.mono">
