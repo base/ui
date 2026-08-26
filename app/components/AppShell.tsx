@@ -180,8 +180,8 @@ const styles: Record<string, CSSProperties> = {
     padding: '0 28px',
   },
   topbarTitle: { fontSize: 16, fontWeight: 500 },
-  content: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' as const },
-  contentInner: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px', flex: 1, display: 'flex', flexDirection: 'column' as const },
+  content: { flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
+  contentInner: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px', flex: 1, display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
 };
 
 function NavGlyph({ name }: NavGlyphProps) {
@@ -843,7 +843,7 @@ export function AppShell({ children }: PropsWithChildren) {
               return <Text as="span" variant="headline">{title}</Text>;
             })()}
           </header>
-          <main style={styles.content}>
+          <main className="content-scroll" style={styles.content}>
             <div style={styles.contentInner}>{children}</div>
           </main>
         </div>

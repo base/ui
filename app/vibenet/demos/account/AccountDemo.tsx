@@ -701,7 +701,7 @@ export function AccountDemo() {
       activity={<ActivityLog activity={activity} accounts={accounts} />}
       activityCount={activity.length}
       activityEmptyMessage="No activity yet. Transactions and account changes will appear here."
-      className="gap-10 pb-4"
+      className="gap-10"
     >
           {FEATURES.map((feature) => (
             <FeatureCard key={feature.id} feature={feature} />
