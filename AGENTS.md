@@ -12,6 +12,8 @@ the directory tree, so a package in a monorepo can add its own.
 
 ## Setup commands
 
+- This app runs on Next.js 16 — its APIs and conventions may differ from
+  older Next versions in your training data.
 - Install deps: `npm install`
 - Start dev server: `npm run dev`
 - Build: `npm run build`

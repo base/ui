@@ -20,7 +20,7 @@ type CopyPromptButtonProps = {
 // reusing the clipboard/check icons used elsewhere in the app.
 export function CopyPromptButton({ prompt, module, className }: CopyPromptButtonProps) {
   const [copied, setCopied] = useState(false);
-  const resetTimer = useRef<ReturnType<typeof setTimeout>>();
+  const resetTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Clear a pending "Copied" reset if the button unmounts before it fires.
   useEffect(() => () => clearTimeout(resetTimer.current), []);
