@@ -821,10 +821,12 @@ button {
      button) off-screen. Force >=16px on mobile so focusing a field never zooms.
      !important is needed to beat per-input Tailwind text-[13px]/[14px] utilities;
      the smaller visual sizing is preserved on >=768px. */
-  input,
-  textarea,
-  select {
-    font-size: 16px !important;
+@supports (-webkit-touch-callout: none) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 }
 
