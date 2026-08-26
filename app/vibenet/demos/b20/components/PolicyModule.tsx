@@ -136,7 +136,7 @@ export function PolicyModule({
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Paste a token address"
               />
-              <Button size="sm" variant="outline" onClick={() => onInspect()} disabled={busy === 'inspect'}>
+              <Button variant="outline" onClick={() => onInspect()} disabled={busy === 'inspect'}>
                 {busy === 'inspect' ? 'Checking…' : 'Explore'}
               </Button>
             </div>
