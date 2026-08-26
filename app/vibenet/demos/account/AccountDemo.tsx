@@ -166,18 +166,17 @@ export function AccountDemo() {
   const [appBusy, setAppBusy] = useState<string | null>(null);
   const [transactModalOpen, setTransactModalOpen] = useState(false);
 
-  // Crossfade key for the dashboard (transact + apps). It normally tracks the
-  // active account so switching accounts crossfades the view. While the transact
-  // modal is open we hold it steady: the modal's "From" switcher changes the
-  // active account, and remounting the crossfaded subtree there would tear down
-  // and rebuild the open modal — a full-screen flash. Held steady, the dialog
-  // updates in place, then the dashboard crossfades once to the new account on
-  // close.
+  // Crossfade key for the dashboard (transact + apps). While the modal is
+  // closed it is the live account, so first paint after hydration uses the
+  // real id (`initial={false}` skips that enter). Snapshotting the key in
+  // state would freeze the pre-hydration `empty` value and fade the grid
+  // once the store loads. While the modal is open we hold the last closed
+  // key in a ref: the "From" switcher changes the active account, and
+  // remounting this subtree would tear down the open dialog.
   const activeAccountKey = activeAccountId ?? 'empty';
-  const [contentKey, setContentKey] = useState(activeAccountKey);
-  useEffect(() => {
-    if (!transactModalOpen) setContentKey(activeAccountKey);
-  }, [transactModalOpen, activeAccountKey]);
+  const heldKeyRef = useRef(activeAccountKey);
+  if (!transactModalOpen) heldKeyRef.current = activeAccountKey;
+  const contentKey = transactModalOpen ? heldKeyRef.current : activeAccountKey;
 
   const signableSigners = useMemo(
     () => [...postChangeOwnerSigners, ...sessionSigners],
@@ -536,8 +535,10 @@ export function AccountDemo() {
   };
 
   // Reset the Transact modal's builder/review state to its defaults. Called on
-  // close so a preset loaded by one entry point (e.g. the "Batched Calls" demo)
-  // never bleeds into the next open (e.g. a plain "Create Transaction").
+  // open, not close: resetting in `onClose` swaps Review back to the builder
+  // while the dialog is still animating out. Open always rebuilds from a clean
+  // slate (or a preset), so a prior "Batched Calls" demo cannot bleed into a
+  // later "Create Transaction".
   const resetTransactBuilder = () => {
     setCalls([newCallRow()]);
     setCallsAdvanced(false);
@@ -556,12 +557,11 @@ export function AccountDemo() {
   // fully-specified transaction — loads it straight into the builder state and
   // jumps directly to the Review step, skipping the builder entirely.
   const openTransactModal = (preset?: { calls: CallRow[]; gasMode?: 'eth' | 'free' | 'usdv'; metadata?: string }) => {
+    resetTransactBuilder();
     if (preset) {
       setCalls(preset.calls);
       if (preset.gasMode) setGasMode(preset.gasMode);
       setMetaField(preset.metadata ?? '');
-      setResult(null);
-      setError('');
       setTxStep('review');
     }
     setTransactModalOpen(true);
@@ -697,7 +697,7 @@ export function AccountDemo() {
       engine={engine}
       onTransactFromDetails={() => {
         setDetailsOpen(false);
-        setTransactModalOpen(true);
+        openTransactModal();
       }}
       activity={<ActivityLog activity={activity} accounts={accounts} />}
       activityCount={activity.length}
@@ -894,7 +894,6 @@ export function AccountDemo() {
           onClose={() => {
             if (signing) return; // don't let Escape/backdrop abandon an in-flight send
             setTransactModalOpen(false);
-            resetTransactBuilder();
           }}
           title={
             txStep === 'review' ? 'Review Transaction' : txStep === 'submitted' ? 'Submitted' : 'Create Transaction'
@@ -952,7 +951,6 @@ export function AccountDemo() {
                     size="sm"
                     onClick={() => {
                       setTransactModalOpen(false);
-                      resetTransactBuilder();
                     }}
                   >
                     Done
