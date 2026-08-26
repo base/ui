@@ -62,7 +62,9 @@ export default function ExplorerBlockPage({ params }: PageProps) {
           <Card className="bg-background p-6 dark:bg-white/5">
             <DetailList>
               <DetailRow label="Number">{num?.toLocaleString() ?? '—'}</DetailRow>
-              <DetailRow label="Timestamp">{timeFromHex(block.timestamp)?.human ?? '—'}</DetailRow>
+              <DetailRow label="Timestamp">
+                {timeFromHex(block.timestamp, block.timestampMs)?.human ?? '—'}
+              </DetailRow>
               <DetailRow label="Miner">
                 <ExplorerLink
                   kind="address"
