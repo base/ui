@@ -3,15 +3,14 @@
 import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Toaster } from 'sonner';
 
-import { getActiveParent, NAV_ITEMS, NavChild, NavIcon } from '../navigation';
+import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
 import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { demoLabel } from '../vibenet/demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
-import { titleForPath } from '../navigation';
 
 import { trackNavClick } from '../analytics/events';
 import { navSlideDirection } from './nav-motion';
@@ -181,8 +180,8 @@ const styles: Record<string, CSSProperties> = {
     padding: '0 28px',
   },
   topbarTitle: { fontSize: 16, fontWeight: 500 },
-  content: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' as const },
-  contentInner: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px', flex: 1, display: 'flex', flexDirection: 'column' as const },
+  content: { flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
+  contentInner: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px', flex: 1, display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
 };
 
 function NavGlyph({ name }: NavGlyphProps) {
@@ -312,6 +311,10 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
       {active && (
         <motion.div
           layoutId={`nav-active-bg-${layoutScope}`}
+          // Only remasure when the highlighted row changes. Theme toggles,
+          // banner dismiss, and other sidebar rerenders shift this pill's
+          // page position; without a dependency Motion would slide it there.
+          layoutDependency={href}
           style={{
             position: 'absolute',
             inset: 0,
@@ -363,11 +366,6 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
  */
 function opensInNewTab(event: ReactMouseEvent): boolean {
   return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
-}
-
-function isChildActive(child: NavChild, pathname: string): boolean {
-  if (child.exact) return pathname === child.href;
-  return pathname === child.href || pathname.startsWith(`${child.href}/`);
 }
 
 const slideVariants = {
@@ -423,8 +421,8 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
   // sub-nav slide sitting still for the whole navigation — the tap felt dead, then
   // everything moved at once.
   const [pendingPath, setPendingPath] = useState<string | null>(null);
-  const activePath = pendingPath ?? pathname;
-  const activeParent = getActiveParent(activePath);
+  const activePath = navHighlightPath(pendingPath, pathname);
+  const activeParent = navActiveParent(pendingPath, pathname);
   const directionRef = useRef(1);
   const prevParentRef = useRef<string | null>(activeParent?.href ?? null);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -447,7 +445,9 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
   }, [pathname]);
 
   useEffect(() => {
-    if (!pendingPath) return;
+    // '/' is the back-header view: the route will not commit, so a timeout
+    // would snap the submenu back. Only time out real pending navigations.
+    if (!pendingPath || pendingPath === '/') return;
     const timer = setTimeout(() => setPendingPath(null), PENDING_PATH_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [pendingPath]);
@@ -461,7 +461,9 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
 
   const selectPath = (href: string) => {
     setPendingPath(href);
-    onNavigate?.();
+    // Keep the drawer open when the tap is the section root (Vibenet,
+    // Benchmark). getActiveParent already knows which hrefs have a submenu.
+    if (getActiveParent(href)?.href !== href) onNavigate?.();
   };
 
   const direction = directionRef.current;
@@ -495,7 +497,10 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                     style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: 'var(--bds-gray-50)' }}
                     onClick={(event) => {
                       if (opensInNewTab(event)) return;
-                      selectPath('/');
+                      // Stay on the current page and keep the mobile drawer
+                      // open. href="/" remains for modified clicks (new tab).
+                      event.preventDefault();
+                      setPendingPath('/');
                     }}
                   >
                     <svg
@@ -549,31 +554,19 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                   style={styles.navPane}
                 >
                   <nav style={styles.nav}>
-                    {NAV_ITEMS.filter((item) => item.icon).map((item) => {
-                      let active: boolean;
-                      if (item.href === '/') {
-                        active = activePath === '/';
-                      } else {
-                        const isMatch = activePath === item.href || activePath.startsWith(`${item.href}/`);
-                        const hasMoreSpecific = NAV_ITEMS.some(
-                          (other) => other.href !== item.href && other.href.startsWith(item.href) && (activePath === other.href || activePath.startsWith(`${other.href}/`)),
-                        );
-                        active = isMatch && !hasMoreSpecific;
-                      }
-                      return (
-                        <NavRow
-                          key={item.href}
-                          icon={item.icon}
-                          label={item.label}
-                          href={item.href}
-                          active={active}
-                          enabled={item.enabled}
-                          hasChildren={!!item.children}
-                          onNavigate={() => selectPath(item.href)}
-                          layoutScope={layoutScope}
-                        />
-                      );
-                    })}
+                    {NAV_ITEMS.filter((item) => item.icon).map((item) => (
+                      <NavRow
+                        key={item.href}
+                        icon={item.icon}
+                        label={item.label}
+                        href={item.href}
+                        active={isTopNavActive(item, activePath)}
+                        enabled={item.enabled}
+                        hasChildren={!!item.children}
+                        onNavigate={() => selectPath(item.href)}
+                        layoutScope={layoutScope}
+                      />
+                    ))}
                   </nav>
                 </motion.div>
               )}
@@ -656,34 +649,44 @@ type GlobalBannerProps = {
 };
 
 function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
-  if (dismissed) return null;
+  const reducedMotion = useReducedMotion();
+  const transition = reducedMotion ? { duration: 0 } : slideTransition;
+
   return (
-    <div
-      className={cn(
-        'relative items-center justify-center border-b border-bds-gray-10 bg-bds-gray-5 py-2 pl-4 pr-10 sm:px-10',
-        className,
+    <AnimatePresence initial={false}>
+      {!dismissed && (
+        <motion.div
+          key="global-banner"
+          className={cn(className, 'relative overflow-clip after:inset-x-0 after:absolute after:bottom-0 after:border-b after:border-bds-gray-10 bg-bds-gray-5')}
+          initial={false}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={transition}
+        >
+          <div className="relative flex w-full items-center justify-center border-b border-transparent py-2 pl-4 pr-10 sm:px-10">
+            <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
+              <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
+                <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
+                <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
+                <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
+                <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
+                  <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
+                  <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
+                </Link>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
+              aria-label="Dismiss banner"
+            >
+              <CloseIcon size={10} />
+            </button>
+          </div>
+        </motion.div>
       )}
-    >
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
-        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
-          <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
-          <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
-          <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
-          <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
-            <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
-            <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
-          </Link>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
-        aria-label="Dismiss banner"
-      >
-        <CloseIcon size={10} />
-      </button>
-    </div>
+    </AnimatePresence>
   );
 }
 
@@ -713,10 +716,6 @@ export function AppShell({ children }: PropsWithChildren) {
   };
 
   useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     if (!menuOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
     document.addEventListener('keydown', onKey);
@@ -736,7 +735,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <GlobalBanner
         dismissed={bannerDismissed}
         onDismiss={() => setBannerDismissed(true)}
-        className="hidden md:flex"
+        className="hidden md:block"
       />
       <div style={styles.root}>
         {/* Desktop sidebar */}
@@ -748,7 +747,7 @@ export function AppShell({ children }: PropsWithChildren) {
         <header className="mobile-header">
           {/* Static on touch: the morph is hover-driven, so base.org leaves its
               mobile mark static too. */}
-          <Link href="/" aria-label="Base home" style={styles.brandLink}>
+          <Link href="/" aria-label="Base home" style={styles.brandLink} onClick={() => setMenuOpen(false)}>
             <BaseMark size={MOBILE_BRAND_MARK_SIZE} />
           </Link>
           <button
@@ -791,7 +790,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <GlobalBanner
             dismissed={bannerDismissed}
             onDismiss={() => setBannerDismissed(true)}
-            className="flex md:hidden"
+            className="block md:hidden"
           />
           <header className="topbar-desktop" style={{ ...styles.topbar, position: 'relative', zIndex: 40 }}>
             <div id="topbar-actions-slot" className="absolute right-7 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2" />
@@ -844,7 +843,7 @@ export function AppShell({ children }: PropsWithChildren) {
               return <Text as="span" variant="headline">{title}</Text>;
             })()}
           </header>
-          <main style={styles.content}>
+          <main className="content-scroll" style={styles.content}>
             <div style={styles.contentInner}>{children}</div>
           </main>
         </div>

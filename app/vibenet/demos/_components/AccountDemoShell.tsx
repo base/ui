@@ -69,7 +69,10 @@ export function AccountDemoShell({
 
   return (
     <>
-      <div className={cn('relative -mb-20 flex min-h-[calc(100vh-116px)] flex-1 flex-col text-foreground', className)}>
+      {/* flex-1 fills the content column so the activity drawer can sit at the
+          bottom on short pages (`mt-auto`). A 100vh min-height overshot the
+          padded scrollport and left extra scroll below the drawer. */}
+      <div className={cn('relative -mb-20 flex min-w-0 flex-1 flex-col text-foreground', className)}>
         {/* Desktop: the switcher lives in the app top bar. Hidden until an account
             exists so the gate reads as a clean full-page empty state. */}
         {hasAccounts && topbarSlot ? createPortal(switcher, topbarSlot) : null}

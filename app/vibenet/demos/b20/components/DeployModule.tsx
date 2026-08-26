@@ -452,7 +452,7 @@ export function DeployModule({
                   placeholder="Paste an existing Policy ID"
                   inputMode="numeric"
                 />
-                <Button size="sm" variant="outline" disabled={resolvingPolicy} onClick={() => void addExternalPolicy()}>
+                <Button variant="outline" disabled={resolvingPolicy} onClick={() => void addExternalPolicy()}>
                   {resolvingPolicy ? 'Resolving…' : 'Resolve and add'}
                 </Button>
               </div>

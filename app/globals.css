@@ -811,26 +811,30 @@ button {
     padding-top: 56px;
   }
 
-  .activity-full-width {
-    width: 100vw;
-    margin-left: calc(-1 * (100vw - 100%) / 2);
-  }
-
   /* iOS Safari auto-zooms the page when a focused input's font-size is < 16px,
      which shrinks the visual viewport and pushes fixed modals (and their close
      button) off-screen. Force >=16px on mobile so focusing a field never zooms.
      !important is needed to beat per-input Tailwind text-[13px]/[14px] utilities;
      the smaller visual sizing is preserved on >=768px. */
-  input,
-  textarea,
-  select {
-    font-size: 16px !important;
+@supports (-webkit-touch-callout: none) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 }
 
-@media (min-width: 768px) {
-  .activity-full-width {
-    width: calc(100vw - 248px);
-    margin-left: calc(-1 * (100vw - 248px - 100%) / 2);
-  }
+/* Activity drawer: span the content scrollport without 100vw. 100vw includes
+   the scrollbar and is wider than the nested max-w-5xl column, so it created
+   a horizontal scrollbar. `cqw` is the .content-scroll column's client width. */
+.content-scroll {
+  container-type: inline-size;
+  container-name: content-scroll;
+}
+
+.activity-full-width {
+  width: auto;
+  margin-left: calc(50% - 50cqw);
+  margin-right: calc(50% - 50cqw);
 }

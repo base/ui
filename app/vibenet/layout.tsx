@@ -18,9 +18,9 @@ type VibenetLayoutProps = {
 
 export default function VibenetLayout({ children }: VibenetLayoutProps) {
   return (
-    <div className="flex w-full flex-1 flex-col">
+    <div className="flex w-full min-w-0 flex-1 flex-col">
       <MaintenanceBanner />
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
+      <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col">
         {children}
       </div>
     </div>

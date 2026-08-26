@@ -2,7 +2,7 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 
 export default function Loading() {
   return (
-    <div className="-mb-20 flex min-h-[calc(100vh-116px)] flex-col gap-10 pb-4">
+    <div className="-mb-20 flex min-w-0 flex-1 flex-col gap-10">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left column */}
         <div className="flex flex-col gap-6">

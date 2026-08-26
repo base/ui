@@ -34,7 +34,7 @@ export function ActivityDrawer({
     // `mt-auto` drops the bar to the bottom of the (full-height) flex column so
     // it rests at the viewport bottom on short pages; `sticky bottom-0` pins it
     // once content is tall enough to scroll.
-    <div className="activity-full-width sticky bottom-0 z-10 mt-auto">
+    <div className="activity-full-width sticky bottom-0 z-10 mt-auto min-w-0">
       <div className="border-t border-bds-gray-10 bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[rgb(30,30,30)]">
         <button
           type="button"
@@ -82,7 +82,7 @@ export function ActivityDrawer({
               transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
               className="overflow-hidden"
             >
-              <div className="max-h-[280px] overflow-y-auto px-5 pb-5">
+              <div className="max-h-[280px] overflow-x-hidden overflow-y-auto overscroll-contain px-5 pb-5">
                 {count > 0 ? (
                   children
                 ) : (

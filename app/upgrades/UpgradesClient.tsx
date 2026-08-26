@@ -262,7 +262,7 @@ function UpgradeView({ nowMs }: { nowMs: number }) {
                 {upgrade.summary}
               </Text>
               <div className="mt-auto pt-4" />
-              <div className="flex flex-col gap-3 border-t border-bds-gray-10 pt-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex flex-wrap items-end justify-between gap-3 border-t border-bds-gray-10 pt-4">
                 <div className="flex gap-10">
                   <div className="flex flex-col gap-0.5">
                     <Text variant="footnote" tone="muted" className="text-[9px] tracking-normal">Sepolia</Text>
