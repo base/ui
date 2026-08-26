@@ -2,11 +2,17 @@ name: CI
 
 on:
   pull_request:
+  # A queued pull request is tested on a temporary gh-readonly-queue ref, which
+  # fires neither pull_request nor push. Without this the merge queue waits on
+  # checks that never start.
+  merge_group:
   push:
     branches:
       - main
 
-# Cancel superseded runs on the same PR/branch.
+# Cancel superseded runs on the same PR/branch. Merge group runs fall through to
+# github.ref, which is unique per queue entry, and are never cancelled —
+# cancelling one drops its pull request out of the queue.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
