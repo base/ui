@@ -165,18 +165,15 @@ export function AccountDemo() {
   const [appBusy, setAppBusy] = useState<string | null>(null);
   const [transactModalOpen, setTransactModalOpen] = useState(false);
 
-  // Crossfade key for the dashboard (transact + apps). It normally tracks the
-  // active account so switching accounts crossfades the view. While the transact
-  // modal is open we hold it steady: the modal's "From" switcher changes the
-  // active account, and remounting the crossfaded subtree there would tear down
-  // and rebuild the open modal — a full-screen flash. Held steady, the dialog
-  // updates in place, then the dashboard crossfades once to the new account on
-  // close.
+  // Crossfade when switching accounts. Adjust the key during render (not an
+  // effect) so hydration does not remount the grid, and freeze it while the
+  // transact modal is open so its From switcher cannot tear the dialog down.
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
   const activeAccountKey = activeAccountId ?? 'empty';
   const [contentKey, setContentKey] = useState(activeAccountKey);
-  useEffect(() => {
-    if (!transactModalOpen) setContentKey(activeAccountKey);
-  }, [transactModalOpen, activeAccountKey]);
+  if (!transactModalOpen && contentKey !== activeAccountKey) {
+    setContentKey(activeAccountKey);
+  }
 
   const signableSigners = useMemo(
     () => [...postChangeOwnerSigners, ...sessionSigners],
