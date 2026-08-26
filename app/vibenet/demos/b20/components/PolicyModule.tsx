@@ -8,6 +8,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { cn } from '../../../../components/ui/cn';
 import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
+import { Select, type SelectGroup } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import type { AddressBookEntry } from '../../_shared/AddressAutocomplete';
@@ -63,6 +64,21 @@ export function PolicyModule({
   const [showCreator, setShowCreator] = useState(false);
   const [suggestedPolicyId, setSuggestedPolicyId] = useState<bigint | null>(null);
   const isSample = tokenAccess === 'sample';
+  const selectedRecent = recent.find((entry) => entry.address.toLowerCase() === address.trim().toLowerCase());
+  const recentGroups: SelectGroup[] = [
+    {
+      label: 'Stablecoins · eligible for gas',
+      options: recent
+        .filter((entry) => entry.variant === 'stablecoin')
+        .map((entry) => ({ value: entry.address, label: `${entry.symbol} — ${entry.name}` })),
+    },
+    {
+      label: 'Assets · fees in ETH only',
+      options: recent
+        .filter((entry) => entry.variant === 'asset')
+        .map((entry) => ({ value: entry.address, label: `${entry.symbol} — ${entry.name}` })),
+    },
+  ].filter((group) => group.options.length > 0);
   return (
     <div className="flex flex-col gap-5">
       <section className="flex flex-wrap items-start justify-between gap-3">
@@ -98,11 +114,11 @@ export function PolicyModule({
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="flex flex-col bg-background p-5 dark:bg-white/5">
             <span className="mb-3 w-fit rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] text-base-blue">
-              No wallet required
+              Read-only preview
             </span>
             <Text variant="headline">Explore a sample token</Text>
             <Text variant="footnote" tone="muted">
-              See how token rules work without connecting a wallet.
+              See how token rules work before making a wallet.
             </Text>
             <Button
               className="mt-5 self-start"
@@ -141,22 +157,38 @@ export function PolicyModule({
               </Button>
             </div>
           </Field>
-          {recent.length ? (
+          {recent.length > 1 ? (
             <>
-              <p className="mt-4 text-[12px] text-bds-gray-50">Or choose a token you recently created.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {recent.map((entry) => (
-                  <button
-                    key={entry.address}
-                    type="button"
-                    onClick={() => onInspect(entry.address)}
-                    className="rounded-lg border border-bds-gray-10 px-3 py-2 text-left text-[12px] hover:border-base-blue dark:border-white/10"
-                  >
-                    <strong className="block text-base-blue">{entry.symbol}</strong>
-                    {entry.variant}
-                  </button>
-                ))}
-              </div>
+              <p className="mt-4 text-[12px] text-bds-gray-50">Or switch between tokens created by this wallet.</p>
+              <Select
+                value={selectedRecent?.address ?? ''}
+                onValueChange={(value) => {
+                  setAddress(value);
+                  onInspect(value);
+                }}
+                groups={recentGroups}
+                placeholder="Choose one of your tokens"
+                ariaLabel="Choose a recently created token"
+                disabled={busy === 'inspect'}
+                className="mt-3"
+              />
+            </>
+          ) : recent.length === 1 ? (
+            <>
+              <p className="mt-4 text-[12px] text-bds-gray-50">Or choose the token you recently created.</p>
+              <button
+                type="button"
+                onClick={() => onInspect(recent[0].address)}
+                className="mt-3 rounded-lg border border-bds-gray-10 px-3 py-2 text-left text-[12px] hover:border-base-blue dark:border-white/10"
+              >
+                <strong className="block text-base-blue">
+                  {recent[0].symbol} — {recent[0].name}
+                </strong>
+                <span className="capitalize">{recent[0].variant}</span>
+                <span className="text-bds-gray-50">
+                  {recent[0].variant === 'stablecoin' ? ' · Eligible for gas' : ' · Fees in ETH only'}
+                </span>
+              </button>
             </>
           ) : (
             <p className="mt-4 text-[12px] text-bds-gray-50">Tokens you create with this wallet will appear here.</p>
@@ -179,14 +211,14 @@ export function PolicyModule({
                 )}
               >
                 {token.variant === 'stablecoin'
-                  ? 'Announcements are not available on Stablecoin tokens. They are only available on Asset tokens.'
+                  ? 'Announcements are an Asset token feature. Create an Asset token to publish updates.'
                   : tokenAccess === 'sample'
                     ? 'Sample token · Read only'
                     : tokenAccess === 'operator'
                       ? 'Your token · You can publish updates'
                       : tokenAccess === 'external'
-                        ? 'Another token · You cannot publish updates'
-                        : 'Connect a wallet to check access'}
+                        ? 'Another token · Read only'
+                        : 'Make a wallet to check access'}
               </span>
               <Link
                 href="https://github.com/base/base-std/tree/main/docs/B20"
@@ -257,7 +289,7 @@ export function PolicyModule({
                           : 'bg-bds-red-0 text-bds-red-70',
                     )}
                   >
-                    {policy.id === 0n ? 'No policy set' : policy.exists ? 'Policy active' : 'Policy unavailable'}
+                    {policy.id === 0n ? 'Open to everyone' : policy.exists ? 'Policy active' : 'Policy unavailable'}
                     <InfoTooltip label="What this status means">
                       {policy.id === 0n
                         ? B20_HELP.statusWideOpen

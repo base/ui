@@ -141,7 +141,7 @@ export function AnnouncementModule({
     if (!token || token.variant !== 'asset') return;
     setError(null);
     try {
-      if (!wallet) throw new Error('Connect the wallet that manages this token first.');
+      if (!wallet) throw new Error('Make a wallet before you announce.');
       const announcementId = id.trim();
       if (!announcementId || !description.trim()) throw new Error('Announcement ID and description are required.');
       const [isOperator, idUsed] = await Promise.all([
@@ -260,14 +260,14 @@ export function AnnouncementModule({
           <EmptyToken />
         ) : token.variant !== 'asset' ? (
           <p className="rounded-lg bg-bds-orange-0 p-4 text-[13px] text-bds-orange-70">
-            Announcements are not available on Stablecoin tokens. They are only available on Asset tokens.
+            Announcements are an Asset token feature. Create an Asset token to publish updates for holders.
           </p>
         ) : (
           <>
             {tokenAccess !== 'operator' ? (
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4 text-[13px]">
                 <div>
-                  <strong>This wallet cannot publish announcements for this asset</strong>
+                  <strong>Publishing needs the operator role on this asset</strong>
                   <p className="mt-1 text-bds-gray-60">
                     Create your own Asset token to write and publish announcements.
                   </p>
@@ -353,7 +353,7 @@ export function AnnouncementModule({
             <ErrorNote message={error} />
             <Button className="mt-5" onClick={() => void submit()} disabled={!!busy || tokenAccess !== 'operator'}>
               {busy
-                ? 'Waiting for wallet…'
+                ? 'Sending…'
                 : tokenAccess === 'operator'
                   ? announcementType === 'multiplier'
                     ? 'Publish announcement with scheduled asset split'

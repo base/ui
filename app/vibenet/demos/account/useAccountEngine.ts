@@ -27,6 +27,7 @@ import {
   ecrecoverAuthenticator,
   type Eip8130Deployment,
   encodeSessionPolicyConfig,
+  encodeTokenTransfer,
   encodeWalletCalls,
   estimateGas,
   generatePrivateKey,
@@ -1135,6 +1136,23 @@ export function useAccountEngine() {
       ? account.delegate(a.delegate ?? chain.deployment.accounts.default)
       : (account as ReturnType<typeof toAccount>).create();
 
+  // Wait for a broadcast tx to be included and check that it — and every 8130
+  // phase in it — succeeded. Throws TxPendingError if it is still not included
+  // when the timeout runs out, a plain Error if anything reverted.
+  const awaitInclusion = async (txHash: Hex, timeout = 30_000): Promise<Hex> => {
+    try {
+      const receipt = await waitForTransactionReceipt(makeRpcClient() as never, { hash: txHash, timeout });
+      if (receipt.status === '0x0') throw new Error(`Transaction reverted onchain (${txHash}).`);
+      const phases = receipt.eip8130?.phaseStatuses ?? [];
+      const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
+      if (failedPhase !== -1) throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
+    } catch (err) {
+      if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
+      throw err;
+    }
+    return txHash;
+  };
+
   // Broadcast a signed 8130 tx and wait for inclusion. Throws TxPendingError on
   // timeout (submitted but unconfirmed), a plain Error if any phase reverts.
   const broadcast8130 = async (signedTx: Hex, onStatus?: (s: 'submitting' | 'confirming') => void): Promise<Hex> => {
@@ -1145,17 +1163,7 @@ export function useAccountEngine() {
       params: [signedTx],
     })) as Hex;
     onStatus?.('confirming');
-    try {
-      const receipt = await waitForTransactionReceipt(client as never, { hash: txHash, timeout: 30_000 });
-      if (receipt.status === '0x0') throw new Error(`Transaction reverted onchain (${txHash}).`);
-      const phases = receipt.eip8130?.phaseStatuses ?? [];
-      const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
-      if (failedPhase !== -1) throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
-    } catch (err) {
-      if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
-      throw err;
-    }
-    return txHash;
+    return awaitInclusion(txHash);
   };
 
   // Live EIP-8130 state used while preparing a transaction. This is the only
@@ -1206,7 +1214,17 @@ export function useAccountEngine() {
     changeSeq: number | null,
     meta: Hex | undefined,
     sessionPolicy?: AppPolicy,
-    payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[] },
+    // `localSigner` co-signs `payerAuth` inline with a key this browser holds
+    // (the B20 demo's own faucet-funded payer EOA, which accepts an arbitrary
+    // B20 stablecoin as the fee). Without it the tx is serialized with an empty
+    // `payerAuth` for a hosted payer service to co-sign out of band.
+    payerOpt?: { address: Address; phase0?: { to: Address; data: Hex }[]; localSigner?: Signer },
+    // Set by callers that run several transactions back to back. The public RPC
+    // is served by replicas whose heads can differ, so re-reading the nonce (or
+    // probing for code) between two sends can answer from a replica that hasn't
+    // seen the previous one yet. Such a caller reads both once up front and
+    // pins them here instead.
+    seqOpt?: { nonceSequence?: bigint; assumeDeployed?: boolean },
   ): Promise<{ serialized: Hex; nextSeq: number }> => {
     const signer = await buildSigner(signerWS);
     const account = nativeAccountFor(a, signer, signerWS.authenticator);
@@ -1230,7 +1248,12 @@ export function useAccountEngine() {
 
     // Resolve deployment + both config counters once at the composition
     // boundary. Lower-level signing never consults the persisted account flags.
-    const { deployed: effectivelyDeployed } = await fetchOnChainAccountState(account.address as Address);
+    // A caller running several transactions back to back pins the deployment
+    // state instead: an earlier transaction in that run already deployed the
+    // account, and a code probe can still lag it and wrongly re-attach the
+    // create change.
+    const effectivelyDeployed =
+      seqOpt?.assumeDeployed ?? (await fetchOnChainAccountState(account.address as Address)).deployed;
     const bootstrapChange = effectivelyDeployed ? undefined : firstDeployChange(a, account);
     if (bootstrapChange) accountChanges.push(bootstrapChange);
     if (effectivelyDeployed !== a.deployed) updateAccount(a.id, { deployed: effectivelyDeployed });
@@ -1268,10 +1291,12 @@ export function useAccountEngine() {
     const plainCallCount = Math.max(totalCalls - heavyCallCount, 1);
     const wire = encodeWalletCalls({ account: account.address, calls: phases });
 
-    const nonceSequence = await getTransactionCount(makeRpcClient(), {
-      address: account.address as Address,
-      nonceKey: 0n,
-    });
+    const nonceSequence =
+      seqOpt?.nonceSequence ??
+      (await getTransactionCount(makeRpcClient(), {
+        address: account.address as Address,
+        nonceKey: 0n,
+      }));
 
     // Authenticator hint so estimateGas shapes the senderAuth stub for the
     // actual signer. A delegate-signed sub-account acts via the parent's delegate
@@ -1360,18 +1385,22 @@ export function useAccountEngine() {
       gasLimit = BigInt(floorGas(true) || 200_000);
     }
 
-    const serialized = await account.signTransaction({
-      chainId,
-      accountChanges,
-      calls: wire,
-      metadata: meta,
-      nonceKey: 0n,
-      nonceSequence,
-      maxFeePerGas: 1_000_000_000n,
-      maxPriorityFeePerGas: 1_000_000n,
-      gas: gasLimit,
-      ...(payerOpt ? { payer: payerOpt.address, payerAuth: '0x' as Hex } : {}),
-    });
+    const serialized = await account.signTransaction(
+      {
+        chainId,
+        accountChanges,
+        calls: wire,
+        metadata: meta,
+        nonceKey: 0n,
+        nonceSequence,
+        maxFeePerGas: 1_000_000_000n,
+        maxPriorityFeePerGas: 1_000_000n,
+        gas: gasLimit,
+        // A local payer signs `payerAuth` here, so don't stub it out.
+        ...(payerOpt ? { payer: payerOpt.address, ...(payerOpt.localSigner ? {} : { payerAuth: '0x' as Hex }) } : {}),
+      },
+      payerOpt?.localSigner ? { payer: { account: payerOpt.localSigner, address: payerOpt.address } } : undefined,
+    );
     return { serialized, nextSeq };
   };
 
@@ -1401,8 +1430,22 @@ export function useAccountEngine() {
   // transaction builder. It deliberately reuses the full compose/broadcast
   // implementation so deployment reconciliation, sub-account delegation, gas
   // estimation, and eligible staged account changes behave consistently.
-  const sendActiveCall = async ({ to, data }: { to: Address; data: Hex }) => {
+  //
+  // `calls` land as one atomic EIP-8130 transaction, so a demo can pair an
+  // approve with the call that spends it. `tokenGas` routes the transaction
+  // through a caller-supplied ERC-8168 payer: phase 0 pays that payer a flat
+  // fee in the given token and the payer's own ETH covers gas, which is how a
+  // demo lets you pay fees in a token you just created. Without it the account
+  // pays its own gas.
+  const sendActiveCalls = async ({
+    calls,
+    tokenGas,
+  }: {
+    calls: { to: Address; data: Hex }[];
+    tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
+  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token' }> => {
     if (!acct) throw new Error('Select an account before you continue.');
+    if (!calls.length) throw new Error('No calls to send.');
     const signer =
       postChangeOwnerSigners.find((s) => s.id === activeSignerId) ??
       postChangeOwnerSigners[0] ??
@@ -1412,18 +1455,164 @@ export function useAccountEngine() {
     const bundle = pendingBundleFor({ mode: 'owner-send' });
     const presigned = bundle.map((item) => item.change);
     const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
+    const payerOpt = tokenGas
+      ? {
+          address: tokenGas.payer.address,
+          phase0: [
+            (({ to, data }) => ({ to, data }))(
+              encodeTokenTransfer({ token: tokenGas.token, to: tokenGas.payer.address, amount: tokenGas.fee }),
+            ),
+          ],
+          localSigner: tokenGas.payer,
+        }
+      : undefined;
     const { serialized, nextSeq } = await signComposed(
       acct,
       signer,
-      [newCallRow({ to, data, value: '0' })],
+      calls.map((call) => newCallRow({ ...call, value: '0' })),
       presigned,
       changeSeq,
       undefined,
       undefined,
-      undefined,
+      payerOpt,
     );
     const hash = await broadcast8130(serialized);
     applyLandedBundle(acct, nextSeq, bundle);
+    return { hash, serialized, mode: tokenGas ? 'token' : 'self' };
+  };
+
+  /**
+   * Run several transactions from the active account back to back.
+   *
+   * Not a loop over `sendActiveCalls`: the reads that call depends on — the
+   * account's nonce and whether it has code — are answered by load-balanced RPC
+   * replicas whose heads can differ, so re-reading them between two sends can
+   * return a view that predates the previous one. That drops the second
+   * transaction as a duplicate nonce, or re-attaches the create change to an
+   * account that already exists. Both reads happen once here, and each batch
+   * gets its sequence counted from there.
+   *
+   * Pending owner/session changes ride the first batch only. Returns one result
+   * per batch; throws on the first failure, leaving earlier batches applied
+   * (callers should make each batch meaningful on its own).
+   */
+  const sendActiveCallsBatches = async ({
+    batches,
+    tokenGas,
+    onBatchStart,
+    onBatchResult,
+  }: {
+    batches: { calls: { to: Address; data: Hex }[] }[];
+    tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
+    onBatchStart?: (index: number, total: number) => void;
+    onBatchResult?: (index: number, result: { hash: Hex; serialized: Hex; mode: 'self' | 'token' }) => void;
+  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token' }[]> => {
+    if (!acct) throw new Error('Select an account before you continue.');
+    if (!batches.length) throw new Error('No calls to send.');
+    const signer =
+      postChangeOwnerSigners.find((s) => s.id === activeSignerId) ??
+      postChangeOwnerSigners[0] ??
+      activeSigner;
+    if (!signer) throw new Error('No local owner key found for this account.');
+
+    const bundle = pendingBundleFor({ mode: 'owner-send' });
+    const presigned = bundle.map((item) => item.change);
+    const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : null;
+    const payerOpt = tokenGas
+      ? {
+          address: tokenGas.payer.address,
+          phase0: [
+            (({ to, data }) => ({ to, data }))(
+              encodeTokenTransfer({ token: tokenGas.token, to: tokenGas.payer.address, amount: tokenGas.fee }),
+            ),
+          ],
+          localSigner: tokenGas.payer,
+        }
+      : undefined;
+
+    // Read the starting nonce a few times and keep the highest: a single read
+    // can land on a replica that is a block behind.
+    const address = acct.address as Address;
+    let startSequence = 0n;
+    for (let i = 0; i < 3; i += 1) {
+      const count = await getTransactionCount(makeRpcClient(), { address, nonceKey: 0n }).catch(() => null);
+      if (count !== null && count > startSequence) startSequence = count;
+    }
+
+    // An account's code and the actors bound to it reach every replica a moment
+    // after the transaction that wrote them lands, so a batch prepared right
+    // behind the one that deployed the account is validated against a replica
+    // that has not seen it yet and is rejected with "actor is not bound" before
+    // it is ever broadcast. Wait for the state to catch up and prepare it again.
+    // A transaction that expired without landing is definitively dropped, so
+    // that one can go straight back out. Everything else — a revert, a rejected
+    // call, a broadcast whose receipt never arrived — is real and propagates.
+    const attemptBatch = async (send: () => Promise<Hex>): Promise<Hex> => {
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          return await send();
+        } catch (error) {
+          if (attempt >= 3) throw error;
+          // Broadcast but not included in time. Give it a little longer, then
+          // ask the node whether it still holds the transaction: one it has
+          // dropped is never coming back, so the batch is signed and sent again
+          // on the same nonce. One it still holds must be left alone — a second
+          // copy would only collide with it.
+          if (error instanceof TxPendingError) {
+            const landed = await awaitInclusion(error.txHash, 15_000).catch((err) => {
+              if (err instanceof TxPendingError) return null;
+              throw err;
+            });
+            if (landed) return landed;
+            const known = await makeRpcClient()
+              .request({ method: 'eth_getTransactionByHash', params: [error.txHash] })
+              .catch(() => 'unreadable');
+            if (known !== null) throw error;
+            continue;
+          }
+          const message = error instanceof Error ? error.message : String(error);
+          const expired = /expired before landing/i.test(message);
+          if (!expired && !/actor is not bound/i.test(message)) throw error;
+          await new Promise((resolve) => setTimeout(resolve, expired ? 1_000 : 5_000));
+        }
+      }
+    };
+
+    const results: { hash: Hex; serialized: Hex; mode: 'self' | 'token' }[] = [];
+    const mode: 'self' | 'token' = tokenGas ? 'token' : 'self';
+    for (const [index, batch] of batches.entries()) {
+      onBatchStart?.(index, batches.length);
+      const first = index === 0;
+      // Written by whichever signing attempt produced the transaction that
+      // landed — a retry re-signs, so these can't be read from the first one.
+      let landedSeq: number | null = null;
+      let landedSerialized: Hex = '0x';
+      const hash = await attemptBatch(async () => {
+        const { serialized, nextSeq } = await signComposed(
+          acct,
+          signer,
+          batch.calls.map((call) => newCallRow({ ...call, value: '0' })),
+          first ? presigned : [],
+          first ? changeSeq : null,
+          undefined,
+          undefined,
+          payerOpt,
+          { nonceSequence: startSequence + BigInt(index), assumeDeployed: !first || undefined },
+        );
+        landedSeq = nextSeq;
+        landedSerialized = serialized;
+        return broadcast8130(serialized);
+      });
+      if (first && landedSeq !== null) applyLandedBundle(acct, landedSeq, bundle);
+      const result = { hash, serialized: landedSerialized, mode };
+      results.push(result);
+      onBatchResult?.(index, result);
+    }
+    return results;
+  };
+
+  const sendActiveCall = async ({ to, data }: { to: Address; data: Hex }) => {
+    const { hash, serialized } = await sendActiveCalls({ calls: [{ to, data }] });
     return { hash, serialized };
   };
 
@@ -2341,6 +2530,8 @@ export function useAccountEngine() {
     broadcast8130,
     signComposed,
     sendActiveCall,
+    sendActiveCalls,
+    sendActiveCallsBatches,
     applyLandedBundle,
     handleSeqMismatch,
     pendingBundleFor,

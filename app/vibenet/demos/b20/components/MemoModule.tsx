@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { encodeFunctionData, isAddress, type Address, type Hex } from 'viem';
 
 import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
+import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { B20_HELP } from '../lib/glossary';
@@ -24,6 +26,11 @@ export function MemoModule({
   onDeploy,
   onSend,
   busy,
+  refreshKey,
+  prefill,
+  onPrefillConsumed,
+  feeNote,
+  onEnableTokenGas,
 }: {
   token: TokenInfo | null;
   tokenAccess: TokenAccess;
@@ -31,21 +38,54 @@ export function MemoModule({
   onDeploy: () => void;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
   busy: string | null;
+  /** Bumped by the parent after each transaction so the memo history re-reads. */
+  refreshKey?: number;
+  /** One-shot prefill for the transfer form (guided "first payment" flow). */
+  prefill?: { to: string; amount: string; memo: string } | null;
+  onPrefillConsumed?: () => void;
+  /** Per-transaction network fee in token terms (e.g. "0.1 ATLN") when token gas is on. */
+  feeNote?: string | null;
+  /** Set when the selected token is an eligible stablecoin still paying fees in ETH. */
+  onEnableTokenGas?: (() => void) | null;
 }) {
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
   const [memo, setMemo] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!prefill) return;
+    setTo(prefill.to);
+    setValue(prefill.amount);
+    setMemo(prefill.memo);
+    onPrefillConsumed?.();
+  }, [prefill, onPrefillConsumed]);
+  const [sent, setSent] = useState<{ title: string; summary: string; hash: Hex } | null>(null);
   const submit = async () => {
     if (!token) return;
     setError(null);
+    setSent(null);
     try {
       const m = memoToBytes32(memo);
       const v = amount(value, token.decimals);
       if (v <= 0n) throw new Error('Enter an amount greater than zero.');
       if (!isAddress(to)) throw new Error('Paste a valid wallet address for the recipient.');
-      const data = encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, m] });
-      await onSend('Transfer with memo', token.address, data, 'memo_transfer');
+      const hash = await onSend(
+        token.variant === 'stablecoin' ? `Send ${token.symbol} with memo` : 'Transfer with memo',
+        token.address,
+        encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, m] }),
+        'memo_transfer',
+      );
+      if (hash) {
+        setSent({
+          title: `Sent ${value} ${token.symbol} to ${shortAddress(to)}`,
+          summary: `Memo “${memo}” is recorded onchain with the transfer.`,
+          hash,
+        });
+        setTo('');
+        setValue('');
+        setMemo('');
+      }
     } catch (error) {
       setError(walletErrorMessage(error));
     }
@@ -127,6 +167,41 @@ export function MemoModule({
         description="Add a short reference to a token transfer so your team can find it later."
         action={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
       />
+      {sent ? (
+        <div
+          role="status"
+          className="animate-in flex items-start gap-3 rounded-xl border border-bds-green-20 bg-bds-green-0 p-4"
+        >
+          <span
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-bds-green-50 text-[13px] text-white"
+            aria-hidden="true"
+          >
+            ✓
+          </span>
+          <div className="min-w-0 flex-1">
+            <Text variant="label">{sent.title}</Text>
+            <Text variant="footnote" tone="muted" className="mt-0.5">
+              {sent.summary}
+            </Text>
+            <Link
+              href={`${VIBENET_EXPLORER_PATH}/tx/${sent.hash}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-[12px] text-base-blue hover:underline"
+            >
+              View transaction ↗
+            </Link>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSent(null)}
+            aria-label="Dismiss confirmation"
+            className="-mr-1 -mt-1 shrink-0 rounded-full px-2 py-1 text-[12px] text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
       <Card className="bg-background p-5 dark:bg-white/5">
         {!token ? (
           <EmptyToken />
@@ -170,12 +245,37 @@ export function MemoModule({
             </p>
             <ErrorNote message={error} />
             <Button className="mt-5" onClick={() => void submit()} disabled={!!busy}>
-              {busy ? 'Waiting for wallet…' : 'Submit transfer with memo'}
+              {busy === 'memo_transfer'
+                ? token.variant === 'stablecoin'
+                  ? `Sending ${token.symbol}…`
+                  : 'Sending…'
+                : token.variant === 'stablecoin'
+                  ? `Send ${token.symbol} with memo`
+                  : 'Submit transfer with memo'}
             </Button>
+            <p className="mt-3 text-[12px] text-bds-gray-50">
+              {feeNote
+                ? `Network fee: ${feeNote} — paid from your balance.`
+                : 'Network fee: paid in ETH from your account.'}
+              {!feeNote && onEnableTokenGas && token ? (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    onClick={onEnableTokenGas}
+                    className="text-base-blue hover:underline"
+                  >
+                    Pay fees in {token.symbol} instead →
+                  </button>
+                </>
+              ) : null}
+            </p>
           </>
         )}
       </Card>
-      {token ? <MemoHistory address={token.address} decimals={token.decimals} symbol={token.symbol} /> : null}
+      {token ? (
+        <MemoHistory address={token.address} decimals={token.decimals} symbol={token.symbol} refreshKey={refreshKey} />
+      ) : null}
     </div>
   );
 }
