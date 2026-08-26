@@ -3,7 +3,7 @@
 import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
@@ -43,7 +43,7 @@ type NavGlyphProps = {
 };
 
 const styles: Record<string, CSSProperties> = {
-  root: { display: 'flex', flex: 1, overflow: 'hidden', color: INK },
+  root: { display: 'flex', flexGrow: 1, flexShrink: 0, color: INK },
   sidebar: {
     width: SIDEBAR_WIDTH,
     flexShrink: 0,
@@ -51,7 +51,6 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     padding: '0 0 20px',
-    position: 'relative',
     overflow: 'hidden',
   },
   brand: {
@@ -169,7 +168,9 @@ const styles: Record<string, CSSProperties> = {
     color: 'var(--bds-gray-50)',
   },
   switchThumbOn: { transform: 'translateX(14px)', color: BRAND_BLUE },
-  main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
+  // Grow on short pages so the activity drawer can sit at the bottom; don't
+  // shrink, or tall pages compress instead of letting the document scroll.
   topbar: {
     height: 65,
     flexShrink: 0,
@@ -180,8 +181,8 @@ const styles: Record<string, CSSProperties> = {
     padding: '0 28px',
   },
   topbarTitle: { fontSize: 16, fontWeight: 500 },
-  content: { flex: 1, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
-  contentInner: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px', flex: 1, display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
+  content: { flexGrow: 1, flexShrink: 0, display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
+  contentInner: { width: '100%', maxWidth: 1280, margin: '0 auto', padding: '24px 28px 80px', flexGrow: 1, flexShrink: 0, display: 'flex', flexDirection: 'column' as const, minWidth: 0 },
 };
 
 function NavGlyph({ name }: NavGlyphProps) {
@@ -375,6 +376,8 @@ const slideVariants = {
 };
 
 const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
+/** Matches `h-9` / theme(spacing.9). */
+const APP_BANNER_HEIGHT = '2.25rem';
 
 // How long the nav trusts a tapped href before falling back to the router. Only
 // reached if a navigation never commits (aborted, failed, or a modified click that
@@ -646,53 +649,57 @@ type GlobalBannerProps = {
   dismissed: boolean;
   onDismiss: () => void;
   className?: string;
+  height: MotionValue<string>;
 };
 
-function GlobalBanner({ dismissed, onDismiss, className }: GlobalBannerProps) {
+function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerProps) {
   const reducedMotion = useReducedMotion();
   const transition = reducedMotion ? { duration: 0 } : slideTransition;
 
   return (
-    <AnimatePresence initial={false}>
-      {!dismissed && (
-        <motion.div
-          key="global-banner"
-          className={cn(className, 'relative overflow-clip after:inset-x-0 after:absolute after:bottom-0 after:border-b after:border-bds-gray-10 bg-bds-gray-5')}
-          initial={false}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={transition}
-        >
-          <div className="relative flex w-full items-center justify-center border-b border-transparent py-2 pl-4 pr-10 sm:px-10">
-            <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
-              <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
-                <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
-                <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
-                <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
-                <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
-                  <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
-                  <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
-                </Link>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
-              aria-label="Dismiss banner"
-            >
-              <CloseIcon size={10} />
-            </button>
+    <motion.div
+      className={cn(className, 'overflow-clip after:pointer-events-none after:inset-x-0 after:absolute after:bottom-0 after:border-b after:border-bds-gray-10 bg-bds-gray-5')}
+      style={{ height }}
+      initial={false}
+      animate={{ height: dismissed ? '0rem' : null }}
+      transition={transition}
+    >
+      <motion.div
+        className="relative flex w-full shrink-0 items-center justify-center border-b border-transparent pl-4 pr-10 sm:px-10"
+        initial={false}
+        animate={{ opacity: dismissed ? 0 : 1 }}
+        transition={transition}
+        style={{ height: APP_BANNER_HEIGHT }}
+      >
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
+          <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
+            <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
+            <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
+            <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
+            <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
+              <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
+              <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
+            </Link>
           </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
+          aria-label="Dismiss banner"
+        >
+          <CloseIcon size={10} />
+        </button>
+      </motion.div>
+    </motion.div>
   );
 }
 
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
+  const bannerHeight = useMotionValue(APP_BANNER_HEIGHT);
+  const sidebarHeight = useMotionTemplate`calc(100dvh - ${bannerHeight})`;
   const [menuOpen, setMenuOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   // Starts false on both server and client so the first render matches; the
@@ -723,25 +730,32 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [menuOpen]);
 
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    // The document scroller is <html> (`overflow-y-scroll` in layout.tsx),
+    // not body — hiding overflow on body alone does not stop page scroll.
+    const root = document.documentElement;
+    root.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { root.style.overflow = ''; };
   }, [menuOpen]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex min-h-dvh flex-col">
       {/* Desktop: banner spans the full width above the shell. On mobile it is
           rendered below the fixed header instead (see below), so it isn't hidden
           behind it. */}
       <GlobalBanner
         dismissed={bannerDismissed}
         onDismiss={() => setBannerDismissed(true)}
-        className="hidden md:block"
+        height={bannerHeight}
+        className="sticky top-0 z-50 hidden md:block"
       />
       <div style={styles.root}>
         {/* Desktop sidebar */}
-        <aside className="sidebar-desktop" style={styles.sidebar}>
+        <motion.aside
+          className="sidebar-desktop sticky self-start"
+          style={{ ...styles.sidebar, top: bannerHeight, height: sidebarHeight }}
+        >
           <SidebarContent dark={dark} onToggleTheme={toggleTheme} />
-        </aside>
+        </motion.aside>
 
         {/* Mobile header (logo + hamburger) */}
         <header className="mobile-header">
@@ -784,15 +798,19 @@ export function AppShell({ children }: PropsWithChildren) {
           )}
         </AnimatePresence>
 
-        <div className="mobile-content-offset" style={styles.main}>
+        <div className="pt-14 md:pt-0" style={styles.main}>
           {/* Mobile: banner sits below the fixed header (which the top slot is
               hidden behind), so it's visible without scrolling. */}
           <GlobalBanner
             dismissed={bannerDismissed}
             onDismiss={() => setBannerDismissed(true)}
-            className="block md:hidden"
+            height={bannerHeight}
+            className="sticky top-14 z-50 block md:hidden"
           />
-          <header className="topbar-desktop" style={{ ...styles.topbar, position: 'relative', zIndex: 40 }}>
+          <motion.header
+            className="topbar-desktop sticky z-40 bg-background"
+            style={{ ...styles.topbar, top: bannerHeight }}
+          >
             <div id="topbar-actions-slot" className="absolute right-7 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2" />
             {(() => {
               const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
@@ -842,8 +860,8 @@ export function AppShell({ children }: PropsWithChildren) {
               }
               return <Text as="span" variant="headline">{title}</Text>;
             })()}
-          </header>
-          <main className="content-scroll" style={styles.content}>
+          </motion.header>
+          <main className="[container-type:inline-size]" style={styles.content}>
             <div style={styles.contentInner}>{children}</div>
           </main>
         </div>
