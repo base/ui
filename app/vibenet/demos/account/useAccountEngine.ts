@@ -106,12 +106,6 @@ const fundAccount = (address: Address) =>
     vibenetApi.faucet.dripUsdv({ address }),
   ]);
 
-// `createAccount`/`importAccount` bootstrap an account with its LOCAL config
-// sequence set to 1 (it doubles as the "initialized" flag). So the first
-// local-channel actor change (a session-key authorize) is sequence 1, not 0. The
-// MULTICHAIN counter (owner changes) is untouched by create and starts at 0.
-const POST_CREATE_LOCAL_SEQ = 1;
-
 /** Fold a landed batch of session-key config changes into the key list:
  *  - a key whose staged REVOKE landed is removed entirely, and
  *  - a key whose staged AUTHORIZE landed has its `pendingAuth` cleared.
@@ -233,6 +227,10 @@ function normalizeSalt(field: string): Hex {
 
 function actorPairs(actors: { actorId: Hex; authenticator: Address }[]) {
   return actors.map((a) => ({ actorId: a.actorId, authenticator: a.authenticator }));
+}
+
+function localConfigSequence(local: bigint, bootstrap: AaAccountChange | undefined): bigint {
+  return bootstrap?.type === 'create' ? 1n : local;
 }
 
 function sortActors<T extends { actorId: Hex }>(actors: T[]): T[] {
@@ -609,15 +607,8 @@ export function useAccountEngine() {
     return pendingChanges.filter((i) => i.sequence <= active.sequence);
   };
 
-  // Count of staged (signed, not-yet-landed) config changes — each consumes one
-  // config sequence. A NEW change binds to `liveSeq + this` so stacked changes
-  // get consecutive sequences.
-  const pendingChangeCount = (opts?: { includeOwner?: boolean }) => {
-    const includeOwner = opts?.includeOwner ?? true;
-    const sessions = (acct?.sessionKeys ?? []).filter((sk) => sk.pendingAuth || sk.pendingRevoke).length;
-    const owner = includeOwner && !!acct && !!signedChange && signedChange.accountId === acct.id ? 1 : 0;
-    return sessions + owner;
-  };
+  const pendingSessionChangeCount = () =>
+    (acct?.sessionKeys ?? []).filter((sk) => sk.pendingAuth || sk.pendingRevoke).length;
 
   // Re-sync owner draft + config-related state when the active account changes.
   // Demo-local (transact-modal) state resets in a separate effect owned by the
@@ -1167,8 +1158,11 @@ export function useAccountEngine() {
     return txHash;
   };
 
-  // Live on-chain config sequence for a deployed account (null on any error, so
-  // callers fall back to the stored value).
+  // Live EIP-8130 state used while preparing a transaction. This is the only
+  // source of truth for deployment and config sequences; the persisted
+  // `deployed` / `configSeq` fields are display caches and are never consulted
+  // while signing.
+  //
   // Reads the account's two config-change counters:
   //   - `multichain` (configChainId 0) — carries OWNER (actor) changes, so they
   //     sequence independently of session-key authorizes.
@@ -1177,16 +1171,23 @@ export function useAccountEngine() {
   // owner change's sequence (or vice versa) — the classic "config change sequence
   // mismatch". Never guess a live sequence (a wrong value reverts on-chain): on a
   // read failure we THROW so the caller aborts signing instead of using a guess.
-  const fetchOnChainConfigSeq = async (address: Address): Promise<{ local: number; multichain: number }> => {
+  const fetchOnChainAccountState = async (
+    address: Address,
+  ): Promise<{ deployed: boolean; local: bigint; multichain: bigint }> => {
     try {
-      const { local, multichain } = await getConfigSequence(makeRpcClient(), {
-        account: address,
-      });
-      return { local: Number(local), multichain: Number(multichain) };
+      const client = makeRpcClient();
+      const [codeAt, { local, multichain }] = await Promise.all([
+        client.request({
+          method: 'eth_getCode',
+          params: [address as `0x${string}`, 'latest'],
+        }),
+        getConfigSequence(client, { account: address }),
+      ]);
+      return { deployed: !!codeAt && codeAt !== '0x', local, multichain };
     } catch (err) {
       const reason = (err as { message?: string })?.message ?? String(err);
       throw new Error(
-        `Couldn't read the on-chain config sequence for ${address}: ${reason}. Not signing, to avoid a sequence mismatch.`,
+        `Couldn't read the on-chain EIP-8130 state for ${address}: ${reason}. Not signing with cached state.`,
       );
     }
   };
@@ -1211,7 +1212,7 @@ export function useAccountEngine() {
     const account = nativeAccountFor(a, signer, signerWS.authenticator);
     const chainId = chain.id || 84532;
     const accountChanges: AaAccountChange[] = [];
-    let nextSeq = a.configSeq;
+    const nextSeq = changeSeq ?? 0;
 
     // Sub-account signed via the parent's delegate actor? Then the acting actor
     // (for estimation) is the delegate, not the parent owner's own k1 actor — and
@@ -1227,26 +1228,13 @@ export function useAccountEngine() {
       );
     const isDelegateSub = !!parentAcct && !isDirectSubOwner;
 
-    // Reconcile the stored "deployed" flag against on-chain code in BOTH directions
-    // before composing (also repairs localStorage when the browser missed a receipt):
-    //   - code gone (e.g. devnet reset) → treat as undeployed, include create/delegate
-    //   - code exists after a timed-out/reverted later phase → do NOT recreate
-    let effectivelyDeployed = a.deployed;
-    try {
-      const codeAt = await makeRpcClient().request({
-        method: 'eth_getCode',
-        params: [account.address as `0x${string}`, 'latest'],
-      });
-      effectivelyDeployed = !!codeAt && codeAt !== '0x';
-      if (effectivelyDeployed !== a.deployed) updateAccount(a.id, { deployed: effectivelyDeployed });
-    } catch {
-      /* RPC unavailable — keep the stored flag */
-    }
-    if (!effectivelyDeployed) accountChanges.push(firstDeployChange(a, account));
-    if (presignedChanges.length > 0) {
-      nextSeq = changeSeq ?? a.configSeq;
-      accountChanges.push(...presignedChanges);
-    }
+    // Resolve deployment + both config counters once at the composition
+    // boundary. Lower-level signing never consults the persisted account flags.
+    const { deployed: effectivelyDeployed } = await fetchOnChainAccountState(account.address as Address);
+    const bootstrapChange = effectivelyDeployed ? undefined : firstDeployChange(a, account);
+    if (bootstrapChange) accountChanges.push(bootstrapChange);
+    if (effectivelyDeployed !== a.deployed) updateAccount(a.id, { deployed: effectivelyDeployed });
+    accountChanges.push(...presignedChanges);
 
     const { phase0: userPhase0, phase1: userPhase1 } = buildPhases(rows, account.address);
     const phases: { to: Address; value?: bigint; data?: Hex }[][] = [];
@@ -1280,15 +1268,10 @@ export function useAccountEngine() {
     const plainCallCount = Math.max(totalCalls - heavyCallCount, 1);
     const wire = encodeWalletCalls({ account: account.address, calls: phases });
 
-    let nonceSequence: bigint;
-    try {
-      nonceSequence = await getTransactionCount(makeRpcClient(), {
-        address: account.address as Address,
-        nonceKey: 0n,
-      });
-    } catch {
-      nonceSequence = effectivelyDeployed ? 1n : 0n;
-    }
+    const nonceSequence = await getTransactionCount(makeRpcClient(), {
+      address: account.address as Address,
+      nonceKey: 0n,
+    });
 
     // Authenticator hint so estimateGas shapes the senderAuth stub for the
     // actual signer. A delegate-signed sub-account acts via the parent's delegate
@@ -1503,6 +1486,7 @@ export function useAccountEngine() {
     if (!changeWS) return;
     setApplying(true);
     setError('');
+    setConfigTx(null);
     try {
       const changeSigner = await buildSigner(changeWS);
       const changeAccount = nativeAccountFor(acct, changeSigner, changeWS.authenticator);
@@ -1511,18 +1495,10 @@ export function useAccountEngine() {
       // authorizes (per-chain local counter) — a pending session key can't shift
       // this sequence, and vice versa.
       const chainId = 0;
-      let nextSeq: number;
-      if (acct.deployed) {
-        // Read the live multichain sequence — never guess (fetch throws on failure).
-        const { multichain } = await fetchOnChainConfigSeq(changeAccount.address as Address);
-        nextSeq = multichain;
-      } else {
-        // Undeployed: the first-tx `create`/`delegation` change rides the SAME tx
-        // and does NOT consume the multichain counter, so the bundled owner change
-        // is sequence 0. `configSeq` is always 0 while undeployed, so it's the
-        // correct base here (no `+ 1`, which caused a sequence mismatch).
-        nextSeq = acct.configSeq;
-      }
+      // Neither create nor delegation consumes the multichain counter, so the
+      // network-returned value is always the sequence to sign.
+      const { multichain } = await fetchOnChainAccountState(changeAccount.address as Address);
+      const nextSeq = Number(multichain);
       const change = await changeAccount.change(
         [
           ...buildAuthorizeActions().map((s) =>
@@ -1532,7 +1508,7 @@ export function useAccountEngine() {
           ),
           ...pendingRevoke.map((o) => revokeActor(o.actorId)),
         ],
-        { chainId, sequence: BigInt(nextSeq) },
+        { channel: 'multichain', chainId, sequence: multichain },
       );
       setSignedChange({
         accountId: acct.id,
@@ -1688,24 +1664,13 @@ export function useAccountEngine() {
     };
 
     // Session-key authorizes live on the per-chain LOCAL config counter,
-    // independent of owner changes (multichain counter). Offset only by OTHER
-    // pending session-key authorizes (same counter) so stacked keys get
-    // consecutive local sequences; a pending owner change is on a different
-    // counter and must NOT shift this one.
+    // independent of owner changes (multichain counter). Start from a fresh
+    // network read, then reserve positions for already-staged session changes.
     const chainId = skChain.id || 84532;
-    const seqOffset = pendingChangeCount({ includeOwner: false });
-    let nextSeq: number;
-    if (acct.deployed) {
-      // Read the live local sequence — never guess (fetch throws on failure).
-      const { local } = await fetchOnChainConfigSeq(account.address as Address);
-      nextSeq = local + seqOffset;
-    } else {
-      // Undeployed: the first-tx deploy change (`createAccount`/`importAccount`)
-      // sets the LOCAL sequence to 1 (doubles as the "initialized" flag), so the
-      // FIRST local-channel authorize is sequence 1 (POST_CREATE_LOCAL_SEQ), NOT 0
-      // — whether it rides the deploy tx or a later tx after a separate deploy.
-      nextSeq = POST_CREATE_LOCAL_SEQ + seqOffset;
-    }
+    const liveState = await fetchOnChainAccountState(account.address as Address);
+    const bootstrapChange = liveState.deployed ? undefined : firstDeployChange(acct, account);
+    const sequence = localConfigSequence(liveState.local, bootstrapChange) + BigInt(pendingSessionChangeCount());
+    const nextSeq = Number(sequence);
 
     // Register the manager as a trusted-executor actor on first use so its
     // executeBatch callback into the account succeeds (skip if already trusted).
@@ -1727,8 +1692,8 @@ export function useAccountEngine() {
       registeredManager = true;
     }
     const accountChanges: AaAccountChange[] = [];
-    if (!acct.deployed) accountChanges.push(firstDeployChange(acct, account));
-    const configChange = await account.change(configChanges, { chainId, sequence: BigInt(nextSeq) });
+    if (bootstrapChange) accountChanges.push(bootstrapChange);
+    const configChange = await account.change(configChanges, { chainId, sequence });
     accountChanges.push(configChange);
 
     // Defer: hold the owner-signed authorization on the key; it authorizes on the
@@ -1770,12 +1735,10 @@ export function useAccountEngine() {
     // Immediate: sign the authorize tx now (owner-signed). There is no install
     // call — the policy binding is committed entirely by the actor change; the
     // caller broadcasts `serialized`.
-    let nonceSeqSk: bigint;
-    try {
-      nonceSeqSk = await getTransactionCount(makeRpcClient(), { address: account.address as Address, nonceKey: 0n });
-    } catch {
-      nonceSeqSk = acct.deployed ? 1n : 0n;
-    }
+    const nonceSeqSk = await getTransactionCount(makeRpcClient(), {
+      address: account.address as Address,
+      nonceKey: 0n,
+    });
     const skSenderAuthAuthenticator: Address =
       activeSigner.kind === 'p256'
         ? canonicalAuthenticators.p256
@@ -1799,13 +1762,14 @@ export function useAccountEngine() {
           estimated,
           estimateTxGas({
             mode: chain.mode,
-            deploy: !acct.deployed,
+            deploy: !!bootstrapChange,
             calls: 0,
             keyChanges: accountChanges.filter((c) => c.type === 'config').length,
           }),
         );
-      } catch {
-        skGas = 400_000n;
+      } catch (err) {
+        if (isUnsupportedRpcError(err) || bootstrapChange?.type === 'create') skGas = 400_000n;
+        else throw err;
       }
     }
     const serialized = await account.signTransaction({
@@ -1967,8 +1931,7 @@ export function useAccountEngine() {
     const sk = acct.sessionKeys.find((x) => x.id === id);
     if (!sk) return 'error';
 
-    // Never-landed or undeployed → nothing on-chain to revoke; discard locally.
-    if (sk.pendingAuth || !acct.deployed) {
+    const discard = () => {
       updateAccount(acct.id, (a) => ({ ...a, sessionKeys: a.sessionKeys.filter((x) => x.id !== id) }));
       pushActivity({
         kind: 'revoke',
@@ -1976,8 +1939,11 @@ export function useAccountEngine() {
         detail: scopeChips(sk.scope).join(' · '),
         account: acct.address,
       });
-      return 'discarded';
-    }
+      return 'discarded' as const;
+    };
+
+    // A staged authorization has never landed, so there is nothing on-chain to revoke.
+    if (sk.pendingAuth) return discard();
 
     // Already staged — no-op (use "Apply now" to land it, or "Undo" to discard).
     if (sk.pendingRevoke) return 'noop';
@@ -1990,15 +1956,17 @@ export function useAccountEngine() {
     setSkRevokingId(id);
     setError('');
     try {
+      const liveState = await fetchOnChainAccountState(acct.address);
+      if (!liveState.deployed) return discard();
+
       const changeSigner = await buildSigner(changeWS);
       const changeAccount = nativeAccountFor(acct, changeSigner, changeWS.authenticator);
-      // Session-key changes are on the per-chain LOCAL counter. Read it live (throws
-      // on failure — never guess) and offset by other pending local changes.
+      // Session-key changes are on the per-chain LOCAL counter. Read it live and
+      // reserve positions for other already-staged session changes.
       const chainId = chain.id || 84532;
-      const seqOffset = pendingChangeCount({ includeOwner: false });
-      const { local } = await fetchOnChainConfigSeq(changeAccount.address as Address);
-      const nextSeq = local + seqOffset;
-      const change = await changeAccount.change([revokeActor(sk.actorId)], { chainId, sequence: BigInt(nextSeq) });
+      const sequence = liveState.local + BigInt(pendingSessionChangeCount());
+      const nextSeq = Number(sequence);
+      const change = await changeAccount.change([revokeActor(sk.actorId)], { chainId, sequence });
       updateAccount(acct.id, (a) => ({
         ...a,
         sessionKeys: a.sessionKeys.map((x) => (x.id === id ? { ...x, pendingRevoke: { change, sequence: nextSeq } } : x)),
@@ -2046,14 +2014,9 @@ export function useAccountEngine() {
     }
     const ownerSigner = await buildSigner(signerWS);
     const account = nativeAccountFor(acct, ownerSigner, signerWS.authenticator);
-    // Fresh base: live local counter when deployed, else the post-create local seq.
-    let base: number;
-    if (acct.deployed) {
-      const { local } = await fetchOnChainConfigSeq(account.address as Address);
-      base = local;
-    } else {
-      base = POST_CREATE_LOCAL_SEQ;
-    }
+    const liveState = await fetchOnChainAccountState(account.address as Address);
+    const bootstrapChange = liveState.deployed ? undefined : firstDeployChange(acct, account);
+    const base = localConfigSequence(liveState.local, bootstrapChange);
     // Re-sign in current-sequence order so relative ordering is preserved.
     const ordered = [...pending].sort((a, b) => (a.pendingAuth?.sequence ?? 0) - (b.pendingAuth?.sequence ?? 0));
     const updates = new Map<string, NonNullable<AppSessionKey['pendingAuth']>>();
@@ -2064,7 +2027,8 @@ export function useAccountEngine() {
     for (const sk of ordered) {
       if (!sk.policy || !sk.pendingAuth) continue;
       const skChainId = sk.chainId ?? (chain.id || 84532);
-      const seq = base + offset;
+      const sequence = base + BigInt(offset);
+      const seq = Number(sequence);
       const managerLc = sk.policy.manager.toLowerCase();
       const managerTrusted =
         (acct.trustedManagers ?? []).some((m) => m.toLowerCase() === managerLc) ||
@@ -2086,7 +2050,7 @@ export function useAccountEngine() {
         registeredManager = true;
         registeredInBatch.add(managerLc);
       }
-      const change = await account.change(configChanges, { chainId: skChainId, sequence: BigInt(seq) });
+      const change = await account.change(configChanges, { chainId: skChainId, sequence });
       updates.set(sk.id, { change, sequence: seq, registeredManager });
       offset++;
     }
