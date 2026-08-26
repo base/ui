@@ -107,7 +107,7 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
             <motion.div
               animate={{ opacity: hovered ? 0 : 1 }}
               transition={{ duration: 0.15 }}
-              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent"
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
             />
           )}
         </div>
