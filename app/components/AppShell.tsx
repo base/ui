@@ -661,7 +661,7 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
       className={cn(className, 'overflow-clip after:pointer-events-none after:inset-x-0 after:absolute after:bottom-0 after:border-b after:border-bds-gray-10 bg-bds-gray-5')}
       style={{ height }}
       initial={false}
-      animate={{ height: dismissed ? '0rem' : null }}
+      animate={{ height: dismissed ? '0rem' : APP_BANNER_HEIGHT }}
       transition={transition}
     >
       <motion.div
