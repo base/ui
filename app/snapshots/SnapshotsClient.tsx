@@ -1,7 +1,7 @@
 'use client';
 
 import { MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 
 import { Card } from '../components/ui/Card';
 import { Checkbox } from '../components/ui/Checkbox';
@@ -34,17 +34,15 @@ const NETWORK_LABELS: Record<string, string> = {
 const REQUIRED_COMPONENTS = new Set(['state', 'headers']);
 
 const SHIMMER_GRADIENT =
-  'linear-gradient(90deg, currentColor 0%, currentColor 30%, var(--bds-brand) 50%, currentColor 70%, currentColor 100%)';
+  'linear-gradient(90deg, currentColor 0%, currentColor 40%, var(--bds-brand) 50%, currentColor 60%, currentColor 100%)';
 
 function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => void }) {
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
   const textRef = useRef<HTMLSpanElement>(null);
+  const shimmerRef = useRef<HTMLSpanElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [overflowPx, setOverflowPx] = useState(0);
-  const [shimmer, setShimmer] = useState(false);
-  const prevCommand = useRef(command);
-  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const measure = () => {
@@ -58,13 +56,12 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
   }, [command]);
 
   useEffect(() => {
-    if (prevCommand.current !== command) {
-      prevCommand.current = command;
-      if (!reducedMotion) {
-        setShimmer(true);
-      }
-    }
-  }, [command, reducedMotion]);
+    const animation = shimmerRef.current?.animate(
+      [{ backgroundPosition: '100% 0%' }, { backgroundPosition: '0% 0%' }],
+      { duration: 700, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' },
+    );
+    return () => animation?.cancel();
+  }, [command]);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(command).then(() => {
@@ -96,21 +93,15 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
             transition={hovered ? { duration: overflowPx / 100, ease: 'linear' } : { duration: 0.3, ease: 'easeOut' }}
             className="block whitespace-nowrap"
           >
-            <motion.span
-              animate={{ backgroundPosition: shimmer ? ['200% center', '0% center'] : '0% center' }}
-              transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
-              onAnimationComplete={() => setShimmer(false)}
-              className="bg-[length:200%_100%] bg-clip-text"
-              style={{
-                backgroundImage: shimmer ? SHIMMER_GRADIENT : 'none',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: shimmer ? 'transparent' : undefined,
-              }}
+            <span
+              ref={shimmerRef}
+              className="bg-[length:300%_100%] bg-clip-text bg-no-repeat"
+              style={{ backgroundImage: SHIMMER_GRADIENT, WebkitTextFillColor: 'transparent' }}
             >
               <Text as="span" variant="label.mono">
-                <span className="text-bds-gray-40" style={{ WebkitTextFillColor: shimmer ? 'initial' : undefined }}>$</span> {command}
+                <span className="text-bds-gray-40" style={{ WebkitTextFillColor: 'initial' }}>$</span> {command}
               </Text>
-            </motion.span>
+            </span>
           </motion.span>
           {overflowPx > 0 && (
             <motion.div
