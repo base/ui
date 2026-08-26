@@ -3,6 +3,7 @@
 import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Dialog } from '@base-ui/react/dialog';
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
 import { Toaster } from 'sonner';
 
@@ -722,21 +723,6 @@ export function AppShell({ children }: PropsWithChildren) {
     }
   };
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [menuOpen]);
-
-  useEffect(() => {
-    // The document scroller is <html> (`overflow-y-scroll` in layout.tsx),
-    // not body — hiding overflow on body alone does not stop page scroll.
-    const root = document.documentElement;
-    root.style.overflow = menuOpen ? 'hidden' : '';
-    return () => { root.style.overflow = ''; };
-  }, [menuOpen]);
-
   return (
     <div className="flex min-h-dvh flex-col">
       {/* Desktop: banner spans the full width above the shell. On mobile it is
@@ -758,35 +744,24 @@ export function AppShell({ children }: PropsWithChildren) {
         </motion.aside>
 
         {/* Mobile header (logo + hamburger) */}
-        <header className="mobile-header">
-          {/* Static on touch: the morph is hover-driven, so base.org leaves its
-              mobile mark static too. */}
-          <Link href="/" aria-label="Base home" style={styles.brandLink} onClick={() => setMenuOpen(false)}>
-            <BaseMark size={MOBILE_BRAND_MARK_SIZE} />
-          </Link>
-          <button
-            className="hamburger-btn"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
-          >
-            <svg width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
-              <line className={`hamburger-line hamburger-top ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
-              <line className={`hamburger-line hamburger-bottom ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
-            </svg>
-          </button>
-        </header>
+        <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
+          <header className="mobile-header">
+            {/* Static on touch: the morph is hover-driven, so base.org leaves its
+                mobile mark static too. */}
+            <Link href="/" aria-label="Base home" style={styles.brandLink} onClick={() => setMenuOpen(false)}>
+              <BaseMark size={MOBILE_BRAND_MARK_SIZE} />
+            </Link>
+            <Dialog.Trigger className="hamburger-btn" aria-label={menuOpen ? 'Close menu' : 'Open menu'}>
+              <svg width={20} height={20} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
+                <line className={`hamburger-line hamburger-top ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
+                <line className={`hamburger-line hamburger-bottom ${menuOpen ? 'open' : ''}`} x1="4" y1="10" x2="16" y2="10" />
+              </svg>
+            </Dialog.Trigger>
+          </header>
 
-        {/* Mobile drawer (full-screen from right) */}
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.aside
-              className="drawer"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-            >
+          <Dialog.Portal>
+            <Dialog.Popup className="drawer outline-none [transform:translate3d(0,0,0)] transition-transform duration-300 ease-out data-[ending-style]:[transform:translate3d(100%,0,0)] data-[starting-style]:[transform:translate3d(100%,0,0)] motion-reduce:transition-none">
+              <Dialog.Title className="sr-only">Menu</Dialog.Title>
               <SidebarContent
                 dark={dark}
                 onToggleTheme={toggleTheme}
@@ -794,9 +769,9 @@ export function AppShell({ children }: PropsWithChildren) {
                 hideBrand
                 layoutScope="mobile"
               />
-            </motion.aside>
-          )}
-        </AnimatePresence>
+            </Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
 
         <div className="pt-14 md:pt-0" style={styles.main}>
           {/* Mobile: banner sits below the fixed header (which the top slot is
