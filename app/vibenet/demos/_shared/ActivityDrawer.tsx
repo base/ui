@@ -82,7 +82,7 @@ export function ActivityDrawer({
               transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
               className="overflow-hidden"
             >
-              <div className="max-h-[280px] overflow-x-hidden overflow-y-auto px-5 pb-5">
+              <div className="max-h-[280px] overflow-x-hidden overflow-y-auto overscroll-contain px-5 pb-5">
                 {count > 0 ? (
                   children
                 ) : (
