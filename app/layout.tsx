@@ -88,7 +88,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
   return (
     <html
       lang="en"
-      className={`${baseSans.variable} ${baseSansText.variable} ${baseSansMono.variable} ${doto.variable}`}
+      className={`${baseSans.variable} ${baseSansText.variable} ${baseSansMono.variable} ${doto.variable} overflow-y-scroll overscroll-y-none [scrollbar-gutter:stable]`}
       suppressHydrationWarning
     >
       <head>

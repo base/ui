@@ -214,7 +214,7 @@ export default function FaucetPage() {
     : [];
 
   return (
-    <div className="animate-in -mx-7 -mb-20 -mt-6 flex min-h-[calc(100vh-116px)] flex-col gap-4 px-7 pt-6 pb-2 text-foreground">
+    <div className="animate-in -mx-7 -mb-20 -mt-6 flex min-w-0 flex-1 flex-col gap-4 px-7 pt-6 pb-2 text-foreground">
       <div>{summaryBody}</div>
 
       <Card className="flex flex-col gap-3 bg-background p-6 dark:bg-white/5">
@@ -282,7 +282,7 @@ export default function FaucetPage() {
       </Card>
 
       {addressChips.length > 0 ? (
-        <div className="mt-auto flex flex-wrap gap-x-8 gap-y-2 pt-6 text-[12px]">
+        <div className="mt-auto flex flex-wrap gap-x-8 gap-y-2 pt-6 pb-4 text-[12px]">
           {addressChips.map((chip, i) => (
             <Link
               key={chip.label}

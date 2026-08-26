@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Select } from '@base-ui/react/select';
 
-import { cn } from './cn';
+import { Button } from './Button';
 
 type Option = {
   value: string;
@@ -18,107 +18,54 @@ type FilterSelectProps = {
 };
 
 export function FilterSelect({ value, onChange, ariaLabel, options, minDropdownWidth }: FilterSelectProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const sizerRef = useRef<HTMLSpanElement>(null);
-  const [dropdownW, setDropdownW] = useState<number | undefined>();
-  const selected = options.find((o) => o.value === value);
-
-  useEffect(() => {
-    if (!sizerRef.current) return;
-    const spans = sizerRef.current.children;
-    let max = 0;
-    for (let i = 0; i < spans.length; i++) {
-      max = Math.max(max, (spans[i] as HTMLElement).offsetWidth);
-    }
-    setDropdownW(max + 24);
-  }, [options]);
-
-  const toggle = useCallback(() => setOpen((o) => !o), []);
-
-  const handleSelect = useCallback(
-    (v: string) => {
-      onChange(v);
-      setOpen(false);
-    },
-    [onChange],
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
   return (
-    <div ref={ref} className="relative inline-flex">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        className="flex h-9 items-center gap-1.5 rounded-full border border-bds-gray-10 bg-background px-3 text-[14px] text-foreground outline-none transition-colors hover:bg-bds-gray-5"
-      >
-        <span className="whitespace-nowrap">
-          {selected?.label ?? value}
-        </span>
-        <svg
-          aria-hidden="true"
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={cn('shrink-0 text-bds-gray-40 transition-transform duration-150', open && 'rotate-180')}
+    <Select.Root
+      value={value}
+      onValueChange={(next) => {
+        if (next != null) onChange(next);
+      }}
+      items={options}
+    >
+      <Select.Trigger aria-label={ariaLabel} render={<Button variant="outline" size="sm" />}>
+        <Select.Value className="whitespace-nowrap" />
+        <Select.Icon
+          className="shrink-0 text-bds-gray-40 transition-transform duration-150 group-data-[popup-open]:rotate-180"
         >
-          <path d="M4 6L8 10L12 6" />
-        </svg>
-      </button>
-
-      <span ref={sizerRef} aria-hidden className="pointer-events-none invisible fixed left-0 top-0 flex flex-col whitespace-nowrap text-[14px]">
-        {options.map((o) => (
-          <span key={o.value}>{o.label}</span>
-        ))}
-      </span>
-
-      {open && (
-        <div
-          role="listbox"
-          aria-label={ariaLabel}
-          style={{ minWidth: Math.max(dropdownW ?? 0, minDropdownWidth ?? 0) || undefined }}
-          className="absolute left-0 top-full z-50 mt-1 max-h-64 min-w-full overflow-y-auto rounded-xl border border-bds-gray-10 bg-background py-1 shadow-lg"
-        >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              onClick={() => handleSelect(option.value)}
-              className={cn(
-                'flex w-full items-center px-3 py-2 text-left text-[14px] transition-colors hover:bg-bds-gray-5',
-                option.value === value ? 'text-foreground' : 'text-bds-gray-60',
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+          <svg
+            aria-hidden="true"
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 6L8 10L12 6" />
+          </svg>
+        </Select.Icon>
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Positioner className="z-50 outline-none" align="start" sideOffset={4} alignItemWithTrigger={false}>
+          <Select.Popup
+            style={minDropdownWidth ? { minWidth: `max(var(--anchor-width), ${minDropdownWidth}px)` } : undefined}
+            className="min-w-[var(--anchor-width)] origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-bds-gray-10 bg-background py-1 shadow-lg outline-none [transform:scale(1)] transition-[opacity,transform] duration-150 ease-out data-[ending-style]:opacity-0 data-[ending-style]:[transform:scale(0.97)] data-[starting-style]:opacity-0 data-[starting-style]:[transform:scale(0.97)]"
+          >
+            <Select.List className="max-h-64 overflow-y-auto">
+              {options.map((option) => (
+                <Select.Item
+                  key={option.value}
+                  value={option.value}
+                  className="flex w-full cursor-pointer items-center px-3 py-2 text-left text-[14px] text-bds-gray-60 outline-none data-[highlighted]:bg-bds-gray-5 data-[selected]:text-foreground"
+                >
+                  <Select.ItemText>{option.label}</Select.ItemText>
+                </Select.Item>
+              ))}
+            </Select.List>
+          </Select.Popup>
+        </Select.Positioner>
+      </Select.Portal>
+    </Select.Root>
   );
 }

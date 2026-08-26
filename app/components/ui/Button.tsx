@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import Link from 'next/link';
 
 import { cn } from './cn';
@@ -25,18 +25,21 @@ const variantClasses = {
     'text-foreground bg-transparent border border-bds-gray-10 hover:bg-bds-gray-5 dark:border-white/[.12] dark:hover:bg-white/[.06]',
 } as const;
 
-export function Button({
-  className = '',
-  type = 'button',
-  variant = 'primary',
-  size = 'default',
-  arrow = false,
-  href,
-  target,
-  rel,
-  children,
-  ...props
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    className = '',
+    type = 'button',
+    variant = 'primary',
+    size = 'default',
+    arrow = false,
+    href,
+    target,
+    rel,
+    children,
+    ...props
+  },
+  ref,
+) {
   let sizeClasses: string;
   if (size === 'sm') {
     sizeClasses = 'h-[34px] px-3 gap-1 pb-px';
@@ -65,9 +68,9 @@ export function Button({
   }
 
   return (
-    <button type={type === 'submit' ? 'submit' : 'button'} className={classes} {...props}>
+    <button ref={ref} type={type === 'submit' ? 'submit' : 'button'} className={classes} {...props}>
       {children}
       {arrow && <AnimatedArrowIcon className="transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />}
     </button>
   );
-}
+});

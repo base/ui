@@ -807,10 +807,6 @@ button {
     overflow: hidden;
   }
 
-  .mobile-content-offset {
-    padding-top: 56px;
-  }
-
   /* iOS Safari auto-zooms the page when a focused input's font-size is < 16px,
      which shrinks the visual viewport and pushes fixed modals (and their close
      button) off-screen. Force >=16px on mobile so focusing a field never zooms.
@@ -823,14 +819,6 @@ button {
       font-size: 16px !important;
     }
   }
-}
-
-/* Activity drawer: span the content scrollport without 100vw. 100vw includes
-   the scrollbar and is wider than the nested max-w-5xl column, so it created
-   a horizontal scrollbar. `cqw` is the .content-scroll column's client width. */
-.content-scroll {
-  container-type: inline-size;
-  container-name: content-scroll;
 }
 
 .activity-full-width {
