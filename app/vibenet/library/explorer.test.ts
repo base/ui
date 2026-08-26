@@ -15,6 +15,8 @@ import {
   hexToInt,
   scopeChips,
   scopeLabel,
+  timeAgoFromMilliseconds,
+  timeFromHex,
   txTypeLabel,
   weiToEth,
 } from './explorer';
@@ -34,6 +36,51 @@ const batchAbi = [
 const ADDR_A = '0x1111111111111111111111111111111111111111';
 const ADDR_B = '0x2222222222222222222222222222222222222222';
 const memoHex = padHex(stringToHex('refund #7'), { dir: 'right', size: 32 });
+
+describe('explorer timestamp formatting', () => {
+  const second = Date.UTC(2026, 0, 2, 3, 4, 5) / 1000;
+  const secondsHex = `0x${second.toString(16)}`;
+
+  it.each([0, 200, 400, 600, 800])('shows the exact .%i millisecond phase', (part) => {
+    const milliseconds = second * 1000 + part;
+    const value = timeFromHex(
+      secondsHex,
+      `0x${milliseconds.toString(16)}`,
+      milliseconds + 500,
+    );
+
+    expect(value?.human).toContain(`.${part.toString().padStart(3, '0')}`);
+  });
+
+  it('handles rollover to the next second', () => {
+    const before = second * 1000 + 800;
+    const after = (second + 1) * 1000;
+    const beforeHuman = timeFromHex(secondsHex, `0x${before.toString(16)}`, after)?.human;
+    const afterHuman = timeFromHex(
+      `0x${(second + 1).toString(16)}`,
+      `0x${after.toString(16)}`,
+      after,
+    )?.human;
+
+    expect(beforeHuman).toMatch(/05\.800/);
+    expect(afterHuman).toMatch(/06\.000/);
+  });
+
+  it('falls back to seconds without fabricating fractional precision', () => {
+    const fallback = timeFromHex(secondsHex, undefined, second * 1000 + 800);
+    const malformed = timeFromHex(secondsHex, 'not-hex', second * 1000 + 800);
+
+    expect(fallback?.human).not.toMatch(/\.\d{3}/);
+    expect(fallback?.age).toBe('0s ago');
+    expect(malformed).toEqual(fallback);
+  });
+
+  it('formats recent millisecond ages and clamps future timestamps', () => {
+    expect(timeAgoFromMilliseconds(10_000, 10_250)).toBe('0.2s ago');
+    expect(timeAgoFromMilliseconds(10_000, 12_499)).toBe('2.4s ago');
+    expect(timeAgoFromMilliseconds(11_000, 10_000)).toBe('0.0s ago');
+  });
+});
 
 describe('B20 memo calldata decoding', () => {
   it('decodes a transferWithMemo transaction', () => {

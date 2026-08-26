@@ -358,7 +358,7 @@ type TxBodyProps = {
 
 function TxBody({ tx }: TxBodyProps) {
   const blockNum = hexToInt(tx.blockNumber);
-  const ts = timeFromHex(tx.timestamp);
+  const ts = timeFromHex(tx.timestamp, tx.blockTimestampMs);
   const typeInfo = txTypeLabel(tx.type, tx.typeHex ?? null);
   const status = STATUS_STYLE[tx.status];
   const memo = decodeMetadata(tx.metadata);

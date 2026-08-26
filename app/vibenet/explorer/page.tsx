@@ -12,7 +12,7 @@ import { ExplorerLink } from '../components/ExplorerLink';
 import { ExplorerSearch } from '../components/ExplorerSearch';
 import type { BlockRow, StatsRow, TxRow } from '../library/api-types';
 import { vibenetApi } from '../library/client';
-import { timeAgoFromSeconds } from '../library/explorer';
+import { timeAgoFromMilliseconds, timeAgoFromSeconds } from '../library/explorer';
 
 const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0';
 const TH =
@@ -62,12 +62,24 @@ export default function ExplorerPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    let pollTimer: number | undefined;
+    let rowHighlightTimer: number | undefined;
+    let statHighlightTimer: number | undefined;
+    const controller = new AbortController();
+
+    function schedule() {
+      if (cancelled || document.hidden) return;
+      pollTimer = window.setTimeout(() => void load(), 1_000);
+    }
 
     async function load() {
+      if (cancelled || document.hidden || inFlight) return;
+      inFlight = true;
       try {
         const [blocksRes, statsRes] = await Promise.all([
-          vibenetApi.explorer.blocks(),
-          vibenetApi.explorer.stats(),
+          vibenetApi.explorer.blocks(controller.signal),
+          vibenetApi.explorer.stats(controller.signal),
         ]);
         if (cancelled) return;
 
@@ -84,7 +96,8 @@ export default function ExplorerPage() {
           });
           if (fresh.size > 0) {
             setNewKeys(fresh);
-            window.setTimeout(() => setNewKeys(new Set()), 1300);
+            window.clearTimeout(rowHighlightTimer);
+            rowHighlightTimer = window.setTimeout(() => setNewKeys(new Set()), 450);
           }
           const changed = new Set<string>();
           const prev = lastStats.current;
@@ -95,7 +108,8 @@ export default function ExplorerPage() {
           }
           if (changed.size > 0) {
             setStatHighlight(changed);
-            window.setTimeout(() => setStatHighlight(new Set()), 1300);
+            window.clearTimeout(statHighlightTimer);
+            statHighlightTimer = window.setTimeout(() => setStatHighlight(new Set()), 450);
           }
         }
 
@@ -113,14 +127,30 @@ export default function ExplorerPage() {
           setFetchError('Could not reach the explorer API. Retrying…');
           setLoading(false);
         }
+      } finally {
+        inFlight = false;
+        schedule();
       }
     }
 
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        window.clearTimeout(pollTimer);
+      } else if (!inFlight) {
+        window.clearTimeout(pollTimer);
+        void load();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     void load();
-    const timer = window.setInterval(() => void load(), 5_000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      controller.abort();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.clearTimeout(pollTimer);
+      window.clearTimeout(rowHighlightTimer);
+      window.clearTimeout(statHighlightTimer);
     };
   }, []);
 
@@ -144,7 +174,7 @@ export default function ExplorerPage() {
             <Card
               key={stat.key}
               className={cn(
-                'bg-background p-4 transition-colors duration-700 dark:bg-white/5',
+                'bg-background p-4 transition-colors duration-300 motion-reduce:transition-none dark:bg-white/5',
                 statHighlight.has(stat.key) && NEW_ROW_HIGHLIGHT,
               )}
             >
@@ -178,7 +208,7 @@ export default function ExplorerPage() {
                     key={b.hash}
                     aria-label={`Block ${b.number}`}
                     className={cn(
-                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
+                      'border-b border-bds-gray-10 transition-colors duration-300 motion-reduce:transition-none last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
                       newKeys.has(`block-${b.hash}`) && NEW_ROW_HIGHLIGHT,
                     )}
                   >
@@ -192,7 +222,9 @@ export default function ExplorerPage() {
                         'whitespace-nowrap text-right text-bds-gray-60 dark:text-bds-gray-40',
                       )}
                     >
-                      {timeAgoFromSeconds(b.timestamp)}
+                      {b.timestamp_ms != null
+                        ? timeAgoFromMilliseconds(b.timestamp_ms)
+                        : timeAgoFromSeconds(b.timestamp)}
                     </td>
                   </tr>
                 ))}
@@ -223,7 +255,7 @@ export default function ExplorerPage() {
                     key={tx.hash}
                     aria-label={`Transaction ${tx.hash}`}
                     className={cn(
-                      'border-b border-bds-gray-10 transition-colors duration-1000 last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
+                      'border-b border-bds-gray-10 transition-colors duration-300 motion-reduce:transition-none last:border-0 hover:bg-bds-gray-5/50 dark:border-white/10',
                       newKeys.has(`tx-${tx.hash}`) && NEW_ROW_HIGHLIGHT,
                     )}
                   >
@@ -260,7 +292,7 @@ export default function ExplorerPage() {
                 <div
                   key={tx.hash}
                   className={cn(
-                    'flex flex-col gap-1.5 border-b border-bds-gray-10 px-1 py-3 transition-colors duration-1000 last:border-0 dark:border-white/10',
+                    'flex flex-col gap-1.5 border-b border-bds-gray-10 px-1 py-3 transition-colors duration-300 motion-reduce:transition-none last:border-0 dark:border-white/10',
                     newKeys.has(`tx-${tx.hash}`) && NEW_ROW_HIGHLIGHT,
                   )}
                 >
