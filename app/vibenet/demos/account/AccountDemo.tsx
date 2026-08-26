@@ -26,7 +26,7 @@ import {
   toHex,
 } from '@aa';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '../../../components/ui/Button';
@@ -87,6 +87,7 @@ export function AccountDemo() {
     networkShort,
     setNetworkShort,
     deleteAccount,
+    hydrated,
 
     busy,
     error,
@@ -870,7 +871,7 @@ export function AccountDemo() {
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M2 10L18 2L10 18L8 11L2 10Z"
-                stroke="black"
+                stroke="currentColor"
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -1148,11 +1149,11 @@ export function AccountDemo() {
           <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M9 1L17 4V9C17 14 13.5 17.5 9 19C4.5 17.5 1 14 1 9V4L9 1Z"
-              stroke="black"
+              stroke="currentColor"
               strokeWidth="1.6"
               strokeLinejoin="round"
             />
-            <path d="M6 9.5L8 11.5L12 7" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M6 9.5L8 11.5L12 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         }
         title="Sponsorship"
@@ -1187,10 +1188,10 @@ export function AccountDemo() {
       <FeatureGridCard
         icon={
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="6" cy="6" r="4" stroke="black" strokeWidth="1.6" />
+            <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.6" />
             <path
               d="M9 9L18 18M14 14L17 11M16 16L18.5 13.5"
-              stroke="black"
+              stroke="currentColor"
               strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1220,9 +1221,9 @@ export function AccountDemo() {
       <FeatureGridCard
         icon={
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 2L18 6L10 10L2 6L10 2Z" stroke="black" strokeWidth="1.6" strokeLinejoin="round" />
-            <path d="M2 10L10 14L18 10" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M2 14L10 18L18 14" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 2L18 6L10 10L2 6L10 2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M2 10L10 14L18 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 14L10 18L18 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         }
         title="Batched Calls"
@@ -1248,10 +1249,10 @@ export function AccountDemo() {
       <FeatureGridCard
         icon={
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="10" cy="10" r="8" stroke="black" strokeWidth="1.6" />
+            <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.6" />
             <path
               d="M10 5.5V14.5M12.2 7.6C12.2 6.7 11.2 6 10 6C8.8 6 7.8 6.7 7.8 7.6C7.8 8.4 8.8 9 10 9C11.2 9 12.2 9.6 12.2 10.5C12.2 11.3 11.2 12 10 12C8.8 12 7.8 11.3 7.8 10.4"
-              stroke="black"
+              stroke="currentColor"
               strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
