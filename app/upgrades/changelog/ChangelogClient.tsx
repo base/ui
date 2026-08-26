@@ -194,7 +194,7 @@ export function ChangelogClient() {
         />
       </div>
 
-      <div className="hidden md:block">
+      <div className="hidden [@container(min-width:48rem)]:block">
         <table className="w-full table-fixed text-left text-sm">
           <thead className="border-b border-bds-gray-10 text-bds-gray-50">
             <tr aria-label="Column headers">
@@ -275,7 +275,7 @@ export function ChangelogClient() {
         </table>
       </div>
 
-      <div className="grid gap-3 md:hidden">
+      <div className="grid gap-3 [@container(min-width:48rem)]:hidden">
         {filtered.map((change) => (
           <LinkCard
             key={change.id}
