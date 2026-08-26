@@ -20,8 +20,6 @@ export type TokenInfo = RecentToken & {
   policies: Array<{ scope: string; label: string; id: bigint; exists: boolean; admin: Address }>;
 };
 
-export type ActivityItem = { label: string; hash?: Hex; state: 'success' | 'error' | 'pending'; detail?: string };
-
 export type CreatedToken = RecentToken & { hash: Hex; configured: string[] };
 
 type PolicySummary = {
