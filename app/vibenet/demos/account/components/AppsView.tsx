@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '../../../../components/ui/Button';
+import { CopyableValue } from '../../../components/CopyableValue';
 import type { DemoApp } from '../library/apps';
 import { formatExpiry, type AppSessionKey, type AppSubAccount, type StoredAccount } from '../library/model';
 import { short, type WalletSigner } from '../shared';
@@ -35,8 +36,6 @@ type AppCardProps = {
   appBusy: string | null;
   activeSigner: WalletSigner | null;
   signers: WalletSigner[];
-  copied: string | null;
-  copy: (text: string, k: string) => void;
   sessionKeyFor: (name: string) => AppSessionKey | undefined;
   subAccountFor: (name: string) => AppSubAccount | undefined;
   connectSessionApp: (app: DemoApp) => void;
@@ -112,17 +111,7 @@ export function AppCard(p: AppCardProps) {
       connected = true;
       footer = (
         <>
-          <button
-            type="button"
-            onClick={() => p.copy(sub.address, 'vault')}
-            title="Copy account address"
-            className="flex min-w-0 items-center gap-2 text-left"
-          >
-            <span className="font-sans text-[13px] text-base-blue">{short(sub.address)}</span>
-            <span className="text-[11px] tracking-[0.4px] text-bds-gray-50">
-              {p.copied === 'vault' ? 'copied!' : 'tap to copy'}
-            </span>
-          </button>
+          <CopyableValue value={sub.address} display={short(sub.address)} className="min-w-0" />
           <Button
             variant="secondary"
             size="sm"

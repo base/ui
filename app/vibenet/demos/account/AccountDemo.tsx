@@ -847,8 +847,6 @@ export function AccountDemo() {
             appBusy={appBusy}
             activeSigner={activeSigner}
             signers={signers}
-            copied={copied}
-            copy={copy}
             sessionKeyFor={sessionKeyFor}
             subAccountFor={subAccountFor}
             connectSessionApp={connectSessionApp}
