@@ -36,7 +36,6 @@ type NavRowProps = {
   enabled: boolean;
   hasChildren?: boolean;
   onNavigate?: () => void;
-  layoutScope?: string;
 };
 
 type NavGlyphProps = {
@@ -82,9 +81,8 @@ const styles: Record<string, CSSProperties> = {
   navSlideClip: {
     overflow: 'hidden',
   },
-  // `isolation` makes the nav a stacking context so the active-row pill (which
-  // renders at z-index -1 and travels across rows while animating) paints behind
-  // every row's label instead of on top of the rows it passes over.
+  // `isolation` keeps the selected pill (z-index -1) in this stacking context
+  // so it paints behind the row's label instead of behind the sidebar.
   nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative', isolation: 'isolate' },
   navLink: { textDecoration: 'none', color: 'inherit' },
   navRow: {
@@ -294,7 +292,7 @@ function NavGlyph({ name }: NavGlyphProps) {
   }
 }
 
-function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, layoutScope = 'desktop' }: NavRowProps) {
+function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate }: NavRowProps) {
   let color = DISABLED;
   if (enabled) {
     color = active ? 'var(--bds-gray-80)' : 'var(--bds-gray-50)';
@@ -311,12 +309,7 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
       }}
     >
       {active && (
-        <motion.div
-          layoutId={`nav-active-bg-${layoutScope}`}
-          // Only remasure when the highlighted row changes. Theme toggles,
-          // banner dismiss, and other sidebar rerenders shift this pill's
-          // page position; without a dependency Motion would slide it there.
-          layoutDependency={href}
+        <div
           style={{
             position: 'absolute',
             inset: 0,
@@ -328,7 +321,6 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate, l
             zIndex: -1,
             pointerEvents: 'none',
           }}
-          transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
         />
       )}
       {icon && (
@@ -415,10 +407,9 @@ type SidebarContentProps = {
   onToggleTheme: () => void;
   onNavigate?: () => void;
   hideBrand?: boolean;
-  layoutScope?: string;
 };
 
-function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScope = 'desktop' }: SidebarContentProps) {
+function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarContentProps) {
   const pathname = usePathname() || '/';
   // The nav follows the tapped href immediately instead of waiting for the router:
   // usePathname() only updates once the route commits, which left the pill and the
@@ -539,7 +530,6 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                           active={active}
                           enabled={true}
                           onNavigate={() => selectPath(child.href)}
-                          layoutScope={`${layoutScope}-sub`}
                         />
                       );
                     })}
@@ -568,7 +558,6 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand, layoutScop
                         enabled={item.enabled}
                         hasChildren={!!item.children}
                         onNavigate={() => selectPath(item.href)}
-                        layoutScope={layoutScope}
                       />
                     ))}
                   </nav>
@@ -767,7 +756,6 @@ export function AppShell({ children }: PropsWithChildren) {
                 onToggleTheme={toggleTheme}
                 onNavigate={() => setMenuOpen(false)}
                 hideBrand
-                layoutScope="mobile"
               />
             </Dialog.Popup>
           </Dialog.Portal>

@@ -25,7 +25,7 @@ export function FeatureGridCard({
     <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
       <div className="flex items-center gap-3">
         <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 dark:border-white/10"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 text-foreground dark:border-white/10"
           aria-hidden="true"
         >
           {icon}

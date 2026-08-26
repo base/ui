@@ -190,11 +190,11 @@ export function ChangelogClient() {
           onChange={handleQueryChange}
           placeholder="Search by title, EIP, or summary keyword"
           aria-label="Search changes"
-          className="h-[34px] min-w-0 flex-1 rounded-full border border-bds-gray-10 bg-background px-4 text-[14px] text-foreground outline-none placeholder:text-bds-gray-50"
+          className="h-[34px] min-w-[min(100%,14rem)] flex-1 rounded-full border border-bds-gray-10 bg-background px-4 text-[14px] text-foreground outline-none placeholder:text-bds-gray-50"
         />
       </div>
 
-      <div className="hidden md:block">
+      <div className="hidden [@container(min-width:48rem)]:block">
         <table className="w-full table-fixed text-left text-sm">
           <thead className="border-b border-bds-gray-10 text-bds-gray-50">
             <tr aria-label="Column headers">
@@ -275,7 +275,7 @@ export function ChangelogClient() {
         </table>
       </div>
 
-      <div className="grid gap-3 md:hidden">
+      <div className="grid gap-3 [@container(min-width:48rem)]:hidden">
         {filtered.map((change) => (
           <LinkCard
             key={change.id}

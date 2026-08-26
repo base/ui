@@ -6,14 +6,14 @@
 // as a full manager (toolbar) or a plain picker (e.g. a transaction "From").
 
 import { useEffect, useRef, useState } from 'react';
+import { Popover } from '@base-ui/react/popover';
 
-import { Card } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
 import { Text } from '../../../components/ui/Text';
 import type { StoredAccount } from '../account/library/model';
 import { AccountAvatar, AccountIdentity, Badge, TrashIcon } from './primitives';
 
-function ChevronIcon({ open }: { open: boolean }) {
+function ChevronIcon() {
   return (
     <svg
       width={16}
@@ -24,7 +24,7 @@ function ChevronIcon({ open }: { open: boolean }) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn('shrink-0 text-bds-gray-50 transition-transform', open && 'rotate-180')}
+      className="shrink-0 text-bds-gray-50 transition-transform duration-150 group-data-[popup-open]:rotate-180"
       aria-hidden="true"
     >
       <path d="M5 7.5L10 12.5L15 7.5" />
@@ -74,7 +74,6 @@ export function AccountSwitcher({
 }: AccountSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Clicking anywhere other than the pending delete button cancels the confirm.
@@ -88,29 +87,13 @@ export function AccountSwitcher({
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, [confirmId]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  // Reset the delete confirmation whenever the menu closes.
-  useEffect(() => {
-    if (!open) setConfirmId(null);
-  }, [open]);
-
   const active = accounts.find((a) => a.id === activeAccountId) ?? null;
   const topLevel = accounts.filter((a) => !a.parentId);
+
+  const close = () => {
+    setOpen(false);
+    setConfirmId(null);
+  };
 
   const row = (a: StoredAccount, nested: boolean) => {
     const isActive = a.id === activeAccountId;
@@ -128,7 +111,7 @@ export function AccountSwitcher({
           type="button"
           onClick={() => {
             onSelect(a.id);
-            setOpen(false);
+            close();
           }}
           className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
         >
@@ -147,7 +130,7 @@ export function AccountSwitcher({
                 type="button"
                 onClick={() => {
                   onDetails(a.id);
-                  setOpen(false);
+                  close();
                 }}
                 aria-label={`Details for ${a.label}`}
                 title="Account details"
@@ -187,19 +170,20 @@ export function AccountSwitcher({
   };
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => {
-          if (accounts.length === 0 && onCreate) {
-            onCreate();
-            return;
-          }
-          setOpen((v) => !v);
-        }}
-        aria-expanded={open}
+    <Popover.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen && accounts.length === 0 && onCreate) {
+          onCreate();
+          return;
+        }
+        setOpen(nextOpen);
+        if (!nextOpen) setConfirmId(null);
+      }}
+    >
+      <Popover.Trigger
         className={cn(
-          'flex items-center justify-between gap-2 rounded-lg border border-bds-gray-10 bg-background px-2.5 py-1.5 transition-colors hover:border-foreground dark:border-white/10 dark:bg-white/5 dark:hover:border-white',
+          'group flex items-center justify-between gap-2 rounded-lg border border-bds-gray-10 bg-background px-2.5 py-1.5 transition-colors hover:border-foreground dark:border-white/10 dark:bg-white/5 dark:hover:border-white',
           triggerClassName,
         )}
       >
@@ -213,34 +197,42 @@ export function AccountSwitcher({
             {accounts.length === 0 ? 'Create account' : 'Select account'}
           </Text>
         )}
-        <ChevronIcon open={open} />
-      </button>
-
-      {open ? (
-        // Match the trigger width, but never narrower than 280px; anchored right
-        // so the extra width overflows leftward (e.g. the narrow navbar trigger)
-        // instead of running off the page.
-        <Card className="absolute right-0 top-[calc(100%+6px)] z-30 flex max-h-[60vh] w-[max(340px,100%)] max-w-[calc(100vw-2rem)] flex-col gap-1 overflow-y-auto bg-background p-2 shadow-lg dark:bg-[rgb(38,38,38)]">
-          {topLevel.map((parent) => (
-            <div key={parent.id} className="flex flex-col gap-1">
-              {row(parent, false)}
-              {accounts.filter((s) => s.parentId === parent.id).map((sub) => row(sub, true))}
-            </div>
-          ))}
-          {onCreate ? (
-            <button
-              type="button"
-              onClick={() => {
-                onCreate();
-                setOpen(false);
-              }}
-              className="mt-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-bds-gray-15 px-4 py-2.5 text-[13px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-base-blue dark:border-white/15 dark:text-bds-gray-40 dark:hover:border-bds-blue-60"
-            >
-              + New Account
-            </button>
-          ) : null}
-        </Card>
-      ) : null}
-    </div>
+        <ChevronIcon />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner
+          // z-[130] — popper layer, above Modal's z-[120]. This switcher also
+          // sits inside the transact modal ("From"); anything lower paints
+          // behind the panel. See the layer scale in globals.css.
+          className="z-[130] outline-none"
+          align="end"
+          sideOffset={6}
+        >
+          <Popover.Popup
+            className="flex max-h-[60vh] w-[max(340px,var(--anchor-width))] max-w-[calc(100vw-2rem)] origin-[var(--transform-origin)] flex-col gap-1 overflow-y-auto rounded-2xl border border-bds-gray-10 bg-background p-2 shadow-lg outline-none [transform:scale(1)] transition-[opacity,transform] duration-150 ease-out data-[ending-style]:opacity-0 data-[ending-style]:[transform:scale(0.97)] data-[starting-style]:opacity-0 data-[starting-style]:[transform:scale(0.97)] dark:border-white/10 dark:bg-[rgb(38,38,38)] motion-reduce:transition-none"
+          >
+            <Popover.Title className="sr-only">Accounts</Popover.Title>
+            {topLevel.map((parent) => (
+              <div key={parent.id} className="flex flex-col gap-1">
+                {row(parent, false)}
+                {accounts.filter((s) => s.parentId === parent.id).map((sub) => row(sub, true))}
+              </div>
+            ))}
+            {onCreate ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onCreate();
+                  close();
+                }}
+                className="mt-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-bds-gray-15 px-4 py-2.5 text-[13px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-base-blue dark:border-white/15 dark:text-bds-gray-40 dark:hover:border-bds-blue-60"
+              >
+                + New Account
+              </button>
+            ) : null}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

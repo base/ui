@@ -2,17 +2,13 @@
 
 import { useCallback, useState } from 'react';
 import { MorphIcon } from 'morphicons/react';
-import { fitIcon } from 'morphicons';
 
-import { CHECK_MORPH_ICON } from '../../components/ui/icons';
+import {
+  CHECK_MORPH_ICON,
+  COPY_SQUARES_MORPH_ICON,
+  COPY_SQUARES_MORPH_STROKE_WIDTH,
+} from '../../components/ui/icons';
 import { cn } from '../../components/ui/cn';
-
-// Original artwork is drawn on a 40x40 grid; regrid it onto morphicons' 24x24
-// baseline once, at module scope, so it can morph against CHECK_MORPH_ICON.
-const COPY_MORPH_ICON = fitIcon(
-  'M16.6667 23.3333V26.6667C16.6667 28.5076 18.1591 30 20 30H26.6667C28.5076 30 30 28.5076 30 26.6667V20C30 18.1591 28.5076 16.6667 26.6667 16.6667H23.3333M23.3333 16.6667V13.3333C23.3333 11.4924 21.8409 10 20 10H13.3333C11.4924 10 10 11.4924 10 13.3333V20C10 21.8409 11.4924 23.3333 13.3333 23.3333H20C21.8409 23.3333 23.3333 21.8409 23.3333 20V16.6667Z',
-  40,
-);
 
 type CopyableValueProps = {
   value: string;
@@ -52,9 +48,9 @@ export function CopyableValue({ value, display, className }: CopyableValueProps)
     >
       <code className="truncate">{shown}</code>
       <MorphIcon
-        icon={copied ? CHECK_MORPH_ICON : COPY_MORPH_ICON}
+        icon={copied ? CHECK_MORPH_ICON : COPY_SQUARES_MORPH_ICON}
         size={20}
-        strokeWidth={copied ? 2 : 2.5}
+        strokeWidth={copied ? 2 : COPY_SQUARES_MORPH_STROKE_WIDTH}
         className={cn(
           'shrink-0 transition-colors',
           copied ? 'text-bds-green-60' : 'text-bds-gray-50 group-hover:text-foreground',

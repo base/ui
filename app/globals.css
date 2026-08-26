@@ -9,7 +9,8 @@
  *   100  mobile drawer            (.drawer, below)
  *   110  mobile header            (.mobile-header, below)
  *   120  modals                   (components/ui/Modal.tsx)
- *   130  poppers over modals      (components/ui/Select.tsx)
+ *   130  poppers over modals      (components/ui/Select.tsx,
+ *                                  vibenet/demos/_shared/AccountSwitcher.tsx)
  *
  * A popper below the modal layer still opens, but paints behind the panel —
  * which reads as "the dropdown does nothing". */

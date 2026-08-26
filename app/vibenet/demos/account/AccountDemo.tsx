@@ -26,7 +26,7 @@ import {
   toHex,
 } from '@aa';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '../../../components/ui/Button';
@@ -87,6 +87,7 @@ export function AccountDemo() {
     networkShort,
     setNetworkShort,
     deleteAccount,
+    hydrated,
 
     busy,
     error,
@@ -165,18 +166,17 @@ export function AccountDemo() {
   const [appBusy, setAppBusy] = useState<string | null>(null);
   const [transactModalOpen, setTransactModalOpen] = useState(false);
 
-  // Crossfade key for the dashboard (transact + apps). It normally tracks the
-  // active account so switching accounts crossfades the view. While the transact
-  // modal is open we hold it steady: the modal's "From" switcher changes the
-  // active account, and remounting the crossfaded subtree there would tear down
-  // and rebuild the open modal — a full-screen flash. Held steady, the dialog
-  // updates in place, then the dashboard crossfades once to the new account on
-  // close.
+  // Crossfade key for the dashboard (transact + apps). While the modal is
+  // closed it is the live account, so first paint after hydration uses the
+  // real id (`initial={false}` skips that enter). Snapshotting the key in
+  // state would freeze the pre-hydration `empty` value and fade the grid
+  // once the store loads. While the modal is open we hold the last closed
+  // key in a ref: the "From" switcher changes the active account, and
+  // remounting this subtree would tear down the open dialog.
   const activeAccountKey = activeAccountId ?? 'empty';
-  const [contentKey, setContentKey] = useState(activeAccountKey);
-  useEffect(() => {
-    if (!transactModalOpen) setContentKey(activeAccountKey);
-  }, [transactModalOpen, activeAccountKey]);
+  const heldKeyRef = useRef(activeAccountKey);
+  if (!transactModalOpen) heldKeyRef.current = activeAccountKey;
+  const contentKey = transactModalOpen ? heldKeyRef.current : activeAccountKey;
 
   const signableSigners = useMemo(
     () => [...postChangeOwnerSigners, ...sessionSigners],
@@ -535,8 +535,10 @@ export function AccountDemo() {
   };
 
   // Reset the Transact modal's builder/review state to its defaults. Called on
-  // close so a preset loaded by one entry point (e.g. the "Batched Calls" demo)
-  // never bleeds into the next open (e.g. a plain "Create Transaction").
+  // open, not close: resetting in `onClose` swaps Review back to the builder
+  // while the dialog is still animating out. Open always rebuilds from a clean
+  // slate (or a preset), so a prior "Batched Calls" demo cannot bleed into a
+  // later "Create Transaction".
   const resetTransactBuilder = () => {
     setCalls([newCallRow()]);
     setCallsAdvanced(false);
@@ -555,12 +557,11 @@ export function AccountDemo() {
   // fully-specified transaction — loads it straight into the builder state and
   // jumps directly to the Review step, skipping the builder entirely.
   const openTransactModal = (preset?: { calls: CallRow[]; gasMode?: 'eth' | 'free' | 'usdv'; metadata?: string }) => {
+    resetTransactBuilder();
     if (preset) {
       setCalls(preset.calls);
       if (preset.gasMode) setGasMode(preset.gasMode);
       setMetaField(preset.metadata ?? '');
-      setResult(null);
-      setError('');
       setTxStep('review');
     }
     setTransactModalOpen(true);
@@ -696,7 +697,7 @@ export function AccountDemo() {
       engine={engine}
       onTransactFromDetails={() => {
         setDetailsOpen(false);
-        setTransactModalOpen(true);
+        openTransactModal();
       }}
       activity={<ActivityLog activity={activity} accounts={accounts} />}
       activityCount={activity.length}
@@ -873,7 +874,7 @@ export function AccountDemo() {
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M2 10L18 2L10 18L8 11L2 10Z"
-                stroke="black"
+                stroke="currentColor"
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -893,7 +894,6 @@ export function AccountDemo() {
           onClose={() => {
             if (signing) return; // don't let Escape/backdrop abandon an in-flight send
             setTransactModalOpen(false);
-            resetTransactBuilder();
           }}
           title={
             txStep === 'review' ? 'Review Transaction' : txStep === 'submitted' ? 'Submitted' : 'Create Transaction'
@@ -951,7 +951,6 @@ export function AccountDemo() {
                     size="sm"
                     onClick={() => {
                       setTransactModalOpen(false);
-                      resetTransactBuilder();
                     }}
                   >
                     Done
@@ -1151,11 +1150,11 @@ export function AccountDemo() {
           <svg width="18" height="20" viewBox="0 0 18 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M9 1L17 4V9C17 14 13.5 17.5 9 19C4.5 17.5 1 14 1 9V4L9 1Z"
-              stroke="black"
+              stroke="currentColor"
               strokeWidth="1.6"
               strokeLinejoin="round"
             />
-            <path d="M6 9.5L8 11.5L12 7" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M6 9.5L8 11.5L12 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         }
         title="Sponsorship"
@@ -1190,10 +1189,10 @@ export function AccountDemo() {
       <FeatureGridCard
         icon={
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="6" cy="6" r="4" stroke="black" strokeWidth="1.6" />
+            <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.6" />
             <path
               d="M9 9L18 18M14 14L17 11M16 16L18.5 13.5"
-              stroke="black"
+              stroke="currentColor"
               strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1223,9 +1222,9 @@ export function AccountDemo() {
       <FeatureGridCard
         icon={
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 2L18 6L10 10L2 6L10 2Z" stroke="black" strokeWidth="1.6" strokeLinejoin="round" />
-            <path d="M2 10L10 14L18 10" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M2 14L10 18L18 14" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 2L18 6L10 10L2 6L10 2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M2 10L10 14L18 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 14L10 18L18 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         }
         title="Batched Calls"
@@ -1251,10 +1250,10 @@ export function AccountDemo() {
       <FeatureGridCard
         icon={
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="10" cy="10" r="8" stroke="black" strokeWidth="1.6" />
+            <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.6" />
             <path
               d="M10 5.5V14.5M12.2 7.6C12.2 6.7 11.2 6 10 6C8.8 6 7.8 6.7 7.8 7.6C7.8 8.4 8.8 9 10 9C11.2 9 12.2 9.6 12.2 10.5C12.2 11.3 11.2 12 10 12C8.8 12 7.8 11.3 7.8 10.4"
-              stroke="black"
+              stroke="currentColor"
               strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
