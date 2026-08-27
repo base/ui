@@ -1,6 +1,8 @@
 'use client';
 
 import { Text } from '../../../../components/ui/Text';
+import { annotatedValidity } from '../lib/annotate';
+import type { ValidityPredicate } from '../lib/types';
 
 type TokenKind = 'key' | 'string' | 'number' | 'literal' | 'punct';
 
@@ -39,22 +41,21 @@ const KIND_CLASS: Record<TokenKind, string> = {
 };
 
 export function ValidityJson({
-  source,
+  predicates,
   frozen,
-  hasBlockBound,
+  vibeToken0,
 }: {
-  source: string;
+  predicates: ValidityPredicate[];
   frozen?: boolean;
-  hasBlockBound?: boolean;
+  vibeToken0: boolean;
 }) {
-  const tokens = tokenizeJson(source);
+  const rows = annotatedValidity(predicates, vibeToken0);
+  const hasBlockBound = predicates.some((predicate) => predicate.type === 'block_number');
   const footnote = frozen
     ? hasBlockBound
       ? 'Frozen at submit. The block bound does not walk with the live chain.'
       : 'Frozen at submit.'
-    : hasBlockBound
-      ? 'Four storage predicates on Uni v2 slot 0x8, plus a block-number expiry. The sequencer includes the swap only while this box holds.'
-      : 'Four storage predicates on Uni v2 slot 0x8. The sequencer includes the swap only while this box holds.';
+    : 'Hover a field. The right column is what the sequencer is actually checking.';
   return (
     <aside className="flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-[#0c1117] dark:border-white/10">
       <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
@@ -68,13 +69,38 @@ export function ValidityJson({
       <Text variant="footnote" tone="inverseMuted" className="px-5 pt-2">
         {footnote}
       </Text>
-      <pre className="mt-4 min-h-0 flex-1 overflow-auto px-5 pb-5 font-mono text-[11px] leading-5">
-        {tokens.map((token, index) => (
-          <span key={`${index}-${token.kind}`} className={KIND_CLASS[token.kind]}>
-            {token.text}
+      <div className="mt-3 min-h-0 flex-1 overflow-auto px-5 pb-5">
+        <div
+          className="grid min-w-[36rem] grid-cols-[minmax(0,1fr)_minmax(15rem,19rem)] gap-x-6 border-b border-white/10 pb-1"
+          aria-hidden
+        >
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#5d6b78]">
+            payload
           </span>
-        ))}
-      </pre>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#5d6b78]">
+            meaning
+          </span>
+        </div>
+        <div className="mt-1">
+          {rows.map((row, index) => (
+            <div
+              key={`${index}-${row.text}`}
+              className="grid min-w-[36rem] grid-cols-[minmax(0,1fr)_minmax(15rem,19rem)] gap-x-6 rounded-sm hover:bg-white/[0.04]"
+            >
+              <pre className="min-w-0 overflow-x-auto font-mono text-[11px] leading-5">
+                {tokenizeJson(row.text).map((token, tokenIndex) => (
+                  <span key={`${index}-${tokenIndex}`} className={KIND_CLASS[token.kind]}>
+                    {token.text}
+                  </span>
+                ))}
+              </pre>
+              <p className="min-h-5 min-w-0 text-[11px] leading-5 text-[#c5d0d8]">
+                {row.note ?? ''}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
     </aside>
   );
 }

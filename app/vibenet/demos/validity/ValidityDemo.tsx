@@ -37,7 +37,7 @@ import {
   tapeCrossedAt,
 } from './lib/orders';
 import { bumpReplacementFees, isReplacementUnderpriced, padFees } from './lib/fees';
-import { applyOffsetBps, blockExpiryPredicate, formatPrice, prettyValidity, priceValidity, spotPastTarget } from './lib/predicates';
+import { applyOffsetBps, blockExpiryPredicate, formatPrice, priceValidity, spotPastTarget } from './lib/predicates';
 import {
   ammPriceFromQuote,
   ammSide,
@@ -868,8 +868,9 @@ export function ValidityDemo() {
                 Under the hood
               </Text>
               <Text variant="footnote" tone="muted" className="mt-1">
-                The condition is a hatched reserve rectangle on x·y = k, encoded as four
-                storage predicates on Uni v2 slot 0x8, plus a block-number expiry.
+                The hatched box on the curve is four storage reads on the pair&apos;s
+                reserves word, plus an optional block expiry. The payload on the left
+                is what gets submitted; the right column is what each field means.
               </Text>
             </div>
             <ReserveChart
@@ -883,9 +884,9 @@ export function ValidityDemo() {
             />
             {draft || jsonOrder ? (
               <ValidityJson
-                source={prettyValidity(hoodPredicates)}
+                predicates={hoodPredicates}
                 frozen={Boolean(jsonOrder)}
-                hasBlockBound={hoodPredicates.some((predicate) => predicate.type === 'block_number')}
+                vibeToken0={vibeToken0}
               />
             ) : null}
           </section>
