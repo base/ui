@@ -49,7 +49,7 @@ describe('tapeCrossedAt', () => {
   });
 });
 
-const fees = { nonce: 3, maxFeePerGas: 1n, maxPriorityFeePerGas: 1n };
+const fees = { nonce: 3, maxFeePerGas: 1n, maxPriorityFeePerGas: 1n, side: 'buy' as const };
 
 describe('occupyingOrder', () => {
   it('finds an expired order that may still hold the nonce', () => {

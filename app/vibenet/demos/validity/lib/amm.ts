@@ -1,5 +1,6 @@
 import {
   encodeFunctionData,
+  parseAbi,
   parseEventLogs,
   zeroAddress,
   type Account,
@@ -9,6 +10,15 @@ import {
   type TransactionReceipt,
   type WalletClient,
 } from 'viem';
+
+const factoryEvents = parseAbi([
+  'event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength)',
+]);
+
+const pairEvents = parseAbi([
+  'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
+  'event Sync(uint112 reserve0, uint112 reserve1)',
+]);
 
 import {
   SEED_USDV,
@@ -67,12 +77,11 @@ async function waitForBytecode(
 
 function pairFromCreateReceipt(receipt: TransactionReceipt): Address | null {
   const logs = parseEventLogs({
-    abi: factoryAbi,
+    abi: factoryEvents,
     eventName: 'PairCreated',
     logs: receipt.logs,
   });
-  const pair = logs[0]?.args?.pair;
-  return typeof pair === 'string' ? pair : null;
+  return logs[0]?.args.pair ?? null;
 }
 
 async function readPair(
@@ -173,12 +182,12 @@ export function fillQuoteFromSwapReceipt(
   try {
     const wanted = pair.toLowerCase();
     const swaps = parseEventLogs({
-      abi: pairAbi,
+      abi: pairEvents,
       eventName: 'Swap',
       logs: receipt.logs,
     });
     const syncs = parseEventLogs({
-      abi: pairAbi,
+      abi: pairEvents,
       eventName: 'Sync',
       logs: receipt.logs,
     });

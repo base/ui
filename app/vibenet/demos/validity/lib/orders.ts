@@ -42,7 +42,7 @@ export function tapeCrossedAt(
 }
 
 export function occupyingOrder(
-  orders: Pick<PlacedOrder, 'id' | 'nonce' | 'status' | 'maxFeePerGas' | 'maxPriorityFeePerGas'>[],
+  orders: Pick<PlacedOrder, 'id' | 'nonce' | 'status' | 'side' | 'maxFeePerGas' | 'maxPriorityFeePerGas'>[],
   nonce: number,
 ): (typeof orders)[number] | undefined {
   return orders.find(
@@ -56,7 +56,7 @@ export function occupyingOrder(
 
 /** UI replacement only. Expired stays expired even if we bump fees over its pooled nonce. */
 export function restingOrderToReplace(
-  orders: Pick<PlacedOrder, 'id' | 'nonce' | 'status' | 'maxFeePerGas' | 'maxPriorityFeePerGas'>[],
+  orders: Pick<PlacedOrder, 'id' | 'nonce' | 'status' | 'side' | 'maxFeePerGas' | 'maxPriorityFeePerGas'>[],
   nonce: number,
 ): (typeof orders)[number] | undefined {
   return orders.find(
