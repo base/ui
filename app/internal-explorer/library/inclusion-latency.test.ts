@@ -29,14 +29,23 @@ describe('inclusion latency', () => {
     );
   });
 
-  test('uses the latest inclusion when flashblock and block events both exist', () => {
+  test('stops at flashblock confirmation instead of later block inclusion', () => {
     assert.equal(
       inclusionLatencyMs([
         { event: 'PROXY_RECEIVED', timestamp: 0 },
         { event: 'BUILDER_FLASHBLOCK_PUBLISHED', timestamp: 200 },
         { event: 'BUILDER_INCLUDED', timestamp: 800 },
       ]),
-      800,
+      200,
+    );
+    assert.equal(
+      inclusionLatencyMs([
+        { event: 'PROXY_RECEIVED', timestamp: 0 },
+        { event: 'BUILDER_FLASHBLOCK_PUBLISHED', timestamp: 150 },
+        { event: 'BUILDER_FLASHBLOCK_PUBLISHED', timestamp: 280 },
+        { event: 'TXPOOL_BLOCK_INCLUDED', timestamp: 900 },
+      ]),
+      150,
     );
   });
 
