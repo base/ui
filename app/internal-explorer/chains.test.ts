@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
-import { publicExplorerHref, publicExplorerLinks } from './chains';
+import { blockscoutHref, publicExplorerLinks } from './chains';
 import { explorerHref } from './library/links';
 
 describe('public explorer links', () => {
@@ -20,15 +20,15 @@ describe('public explorer links', () => {
     ]);
   });
 
-  test('zeronet has no public explorers by default', () => {
+  test('zeronet has no public explorers', () => {
     assert.deepEqual(publicExplorerLinks('zeronet', '/tx/0xabc'), []);
-    assert.equal(publicExplorerHref('zeronet', '/tx/0xabc'), null);
+    assert.equal(blockscoutHref('zeronet', '/tx/0xabc'), null);
   });
 
-  test('publicExplorerHref stays Blockscout for existing callers', () => {
-    assert.equal(publicExplorerHref('mainnet', '/block/0x1'), 'https://base.blockscout.com/block/0x1');
+  test('blockscoutHref returns the Blockscout URL', () => {
+    assert.equal(blockscoutHref('mainnet', '/block/0x1'), 'https://base.blockscout.com/block/0x1');
     assert.equal(
-      publicExplorerHref('sepolia', '/address/0x2'),
+      blockscoutHref('sepolia', '/address/0x2'),
       'https://base-sepolia.blockscout.com/address/0x2',
     );
   });

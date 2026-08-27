@@ -11,7 +11,7 @@ import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import { CopyButton } from '../../components/CopyButton';
 import { MeteringCard } from '../../components/MeteringCard';
-import { ExplorerLink } from '../../components/ExplorerLink';
+import { BlockscoutLink } from '../../components/BlockscoutLink';
 import type { ExplorerChain } from '../../chains';
 import { EXPLORER_LABEL } from '../../flag';
 import { explorerApi, ExplorerApiError } from '../../library/client';
@@ -114,14 +114,14 @@ function TransactionDetails({
                       >
                         {tx.hash}
                       </Link>
-                      <ExplorerLink
+                      <BlockscoutLink
                         chain={chain}
                         type="tx"
                         value={tx.hash}
                         className="shrink-0 text-bds-gray-50 hover:text-black dark:hover:text-white"
                       >
                         ↗
-                      </ExplorerLink>
+                      </BlockscoutLink>
                       <CopyButton text={tx.hash} />
                     </span>
                   </td>
@@ -130,9 +130,9 @@ function TransactionDetails({
                   <td className="py-2 align-top text-bds-gray-60 dark:text-bds-gray-40">From</td>
                   <td className="py-2 text-right">
                     <span className="inline-flex items-center gap-1">
-                      <ExplorerLink chain={chain} type="address" value={tx.signer} className="break-all font-mono">
+                      <BlockscoutLink chain={chain} type="address" value={tx.signer} className="break-all font-mono">
                         {tx.signer}
-                      </ExplorerLink>
+                      </BlockscoutLink>
                       <CopyButton text={tx.signer} />
                     </span>
                   </td>
@@ -142,9 +142,9 @@ function TransactionDetails({
                   <td className="py-2 text-right">
                     {tx.to ? (
                       <span className="inline-flex items-center gap-1">
-                        <ExplorerLink chain={chain} type="address" value={tx.to} className="break-all font-mono">
+                        <BlockscoutLink chain={chain} type="address" value={tx.to} className="break-all font-mono">
                           {tx.to}
-                        </ExplorerLink>
+                        </BlockscoutLink>
                         <CopyButton text={tx.to} />
                       </span>
                     ) : (

@@ -10,7 +10,7 @@ import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import { CopyButton } from '../../components/CopyButton';
 import { EventHistoryRow } from '../../components/EventHistoryRow';
-import { PublicExplorerLinks } from '../../components/ExplorerLink';
+import { PublicExplorerLinks } from '../../components/PublicExplorerLinks';
 import type { ExplorerChain } from '../../chains';
 import { EXPLORER_LABEL } from '../../flag';
 import { explorerApi, ExplorerApiError } from '../../library/client';

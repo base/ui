@@ -12,7 +12,7 @@ import { Text } from '../../../components/ui/Text';
 import { ActiveBlockButton } from '../../components/ActiveBlockButton';
 import { CopyButton } from '../../components/CopyButton';
 import { EventHistoryRow } from '../../components/EventHistoryRow';
-import { ExplorerLink } from '../../components/ExplorerLink';
+import { BlockscoutLink } from '../../components/BlockscoutLink';
 import type { ExplorerChain } from '../../chains';
 import { EXPLORER_LABEL } from '../../flag';
 import { explorerApi, ExplorerApiError } from '../../library/client';
@@ -303,9 +303,9 @@ function BlockToolbar({
           {shortHash(displayHash)}
         </code>
         <CopyButton text={displayHash} />
-        <ExplorerLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
+        <BlockscoutLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <title>View on block explorer</title>
+            <title>View on Blockscout</title>
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -313,7 +313,7 @@ function BlockToolbar({
               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
             />
           </svg>
-        </ExplorerLink>
+        </BlockscoutLink>
       </div>
     </div>
   );
