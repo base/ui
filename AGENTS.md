@@ -124,6 +124,7 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackB20PromptCopy(module, prompt)` | `app/vibenet/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
    | `trackExplorerChainSelect(chain)` | `app/internal-explorer/components/ChainToggle.tsx` — chain toggle |
    | `trackExplorerActiveBlockJump(chain, jump)` | `app/internal-explorer/components/ActiveBlockButton.tsx` — zeronet latest/previous active block |
+   | `trackValidityOrder(side, status)` | `app/vibenet/demos/validity/ValidityDemo.tsx` — conditional swap submit / include / expiry / replace |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.

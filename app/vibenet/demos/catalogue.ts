@@ -46,6 +46,19 @@ export const DEMOS: DemoEntry[] = [
     ],
     available: true,
   },
+  {
+    href: '/vibenet/demos/validity',
+    title: 'Validity',
+    shortTitle: 'Validity',
+    summary:
+      'Attach conditions to a transaction so the sequencer includes it only while they hold. A simulated pool shows a swap waiting on price, then landing or expiring.',
+    points: [
+      'Add storage and block-number conditions to an ordinary swap',
+      'A simulated AMM makes those conditions visible on a moving mid',
+      'Optional 5s / 15s / 60s bound so a stale condition cannot fire later',
+    ],
+    available: true,
+  },
 ];
 
 /** `smart-wallet` -> `Smart Wallet`. Fallback for a route with no catalogue entry. */

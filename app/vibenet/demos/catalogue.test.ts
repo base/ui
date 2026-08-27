@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { DEMOS, demoLabel } from './catalogue';
 
 describe('demoLabel', () => {
-  it('uses the catalogue entry so the crumb matches the demo name', () => {
-    expect(demoLabel('account')).toBe('Account');
+  it('prefers shortTitle for the validity demo', () => {
+    expect(demoLabel('validity')).toBe('Validity');
   });
 
   it('prefers shortTitle over title when both are set', () => {

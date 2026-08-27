@@ -25,6 +25,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/vibenet/faucet', priority: 0.5, changeFrequency: 'monthly' },
     { path: '/vibenet/demos/account', priority: 0.5, changeFrequency: 'weekly' },
     { path: '/vibenet/demos/b20', priority: 0.5, changeFrequency: 'weekly' },
+    { path: '/vibenet/demos/validity', priority: 0.5, changeFrequency: 'weekly' },
   ];
 
   return routes.map(({ path, priority, changeFrequency }) => ({
