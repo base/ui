@@ -8,19 +8,62 @@ import type { ExplorerTxLog } from './api-types';
 
 // --- Time -----------------------------------------------------------------
 
-export function timeAgoFromSeconds(ts: number): string {
-  const seconds = Math.max(0, Math.floor(Date.now() / 1000) - ts);
+export function timeAgoFromSeconds(ts: number, now = Date.now()): string {
+  const seconds = Math.max(0, Math.floor(now / 1000) - ts);
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-export function timeFromHex(hex: string | null): { human: string; age: string } | null {
-  if (!hex) return null;
-  const ts = Number.parseInt(hex, 16);
-  if (Number.isNaN(ts)) return null;
-  return { human: new Date(ts * 1000).toLocaleString(), age: timeAgoFromSeconds(ts) };
+export function timeAgoFromMilliseconds(ts: number, now = Date.now()): string {
+  const milliseconds = Math.max(0, Math.floor(now - ts));
+  if (milliseconds < 10_000) return `${(Math.floor(milliseconds / 100) / 10).toFixed(1)}s ago`;
+  const seconds = Math.floor(milliseconds / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+function numberFromHexQuantity(hex: string | null | undefined): number | null {
+  if (!hex || !/^0x[0-9a-f]+$/i.test(hex)) return null;
+  try {
+    const value = Number(BigInt(hex));
+    return Number.isSafeInteger(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function timeFromHex(
+  secondsHex: string | null,
+  millisecondsHex?: string | null,
+  now = Date.now(),
+): { human: string; age: string } | null {
+  const milliseconds = numberFromHexQuantity(millisecondsHex);
+  if (milliseconds !== null) {
+    const date = new Date(milliseconds);
+    return {
+      human: date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        fractionalSecondDigits: 3,
+      }),
+      age: timeAgoFromMilliseconds(milliseconds, now),
+    };
+  }
+
+  const seconds = numberFromHexQuantity(secondsHex);
+  if (seconds === null) return null;
+  return {
+    human: new Date(seconds * 1000).toLocaleString(),
+    age: timeAgoFromSeconds(seconds, now),
+  };
 }
 
 // --- Numbers --------------------------------------------------------------

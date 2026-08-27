@@ -19,7 +19,7 @@ export function EmptyState({ description, title, bordered = true, className }: E
     <div
       className={cn(
         bordered &&
-          'rounded-lg border border-bds-gray-10 bg-white p-6 dark:border-white/10 dark:bg-white/5',
+          'rounded-lg border border-bds-gray-10 bg-background p-6 dark:border-white/10 dark:bg-white/5',
         className,
       )}
     >

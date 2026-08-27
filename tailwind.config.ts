@@ -41,9 +41,13 @@ const bdsColors = Object.fromEntries(
 );
 
 const config: Config = {
-  // Light theme only in omni-ui; `dark:` variants port harmlessly but never
-  // activate since no `.dark` class is applied.
-  darkMode: 'class',
+  // `data-theme` is set on <html> by the inline script in layout.tsx and
+  // toggled/persisted by AppShell. It is an attribute rather than a class
+  // because React owns <html className> (the next/font variables live there)
+  // and reasserts it on render — which strips a `.dark` class on any route
+  // that re-renders the root on the client, notably not-found and error
+  // pages. React never touches attributes it does not render, so this sticks.
+  darkMode: ['selector', '[data-theme="dark"]'],
   content: ['./app/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
@@ -71,6 +75,16 @@ const config: Config = {
         'base-sans': ['var(--font-base-sans)', 'sans-serif'],
         'base-text': ['var(--font-base-sans-text)', 'var(--font-base-sans)', 'sans-serif'],
         doto: ['var(--font-doto)', 'monospace'],
+      },
+      // Radix tooltip open/close transitions, ported with app/benchmark from
+      // base/benchmark (which had them in its own Tailwind config).
+      keyframes: {
+        'fade-in': { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+        'fade-out': { '0%': { opacity: '1' }, '100%': { opacity: '0' } },
+      },
+      animation: {
+        'fade-in': 'fade-in 0.2s ease-out',
+        'fade-out': 'fade-out 0.2s ease-out',
       },
     },
   },

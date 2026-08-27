@@ -12,6 +12,8 @@ the directory tree, so a package in a monorepo can add its own.
 
 ## Setup commands
 
+- This app runs on Next.js 16 — its APIs and conventions may differ from
+  older Next versions in your training data.
 - Install deps: `npm install`
 - Start dev server: `npm run dev`
 - Build: `npm run build`
@@ -57,6 +59,18 @@ of a single commit, use `SKIP_DOCS_HOOK=1` or put `[skip-docs]` in the message.
 
 - TypeScript strict mode
 - Follow the existing formatter config; do not reformat unrelated files
+- **Icons**: there is no icon library; icons are hand-authored inline SVGs,
+  with the commonly reused ones centralized in `app/components/ui/icons.tsx`.
+  When adding or touching an icon that toggles between two states based on
+  props/state (e.g. copy → check, menu → close) — not just shown/hidden —
+  consider animating the transition with `morphicons` instead of an instant
+  swap: `<MorphIcon icon={condition ? A : B} />` from `morphicons/react`, fed
+  path data on a shared 24x24 grid (`fitIcon()` first if the source art isn't
+  already on that grid). See `CLIPBOARD_MORPH_ICON`/`CHECK_MORPH_ICON` in
+  `app/components/ui/icons.tsx` and their use in
+  `app/demos/b20/components/CopyPromptButton.tsx`,
+  `app/internal-explorer/components/CopyButton.tsx`, and
+  `app/vibenet/components/CopyableValue.tsx`.
 
 ## Testing
 
@@ -80,11 +94,11 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackSnapshotPresetSelect(name)` | `app/snapshots/SnapshotsClient.tsx` — `selectPreset()` |
    | `trackSnapshotCommandCopy(network, preset)` | `app/snapshots/SnapshotsClient.tsx` — `InlineCommand` `onCopy` |
    | `trackFaucetRequest(token, status)` | `app/vibenet/faucet/page.tsx` — `runDrip()` |
-   | `trackB20ModuleSelect(module)` | `app/demos/b20/B20Demo.tsx` — module navigation |
-   | `trackB20WalletConnection(status)` | `app/demos/b20/B20Demo.tsx` — injected wallet connection |
-   | `trackB20Action(module, action, status)` | `app/demos/b20/B20Demo.tsx` — B20 broadcasts |
-   | `trackB20PromptCopy(module, prompt)` | `app/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
-   | `trackTipsChainSelect(chain)` | `app/tips/components/ChainToggle.tsx` — chain toggle |
+   | `trackB20ModuleSelect(module)` | `app/vibenet/demos/b20/B20Demo.tsx` — module navigation |
+   | `trackB20Action(module, action, status)` | `app/vibenet/demos/b20/B20Demo.tsx` — B20 broadcasts |
+   | `trackB20PromptCopy(module, prompt)` | `app/vibenet/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
+   | `trackExplorerChainSelect(chain)` | `app/internal-explorer/components/ChainToggle.tsx` — chain toggle |
+   | `trackExplorerActiveBlockJump(chain, jump)` | `app/internal-explorer/components/ActiveBlockButton.tsx` — zeronet latest/previous active block |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.
@@ -107,9 +121,10 @@ absent from the map ships everywhere — the map is an exception list, so **an
 internal-only page with no entry will fail open and publish**. A disabled surface
 is *unreachable* in that build (routes + API 404, dropped from nav/sitemap/llms);
 its client chunks may still be emitted, so treat this as a reachability
-guarantee, not secrecy. **TIPS** is internal-only today, and the
-`public-build-excludes-internal` CI job enforces its absence from the public
-build — extend that job's path list when you add another internal-only surface.
+guarantee, not secrecy. **Internal Explorer** (`/internal-explorer`) and
+**Benchmark** are internal-only today, and the `public-build-excludes-internal`
+CI job enforces their absence from the public build — extend that job's path
+list when you add another internal-only surface.
 
 When you add or change an environment-specific section:
 
@@ -117,8 +132,11 @@ When you add or change an environment-specific section:
    routes (`disabledRoutePrefixes()`) and drops it from the generated
    llms/agents artifacts (`llms.config.mjs` uses `disabledRouteGlobs()`).
 2. Gate the per-section surfaces that aren't automatic: the nav entry
-   (`app/tips/flag.ts` → `app/navigation.ts`), a layout `notFound()` backstop,
-   and the API routes (`app/api/tips/guard.ts` pattern). Use `surfaceEnabled(...)`.
+   (`app/internal-explorer/flag.ts` → `app/navigation.ts`), a layout `notFound()` backstop,
+   and the API routes (`app/api/internal-explorer/guard.ts` pattern). Use `surfaceEnabled(...)`.
+   A section with no API routes of its own needs no guard and no `apiPrefixes`
+   entry — Benchmark is the example: its browser code calls the report API
+   directly via `NEXT_PUBLIC_BENCHMARK_API_BASE_URL`.
 3. Select the target only via the build/dev script, never a hand-set env var. The
    internal image sets it in its Dockerfile (`npm run build:internal`).
 4. Regenerate the agent index with the **external** (default) target so the

@@ -9,20 +9,25 @@
  *   100  mobile drawer            (.drawer, below)
  *   110  mobile header            (.mobile-header, below)
  *   120  modals                   (components/ui/Modal.tsx)
- *   130  poppers over modals      (components/ui/Select.tsx)
+ *   130  poppers over modals      (components/ui/Select.tsx,
+ *                                  vibenet/demos/_shared/AccountSwitcher.tsx)
  *
  * A popper below the modal layer still opens, but paints behind the panel —
  * which reads as "the dropdown does nothing". */
 
 /* BDS Spectrum CSS variables — full palette available as var(--bds-*).
- * Semantic tokens live in theme.ts; these vars are here for future use
- * in CSS modules, animations, or any non-TS context.
- * Generated from the BDS Spectrum (Base Design System). Light theme only. */
+ * Semantic tokens live in theme.ts; these vars are here for Tailwind, CSS,
+ * and inline-style consumers. Generated from the BDS Spectrum (Base Design
+ * System). The light spectrum is the default; `data-theme="dark"` on <html>
+ * swaps it. Because every step is redefined rather than remapped, a component
+ * usually needs no `dark:` variant at all: step 0 is always the quietest
+ * surface and step 100 always the loudest ink, in both modes. */
 :root {
   color-scheme: light;
 
   --base-blue-p3: color(display-p3 0 0 1 / 1);
   --bds-brand: #0000FF;
+  --bds-blue-tint: rgba(0, 82, 255, 0.08);
 
   /* blue */
   --bds-blue-0: #f5f8ff;
@@ -190,6 +195,183 @@
   --bds-gray-100: #111111;
 }
 
+/* Dark spectrum from the Base Design System. The dark Base blue is
+ * intentionally softer than the light brand blue to preserve contrast on
+ * near-black surfaces. Every step is redefined here, so any `var(--bds-*)`
+ * consumer — Tailwind utility, inline style, or raw CSS — adapts on its own. */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --base-blue-p3: #5B8CFF;
+  --bds-brand: #5B8CFF;
+  --bds-blue-tint: rgba(91, 140, 255, 0.14);
+
+  /* blue */
+  --bds-blue-0: #001033;
+  --bds-blue-5: #011d5b;
+  --bds-blue-10: #012a82;
+  --bds-blue-15: #03339a;
+  --bds-blue-20: #053bb1;
+  --bds-blue-30: #0a48ce;
+  --bds-blue-40: #1354e1;
+  --bds-blue-50: #2162ee;
+  --bds-blue-60: #3773f5;
+  --bds-blue-70: #578bfa;
+  --bds-blue-80: #84aafd;
+  --bds-blue-90: #b9cfff;
+  --bds-blue-100: #f5f8ff;
+
+  /* teal */
+  --bds-teal-0: #001426;
+  --bds-teal-5: #00203b;
+  --bds-teal-10: #002d4f;
+  --bds-teal-15: #003a63;
+  --bds-teal-20: #004876;
+  --bds-teal-30: #006399;
+  --bds-teal-40: #007db6;
+  --bds-teal-50: #0095cd;
+  --bds-teal-60: #00aadf;
+  --bds-teal-70: #06beec;
+  --bds-teal-80: #45d9f5;
+  --bds-teal-90: #95effb;
+  --bds-teal-100: #f0feff;
+
+  /* green */
+  --bds-green-0: #001f12;
+  --bds-green-5: #00301d;
+  --bds-green-10: #01462a;
+  --bds-green-15: #025230;
+  --bds-green-20: #025c37;
+  --bds-green-30: #067044;
+  --bds-green-40: #0b8552;
+  --bds-green-50: #159962;
+  --bds-green-60: #27ad75;
+  --bds-green-70: #44c28d;
+  --bds-green-80: #6fd6ab;
+  --bds-green-90: #abebd0;
+  --bds-green-100: #f5fffb;
+
+  /* chartreuse */
+  --bds-chartreuse-0: #05160e;
+  --bds-chartreuse-5: #0e361d;
+  --bds-chartreuse-10: #154f22;
+  --bds-chartreuse-15: #1d6724;
+  --bds-chartreuse-20: #2d8028;
+  --bds-chartreuse-30: #499836;
+  --bds-chartreuse-40: #6bb049;
+  --bds-chartreuse-50: #7bc869;
+  --bds-chartreuse-60: #8cd188;
+  --bds-chartreuse-70: #9ed9a3;
+  --bds-chartreuse-80: #b2debc;
+  --bds-chartreuse-90: #d1eedc;
+  --bds-chartreuse-100: #f5fffa;
+
+  /* yellow */
+  --bds-yellow-0: #1b0600;
+  --bds-yellow-5: #311100;
+  --bds-yellow-10: #512800;
+  --bds-yellow-15: #603000;
+  --bds-yellow-20: #734000;
+  --bds-yellow-30: #936000;
+  --bds-yellow-40: #af8000;
+  --bds-yellow-50: #c79e00;
+  --bds-yellow-60: #debd17;
+  --bds-yellow-70: #e5cd30;
+  --bds-yellow-80: #f2de5e;
+  --bds-yellow-90: #fff091;
+  --bds-yellow-100: #fffcf1;
+
+  /* orange */
+  --bds-orange-0: #330d00;
+  --bds-orange-5: #4f1400;
+  --bds-orange-10: #6b1c01;
+  --bds-orange-15: #832402;
+  --bds-orange-20: #9b2c04;
+  --bds-orange-30: #bd3b09;
+  --bds-orange-40: #d54c12;
+  --bds-orange-50: #e66020;
+  --bds-orange-60: #f07836;
+  --bds-orange-70: #f89656;
+  --bds-orange-80: #fcb983;
+  --bds-orange-90: #fedbb9;
+  --bds-orange-100: #fffaf5;
+
+  /* red */
+  --bds-red-0: #330004;
+  --bds-red-5: #4f0007;
+  --bds-red-10: #6b010a;
+  --bds-red-15: #83040e;
+  --bds-red-20: #9b0713;
+  --bds-red-30: #bd1321;
+  --bds-red-40: #d52634;
+  --bds-red-50: #e6404e;
+  --bds-red-60: #f0616d;
+  --bds-red-70: #f88690;
+  --bds-red-80: #fcaeb5;
+  --bds-red-90: #fed5d8;
+  --bds-red-100: #fff5f6;
+
+  /* pink */
+  --bds-pink-0: #330a2c;
+  --bds-pink-5: #460e3d;
+  --bds-pink-10: #59134e;
+  --bds-pink-15: #6c185e;
+  --bds-pink-20: #7e1e6f;
+  --bds-pink-30: #9f2c8e;
+  --bds-pink-40: #bb40aa;
+  --bds-pink-50: #d058c1;
+  --bds-pink-60: #e175d6;
+  --bds-pink-70: #ed95e6;
+  --bds-pink-80: #f6b8f3;
+  --bds-pink-90: #fcd9fb;
+  --bds-pink-100: #fff5ff;
+
+  /* purple */
+  --bds-purple-0: #190d33;
+  --bds-purple-5: #2b1659;
+  --bds-purple-10: #491e89;
+  --bds-purple-15: #6125af;
+  --bds-purple-20: #7b2dd3;
+  --bds-purple-30: #8e33ea;
+  --bds-purple-40: #a454f4;
+  --bds-purple-50: #bc7bfb;
+  --bds-purple-60: #cd99fd;
+  --bds-purple-70: #d9b0fe;
+  --bds-purple-80: #e6c9ff;
+  --bds-purple-90: #edd9ff;
+  --bds-purple-100: #fbf7ff;
+
+  /* indigo */
+  --bds-indigo-0: #080f33;
+  --bds-indigo-5: #0e1b5b;
+  --bds-indigo-10: #152782;
+  --bds-indigo-15: #1b2f9a;
+  --bds-indigo-20: #2138b1;
+  --bds-indigo-30: #3049ce;
+  --bds-indigo-40: #445ce1;
+  --bds-indigo-50: #5c71ee;
+  --bds-indigo-60: #798af5;
+  --bds-indigo-70: #99a5fa;
+  --bds-indigo-80: #bbc2fd;
+  --bds-indigo-90: #dbdfff;
+  --bds-indigo-100: #f6f7ff;
+
+  /* gray */
+  --bds-gray-0: #111111;
+  --bds-gray-5: #262626;
+  --bds-gray-10: #3a3a3a;
+  --bds-gray-15: #525252;
+  --bds-gray-20: #5e5e5e;
+  --bds-gray-30: #6f6f6f;
+  --bds-gray-40: #9a9a9a;
+  --bds-gray-50: #b8b8b8;
+  --bds-gray-60: #c4c4c4;
+  --bds-gray-70: #dadada;
+  --bds-gray-80: #efefef;
+  --bds-gray-90: #f8f8f8;
+  --bds-gray-100: #ffffff;
+}
+
 *,
 *::before,
 *::after {
@@ -237,6 +419,10 @@ button {
   scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
 
+[data-theme='dark'] *:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -256,8 +442,117 @@ button {
   background: rgba(0, 0, 0, 0.15);
 }
 
+[data-theme='dark'] *:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 *:hover::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] *:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Base UI scroll area for each sliding pane (main nav and section submenu).
+   Native bars stay hidden; the custom thumb is the only visible scroller. */
+.sidebar-scroll-area {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+
+.sidebar-scroll-viewport {
+  --fade-size: 40px;
+  height: 100%;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  background: var(--bds-gray-0);
+  /* Bottom fade only — the logo sits at the top of this scroller, so a top
+     band would wash it out. Base UI's overflow var is the px distance from
+     the end; the mask grows from 0 to --fade-size as you scroll, then holds.
+     0px fallback so a short list does not flash a fade before hydrate. */
+  mask-image: linear-gradient(
+    to bottom,
+    black 0,
+    black calc(100% - min(var(--fade-size), var(--scroll-area-overflow-y-end, 0px))),
+    transparent 100%
+  );
+  mask-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black 0,
+    black calc(100% - min(var(--fade-size), var(--scroll-area-overflow-y-end, 0px))),
+    transparent 100%
+  );
+  -webkit-mask-repeat: no-repeat;
+}
+
+.sidebar-scroll-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar-scroll-bar {
+  display: flex;
+  justify-content: center;
+  width: 5px;
+  margin: 2px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+
+.sidebar-scroll-bar[data-hovering],
+.sidebar-scroll-bar[data-scrolling] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sidebar-scroll-bar[data-scrolling] {
+  transition-duration: 0ms;
+}
+
+.sidebar-scroll-thumb {
+  width: 100%;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-scroll-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .sidebar-scroll-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme='dark'] .sidebar-scroll-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-scroll-bar {
+    transition: none;
+  }
+}
+
+/* Horizontal inset lives on the content inside the scroller (and on the logo /
+   footer, which sit outside it) so overflow is full-bleed. */
+.sidebar-gutter {
+  box-sizing: border-box;
+  width: 100%;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* Extra 8px so the mark still lines up with the nav icons (row padding 10px).
+   18px above and below the 28px mark — the old 64px brand row, now inside
+   the scroller so it rolls away with the list. */
+.sidebar-brand.sidebar-gutter {
+  padding-top: 18px;
+  padding-bottom: 18px;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 /* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below
@@ -291,13 +586,41 @@ button {
   background-color: var(--bds-gray-5);
 }
 
+/* Theme switch. The thumb is offset with a transform (see `switchThumbOn` in
+   AppShell) so only the compositor is involved; the track recolours alongside it. */
+.theme-switch-track {
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.theme-switch-thumb {
+  transition: transform 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+/* The button carries no visible border, so the ring goes on the track — the part
+   that actually reads as the control. */
+.theme-switch:focus-visible {
+  outline: none;
+}
+
+.theme-switch:focus-visible .theme-switch-track {
+  outline: 2px solid var(--bds-brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-track,
+  .theme-switch-thumb {
+    transition: none;
+  }
+}
+
 .nav-back-icon {
-  color: #9a9a9a;
+  color: var(--bds-gray-40);
   transition: color 0.15s ease;
 }
 
 .nav-back-link:hover .nav-back-icon {
-  color: #3a3a3a;
+  color: var(--bds-gray-80);
 }
 
 .external-nav-arrow {
@@ -438,6 +761,16 @@ button {
 }
 
 @media (max-width: 767px) {
+  .sidebar-gutter {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .sidebar-brand.sidebar-gutter {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
   .sidebar-desktop {
     display: none !important;
   }
@@ -471,17 +804,8 @@ button {
     bottom: 0;
     z-index: 100;
     background: var(--bds-gray-0);
-    padding: 12px 8px 20px;
-    overflow-y: auto;
-  }
-
-  .mobile-content-offset {
-    padding-top: 56px;
-  }
-
-  .activity-full-width {
-    width: 100vw;
-    margin-left: calc(-1 * (100vw - 100%) / 2);
+    padding: 12px 0 20px;
+    overflow: hidden;
   }
 
   /* iOS Safari auto-zooms the page when a focused input's font-size is < 16px,
@@ -489,16 +813,17 @@ button {
      button) off-screen. Force >=16px on mobile so focusing a field never zooms.
      !important is needed to beat per-input Tailwind text-[13px]/[14px] utilities;
      the smaller visual sizing is preserved on >=768px. */
-  input,
-  textarea,
-  select {
-    font-size: 16px !important;
+@supports (-webkit-touch-callout: none) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 }
 
-@media (min-width: 768px) {
-  .activity-full-width {
-    width: calc(100vw - 248px);
-    margin-left: calc(-1 * (100vw - 248px - 100%) / 2);
-  }
+.activity-full-width {
+  width: auto;
+  margin-left: calc(50% - 50cqw);
+  margin-right: calc(50% - 50cqw);
 }

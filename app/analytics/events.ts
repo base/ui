@@ -46,10 +46,6 @@ export function trackB20ModuleSelect(module: string): void {
   track('b20_module_select', { module });
 }
 
-export function trackB20WalletConnection(status: 'started' | 'success' | 'error'): void {
-  track('b20_wallet_connection', { status });
-}
-
 export function trackB20Action(
   module: string,
   action: string,
@@ -63,9 +59,13 @@ export function trackB20PromptCopy(module: string, prompt: string): void {
   track('b20_prompt_copy', { module, prompt });
 }
 
-// --- TIPS: chain selection ---
+// --- Internal Explorer: chain selection ---
 
-// Fired when the user switches the TIPS chain (Mainnet / Sepolia / Zeronet).
-export function trackTipsChainSelect(chain: string): void {
-  track('tips_chain_select', { chain });
+// Fired when the user switches the Internal Explorer chain (Mainnet / Sepolia / Zeronet).
+export function trackExplorerChainSelect(chain: string): void {
+  track('explorer_chain_select', { chain });
+}
+
+export function trackExplorerActiveBlockJump(chain: string, jump: 'latest' | 'previous'): void {
+  track('explorer_active_block_jump', { chain, jump });
 }

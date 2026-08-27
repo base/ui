@@ -8,7 +8,7 @@ export default function AddressLoading() {
         <Skeleton className="mt-2 h-4 w-full max-w-sm" />
       </div>
 
-      <div className="rounded-2xl border border-bds-gray-10 bg-white p-6 dark:border-white/10 dark:bg-white/5">
+      <div className="rounded-2xl border border-bds-gray-10 bg-background p-6 dark:border-white/10 dark:bg-white/5">
         <div className="flex flex-col gap-4">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-4">
@@ -25,7 +25,7 @@ export default function AddressLoading() {
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="rounded-2xl border border-bds-gray-10 bg-white p-4 dark:border-white/10 dark:bg-white/5"
+              className="rounded-2xl border border-bds-gray-10 bg-background p-4 dark:border-white/10 dark:bg-white/5"
             >
               <Skeleton className="h-4 w-full max-w-[200px]" />
               <div className="mt-2 flex flex-wrap gap-1.5">

@@ -45,7 +45,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
   return (
     <Card
       className={cn(
-        'bg-white p-6 dark:bg-white/5',
+        'bg-background p-6 dark:bg-white/5',
         hasHighlights && 'flex flex-col gap-8 md:flex-row',
       )}
     >
@@ -76,11 +76,11 @@ export function FeatureCard({ feature }: FeatureCardProps) {
           <Text variant="footnote" tone="muted" className="mt-5">
             {feature.availability}
             {feature.availabilityHref ? (
-              <Link href={feature.availabilityHref} className="text-black hover:text-base-blue dark:text-white dark:hover:text-bds-blue-20">
+              <Link href={feature.availabilityHref} className="text-foreground hover:text-base-blue dark:text-white">
                 {feature.availabilityLabel ?? 'Base Cobalt'}
               </Link>
             ) : feature.availabilityLabel ? (
-              <span className="text-black dark:text-white">{feature.availabilityLabel}</span>
+              <span className="text-foreground">{feature.availabilityLabel}</span>
             ) : null}
           </Text>
         ) : null}

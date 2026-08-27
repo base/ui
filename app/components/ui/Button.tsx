@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import Link from 'next/link';
 
 import { cn } from './cn';
@@ -15,32 +15,38 @@ type ButtonProps = ComponentPropsWithoutRef<'button'> & {
 };
 
 const variantClasses = {
-  primary: 'bg-base-blue text-white hover:bg-[#0000CC] border border-transparent',
+  // The dark Base blue is a light tint, so the label flips to near-black to
+  // keep contrast; the hover step darkens in light mode and lifts in dark.
+  primary:
+    'border border-transparent bg-base-blue text-white hover:bg-[#0000CC] dark:text-black dark:hover:bg-bds-blue-80',
   secondary:
     'text-foreground hover:bg-bds-gray-15 bg-bds-gray-10 dark:bg-white/10 dark:hover:bg-white/20',
   outline:
     'text-foreground bg-transparent border border-bds-gray-10 hover:bg-bds-gray-5 dark:border-white/[.12] dark:hover:bg-white/[.06]',
 } as const;
 
-export function Button({
-  className = '',
-  type = 'button',
-  variant = 'primary',
-  size = 'default',
-  arrow = false,
-  href,
-  target,
-  rel,
-  children,
-  ...props
-}: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    className = '',
+    type = 'button',
+    variant = 'primary',
+    size = 'default',
+    arrow = false,
+    href,
+    target,
+    rel,
+    children,
+    ...props
+  },
+  ref,
+) {
   let sizeClasses: string;
   if (size === 'sm') {
     sizeClasses = 'h-[34px] px-3 gap-1 pb-px';
   } else if (arrow) {
-    sizeClasses = 'h-12 pl-5 pr-4 gap-1';
+    sizeClasses = 'h-10 pl-4 pr-3 gap-1';
   } else {
-    sizeClasses = 'h-12 pl-5 pr-5 gap-3';
+    sizeClasses = 'h-10 px-4 gap-2';
   }
 
   const classes = cn(
@@ -62,9 +68,9 @@ export function Button({
   }
 
   return (
-    <button type={type === 'submit' ? 'submit' : 'button'} className={classes} {...props}>
+    <button ref={ref} type={type === 'submit' ? 'submit' : 'button'} className={classes} {...props}>
       {children}
       {arrow && <AnimatedArrowIcon className="transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />}
     </button>
   );
-}
+});

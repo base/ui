@@ -28,9 +28,18 @@ export const TARGET = process.env.NEXT_PUBLIC_DEPLOY_TARGET === 'internal' ? 'in
 // ships to every target. `routePrefixes` are UI paths; `apiPrefixes` are the
 // section's API paths (documented here and enforced by the section's API guard).
 export const SURFACES = {
-  tips: {
-    routePrefixes: ['/tips'],
-    apiPrefixes: ['/api/tips'],
+  'internal-explorer': {
+    // `/tips` and `/api/tips` are legacy prefixes kept so the public build
+    // 404s old URLs instead of redirecting to the internal surface.
+    routePrefixes: ['/internal-explorer', '/tips'],
+    apiPrefixes: ['/api/internal-explorer', '/api/tips'],
+    targets: ['internal'],
+  },
+  // No apiPrefixes: the benchmark UI calls the report API straight from the
+  // browser (NEXT_PUBLIC_BENCHMARK_API_BASE_URL) instead of proxying through a
+  // route handler here, so this app serves no /api path for it.
+  benchmark: {
+    routePrefixes: ['/benchmark'],
     targets: ['internal'],
   },
 };

@@ -42,7 +42,7 @@ export default async function ChangePage(props: ChangePageProps) {
   const vibenetChange = getVibenetChangeById(change.id);
 
   return (
-    <div className="mx-auto w-full max-w-5xl pb-4 text-black">
+    <div className="mx-auto w-full max-w-5xl pb-4 text-foreground">
       <header className="animate-in mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-start">
         <div className="max-w-3xl">
           <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -58,14 +58,8 @@ export default async function ChangePage(props: ChangePageProps) {
             {change.title}
           </Text>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
-          {change.specUrl ? (
-            <Button href={change.specUrl} target="_blank" rel="noopener noreferrer" variant="outline" size="sm">
-              Documentation
-              <ExternalLinkIcon />
-            </Button>
-          ) : null}
-          {change.kind === 'eip' ? (
+        {change.kind === 'eip' ? (
+          <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
             <Button
               href={change.upstreamUrl}
               target="_blank"
@@ -76,8 +70,8 @@ export default async function ChangePage(props: ChangePageProps) {
               Upstream EIP
               <ExternalLinkIcon />
             </Button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </header>
       <ChangeDetailClient change={change} />
     </div>

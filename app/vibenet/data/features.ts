@@ -1,14 +1,12 @@
 import type { VibenetFeature } from '../library/types';
 
-// Curated capability catalog for the Vibenet landing page. As features ship to
-// vibenet, add entries here — the page renders whatever is in this list, so
-// multiple concurrent features need no page changes. (Mirrors how the Upgrades
-// section keeps its `changes` in a data module.)
+// Curated capability catalog rendered at the top of the Accounts demo.
+// (Mirrors how the Upgrades section keeps its `changes` in a data module.)
 export const FEATURES: VibenetFeature[] = [
   {
     id: 'eip-8130-account-abstraction',
     tag: 'EIP-8130',
-    title: 'Native Account Abstraction',
+    title: 'Accounts',
     summary:
       'Built into the protocol. No bundler, no entrypoint. Powerful UX primitives in accounts that work on Base.',
     status: 'live',
@@ -28,12 +26,11 @@ export const FEATURES: VibenetFeature[] = [
       { title: 'Sponsored & ERC-20 Gas', detail: 'Native payer support via ERC-8168 contracts.' },
       { title: 'Batch Everything', detail: 'Atomic multicall with top-level call metadata.' },
     ],
-    // The account demo has shipped, so the card links straight to it and shows
-    // as `live` (which hides the "coming-soon" badge). "Build your own" points at
-    // the EIP-8130 build guide.
-    cta: { label: 'Try It Out', href: '/demos/account' },
-    secondaryCta: { label: 'Build Your Own', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/eip-8130', external: true },
-    links: [{ label: 'EIP-8130', href: 'https://eip.tools/eip/8130', external: true }],
+    // `live` hides the "coming-soon" badge. "Tutorial" points at the
+    // EIP-8130 build guide; there's no "try it" CTA since this card already
+    // lives on the demo it would link to.
+    secondaryCta: { label: 'Tutorial', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/eip-8130', external: true },
+    links: [{ label: 'Specification', href: 'https://eip.tools/eip/8130', external: true }],
   },
   // 200ms Blocks is intentionally absent: it is a Denim roadmap item that has
   // not landed on vibenet yet (blocks are still ~2s, `timestampMs` is not on

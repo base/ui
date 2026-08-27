@@ -1,11 +1,12 @@
 'use client';
 
 import { MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 
 import { Card } from '../components/ui/Card';
 import { Checkbox } from '../components/ui/Checkbox';
 import { cn } from '../components/ui/cn';
+import { COPY_SQUARES_PATH_40 } from '../components/ui/icons';
 import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
@@ -30,18 +31,18 @@ const NETWORK_LABELS: Record<string, string> = {
   sepolia: 'Sepolia',
 };
 
+const REQUIRED_COMPONENTS = new Set(['state', 'headers']);
+
 const SHIMMER_GRADIENT =
-  'linear-gradient(90deg, currentColor 0%, currentColor 30%, #0000FF 50%, currentColor 70%, currentColor 100%)';
+  'linear-gradient(90deg, currentColor 0%, currentColor 40%, var(--shimmer-highlight) 50%, currentColor 60%, currentColor 100%)';
 
 function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => void }) {
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
   const textRef = useRef<HTMLSpanElement>(null);
+  const shimmerRef = useRef<HTMLSpanElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [overflowPx, setOverflowPx] = useState(0);
-  const [shimmer, setShimmer] = useState(false);
-  const prevCommand = useRef(command);
-  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const measure = () => {
@@ -55,13 +56,12 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
   }, [command]);
 
   useEffect(() => {
-    if (prevCommand.current !== command) {
-      prevCommand.current = command;
-      if (!reducedMotion) {
-        setShimmer(true);
-      }
-    }
-  }, [command, reducedMotion]);
+    const animation = shimmerRef.current?.animate(
+      [{ backgroundPosition: '100% 0%' }, { backgroundPosition: '0% 0%' }],
+      { duration: 700, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' },
+    );
+    return () => animation?.cancel();
+  }, [command]);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(command).then(() => {
@@ -82,7 +82,7 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
         </Text>
       </div>
       <div
-        className="flex w-full items-center gap-2 rounded-lg border border-bds-gray-10 bg-white px-3 py-2"
+        className="flex w-full items-center gap-2 rounded-lg border border-bds-gray-10 bg-background px-3 py-2"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -93,34 +93,28 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
             transition={hovered ? { duration: overflowPx / 100, ease: 'linear' } : { duration: 0.3, ease: 'easeOut' }}
             className="block whitespace-nowrap"
           >
-            <motion.span
-              animate={{ backgroundPosition: shimmer ? ['200% center', '0% center'] : '0% center' }}
-              transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
-              onAnimationComplete={() => setShimmer(false)}
-              className="bg-[length:200%_100%] bg-clip-text"
-              style={{
-                backgroundImage: shimmer ? SHIMMER_GRADIENT : 'none',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: shimmer ? 'transparent' : undefined,
-              }}
+            <span
+              ref={shimmerRef}
+              className="bg-[length:300%_100%] bg-clip-text bg-no-repeat [--shimmer-highlight:var(--bds-blue-15)] dark:[--shimmer-highlight:var(--bds-brand)]"
+              style={{ backgroundImage: SHIMMER_GRADIENT, WebkitTextFillColor: 'transparent' }}
             >
               <Text as="span" variant="label.mono">
-                <span className="text-bds-gray-40" style={{ WebkitTextFillColor: shimmer ? 'initial' : undefined }}>$</span> {command}
+                <span className="text-bds-gray-40" style={{ WebkitTextFillColor: 'initial' }}>$</span> {command}
               </Text>
-            </motion.span>
+            </span>
           </motion.span>
           {overflowPx > 0 && (
             <motion.div
               animate={{ opacity: hovered ? 0 : 1 }}
               transition={{ duration: 0.15 }}
-              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent"
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent"
             />
           )}
         </div>
         <button
           type="button"
           onClick={handleCopy}
-          className="relative ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center text-bds-gray-60 transition-colors hover:text-black"
+          className="relative ml-1 inline-flex h-5 w-5 shrink-0 items-center justify-center text-bds-gray-60 transition-colors hover:text-foreground"
           aria-label="Copy command"
         >
           <AnimatePresence mode="wait" initial={false}>
@@ -155,7 +149,7 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
                 exit={{ opacity: 0, scale: 0.5 }}
                 transition={{ duration: 0.15 }}
               >
-                <path d="M16.6667 23.3333V26.6667C16.6667 28.5076 18.1591 30 20 30H26.6667C28.5076 30 30 28.5076 30 26.6667V20C30 18.1591 28.5076 16.6667 26.6667 16.6667H23.3333M23.3333 16.6667V13.3333C23.3333 11.4924 21.8409 10 20 10H13.3333C11.4924 10 10 11.4924 10 13.3333V20C10 21.8409 11.4924 23.3333 13.3333 23.3333H20C21.8409 23.3333 23.3333 21.8409 23.3333 20V16.6667Z" stroke="currentColor" strokeWidth={2.5} />
+                <path d={COPY_SQUARES_PATH_40} stroke="currentColor" strokeWidth={2.5} />
               </motion.svg>
             )}
           </AnimatePresence>
@@ -239,6 +233,8 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
   }
 
   function toggleComponent(name: string) {
+    if (REQUIRED_COMPONENTS.has(name)) return;
+
     let next = [...selectedComponents];
 
     if (name === 'state_history') {
@@ -327,7 +323,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
           />
         </div>
 
-        <div className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-white p-4 sm:p-6">
+        <div className="-mx-px -mb-px flex flex-col rounded-xl border border-bds-gray-10 bg-background p-4 sm:p-6">
           <Text as="h2" variant="headline" className="mb-6">Configuration</Text>
           <section>
             <div className="mb-4">
@@ -350,7 +346,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                     className={cn(
                       'rounded-xl border border-bds-gray-10 px-4 py-3 text-left transition-[color,box-shadow] duration-150 ease-out',
                       selected
-                        ? 'border-transparent ring-2 ring-black'
+                        ? 'border-transparent ring-2 ring-foreground'
                         : 'hover:border-bds-gray-15',
                     )}
                   >
@@ -415,7 +411,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                         className={cn(
                           'flex flex-col items-start rounded-xl border px-4 py-3.5 text-left transition-[color,box-shadow] duration-150 ease-out',
                           selected
-                            ? 'border-transparent ring-2 ring-black'
+                            ? 'border-transparent ring-2 ring-foreground'
                             : 'border-bds-gray-10 hover:border-bds-gray-15',
                         )}
                       >
@@ -457,8 +453,10 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                   <Card className="overflow-hidden rounded-[10px]">
                     {displayComponents.map((c, i, arr) => {
                       const checked =
-                        c.name === 'state_history' ? withStateHistory : selectedComponents.includes(c.name);
+                        REQUIRED_COMPONENTS.has(c.name) ||
+                        (c.name === 'state_history' ? withStateHistory : selectedComponents.includes(c.name));
                       const isDisabled =
+                        REQUIRED_COMPONENTS.has(c.name) ||
                         (c.name === 'transaction_senders' && !withTransactions) ||
                         (c.name === 'rocksdb_indices' &&
                           (!withTransactions || !withReceipts || !withStateHistory));
@@ -472,7 +470,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                           disabled={isDisabled}
                           aria-label={c.displayName}
                           className={cn(
-                            'flex w-full items-center gap-3 bg-white px-4 py-2.5 text-left transition-opacity duration-150 ease-out',
+                            'flex w-full items-center gap-3 bg-background px-4 py-2.5 text-left transition-opacity duration-150 ease-out',
                             !isLast && 'border-b border-bds-gray-10',
                             isDisabled && 'cursor-not-allowed opacity-50',
                           )}

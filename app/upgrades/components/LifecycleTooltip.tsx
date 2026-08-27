@@ -57,12 +57,12 @@ export function LifecycleTooltip({ entries, summary, size, showLabels }: Lifecyc
             align="center"
             sideOffset={8}
             collisionPadding={16}
-            className="border-bds-gray-10 dark:bg-bds-gray-100 pointer-events-none z-[12000] w-max max-w-[min(20rem,calc(100vw-2rem))] rounded-lg border bg-white px-3 py-2 shadow-lg dark:border-white/10"
+            className="border-bds-gray-10 pointer-events-none z-[12000] w-max max-w-[min(20rem,calc(100vw-2rem))] rounded-lg border bg-background px-3 py-2 shadow-lg dark:border-white/10"
           >
             <span className="block space-y-1">
               {entries.map((entry) => (
                 <span key={entry.network} className="flex items-baseline justify-between gap-4">
-                  <span className="text-[11px] font-medium leading-[14px] tracking-[0px] text-black md:text-[12px] md:leading-[16px] dark:text-white">
+                  <span className="text-[11px] font-medium leading-[14px] tracking-[0px] text-foreground md:text-[12px] md:leading-[16px] dark:text-white">
                     {entry.network}
                   </span>
                   <span className="text-right font-mono text-[11px] font-medium leading-[14px] tracking-[0px] text-[#787878] md:text-[12px] md:leading-[16px]">
@@ -72,7 +72,7 @@ export function LifecycleTooltip({ entries, summary, size, showLabels }: Lifecyc
                 </span>
               ))}
             </span>
-            <Tooltip.Arrow width={10} height={5} className="dark:fill-bds-gray-100 fill-white" />
+            <Tooltip.Arrow width={10} height={5} className="fill-background" />
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>

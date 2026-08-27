@@ -42,13 +42,13 @@ export function CommandBox({ command, label = 'Command', className, onCopy }: Co
         <button
           type="button"
           onClick={handleCopy}
-          className="rounded-md border border-bds-gray-10 bg-white px-2.5 py-[3px] text-[12px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5"
+          className="rounded-md border border-bds-gray-10 bg-background px-2.5 py-[3px] text-[12px] text-bds-gray-60 transition-colors hover:bg-bds-gray-5"
         >
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       <div className="overflow-x-auto px-3.5 py-3">
-        <code className="whitespace-nowrap font-mono text-[13px] text-black">{command}</code>
+        <code className="whitespace-nowrap font-mono text-[13px] text-foreground">{command}</code>
       </div>
     </div>
   );

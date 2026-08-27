@@ -1,12 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef } from 'react';
-import type { MouseEvent, ReactNode } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import type { ReactNode } from 'react';
+import { Dialog } from '@base-ui/react/dialog';
 
 import { cn } from './cn';
 import { CloseIcon } from './icons';
-import { Text } from './Text';
+import { textVariantClasses } from './Text';
 
 type ModalProps = {
   open: boolean;
@@ -19,104 +18,45 @@ type ModalProps = {
   className?: string;
 };
 
-const BACKDROP_TRANSITION = { duration: 0.15 } as const;
-const PANEL_TRANSITION = { type: 'spring', bounce: 0, duration: 0.24 } as const;
-
-// Reusable centered modal: backdrop, spring-in panel, header with a close
-// button, scrollable body, and an optional pinned footer. Extracted from the
-// account demo's five in-page modals so any surface can reuse one open/close
-// pattern. Backdrop click and Escape both close.
+// Centered modal on Base UI Dialog: focus trap, restore-focus, Escape,
+// dismiss-on-outside-click, and document scroll lock all come from the library.
 export function Modal({ open, onClose, title, children, footer, className }: ModalProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const titleId = useId();
-
-  // Callers pass an inline `onClose` (new identity every render). Keep the latest
-  // in a ref so the focus/scroll-lock effect can depend on `open` alone — keying
-  // it on `onClose` re-runs the effect on every parent re-render, and the cleanup
-  // (`previouslyFocused?.focus?.()`) then steals focus out of the panel's inputs
-  // after a single keystroke.
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    if (!open) return;
-    // Remember what to return focus to, so closing doesn't dump the user at the
-    // top of the page.
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
-    };
-    document.addEventListener('keydown', onKey);
-    // Lock background scroll while the modal is open.
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    // Move focus into the dialog so screen readers announce it (via aria-labelledby)
-    // and keyboard interaction starts inside the panel rather than behind it.
-    const raf = requestAnimationFrame(() => panelRef.current?.focus());
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previousOverflow;
-      cancelAnimationFrame(raf);
-      previouslyFocused?.focus?.();
-    };
-  }, [open]);
-
-  const stop = useCallback((event: MouseEvent) => event.stopPropagation(), []);
-  const reducedMotion = useReducedMotion();
-  const panelTransition = reducedMotion ? { duration: 0.1 } : PANEL_TRANSITION;
-
   return (
-    <AnimatePresence>
-      {open ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={BACKDROP_TRANSITION}
-          onClick={onClose}
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-4 backdrop-blur-[2px] dark:bg-black/60"
+    <Dialog.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-[120] min-h-dvh bg-black/40 backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 dark:bg-black/60 supports-[-webkit-touch-callout:none]:absolute" />
+        <Dialog.Popup
+          className={cn(
+            'fixed left-1/2 top-1/2 z-[120] flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-background text-foreground shadow-xl outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-[0.96] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.96] data-[starting-style]:opacity-0 dark:border-white/10 dark:bg-[#141414] dark:text-white motion-reduce:transition-none',
+            className,
+          )}
         >
-          <motion.div
-            ref={panelRef}
-            layout
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            tabIndex={-1}
-            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
-            animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 8 }}
-            transition={panelTransition}
-            onClick={stop}
-            className={cn(
-              'flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-white text-black shadow-xl focus:outline-none dark:border-white/10 dark:bg-[#141414] dark:text-white',
-              className,
-            )}
-          >
-            <div className="flex items-center justify-between gap-4 border-b border-bds-gray-10 px-5 pb-3 pt-4 dark:border-white/10">
-              <Text as="h2" id={titleId} variant="headline">
-                {title}
-              </Text>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-black dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
-              >
-                <CloseIcon size={14} />
-              </button>
+          <div className="flex items-center justify-between gap-4 border-b border-bds-gray-10 px-5 pb-3 pt-4 dark:border-white/10">
+            <Dialog.Title className={cn(textVariantClasses.headline, 'm-0 text-foreground')}>
+              {title}
+            </Dialog.Title>
+            <Dialog.Close
+              aria-label="Close"
+              className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <CloseIcon size={14} />
+            </Dialog.Close>
+          </div>
+
+          <div className="flex flex-col gap-5 overflow-y-auto px-5 pb-8 pt-5">{children}</div>
+
+          {footer ? (
+            <div className="flex items-center justify-end gap-3 border-t border-bds-gray-10 px-5 py-4 dark:border-white/10">
+              {footer}
             </div>
-
-            <div className="flex flex-col gap-5 overflow-y-auto px-5 pb-8 pt-5">{children}</div>
-
-            {footer ? (
-              <div className="flex items-center justify-end gap-3 border-t border-bds-gray-10 px-5 py-4 dark:border-white/10">
-                {footer}
-              </div>
-            ) : null}
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+          ) : null}
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

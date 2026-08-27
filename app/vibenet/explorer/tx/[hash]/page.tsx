@@ -33,15 +33,15 @@ import {
 } from '../../../library/explorer';
 
 const BADGE =
-  'inline-flex items-center rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
+  'inline-flex items-center rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:text-base-blue';
 const RAW_PRE = 'mt-1 overflow-x-auto rounded bg-bds-gray-5 p-2 text-[11px] dark:bg-white/5';
 const DIM = 'text-bds-gray-60 dark:text-bds-gray-40';
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 
 const STATUS_STYLE: Record<ExplorerTxResponse['status'], { label: string; className: string }> = {
-  ok: { label: 'success', className: 'text-bds-green-70 dark:text-bds-green-20' },
-  fail: { label: 'failed', className: 'text-bds-red-70 dark:text-bds-red-20' },
-  pending: { label: 'pending', className: 'text-bds-yellow-70 dark:text-bds-yellow-20' },
+  ok: { label: 'success', className: 'text-bds-green-70' },
+  fail: { label: 'failed', className: 'text-bds-red-70' },
+  pending: { label: 'pending', className: 'text-bds-yellow-70' },
 };
 
 function renderScalar(key: string, value: unknown): ReactNode {
@@ -259,7 +259,7 @@ function LogView({ log }: LogViewProps) {
   const memoEvent = decodeB20MemoEvent(log);
   const hasData = Boolean(log.data && log.data !== '0x');
   return (
-    <Card className="bg-white p-4 dark:bg-white/5">
+    <Card className="bg-background p-4 dark:bg-white/5">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`text-[12px] ${DIM}`}>#{log.logIndex}</span>
         <ExplorerLink kind="address" value={log.address} />
@@ -269,7 +269,7 @@ function LogView({ log }: LogViewProps) {
         {log.decoded ? <span className={BADGE}>{log.decoded.eventName}</span> : null}
       </div>
       {b20Event?.eventName === 'Announcement' ? (
-        <DetailList className="mt-3 rounded-lg border border-bds-blue-20 bg-bds-blue-0 p-3 dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+        <DetailList className="mt-3 rounded-lg border border-bds-blue-20 bg-bds-blue-0 p-3">
           <DetailRow label="Announcement ID"><code className="font-mono">{b20Event.id}</code></DetailRow>
           <DetailRow label="Description">{b20Event.description}</DetailRow>
           <DetailRow label="Caller"><ExplorerLink kind="address" value={b20Event.caller} label={b20Event.caller} className="break-all" /></DetailRow>
@@ -358,7 +358,7 @@ type TxBodyProps = {
 
 function TxBody({ tx }: TxBodyProps) {
   const blockNum = hexToInt(tx.blockNumber);
-  const ts = timeFromHex(tx.timestamp);
+  const ts = timeFromHex(tx.timestamp, tx.blockTimestampMs);
   const typeInfo = txTypeLabel(tx.type, tx.typeHex ?? null);
   const status = STATUS_STYLE[tx.status];
   const memo = decodeMetadata(tx.metadata);
@@ -421,7 +421,7 @@ function TxBody({ tx }: TxBodyProps) {
 
   return (
     <>
-      <Card className="bg-white p-6 dark:bg-white/5">
+      <Card className="bg-background p-6 dark:bg-white/5">
         <DetailList>
           <DetailRow label="Block">
             <ExplorerLink
@@ -523,7 +523,7 @@ function TxBody({ tx }: TxBodyProps) {
               {announcementClosed ? '✓ Complete event bracket' : 'Open event bracket'}
             </span>
           </div>
-          <Card className="border-bds-blue-20 bg-bds-blue-0 p-5 dark:border-bds-blue-80 dark:bg-bds-blue-100/30">
+          <Card className="border-bds-blue-20 bg-bds-blue-0 p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <code className="text-[11px] text-base-blue">{announcement.id}</code>
@@ -531,7 +531,7 @@ function TxBody({ tx }: TxBodyProps) {
               </div>
               {tx.to ? <ExplorerLink kind="address" value={tx.to} label="B20 token" /> : null}
             </div>
-            <DetailList className="mt-5 border-t border-bds-blue-20 pt-4 dark:border-bds-blue-80">
+            <DetailList className="mt-5 border-t border-bds-blue-20 pt-4">
               <DetailRow label="Publisher"><ExplorerLink kind="address" value={announcement.caller} label={announcement.caller} className="break-all" /></DetailRow>
               <DetailRow label="Disclosure">{announcement.uri ? <a href={announcement.uri} target="_blank" rel="noreferrer" className="break-all text-base-blue hover:underline">{announcement.uri} ↗</a> : <em className={DIM}>(none)</em>}</DetailRow>
               {multiplierUpdate?.eventName === 'UIMultiplierUpdated' ? <DetailRow label="Included update"><span>UI multiplier <strong>{fmtTokenAmount(multiplierUpdate.previousMultiplier, 18)} → {fmtTokenAmount(multiplierUpdate.newMultiplier, 18)}</strong></span></DetailRow> : null}
@@ -549,7 +549,7 @@ function TxBody({ tx }: TxBodyProps) {
               <Text variant="footnote" tone="muted">
                 Owner / authenticator updates applied atomically before the calls run.
               </Text>
-              <Card className="bg-white p-4 dark:bg-white/5">
+              <Card className="bg-background p-4 dark:bg-white/5">
                 <pre className="overflow-x-auto text-[11px]">
                   <code className="font-mono">{JSON.stringify(tx.aa.accountChanges, null, 2)}</code>
                 </pre>
@@ -564,7 +564,7 @@ function TxBody({ tx }: TxBodyProps) {
             </Text>
             {tx.aa.calls.map((phase, phaseIndex) => (
               // eslint-disable-next-line react/no-array-index-key -- phases are positional
-              <Card key={phaseIndex} className="bg-white p-4 dark:bg-white/5">
+              <Card key={phaseIndex} className="bg-background p-4 dark:bg-white/5">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-[12px]">phase {phaseIndex}</span>
                   <span className={`text-[11px] ${DIM}`}>
@@ -595,8 +595,8 @@ function TxBody({ tx }: TxBodyProps) {
                   key={index}
                   className={
                     ok
-                      ? 'inline-flex items-center rounded-full border border-bds-green-20 bg-bds-green-0 px-2.5 py-0.5 text-[11px] text-bds-green-70 dark:border-bds-green-80 dark:bg-bds-green-100/40 dark:text-bds-green-20'
-                      : 'inline-flex items-center rounded-full border border-bds-red-20 bg-bds-red-0 px-2.5 py-0.5 text-[11px] text-bds-red-70 dark:border-bds-red-80 dark:bg-bds-red-100/40 dark:text-bds-red-20'
+                      ? 'inline-flex items-center rounded-full border border-bds-green-20 bg-bds-green-0 px-2.5 py-0.5 text-[11px] text-bds-green-70'
+                      : 'inline-flex items-center rounded-full border border-bds-red-20 bg-bds-red-0 px-2.5 py-0.5 text-[11px] text-bds-red-70'
                   }
                 >
                   phase {index}: {ok ? 'success' : 'reverted'}
@@ -610,7 +610,7 @@ function TxBody({ tx }: TxBodyProps) {
       <section className="flex flex-col gap-2">
         <Text variant="headline">Logs ({tx.logs.length})</Text>
         {tx.logs.length === 0 ? (
-          <Card className="bg-white p-4 dark:bg-white/5">
+          <Card className="bg-background p-4 dark:bg-white/5">
             <Text variant="label.regular" tone="muted">
               No logs emitted.
             </Text>
@@ -674,13 +674,13 @@ export default function ExplorerTxPage({ params }: PageProps) {
       {tx ? (
         <TxBody tx={tx} />
       ) : fetchError ? (
-        <Card className="bg-white p-6 dark:bg-white/5">
+        <Card className="bg-background p-6 dark:bg-white/5">
           <Text variant="label.regular" tone="muted">
             Failed to fetch transaction. Please try again.
           </Text>
         </Card>
       ) : (
-        <Card className="bg-white p-6 dark:bg-white/5">
+        <Card className="bg-background p-6 dark:bg-white/5">
           <Text variant="label.regular" tone="muted">
             Loading…
           </Text>

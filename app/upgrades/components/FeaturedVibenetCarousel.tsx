@@ -23,7 +23,7 @@ export function FeaturedVibenetCarousel({ changes }: FeaturedVibenetCarouselProp
         <LinkCard
           key={change.id}
           href={`/upgrades/changelog/${change.slug}`}
-          className="group flex h-full w-full flex-col overflow-hidden bg-white dark:bg-white/5"
+          className="group flex h-full w-full flex-col overflow-hidden bg-background dark:bg-white/5"
         >
           <div
             className={cn(

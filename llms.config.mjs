@@ -4,7 +4,7 @@
 // Exclude any surface not shipped to this build target (deploy.config.mjs) from
 // the generated llms.txt / llms-full.txt / AGENTS.md. For the committed public
 // artifacts, generate with the default (external) target so internal-only
-// sections like TIPS don't appear.
+// sections like Internal Explorer don't appear.
 import { disabledRouteGlobs } from './deploy.config.mjs';
 
 export default {

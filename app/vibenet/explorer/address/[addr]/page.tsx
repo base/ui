@@ -8,6 +8,7 @@ import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
 import { DetailList, DetailRow } from '../../../components/DetailList';
 import { ExplorerLink } from '../../../components/ExplorerLink';
+import { useAccountNames } from '../../../components/useAccountNames';
 import type { ActorEntry, ExplorerAddressResponse } from '../../../library/api-types';
 import { vibenetApi, VibenetApiError } from '../../../library/client';
 import {
@@ -23,7 +24,7 @@ import { shortAddress } from '../../../library/format';
 const CHIP =
   'inline-flex items-center rounded-full border border-bds-gray-10 px-2.5 py-1 text-[11px] leading-none text-bds-gray-60 dark:border-white/10 dark:text-bds-gray-40';
 const BADGE =
-  'inline-flex items-center rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:bg-bds-blue-100/40 dark:text-bds-blue-20';
+  'inline-flex items-center rounded-full bg-bds-blue-0 px-2 py-1 text-[11px] leading-none text-bds-blue-60 dark:text-base-blue';
 const TH =
   'px-4 py-3 text-left text-[13px] font-normal text-bds-gray-50';
 const TD = 'px-4 py-3 text-[13px]';
@@ -34,7 +35,7 @@ type ActorCardProps = {
 
 function ActorCard({ actor }: ActorCardProps) {
   return (
-    <Card className="bg-white p-4 dark:bg-white/5">
+    <Card className="bg-background p-4 dark:bg-white/5">
       <div className="flex flex-wrap items-center gap-2">
         <code className="font-mono text-[13px]" title={actor.actorId}>
           {shortAddress(actor.actorId, 14, 4)}
@@ -84,6 +85,7 @@ export default function ExplorerAddressPage({ params }: PageProps) {
   const { addr } = use(params);
   const [data, setData] = useState<ExplorerAddressResponse | null>(null);
   const [is404, setIs404] = useState(false);
+  const accountName = useAccountNames()[addr.toLowerCase()];
 
   useEffect(() => {
     let cancelled = false;
@@ -162,7 +164,7 @@ export default function ExplorerAddressPage({ params }: PageProps) {
   return (
     <div className="animate-in flex flex-col gap-6">
       <div>
-        <Text variant="title2">Address</Text>
+        <Text variant="title2">{accountName ?? 'Address'}</Text>
         <code className="mt-1 block break-all font-mono text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
           {addr}
         </code>
@@ -170,7 +172,7 @@ export default function ExplorerAddressPage({ params }: PageProps) {
 
       {data ? (
         <>
-          <Card className="bg-white p-6 dark:bg-white/5">
+          <Card className="bg-background p-6 dark:bg-white/5">
             <DetailList>
               <DetailRow label="Type">{typeBody}</DetailRow>
               <DetailRow label="Balance">{weiToEth(data.balance_wei)}</DetailRow>
@@ -186,13 +188,13 @@ export default function ExplorerAddressPage({ params }: PageProps) {
           <section className="flex flex-col gap-3">
             <Text variant="headline">Activity</Text>
             {data.activity.length === 0 ? (
-              <Card className="bg-white p-4 dark:bg-white/5">
+              <Card className="bg-background p-4 dark:bg-white/5">
                 <Text variant="label.regular" tone="muted">
                   No activity indexed yet.
                 </Text>
               </Card>
             ) : (
-              <Card className="overflow-hidden bg-white dark:bg-white/5">
+              <Card className="overflow-hidden bg-background dark:bg-white/5">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr

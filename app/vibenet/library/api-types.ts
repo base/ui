@@ -29,6 +29,7 @@ export type BlockRow = {
   number: number;
   hash: string;
   timestamp: number;
+  timestamp_ms?: number | null;
   miner: string;
   tx_count: number;
   gas_used: number;
@@ -148,6 +149,7 @@ export type ExplorerBlockResponse = {
   hash: Hex | null;
   parentHash: Hex;
   timestamp: Hex;
+  timestampMs?: Hex;
   miner: Address;
   gasUsed: Hex;
   gasLimit: Hex;
@@ -184,6 +186,7 @@ export type ExplorerTxResponse = {
   blockHash: Hex;
   blockNumber: Hex | null;
   timestamp: Hex | null;
+  blockTimestampMs?: Hex;
   from: Address;
   to: Address | null;
   value: Hex | null;

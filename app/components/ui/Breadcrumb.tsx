@@ -20,7 +20,7 @@ export function Breadcrumb({ parentLabel, parentHref, childLabel, middle }: Brea
     <span className="relative flex w-full items-center justify-center">
       <Link
         href={backHref}
-        className="group absolute left-0 flex h-8 w-8 items-center justify-center rounded-full text-bds-gray-40 no-underline transition-colors hover:text-black dark:hover:text-white"
+        className="group absolute left-0 flex h-8 w-8 items-center justify-center rounded-full text-bds-gray-40 no-underline transition-colors hover:text-foreground"
         aria-label="Go back"
       >
         <svg width={16} height={16} viewBox="0 0 20 20" fill="none" aria-hidden="true" style={{ transform: 'scaleX(-1)' }}>

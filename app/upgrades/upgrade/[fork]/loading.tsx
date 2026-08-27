@@ -2,7 +2,7 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 
 export default function UpgradeDetailLoading() {
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-24 pb-4 text-black">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-24 pb-4 text-foreground">
       <div>
         <Skeleton className="mb-4 h-12 w-12 rounded-lg" />
         <Skeleton className="h-8 w-48" />
@@ -29,7 +29,7 @@ export default function UpgradeDetailLoading() {
             {[0, 1, 2].map((j) => (
               <div
                 key={j}
-                className="rounded-2xl border border-bds-gray-10 bg-white p-5 dark:border-white/10 dark:bg-white/5"
+                className="rounded-2xl border border-bds-gray-10 bg-background p-5 dark:border-white/10 dark:bg-white/5"
               >
                 <Skeleton className="h-5 w-48" />
                 <Skeleton className="mt-3 h-4 w-full max-w-md" />

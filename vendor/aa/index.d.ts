@@ -236,7 +236,13 @@ export const canonicalAuthenticators: {
  * hint to synthesize a stub blob without the caller specifying an exact size.
  */
 export const canonicalAuthDataLength: Record<string, number>
-export const accountConfigAddress: Address
+/**
+ * The EIP-8130 keystore (`AccountConfiguration`) system contract address.
+ * Enshrined in the execution client — identical on every supported chain and
+ * not configurable (using any other address derives a different account
+ * address and fails the create tx).
+ */
+export const keystoreAddress: Address
 export const defaultAccountAddress: Address
 export const nonceManagerAddress: Address
 export const nonceManagerAbi: readonly any[]
@@ -250,7 +256,6 @@ export const nonceManagerAbi: readonly any[]
 export function getConfigSequence(
   client: Client,
   parameters: {
-    accountConfiguration: Address
     account: Address
   },
 ): Promise<{ local: bigint; multichain: bigint }>
@@ -274,13 +279,13 @@ export function unlockChange(): AaUnlock
 /** Reads whether an EIP-8130 account is currently locked. */
 export function isLocked(
   client: Client,
-  parameters: { account: Address; accountConfiguration?: Address },
+  parameters: { account: Address },
 ): Promise<boolean>
 
 /** Reads the full lock status of an EIP-8130 account. */
 export function getLockStatus(
   client: Client,
-  parameters: { account: Address; accountConfiguration?: Address },
+  parameters: { account: Address },
 ): Promise<{
   locked: boolean
   hasInitiatedUnlock: boolean
@@ -541,7 +546,6 @@ export type FulfillGrantPermissionsParameters = {
   role?: GrantRole
   expiry?: number | bigint
   assumeManagerRegistered?: boolean
-  accountConfiguration?: Address
   policy?: Address
   manager?: Address
   validAfter?: bigint
@@ -596,7 +600,6 @@ export type FulfillAddSubAccountParameters = {
   implementation?: Address
   salt?: Hex
   code?: Hex
-  accountConfigAddress?: Address
 }
 export type FulfillAddSubAccountReturnType = ToAccountReturnType & {
   createChange: AaAccountChangeCreate
@@ -628,7 +631,6 @@ export function computeAddress(parameters: {
   userSalt: Hex
   code: Hex
   initialActors: readonly AaActor[]
-  accountConfigAddress?: Address
 }): Address
 /** The 32-byte deployment header committed into the CREATE2 salt. */
 export function deploymentHeader(parameters: {
@@ -647,7 +649,6 @@ export type ToAccountReturnType = {
   readonly initialActors: readonly AaActor[]
   readonly scope?: number
   readonly actorId?: Hex
-  readonly accountConfigAddress?: Address
   create(): AaAccountChangeCreate
   /** Signs a `SignedAccountChanges` batch into a `config` entry. */
   change(
@@ -673,7 +674,6 @@ export function toAccount(parameters: (
       authenticator?: Address
       scope?: number
       actorId?: Hex
-      accountConfigAddress?: Address
       address?: Address
     }
   | {
@@ -682,7 +682,6 @@ export function toAccount(parameters: (
       authenticator?: Address
       scope?: number
       actorId?: Hex
-      accountConfigAddress?: Address
       userSalt?: undefined
       code?: undefined
       initialActors?: undefined
@@ -710,7 +709,6 @@ export function newSmartAccount(parameters: {
   code?: Hex
   admins?: readonly AaActor[]
   extraActors?: readonly AaActor[]
-  accountConfigAddress?: Address
 }): NewSmartAccountReturnType
 
 /**
@@ -864,7 +862,6 @@ export function toSmartAccount(parameters: {
   implementation?: Address
   code?: Hex
   address?: Address
-  accountConfigAddress?: Address
   [key: string]: any
 }): Promise<any>
 
@@ -927,11 +924,9 @@ export function toFactoryArgs(parameters: {
   userSalt: Hex
   code: Hex
   initialActors: readonly AaActor[]
-  accountConfiguration?: Address
 }): { factory: Address; factoryData: Hex }
 
 export type Eip8130Deployment = {
-  accountConfiguration: Address
   accounts: {
     upgradeable?: Address
     default: Address

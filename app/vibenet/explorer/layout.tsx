@@ -13,7 +13,7 @@ type ExplorerLayoutProps = {
 
 export default function ExplorerLayout({ children }: ExplorerLayoutProps) {
   return (
-    <div className="flex flex-col gap-8 text-black dark:text-white">
+    <div className="flex flex-col gap-8 text-foreground">
       {children}
     </div>
   );
