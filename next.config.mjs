@@ -13,9 +13,6 @@ const nextConfig = {
   // Keep tracing rooted at this checkout so a git worktree inside the repo
   // is not mistaken for a nested package of the parent lockfile.
   outputFileTracingRoot: dir,
-  turbopack: {
-    root: dir,
-  },
   // Emit a self-contained server bundle (.next/standalone/server.js) so the
   // internal Docker image can run the app without node_modules. Vercel's
   // runtime never uses this output, and generating it there has been
