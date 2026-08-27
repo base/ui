@@ -2,13 +2,16 @@ import { type Hash } from 'viem';
 
 import { type ExplorerChain } from '../../../../internal-explorer/chains';
 import { calculateTransactionFee } from '../../../../internal-explorer/library/explorer-format';
+import { inclusionLatencyMs, type TimedExplorerEvent } from '../../../../internal-explorer/library/inclusion-latency';
 import { resolveExplorerChainFromRequest } from '../../chain';
 import {
   bundleHistoryFromAuditEvents,
   getAuditEventsByBlockNumber,
   getAuditEventsByTransactionHash,
+  mergeAuditEvents,
   meterBundleResponseFromAuditEvent,
   transactionMetadataFromAuditEvents,
+  type AuditTransactionEventRecord,
 } from '../../audit-events';
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
 import { explorerDisabledResponse } from '../../guard';
@@ -62,6 +65,7 @@ function serializeBlockData(block: BlockData) {
         bundleId: tx.bundleId,
         index: tx.index,
         metering,
+        inclusionLatencyMs: tx.inclusionLatencyMs ?? null,
       };
     }),
     eventHistory: block.eventHistory ?? [],
@@ -157,90 +161,122 @@ function isBlockNumber(identifier: string): boolean {
   return /^\d+$/.test(identifier);
 }
 
+function timedAuditEvents(events: AuditTransactionEventRecord[]): TimedExplorerEvent[] {
+  return events.map((event) => ({
+    event: event.event_type,
+    timestamp: Date.parse(event.event_time),
+  }));
+}
+
+function timedHistoryEvents(history: BundleEvent[]): TimedExplorerEvent[] {
+  return history.map((event) => ({
+    event: event.event,
+    timestamp: event.data.timestamp,
+  }));
+}
+
+function auditEventsForHash(
+  txHash: string,
+  events: AuditTransactionEventRecord[],
+): AuditTransactionEventRecord[] {
+  const normalized = txHash.toLowerCase();
+  return events.filter((event) => event.tx_hash?.toLowerCase() === normalized);
+}
+
 async function enrichTransactionFromS3(
   chain: ExplorerChain,
   txHash: string,
 ): Promise<{
   bundleId: string | null;
   meterBundleResponse: Record<string, unknown> | null;
+  history: BundleEvent[];
 }> {
   const metadata = await getTransactionMetadataByHash(chain, txHash);
   if (!metadata || metadata.bundle_ids.length === 0) {
-    return { bundleId: null, meterBundleResponse: null };
+    return { bundleId: null, meterBundleResponse: null, history: [] };
   }
 
   const bundleId = metadata.bundle_ids[0];
   const bundleHistory = await getBundleHistory(chain, bundleId);
   if (!bundleHistory) {
-    return { bundleId, meterBundleResponse: null };
+    return { bundleId, meterBundleResponse: null, history: [] };
   }
 
   const receivedEvent = bundleHistory.history.find((event) => event.event === 'Received');
-  if (!receivedEvent?.data?.bundle?.meter_bundle_response) {
-    return { bundleId, meterBundleResponse: null };
+  return {
+    bundleId,
+    meterBundleResponse: receivedEvent?.data?.bundle?.meter_bundle_response
+      ? (receivedEvent.data.bundle.meter_bundle_response as unknown as Record<string, unknown>)
+      : null,
+    history: bundleHistory.history,
+  };
+}
+
+type TransactionEnrichment = {
+  bundleId: string | null;
+  meterBundleResponse: Record<string, unknown> | null;
+  inclusionLatencyMs: number | null;
+};
+
+// Audit-first, S3-fallback per-transaction enrichment (bundle id, metering, and
+// inclusion latency from the same event set the transaction page uses).
+async function enrichTransactionWithBundleData(
+  chain: ExplorerChain,
+  txHash: string,
+  blockAuditEvents: AuditTransactionEventRecord[],
+): Promise<TransactionEnrichment> {
+  const auditRpcUrl = getAuditRpcUrl(chain);
+  let hashEvents: AuditTransactionEventRecord[] = [];
+
+  if (auditRpcUrl) {
+    try {
+      hashEvents = await getAuditEventsByTransactionHash(auditRpcUrl, txHash);
+    } catch {
+      // Audit is an optional read path; fall back to the S3-backed enrichment on errors.
+    }
+  }
+
+  const mergedAuditEvents = mergeAuditEvents([
+    hashEvents,
+    auditEventsForHash(txHash, blockAuditEvents),
+  ]);
+  let inclusionLatency = inclusionLatencyMs(timedAuditEvents(mergedAuditEvents));
+
+  const metadata = transactionMetadataFromAuditEvents(hashEvents);
+  let bundleId = metadata?.bundle_ids[0] ?? null;
+  let meterBundleResponse: Record<string, unknown> | null = null;
+  if (bundleId !== null) {
+    const accepted = hashEvents.find((event) => event.event_type === 'SIMULATION_SUCCEEDED');
+    meterBundleResponse = accepted
+      ? (meterBundleResponseFromAuditEvent(accepted) as unknown as Record<string, unknown>)
+      : null;
+  }
+
+  if (bundleId === null) {
+    const s3 = await enrichTransactionFromS3(chain, txHash);
+    bundleId = s3.bundleId;
+    meterBundleResponse = s3.meterBundleResponse;
+    inclusionLatency = inclusionLatency ?? inclusionLatencyMs(timedHistoryEvents(s3.history));
   }
 
   return {
     bundleId,
-    meterBundleResponse: receivedEvent.data.bundle.meter_bundle_response as unknown as Record<
-      string,
-      unknown
-    >,
+    meterBundleResponse,
+    inclusionLatencyMs: inclusionLatency,
   };
 }
 
-// Audit-first, S3-fallback per-transaction enrichment (bundle id + metering).
-async function enrichTransactionWithBundleData(
+async function loadBlockAuditEvents(
   chain: ExplorerChain,
-  txHash: string,
-): Promise<{
-  bundleId: string | null;
-  meterBundleResponse: Record<string, unknown> | null;
-}> {
-  const auditRpcUrl = getAuditRpcUrl(chain);
-  if (!auditRpcUrl) {
-    return enrichTransactionFromS3(chain, txHash);
-  }
-
-  try {
-    const events = await getAuditEventsByTransactionHash(auditRpcUrl, txHash);
-    const metadata = transactionMetadataFromAuditEvents(events);
-    const bundleId = metadata?.bundle_ids[0] ?? null;
-    if (bundleId !== null) {
-      const accepted = events.find((event) => event.event_type === 'SIMULATION_SUCCEEDED');
-      return {
-        bundleId,
-        meterBundleResponse: accepted
-          ? (meterBundleResponseFromAuditEvent(accepted) as unknown as Record<string, unknown>)
-          : null,
-      };
-    }
-  } catch {
-    // Audit is an optional read path; fall back to the S3-backed enrichment on errors.
-  }
-
-  return enrichTransactionFromS3(chain, txHash);
-}
-
-async function getBlockEventHistory(
-  chain: ExplorerChain,
-  hash: string,
   number: bigint,
-): Promise<BundleEvent[]> {
+): Promise<AuditTransactionEventRecord[]> {
   const auditRpcUrl = getAuditRpcUrl(chain);
   if (!auditRpcUrl) {
     return [];
   }
 
   try {
-    return (
-      bundleHistoryFromAuditEvents(
-        hash,
-        (await getAuditEventsByBlockNumber(auditRpcUrl, Number(number))).filter((event) =>
-          BLOCK_EVENT_TYPES.has(event.event_type),
-        ),
-      )?.history ?? []
-    );
+    return await getAuditEventsByBlockNumber(auditRpcUrl, Number(number));
   } catch (error) {
     console.error('Failed to fetch block event history from audit RPC:', error);
     return [];
@@ -249,13 +285,16 @@ async function getBlockEventHistory(
 
 async function buildBlockData(chain: ExplorerChain, rpcBlock: ParsedFullBlock): Promise<BlockData> {
   const rpcUrl = getRpcUrl(chain);
-  const receiptByHash = await getTransactionReceiptSummaries(
-    rpcUrl,
-    rpcBlock.transactions.map((tx) => tx.hash),
-  );
+  const [receiptByHash, blockAuditEvents] = await Promise.all([
+    getTransactionReceiptSummaries(
+      rpcUrl,
+      rpcBlock.transactions.map((tx) => tx.hash),
+    ),
+    loadBlockAuditEvents(chain, rpcBlock.number),
+  ]);
   const transactions: BlockTransaction[] = await Promise.all(
     rpcBlock.transactions.map(async (tx, index) => {
-      const enriched = await enrichTransactionWithBundleData(chain, tx.hash);
+      const enriched = await enrichTransactionWithBundleData(chain, tx.hash, blockAuditEvents);
       const receipt = receiptByHash.get(tx.hash);
       const effectiveGasPrice = receipt?.effectiveGasPrice ?? null;
       return {
@@ -274,6 +313,7 @@ async function buildBlockData(chain: ExplorerChain, rpcBlock: ParsedFullBlock): 
         bundleId: enriched.bundleId,
         index,
         meterBundleResponse: enriched.meterBundleResponse,
+        inclusionLatencyMs: enriched.inclusionLatencyMs,
       };
     }),
   );
@@ -283,7 +323,11 @@ async function buildBlockData(chain: ExplorerChain, rpcBlock: ParsedFullBlock): 
     number: rpcBlock.number,
     timestamp: rpcBlock.timestamp,
     transactions,
-    eventHistory: await getBlockEventHistory(chain, rpcBlock.hash, rpcBlock.number),
+    eventHistory:
+      bundleHistoryFromAuditEvents(
+        rpcBlock.hash,
+        blockAuditEvents.filter((event) => BLOCK_EVENT_TYPES.has(event.event_type)),
+      )?.history ?? [],
     gasUsed: rpcBlock.gasUsed,
     gasLimit: rpcBlock.gasLimit,
     baseFeePerGas: rpcBlock.baseFeePerGas,

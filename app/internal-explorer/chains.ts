@@ -7,24 +7,38 @@ import { defaultExplorerChainForOrigin, type ExplorerHostMap } from './hosts';
 
 export type ExplorerChain = 'mainnet' | 'sepolia' | 'zeronet';
 
+export type PublicExplorerName = 'Basescan' | 'Blockscout';
+
+export type PublicExplorerLink = {
+  name: PublicExplorerName;
+  href: string;
+};
+
 export type ExplorerChainInfo = {
   id: ExplorerChain;
   label: string;
-  // Public block-explorer base URL for this chain's links. Overridable via
-  // NEXT_PUBLIC_TIPS_<CHAIN>_EXPLORER_URL; defaults below.
+  // Blockscout base URL. Overridable via NEXT_PUBLIC_TIPS_<CHAIN>_EXPLORER_URL.
   explorerUrl: string;
+  // Basescan base URL. Empty when the chain has no Basescan (Zeronet).
+  basescanUrl: string;
 };
 
-const DEFAULT_EXPLORERS: Record<ExplorerChain, string> = {
+const DEFAULT_BLOCKSCOUT: Record<ExplorerChain, string> = {
   mainnet: 'https://base.blockscout.com',
   sepolia: 'https://base-sepolia.blockscout.com',
   zeronet: '',
 };
 
-function explorerFor(chain: ExplorerChain): string {
+const DEFAULT_BASESCAN: Record<ExplorerChain, string> = {
+  mainnet: 'https://basescan.org',
+  sepolia: 'https://sepolia.basescan.org',
+  zeronet: '',
+};
+
+function blockscoutFor(chain: ExplorerChain): string {
   const key = `NEXT_PUBLIC_TIPS_${chain.toUpperCase()}_EXPLORER_URL`;
   const configured = process.env[key];
-  return configured && configured.length > 0 ? configured : DEFAULT_EXPLORERS[chain];
+  return configured && configured.length > 0 ? configured : DEFAULT_BLOCKSCOUT[chain];
 }
 
 export const EXPLORER_CHAINS: readonly ExplorerChainInfo[] = (
@@ -32,7 +46,8 @@ export const EXPLORER_CHAINS: readonly ExplorerChainInfo[] = (
 ).map((id) => ({
   id,
   label: id === 'mainnet' ? 'Base Mainnet' : id === 'sepolia' ? 'Base Sepolia' : 'Zeronet',
-  explorerUrl: explorerFor(id),
+  explorerUrl: blockscoutFor(id),
+  basescanUrl: DEFAULT_BASESCAN[id],
 }));
 
 export const DEFAULT_EXPLORER_CHAIN: ExplorerChain = 'mainnet';
@@ -55,9 +70,24 @@ export function explorerChainInfo(chain: ExplorerChain): ExplorerChainInfo {
   return EXPLORER_CHAINS.find((c) => c.id === chain) ?? EXPLORER_CHAINS[0];
 }
 
-/** Explorer link for a chain, or null when that chain has no explorer configured. */
-export function publicExplorerHref(chain: ExplorerChain, path: string): string | null {
-  const base = explorerChainInfo(chain).explorerUrl;
-  if (!base) return null;
+function joinExplorerUrl(base: string, path: string): string {
   return `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+/** Public explorers that exist for this chain, in display order. */
+export function publicExplorerLinks(chain: ExplorerChain, path: string): PublicExplorerLink[] {
+  const info = explorerChainInfo(chain);
+  const links: PublicExplorerLink[] = [];
+  if (info.basescanUrl) {
+    links.push({ name: 'Basescan', href: joinExplorerUrl(info.basescanUrl, path) });
+  }
+  if (info.explorerUrl) {
+    links.push({ name: 'Blockscout', href: joinExplorerUrl(info.explorerUrl, path) });
+  }
+  return links;
+}
+
+/** Blockscout link for a chain, or null when that chain has no Blockscout URL. */
+export function publicExplorerHref(chain: ExplorerChain, path: string): string | null {
+  return publicExplorerLinks(chain, path).find((link) => link.name === 'Blockscout')?.href ?? null;
 }

@@ -146,6 +146,10 @@ export async function getBlockFromCache(
               ? null
               : BigInt(tx.transactionFee as string),
           meterBundleResponse: tx.meterBundleResponse ?? null,
+          inclusionLatencyMs:
+            typeof tx.inclusionLatencyMs === 'number' && Number.isFinite(tx.inclusionLatencyMs)
+              ? tx.inclusionLatencyMs
+              : null,
         }),
       ),
     } as BlockData;

@@ -63,6 +63,7 @@ export interface BlockDetailTransaction {
   bundleId: string | null;
   index: number;
   metering: BlockTxMetering | null;
+  inclusionLatencyMs: number | null;
 }
 
 export interface BlockDetailResponse {

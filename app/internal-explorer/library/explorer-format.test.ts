@@ -9,6 +9,7 @@ import {
   formatEth,
   formatGwei,
   formatInteger,
+  formatLatency,
   shortAddress,
 } from './explorer-format';
 
@@ -32,6 +33,12 @@ describe('explorer formatters', () => {
     assert.equal(formatAction('0x', null), 'Contract Creation');
     assert.equal(formatAction('0xa9059cbb0000', '0xto'), '0xa9059cbb');
     assert.equal(formatAction('not-calldata', '0xto'), 'Contract Call');
+  });
+
+  test('formats inclusion latencies in milliseconds or seconds', () => {
+    assert.equal(formatLatency(350), '350 ms');
+    assert.equal(formatLatency(999), '999 ms');
+    assert.equal(formatLatency(1350), '1.35 s');
   });
 
   test('shortens addresses without changing their identity', () => {
