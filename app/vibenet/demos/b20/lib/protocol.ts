@@ -293,10 +293,10 @@ export const assetAbi = [
 ] as const;
 
 export const POLICY_SCOPES = [
-  ['TRANSFER_SENDER_POLICY', 'Transfer sender'],
-  ['TRANSFER_RECEIVER_POLICY', 'Transfer receiver'],
-  ['TRANSFER_EXECUTOR_POLICY', 'Transfer executor'],
-  ['MINT_RECEIVER_POLICY', 'Mint recipient'],
+  ['TRANSFER_SENDER_POLICY', 'Who can send'],
+  ['TRANSFER_RECEIVER_POLICY', 'Who can receive'],
+  ['TRANSFER_EXECUTOR_POLICY', "Who can move others' tokens"],
+  ['MINT_RECEIVER_POLICY', 'Who can receive new tokens'],
 ] as const;
 
 export const MAX_POLICY_ID = (1n << 64n) - 1n;

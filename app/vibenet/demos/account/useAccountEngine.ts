@@ -1440,9 +1440,12 @@ export function useAccountEngine() {
   const sendActiveCalls = async ({
     calls,
     tokenGas,
+    metadata,
   }: {
-    calls: { to: Address; data: Hex }[];
+    calls: { to: Address; data: Hex; value?: string }[];
     tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
+    /** Optional top-level signed app data attached to the transaction. */
+    metadata?: string;
   }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token' }> => {
     if (!acct) throw new Error('Select an account before you continue.');
     if (!calls.length) throw new Error('No calls to send.');
@@ -1469,10 +1472,10 @@ export function useAccountEngine() {
     const { serialized, nextSeq } = await signComposed(
       acct,
       signer,
-      calls.map((call) => newCallRow({ ...call, value: '0' })),
+      calls.map((call) => newCallRow({ to: call.to, data: call.data, value: call.value ?? '0' })),
       presigned,
       changeSeq,
-      undefined,
+      metadata?.trim() ? toHex(metadata.trim()) : undefined,
       undefined,
       payerOpt,
     );

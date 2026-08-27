@@ -29,7 +29,39 @@ export function writeRecent(wallet: Address, token: RecentToken): RecentToken[] 
   return next;
 }
 
+export function removeRecent(wallet: Address, address: Address): RecentToken[] {
+  if (typeof window === 'undefined') return [];
+  const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}') as Record<string, RecentToken[]>;
+  const key = `${CHAIN_ID}:${wallet.toLowerCase()}`;
+  const next = (stored[key] ?? []).filter((entry) => entry.address.toLowerCase() !== address.toLowerCase());
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, [key]: next }));
+  return next;
+}
+
 type StoredPolicy = Omit<RecentPolicy, 'id' | 'childPolicyIds'> & { id: string; childPolicyIds?: string[] };
+
+// Forget a policy locally. The on-chain policy still exists in the registry —
+// this only drops it from the browser's recent list (used by the "delete"
+// affordance in the Policies dropdown).
+export function removeRecentPolicy(wallet: Address | null, id: bigint): RecentPolicy[] {
+  if (typeof window === 'undefined') return wallet ? readRecentPolicies(wallet) : [];
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(POLICY_STORAGE_KEY) ?? '{}') as Record<string, StoredPolicy[]>;
+    const target = id.toString();
+    const next = Object.fromEntries(
+      Object.entries(stored).map(([key, policies]) => [
+        key,
+        key === String(CHAIN_ID) || key.startsWith(`${CHAIN_ID}:`)
+          ? policies.filter((policy) => policy.id !== target)
+          : policies,
+      ]),
+    );
+    window.localStorage.setItem(POLICY_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Nothing persisted — the recomputed list below is authoritative for the session.
+  }
+  return wallet ? readRecentPolicies(wallet) : [];
+}
 
 export function readRecentPolicies(wallet: Address | null): RecentPolicy[] {
   if (!wallet || typeof window === 'undefined') return [];

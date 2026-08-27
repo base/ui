@@ -45,6 +45,7 @@ import { FeatureCard } from '../../components/FeatureCard';
 import { FEATURES } from '../../data/features';
 import { AccountSwitcher } from '../_shared/AccountSwitcher';
 import { AddressAutocomplete, type AddressBookEntry } from '../_shared/AddressAutocomplete';
+import { TransactionModal } from '../_shared/TransactionModal';
 import { ActivityLog } from './components/ActivityLog';
 import { AppCard, AppCardPlaceholder, AppsNetworkNotice } from './components/AppsView';
 import { FeatureGridCard, FeatureGridPlaceholder } from './components/FeatureGridCard';
@@ -174,9 +175,15 @@ export function AccountDemo() {
   // key in a ref: the "From" switcher changes the active account, and
   // remounting this subtree would tear down the open dialog.
   const activeAccountKey = activeAccountId ?? 'empty';
-  const heldKeyRef = useRef(activeAccountKey);
-  if (!transactModalOpen) heldKeyRef.current = activeAccountKey;
-  const contentKey = transactModalOpen ? heldKeyRef.current : activeAccountKey;
+  // Freeze the crossfade key while the transact modal is open (its "From"
+  // switcher changes the active account, and remounting the crossfaded subtree
+  // would tear down the open dialog). Otherwise track the active account
+  // directly: deriving the key rather than mirroring it into state via an effect
+  // avoids a one-frame stale 'empty' key on hydration, which made the features
+  // grid crossfade out-and-in on first load.
+  const frozenContentKey = useRef(activeAccountKey);
+  if (!transactModalOpen) frozenContentKey.current = activeAccountKey;
+  const contentKey = frozenContentKey.current;
 
   const signableSigners = useMemo(
     () => [...postChangeOwnerSigners, ...sessionSigners],
@@ -889,98 +896,48 @@ export function AccountDemo() {
           </Button>
         </FeatureGridCard>
 
-        <Modal
+        <TransactionModal
           open={transactModalOpen}
           onClose={() => {
             if (signing) return; // don't let Escape/backdrop abandon an in-flight send
             setTransactModalOpen(false);
           }}
-          title={
-            txStep === 'review' ? 'Review Transaction' : txStep === 'submitted' ? 'Submitted' : 'Create Transaction'
+          step={txStep}
+          busy={signing}
+          error={error}
+          result={result}
+          titles={{ build: 'Create Transaction', review: 'Review Transaction', submitted: 'Submitted' }}
+          buildInfo={
+            <span className="text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
+              {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'} · 1 tx · ~
+              {gasEstimate.toLocaleString()} gas
+              {!acct.deployed
+                ? acct.type === 'eoa'
+                  ? ' · first use delegates your EOA'
+                  : ' · first use deploys your account'
+                : ''}
+            </span>
           }
-          footer={
-            txStep === 'review' ? (
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setTxStep('build');
-                    setError('');
-                  }}
-                  disabled={signing}
-                >
-                  Back
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={confirmSend}
-                  disabled={signing}
-                  className="disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Send
-                </Button>
-              </>
-            ) : txStep === 'submitted' ? (
-              signing ? null : error ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setTxStep('review');
-                      setError('');
-                    }}
-                  >
-                    Back
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={confirmSend}>
-                    Retry
-                  </Button>
-                </>
-              ) : (
-                <>
-                  {result?.txHash ? (
-                    <Link href={`${VIBENET_EXPLORER_PATH}/tx/${result.txHash}`}>
-                      <Button variant="secondary" size="sm">View Transaction</Button>
-                    </Link>
-                  ) : null}
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setTransactModalOpen(false);
-                    }}
-                  >
-                    Done
-                  </Button>
-                </>
-              )
-            ) : (
-              <div className="flex w-full items-center justify-between gap-3">
-                <span className="text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
-                  {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'} · 1 tx · ~
-                  {gasEstimate.toLocaleString()} gas
-                  {!acct.deployed
-                    ? acct.type === 'eoa'
-                      ? ' · first use delegates your EOA'
-                      : ' · first use deploys your account'
-                    : ''}
-                </span>
-                <Button
-                  size="sm"
-                  onClick={startSend}
-                  disabled={!callsValid || !txSigner || signing}
-                  className="disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Review
-                </Button>
-              </div>
-            )
-          }
-        >
-          {txStep === 'review' ? (
+          canProceed={callsValid && !!txSigner}
+          proceedLabel="Review"
+          onProceed={startSend}
+          confirmLabel="Send"
+          onConfirm={confirmSend}
+          onReviewBack={() => {
+            setTxStep('build');
+            setError('');
+          }}
+          onSubmittedBack={() => {
+            setTxStep('review');
+            setError('');
+          }}
+          onRetry={confirmSend}
+          onDone={() => {
+            setTransactModalOpen(false);
+            resetTransactBuilder();
+          }}
+          explorerTxPath={(hash) => `${VIBENET_EXPLORER_PATH}/tx/${hash}`}
+          reviewBody={
             <ReviewBody
               acct={acct}
               accounts={accounts}
@@ -997,140 +954,142 @@ export function AccountDemo() {
               error={error}
               signing={signing}
             />
-          ) : txStep === 'submitted' ? (
+          }
+          submittedBody={
             <SubmittedBody signing={signing} submitStatus={submitStatus} error={error} result={result} />
-          ) : (
+          }
+          buildBody={
             <>
-          {/* From */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">From</span>
-            <AccountSwitcher
-              accounts={accounts}
-              activeAccountId={activeAccountId}
-              onSelect={(id) => setActiveAccountId(id)}
-              triggerClassName="w-full"
-            />
-          </div>
+              {/* From */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">From</span>
+                <AccountSwitcher
+                  accounts={accounts}
+                  activeAccountId={activeAccountId}
+                  onSelect={(id) => setActiveAccountId(id)}
+                  triggerClassName="w-full"
+                />
+              </div>
 
-          {/* Signer */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Signer</span>
-            {signableSigners.length > 1 ? (
-              <Select
-                ariaLabel="Signing key"
-                value={txSigner?.id ?? ''}
-                onValueChange={selectSigner}
-                options={postChangeOwnerSigners.map((s) => ({
-                  value: s.id,
-                  label: `${s.label} (${KIND_LABEL[s.kind]})${
-                    ownerSigners.some((o) => o.id === s.id) ? '' : ' · pending'
-                  }`,
-                }))}
-                groups={
-                  sessionSigners.length > 0
-                    ? [
-                        {
-                          label: 'Session keys',
-                          options: sessionSigners.map((s) => ({
-                            value: s.id,
-                            label: `${s.label} (${KIND_LABEL[s.kind]}) · session`,
-                          })),
-                        },
-                      ]
-                    : []
-                }
-              />
-            ) : (
-              <span className="flex items-center gap-1.5 text-[14px] font-normal">
-                {txSigner?.label}
-                {txSigner ? <KindBadge kind={txSigner.kind} /> : null}
-              </span>
-            )}
-          </div>
+              {/* Signer */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Signer</span>
+                {signableSigners.length > 1 ? (
+                  <Select
+                    ariaLabel="Signing key"
+                    value={txSigner?.id ?? ''}
+                    onValueChange={selectSigner}
+                    options={postChangeOwnerSigners.map((s) => ({
+                      value: s.id,
+                      label: `${s.label} (${KIND_LABEL[s.kind]})${
+                        ownerSigners.some((o) => o.id === s.id) ? '' : ' · pending'
+                      }`,
+                    }))}
+                    groups={
+                      sessionSigners.length > 0
+                        ? [
+                            {
+                              label: 'Session keys',
+                              options: sessionSigners.map((s) => ({
+                                value: s.id,
+                                label: `${s.label} (${KIND_LABEL[s.kind]}) · session`,
+                              })),
+                            },
+                          ]
+                        : []
+                    }
+                  />
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[14px] font-normal">
+                    {txSigner?.label}
+                    {txSigner ? <KindBadge kind={txSigner.kind} /> : null}
+                  </span>
+                )}
+              </div>
 
-          {DEMO_CHAINS.length > 1 ? (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Network</span>
-              <Select
-                ariaLabel="Network"
-                value={networkShort}
-                onValueChange={setNetworkShort}
-                options={DEMO_CHAINS.map((c) => ({
-                  value: c.shortName,
-                  label: `${c.name} ${c.mode === 'eip8130-native' ? '· 8130' : '· 4337'}`,
-                }))}
-              />
-            </div>
-          ) : null}
+              {DEMO_CHAINS.length > 1 ? (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Network</span>
+                  <Select
+                    ariaLabel="Network"
+                    value={networkShort}
+                    onValueChange={setNetworkShort}
+                    options={DEMO_CHAINS.map((c) => ({
+                      value: c.shortName,
+                      label: `${c.name} ${c.mode === 'eip8130-native' ? '· 8130' : '· 4337'}`,
+                    }))}
+                  />
+                </div>
+              ) : null}
 
-          {/* Calls */}
-          <div className="rounded-lg border border-bds-gray-10 px-4 pb-4 pt-2 dark:border-white/10">
-            <CallsEditor
-              calls={calls}
-              callsAdvanced={callsAdvanced}
-              setCallsAdvanced={setCallsAdvanced}
-              setRow={setRow}
-              addEthRow={addEthRow}
-              addUsdvRow={addUsdvRow}
-              removeRow={removeRow}
-              usdvRecipientDrafts={usdvRecipientDrafts}
-              setUsdvRecipientDrafts={setUsdvRecipientDrafts}
-              usdvAmountDrafts={usdvAmountDrafts}
-              setUsdvAmountDrafts={setUsdvAmountDrafts}
-              callsValid={callsValid}
-              addRow={addRow}
-              copyRandomAddress={copyRandomAddress}
-              randCopied={copied === 'randaddr'}
-              addressBook={addressBook}
-            />
-          </div>
+              {/* Calls */}
+              <div className="rounded-lg border border-bds-gray-10 px-4 pb-4 pt-2 dark:border-white/10">
+                <CallsEditor
+                  calls={calls}
+                  callsAdvanced={callsAdvanced}
+                  setCallsAdvanced={setCallsAdvanced}
+                  setRow={setRow}
+                  addEthRow={addEthRow}
+                  addUsdvRow={addUsdvRow}
+                  removeRow={removeRow}
+                  usdvRecipientDrafts={usdvRecipientDrafts}
+                  setUsdvRecipientDrafts={setUsdvRecipientDrafts}
+                  usdvAmountDrafts={usdvAmountDrafts}
+                  setUsdvAmountDrafts={setUsdvAmountDrafts}
+                  callsValid={callsValid}
+                  addRow={addRow}
+                  copyRandomAddress={copyRandomAddress}
+                  randCopied={copied === 'randaddr'}
+                  addressBook={addressBook}
+                />
+              </div>
 
-          {/* Metadata */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Metadata</span>
-              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Top-Level · Signed</span>
-            </div>
-            <input
-              value={metaField}
-              spellCheck={false}
-              placeholder="Optional note / app data — e.g. invoice #4242"
-              onChange={(e) => setMetaField(e.target.value)}
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
-            />
-            {metadataHex ? (
-              <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                → <span className="font-sans">{short(metadataHex, 14, 8)}</span>
-              </p>
-            ) : null}
-          </div>
+              {/* Metadata */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Metadata</span>
+                  <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Top-Level · Signed</span>
+                </div>
+                <input
+                  value={metaField}
+                  spellCheck={false}
+                  placeholder="Optional note / app data — e.g. invoice #4242"
+                  onChange={(e) => setMetaField(e.target.value)}
+                  className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
+                />
+                {metadataHex ? (
+                  <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                    → <span className="font-sans">{short(metadataHex, 14, 8)}</span>
+                  </p>
+                ) : null}
+              </div>
 
-          {/* Gas */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Gas</span>
-            <Select
-              ariaLabel="Gas payment"
-              value={gasMode}
-              onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
-              options={
-                txIsSession
-                  ? [{ value: 'free', label: 'Sponsored (EIP-8168)' }]
-                  : [
-                      { value: 'eth', label: 'Pay in ETH' },
-                      { value: 'free', label: 'Sponsored (EIP-8168)' },
-                      { value: 'usdv', label: 'Pay in USDV (EIP-8168)' },
-                    ]
-              }
-            />
-            {txIsSession ? (
-              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                Session keys can only send sponsored transactions.
-              </span>
-            ) : null}
-          </div>
+              {/* Gas */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Gas</span>
+                <Select
+                  ariaLabel="Gas payment"
+                  value={gasMode}
+                  onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
+                  options={
+                    txIsSession
+                      ? [{ value: 'free', label: 'Sponsored (EIP-8168)' }]
+                      : [
+                          { value: 'eth', label: 'Pay in ETH' },
+                          { value: 'free', label: 'Sponsored (EIP-8168)' },
+                          { value: 'usdv', label: 'Pay in USDV (EIP-8168)' },
+                        ]
+                  }
+                />
+                {txIsSession ? (
+                  <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                    Session keys can only send sponsored transactions.
+                  </span>
+                ) : null}
+              </div>
             </>
-          )}
-        </Modal>
+          }
+        />
       </>
     );
   }
