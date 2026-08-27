@@ -105,6 +105,7 @@ export interface BlockTransaction {
   bundleId: string | null;
   index: number;
   meterBundleResponse: Record<string, unknown> | null;
+  inclusionLatencyMs: number | null;
 }
 
 export interface BlockData {

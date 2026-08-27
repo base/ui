@@ -10,7 +10,7 @@ import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import { CopyButton } from '../../components/CopyButton';
 import { EventHistoryRow } from '../../components/EventHistoryRow';
-import { ExplorerLink } from '../../components/ExplorerLink';
+import { PublicExplorerLinks } from '../../components/PublicExplorerLinks';
 import type { ExplorerChain } from '../../chains';
 import { EXPLORER_LABEL } from '../../flag';
 import { explorerApi, ExplorerApiError } from '../../library/client';
@@ -147,16 +147,12 @@ function ChainCard({
         />
         <StatCell label="Gas used" value={formatHexInteger(receipt?.gasUsed)} mono />
       </div>
-      <div className="border-t border-bds-gray-10 px-5 py-3 dark:border-white/10">
-        <ExplorerLink
-          chain={chain}
-          type="tx"
-          value={data.transaction.hash}
-          className="text-xs font-medium text-base-blue hover:underline dark:text-bds-blue-20"
-        >
-          View on block explorer ↗
-        </ExplorerLink>
-      </div>
+      <PublicExplorerLinks
+        chain={chain}
+        type="tx"
+        value={data.transaction.hash}
+        className="border-t border-bds-gray-10 px-5 py-3 dark:border-white/10"
+      />
     </Card>
   );
 }

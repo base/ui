@@ -9,13 +9,14 @@ import { cn } from '../../../components/ui/cn';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
+import { ActiveBlockButton } from '../../components/ActiveBlockButton';
 import { CopyButton } from '../../components/CopyButton';
 import { EventHistoryRow } from '../../components/EventHistoryRow';
-import { ExplorerLink } from '../../components/ExplorerLink';
+import { BlockscoutLink } from '../../components/BlockscoutLink';
 import type { ExplorerChain } from '../../chains';
 import { EXPLORER_LABEL } from '../../flag';
 import { explorerApi, ExplorerApiError } from '../../library/client';
-import { formatAge, formatGwei, formatInteger } from '../../library/explorer-format';
+import { formatAge, formatGwei, formatInteger, formatLatency } from '../../library/explorer-format';
 import { shortHash } from '../../library/format';
 import { explorerHref } from '../../library/links';
 import type {
@@ -56,12 +57,13 @@ function TransactionRow({
   tx,
   chain,
   maxTotalTime,
+  showLatency,
 }: {
   tx: BlockDetailTransaction;
   chain: ExplorerChain;
   maxTotalTime: number;
+  showLatency: boolean;
 }) {
-  const hasBundle = tx.bundleId !== null;
   const execTime = executionTimeUs(tx);
   const srTime = stateRootTimeUs(tx);
   const hasMetering = execTime !== null;
@@ -69,20 +71,18 @@ function TransactionRow({
   const txGasUsed = gasUsed(tx);
   const gasLimit = Number(tx.gasLimit);
 
-  const content = (
-    <div
-      className={cn(
-        'flex items-center gap-4 px-4 py-3 transition-colors hover:bg-bds-gray-5/60 dark:hover:bg-white/5',
-        hasBundle && 'cursor-pointer',
-      )}
+  return (
+    <Link
+      href={explorerHref(`/txn/${tx.hash}`, chain)}
+      className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-bds-gray-5/60 dark:hover:bg-white/5"
     >
       <div className="w-8 shrink-0 text-center text-xs font-medium text-bds-gray-60 dark:text-bds-gray-40">
         {tx.index}
       </div>
       <div className="min-w-0 flex-1">
-        <ExplorerLink chain={chain} type="tx" value={tx.hash} className="break-all font-mono text-sm">
+        <div className="break-all font-mono text-sm text-base-blue hover:underline dark:text-bds-blue-20">
           {tx.hash}
-        </ExplorerLink>
+        </div>
         <div className="mt-0.5 text-xs text-bds-gray-60 dark:text-bds-gray-40">
           {tx.from.slice(0, 6)}…{tx.from.slice(-4)}
           {tx.to ? (
@@ -93,6 +93,17 @@ function TransactionRow({
           ) : null}
         </div>
       </div>
+      {showLatency ? (
+        <div className="w-24 shrink-0 text-right">
+          {tx.inclusionLatencyMs != null ? (
+            <div className="text-sm font-medium tabular-nums text-black dark:text-white">
+              {formatLatency(tx.inclusionLatencyMs)}
+            </div>
+          ) : (
+            <div className="text-sm font-medium text-bds-gray-40">—</div>
+          )}
+        </div>
+      ) : null}
       <div className="shrink-0 text-right">
         {hasMetering ? (
           <span className={cn('inline-block rounded px-2 py-0.5 text-sm font-medium', heatmapClass(totalTime, maxTotalTime))}>
@@ -107,13 +118,8 @@ function TransactionRow({
             : `${gasLimit.toLocaleString()} gas limit`}
         </div>
       </div>
-    </div>
+    </Link>
   );
-
-  if (hasBundle) {
-    return <Link href={explorerHref(`/bundles/${tx.bundleId}`, chain)}>{content}</Link>;
-  }
-  return content;
 }
 
 function StatCell({ label, value }: { label: string; value: string }) {
@@ -288,6 +294,7 @@ function BlockToolbar({
             >
               Next →
             </Link>
+            <ActiveBlockButton chain={chain} before={blockNumber} />
           </>
         ) : null}
       </div>
@@ -296,9 +303,9 @@ function BlockToolbar({
           {shortHash(displayHash)}
         </code>
         <CopyButton text={displayHash} />
-        <ExplorerLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
+        <BlockscoutLink chain={chain} type="block" value={displayHash} className="rounded-md p-1.5 text-bds-gray-50 hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10 dark:hover:text-white">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <title>View on block explorer</title>
+            <title>View on Blockscout</title>
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -306,7 +313,7 @@ function BlockToolbar({
               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
             />
           </svg>
-        </ExplorerLink>
+        </BlockscoutLink>
       </div>
     </div>
   );
@@ -391,6 +398,7 @@ function BlockContent({ params }: PageProps) {
           .map((tx) => (executionTimeUs(tx) ?? 0) + (stateRootTimeUs(tx) ?? 0)),
       )
     : 0;
+  const showLatency = data ? data.transactions.some((tx) => tx.inclusionLatencyMs != null) : false;
 
   return (
     <div className="animate-in flex flex-col gap-6">
@@ -427,12 +435,19 @@ function BlockContent({ params }: PageProps) {
               <div className="flex items-center gap-4 border-b border-bds-gray-10 bg-bds-gray-5/60 px-4 py-2 text-xs font-medium text-bds-gray-60 dark:border-white/10 dark:bg-white/[0.03] dark:text-bds-gray-40">
                 <div className="w-8 text-center">#</div>
                 <div className="flex-1">Transaction</div>
+                {showLatency ? <div className="w-24 text-right">Latency</div> : null}
                 <div className="text-right">Execution</div>
               </div>
               {data.transactions.length > 0 ? (
                 <div className="divide-y divide-bds-gray-10 dark:divide-white/10">
                   {data.transactions.map((tx) => (
-                    <TransactionRow key={tx.hash} tx={tx} chain={chain} maxTotalTime={maxTotalTime} />
+                    <TransactionRow
+                      key={tx.hash}
+                      tx={tx}
+                      chain={chain}
+                      maxTotalTime={maxTotalTime}
+                      showLatency={showLatency}
+                    />
                   ))}
                 </div>
               ) : (

@@ -65,3 +65,7 @@ export function trackB20PromptCopy(module: string, prompt: string): void {
 export function trackExplorerChainSelect(chain: string): void {
   track('explorer_chain_select', { chain });
 }
+
+export function trackExplorerActiveBlockJump(chain: string, jump: 'latest' | 'previous'): void {
+  track('explorer_active_block_jump', { chain, jump });
+}

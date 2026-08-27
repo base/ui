@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 import { cn } from '../../components/ui/cn';
 import type { ExplorerChain } from '../chains';
+import { formatLatency } from '../library/explorer-format';
 import { explorerHref } from '../library/links';
 import type { BundleEvent } from '../library/types';
 
@@ -47,13 +48,6 @@ function metadataChips(event: BundleEvent): string[] {
     event.data.target ? `target: ${event.data.target}` : null,
     event.data.reason ? `reason: ${event.data.reason}` : null,
   ].filter((value): value is string => value !== null);
-}
-
-function formatLatency(milliseconds: number): string {
-  if (milliseconds < 1000) {
-    return `${Math.round(milliseconds)} ms`;
-  }
-  return `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
 function BlockFlashblockContext({ event, chain }: { event: BundleEvent; chain: ExplorerChain }) {
