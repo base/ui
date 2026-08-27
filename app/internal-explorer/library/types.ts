@@ -19,6 +19,7 @@ export type {
   RejectionReason,
 } from '../../api/internal-explorer/s3';
 export type { BlocksPage, BlockSummary, BlocksResponse } from '../../api/internal-explorer/blocks/route';
+export type { LatestActiveBlockResponse } from '../../api/internal-explorer/blocks/latest-active/route';
 export type { TransactionListItem, TransactionsResponse } from '../../api/internal-explorer/txs/route';
 export type { RejectedTransactionsResponse } from '../../api/internal-explorer/rejected/route';
 export type { BundleHistoryResponse } from '../../api/internal-explorer/bundle/[hash]/route';

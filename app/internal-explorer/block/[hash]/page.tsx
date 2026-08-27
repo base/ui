@@ -9,6 +9,7 @@ import { cn } from '../../../components/ui/cn';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
+import { ActiveBlockButton } from '../../components/ActiveBlockButton';
 import { CopyButton } from '../../components/CopyButton';
 import { EventHistoryRow } from '../../components/EventHistoryRow';
 import { ExplorerLink } from '../../components/ExplorerLink';
@@ -293,6 +294,7 @@ function BlockToolbar({
             >
               Next →
             </Link>
+            <ActiveBlockButton chain={chain} before={blockNumber} />
           </>
         ) : null}
       </div>

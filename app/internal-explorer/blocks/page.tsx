@@ -9,6 +9,7 @@ import { Spinner } from '../../components/ui/Spinner';
 import { Text } from '../../components/ui/Text';
 import { BlockTable } from '../components/ExplorerTables';
 import { ExplorerNav } from '../components/ExplorerNav';
+import { ActiveBlockButton } from '../components/ActiveBlockButton';
 import { explorerApi } from '../library/client';
 import { formatInteger } from '../library/explorer-format';
 import { explorerHref } from '../library/links';
@@ -89,14 +90,17 @@ function BlocksContent() {
             Browse recent Base blocks and their execution limits.
           </Text>
         </div>
-        {cursor !== undefined ? (
-          <Link
-            href={explorerHref('/blocks', chain)}
-            className="shrink-0 text-sm text-base-blue hover:underline dark:text-bds-blue-20"
-          >
-            Latest blocks
-          </Link>
-        ) : null}
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+          <ActiveBlockButton chain={chain} onError={setError} />
+          {cursor !== undefined ? (
+            <Link
+              href={explorerHref('/blocks', chain)}
+              className="text-sm text-base-blue hover:underline dark:text-bds-blue-20"
+            >
+              Latest blocks
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <label className="inline-flex cursor-pointer select-none items-center gap-2 self-end text-sm text-bds-gray-60 dark:text-bds-gray-40">

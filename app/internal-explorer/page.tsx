@@ -14,6 +14,7 @@ import { Spinner } from '../components/ui/Spinner';
 import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 import { ChainToggle } from './components/ChainToggle';
+import { ActiveBlockButton } from './components/ActiveBlockButton';
 import { MeteringCard } from './components/MeteringCard';
 import type { ExplorerChain } from './chains';
 import { explorerApi } from './library/client';
@@ -202,7 +203,13 @@ function BlockRow({
   );
 }
 
-function BlocksTab({ chain }: { chain: ExplorerChain }) {
+function BlocksTab({
+  chain,
+  onError,
+}: {
+  chain: ExplorerChain;
+  onError: (error: string | null) => void;
+}) {
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [showShadowDelta, setShowShadowDelta] = useState(false);
@@ -258,15 +265,18 @@ function BlocksTab({ chain }: { chain: ExplorerChain }) {
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Text variant="headline">Latest Blocks</Text>
-        <label className="inline-flex cursor-pointer select-none items-center gap-2 text-sm text-bds-gray-60 dark:text-bds-gray-40">
-          <input
-            type="checkbox"
-            checked={showShadowDelta}
-            onChange={(event) => setShowShadowDelta(event.target.checked)}
-            className="h-4 w-4 accent-base-blue"
-          />
-          Show shadow Δ
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <ActiveBlockButton chain={chain} onError={onError} />
+          <label className="inline-flex cursor-pointer select-none items-center gap-2 text-sm text-bds-gray-60 dark:text-bds-gray-40">
+            <input
+              type="checkbox"
+              checked={showShadowDelta}
+              onChange={(event) => setShowShadowDelta(event.target.checked)}
+              className="h-4 w-4 accent-base-blue"
+            />
+            Show shadow Δ
+          </label>
+        </div>
       </div>
       <Card className="overflow-hidden bg-background dark:bg-white/5">
         {loading && blocks.length === 0 ? (
@@ -652,7 +662,11 @@ function ExplorerDashboard() {
         </div>
       ) : null}
 
-      {activeTab === 'blocks' ? <BlocksTab chain={chain} /> : <RejectedTransactionsTab chain={chain} />}
+      {activeTab === 'blocks' ? (
+        <BlocksTab chain={chain} onError={setError} />
+      ) : (
+        <RejectedTransactionsTab chain={chain} />
+      )}
     </div>
   );
 }

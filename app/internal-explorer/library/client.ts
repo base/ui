@@ -8,6 +8,7 @@ import type { ExplorerChain } from '../chains';
 import type {
   BlockDetailResponse,
   BlocksResponse,
+  LatestActiveBlockResponse,
   BundleHistoryResponse,
   RejectedTransactionsResponse,
   ShadowBlockDetail,
@@ -69,6 +70,16 @@ export const explorerApi = {
   ) =>
     get<BlocksResponse>(
       withQuery('/api/internal-explorer/blocks', { cursor: options?.cursor, limit: options?.limit }),
+      chain,
+      signal,
+    ),
+  latestActiveBlock: (
+    chain: ExplorerChain,
+    options?: { before?: number },
+    signal?: AbortSignal,
+  ) =>
+    get<LatestActiveBlockResponse>(
+      withQuery('/api/internal-explorer/blocks/latest-active', { before: options?.before }),
       chain,
       signal,
     ),
