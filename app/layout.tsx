@@ -92,10 +92,10 @@ export default function RootLayout({ children }: PropsWithChildren) {
       suppressHydrationWarning
     >
       <head>
-        {/* Applies the stored (or system) theme before first paint. Anything
-            later — even a layout effect — lands after the browser has already
-            painted the light spectrum, which reads as a white flash. The body
-            is a build-time constant with no interpolation, so nothing
+        {/* Applies the stored theme before first paint. Anything later — even
+            a layout effect — lands after the browser has already painted the
+            light spectrum, which reads as a white flash. The body is a
+            build-time constant with no interpolation, so nothing
             user-controlled can reach it. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

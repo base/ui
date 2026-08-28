@@ -8,7 +8,7 @@ import { AnimatePresence, easeOut, motion, useMotionTemplate, useMotionValue, us
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
-import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
+import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { demoLabel } from '../vibenet/demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
@@ -154,11 +154,12 @@ const styles: Record<string, CSSProperties> = {
     width: 16,
     height: 16,
     borderRadius: '50%',
-    // Reads against both the grey off-track and the blue on-track.
+    // Reads against both the grey off-track and the blue on-track. On-state
+    // color and travel are Tailwind `dark:` variants on the thumb, keyed off
+    // `html[data-theme]` — React state lags a frame behind the pre-paint
+    // script, and driving those here flashes the switch on reload.
     background: 'var(--bds-gray-0)',
-    color: 'var(--bds-gray-50)',
   },
-  switchThumbOn: { transform: 'translateX(14px)', color: BRAND_BLUE },
   main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
   // Grow on short pages so the activity drawer can sit at the bottom; don't
   // shrink, or tall pages compress instead of letting the document scroll.
@@ -375,9 +376,15 @@ const SIDEBAR_FOOTER_LINK =
 const SIDEBAR_FOOTER_LINK_LABEL =
   'inline-flex items-center gap-2.5 rounded-sm group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue';
 
+// Track and thumb. Shared with the `:not(...)` list in disableAnimation so the
+// page-wide no-transition stamp cannot override the 180ms slide.
+const THEME_SWITCH_ANIM = 'theme-switch-anim';
+
 // Rides inside the switch thumb. Stroke is heavier than the nav glyphs' 1.8
-// because at 10px that weight all but disappears.
-function ThemeIcon({ dark }: { dark: boolean }) {
+// because at 10px that weight all but disappears. Both glyphs are in the
+// tree so `dark:` (html[data-theme]) can pick the right one on first paint,
+// before React hydrates the stored preference.
+function ThemeIcon() {
   const common = {
     width: 10,
     height: 10,
@@ -388,15 +395,16 @@ function ThemeIcon({ dark }: { dark: boolean }) {
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
   };
-  return dark ? (
-    <svg {...common}>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-    </svg>
-  ) : (
-    <svg {...common}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
-    </svg>
+  return (
+    <>
+      <svg {...common} className="dark:hidden">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+      </svg>
+      <svg {...common} className="hidden dark:block">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+      </svg>
+    </>
   );
 }
 
@@ -624,14 +632,14 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
           >
             <span
               aria-hidden
-              className="bg-bds-gray-50 transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-bds-gray-70 group-aria-checked:bg-brand-blue group-aria-checked:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue"
+              className={`${THEME_SWITCH_ANIM} bg-bds-gray-50 transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-bds-gray-70 dark:bg-brand-blue dark:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue`}
               style={styles.switchTrack}
             >
               <span
-                className="transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none"
-                style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
+                className={`${THEME_SWITCH_ANIM} text-bds-gray-50 transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none dark:translate-x-[14px] dark:text-brand-blue`}
+                style={styles.switchThumb}
               >
-                <ThemeIcon dark={dark} />
+                <ThemeIcon />
               </span>
             </span>
           </button>
@@ -701,12 +709,13 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
 // next-themes `disableTransitionOnChange`: stamp a global `transition: none`
 // rule, apply the theme, force a restyle, then drop the rule on the next tick
 // so color tokens don't animate through every `transition-colors` on the page.
+// The switch is excluded: its motion is the control, not a side effect.
 // https://github.com/pacocoursey/next-themes/blob/main/next-themes/src/index.tsx
 function disableAnimation() {
   const css = document.createElement('style');
   css.appendChild(
     document.createTextNode(
-      `*,*::before,*::after{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}`,
+      `*:not(.${THEME_SWITCH_ANIM}),*:not(.${THEME_SWITCH_ANIM})::before,*:not(.${THEME_SWITCH_ANIM})::after{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}`,
     ),
   );
   document.head.appendChild(css);
@@ -729,8 +738,9 @@ export function AppShell({ children }: PropsWithChildren) {
   const sidebarHeight = useMotionTemplate`calc(100dvh - ${bannerHeight})`;
   const [menuOpen, setMenuOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  // Starts false on both server and client so the first render matches; the
-  // effect below reads the attribute the pre-paint script in layout.tsx set.
+  // aria-checked only. The switch's look is CSS against html[data-theme],
+  // which the pre-paint script already set — this state starts false so SSR
+  // and the first client render match, then catches up after mount.
   const [dark, setDark] = useState(false);
   // Stays false through mount and the hydration sync below so we don't overwrite
   // the pre-paint script with the SSR default (`dark` starts false).
@@ -740,8 +750,9 @@ export function AppShell({ children }: PropsWithChildren) {
     setDark(document.documentElement.dataset.theme === 'dark');
   }, []);
 
-  // Lock transitions before React commits so the attribute swap and the switch
-  // re-render share one no-transition frame (next-themes disableTransitionOnChange).
+  // Lock page transitions before React commits so color tokens don't tween
+  // (next-themes disableTransitionOnChange). The switch is opted out of that
+  // stamp and keeps its 180ms slide.
   useInsertionEffect(() => {
     if (!applyTheme.current) return;
     const next = dark ? 'dark' : 'light';
@@ -759,7 +770,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
   const toggleTheme = () => {
     applyTheme.current = true;
-    setDark((prev) => !prev);
+    setDark(document.documentElement.dataset.theme !== 'dark');
   };
 
   return (
