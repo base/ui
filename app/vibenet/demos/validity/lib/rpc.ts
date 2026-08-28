@@ -1,7 +1,7 @@
 import {
   createPublicClient,
   createWalletClient,
-  http,
+  custom,
   type Account,
   type Chain,
   type Hex,
@@ -12,7 +12,37 @@ import {
 import { RPC_PATH, STATUS_PATH } from './constants';
 import type { ChainStatus, ValidityPredicate } from './types';
 
-export const PROXY_TRANSPORT = http(RPC_PATH);
+export type RpcSend = (method: string, params: unknown[]) => Promise<unknown>;
+
+const WRITE_METHODS = new Set([
+  'eth_sendRawTransaction',
+  'eth_sendRawTransactionSync',
+  'base_sendRawTransactionValidity',
+]);
+
+async function proxyRpc(method: string, params: unknown[]): Promise<unknown> {
+  const response = await fetch(RPC_PATH, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const body = (await response.json()) as { result?: unknown; error?: { message?: string } };
+  if (body.error?.message) throw new Error(body.error.message);
+  return body.result;
+}
+
+function eip1193(getSend?: () => RpcSend | null) {
+  return {
+    request: async ({ method, params }: { method: string; params?: unknown }) => {
+      const args = Array.isArray(params) ? params : [];
+      if (!WRITE_METHODS.has(method)) {
+        const send = getSend?.();
+        if (send) return send(method, args);
+      }
+      return proxyRpc(method, args);
+    },
+  };
+}
 
 export function chainFromId(id: number): Chain {
   const name =
@@ -25,12 +55,12 @@ export function chainFromId(id: number): Chain {
   };
 }
 
-export function makePublicClient(chain: Chain): PublicClient {
-  return createPublicClient({ chain, transport: PROXY_TRANSPORT, cacheTime: 0 });
+export function makePublicClient(chain: Chain, getSend?: () => RpcSend | null): PublicClient {
+  return createPublicClient({ chain, transport: custom(eip1193(getSend)), cacheTime: 0 });
 }
 
 export function makeWalletClient(chain: Chain, account: Account): WalletClient {
-  return createWalletClient({ chain, account, transport: PROXY_TRANSPORT });
+  return createWalletClient({ chain, account, transport: custom(eip1193()) });
 }
 
 export async function fetchChainStatus(): Promise<ChainStatus> {
@@ -72,22 +102,10 @@ export function describeValidityError(err: unknown): string {
 }
 
 export async function sendValidityTransaction(
-  _client: PublicClient,
   tx: Hex,
   validity: ValidityPredicate[],
 ): Promise<Hex> {
-  const response = await fetch(RPC_PATH, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'base_sendRawTransactionValidity',
-      params: [{ tx, validity }],
-    }),
-  });
-  const body = (await response.json()) as { result?: Hex; error?: { message?: string } };
-  if (body.error?.message) throw new Error(body.error.message);
-  if (!body.result) throw new Error('Validity submit returned no hash.');
-  return body.result;
+  const result = await proxyRpc('base_sendRawTransactionValidity', [{ tx, validity }]);
+  if (typeof result === 'string' && result.startsWith('0x')) return result as Hex;
+  throw new Error('Validity submit returned no hash.');
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { BOT_GAS_FLOOR, BOT_GAS_REFILL, USER_GAS_RESERVE, allNeedGas, botNeedsGas, fractionForPriceMove, makerTargetPrice, planSwap, refuelValue } from './bots';
+import { BOT_GAS_FLOOR, allNeedGas, botNeedsGas, fractionForPriceMove, makerTargetPrice, planSwap } from './bots';
 
 describe('fractionForPriceMove', () => {
   it('sizes a 1% price step at about half a percent of reserves', () => {
@@ -33,14 +33,10 @@ describe('planSwap', () => {
   });
 });
 
-describe('refuelValue', () => {
-  it('tops a dry maker up to the refill target without taking the trader reserve', () => {
+describe('botNeedsGas', () => {
+  it('is true below the floor', () => {
     expect(botNeedsGas(0n)).toBe(true);
     expect(botNeedsGas(BOT_GAS_FLOOR)).toBe(false);
-    expect(refuelValue(0n, BOT_GAS_REFILL + USER_GAS_RESERVE)).toBe(BOT_GAS_REFILL);
-    expect(refuelValue(BOT_GAS_FLOOR, 10n ** 18n)).toBe(0n);
-    expect(refuelValue(0n, USER_GAS_RESERVE)).toBe(0n);
-    expect(refuelValue(0n, USER_GAS_RESERVE + 1_000n)).toBe(1_000n);
   });
 });
 

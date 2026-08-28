@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Account, Hex, PublicClient, WalletClient } from 'viem';
-import { formatEther } from 'viem';
+import { formatEther, parseEther, type Hex, type PublicClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import { trackValidityOrder } from '../../../analytics/events';
 import { Button } from '../../../components/ui/Button';
@@ -10,7 +10,12 @@ import { Card } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
 import { Text } from '../../../components/ui/Text';
 import { CopyableValue } from '../../components/CopyableValue';
+import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { DemoHeader } from '../_components/DemoHeader';
+import { newCallRow } from '../account/library/calls';
+import type { StoredAccount } from '../account/library/model';
+import { ActivityLog } from '../account/components/ActivityLog';
+import { AccountEngineProvider, useAccountEngine } from '../account/useAccountEngine';
 import { OrderList } from './components/OrderList';
 import { OrderTicket } from './components/OrderTicket';
 import { PriceCandles, type FillMark, type PriceLevel, type PriceSample } from './components/PriceCandles';
@@ -19,16 +24,19 @@ import { ValidityJson } from './components/ValidityJson';
 import {
   amountOutAtLimit,
   deployAmm,
+  encodeApprove,
   encodeHelperSwap,
+  fillQuoteFromPairLogs,
   fillQuoteFromSwapReceipt,
   getReserves,
-  signCall,
+  reservesFromSyncLog,
   tokenBalance,
 } from './lib/amm';
-import { clampNoncelessExpiry, signNoncelessCall } from './lib/aa';
-import { startBots, allNeedGas, botNeedsGas, refuelValue } from './lib/bots';
-import { BLOCK_MS, MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS } from './lib/constants';
-import { faucetErrorMessage, seedEthFromFaucet } from './lib/faucet';
+import { clampNoncelessExpiry, noncelessFields } from './lib/aa';
+import { startBots, allNeedGas } from './lib/bots';
+import { MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS } from './lib/constants';
+import { faucetErrorMessage } from './lib/faucet';
+import { ensureMakers, rootAccount } from './lib/makers';
 import {
   maxBlockForExpiry,
   occupyingOrder,
@@ -37,8 +45,8 @@ import {
   restingOrderToReplace,
   tapeCrossedAt,
 } from './lib/orders';
-import { bumpReplacementFees, isReplacementUnderpriced, padFees } from './lib/fees';
-import { applyOffsetBps, blockExpiryPredicate, formatPrice, priceValidity, spotPastTarget } from './lib/predicates';
+import { bumpReplacementFees, feesFromHead, isReplacementUnderpriced, padFees } from './lib/fees';
+import { applyOffsetBps, blockExpiryPredicate, formatPrice, priceValidity } from './lib/predicates';
 import {
   ammPriceFromQuote,
   ammSide,
@@ -55,14 +63,19 @@ import {
   makePublicClient,
   makeWalletClient,
   sendValidityTransaction,
+  type RpcSend,
 } from './lib/rpc';
-import { accountsFrom, createState, dropDeployment, loadState, saveState, type StoredState } from './lib/store';
+import { connectJsonRpcStream, headNumber, type StreamHead, type StreamLog } from './lib/stream';
+import { createState, dropDeployment, loadState, saveState, type StoredState } from './lib/store';
 import type { ChainStatus, PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/types';
 
-const POLL_MS = BLOCK_MS;
-/** Denim heads are 200ms. viem's default 4s block cache would skip dozens. */
-const BLOCK_POLL_MS = BLOCK_MS;
+/** HTTP fallback when the read host has no `/ws`. Submit is always HTTP.
+ *  The socket carries heads, pair logs, and remaining reads (balances, receipts). */
+const SYNC_MS = 1_000;
+const BALANCE_MS = 5_000;
 const DEFAULT_SIZE_FRACTION = 50n; // 1/50 of inventory
+const OWNER_DEPLOY_GAS = parseEther('0.05');
+const OWNER_DEPLOY_SEND = '0.06';
 
 function wadToNumber(wad: bigint): number {
   return Number(wad) / 1e18;
@@ -73,6 +86,17 @@ function newId(): string {
 }
 
 export function ValidityDemo() {
+  return (
+    <AccountEngineProvider>
+      <ValidityDemoInner />
+    </AccountEngineProvider>
+  );
+}
+
+function ValidityDemoInner() {
+  const engine = useAccountEngine();
+  const acct = engine.acct;
+
   const [status, setStatus] = useState<ChainStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [state, setState] = useState<StoredState | null>(null);
@@ -94,17 +118,20 @@ export function ValidityDemo() {
   const [makerError, setMakerError] = useState<string | null>(null);
   const [makersDry, setMakersDry] = useState(false);
   const [blockNumber, setBlockNumber] = useState<bigint | null>(null);
+  const [streamLive, setStreamLive] = useState(false);
 
   const publicRef = useRef<PublicClient | null>(null);
-  const userWalletRef = useRef<WalletClient | null>(null);
-  const userAccountRef = useRef<Account | null>(null);
+  const rpcSendRef = useRef<RpcSend | null>(null);
+  const headFeesRef = useRef<ReturnType<typeof feesFromHead>>(null);
+  const makerNonceRef = useRef<(bigint | null)[]>([]);
+  const engineRef = useRef(engine);
+  engineRef.current = engine;
   const botsEnabledRef = useRef(true);
   botsEnabledRef.current = botsOn;
-  const busyRef = useRef(false);
-  busyRef.current = busy;
-  const refuelInFlightRef = useRef(false);
   const lastMakerPriceAtRef = useRef(0);
-  const autoFaucetRef = useRef(false);
+  const makersRef = useRef<StoredAccount[]>([]);
+  const makerEthRef = useRef<(bigint | null)[]>([]);
+  const makerTokenRef = useRef<Record<string, bigint>>({});
 
   const ordersRef = useRef<PlacedOrder[]>([]);
   ordersRef.current = orders;
@@ -112,6 +139,8 @@ export function ValidityDemo() {
   reservesRef.current = reserves;
   const samplesRef = useRef<PriceSample[]>([]);
   samplesRef.current = samples;
+  const stateRef = useRef<StoredState | null>(null);
+  stateRef.current = state;
 
   const persist = useCallback((next: StoredState) => {
     saveState(next);
@@ -125,6 +154,29 @@ export function ValidityDemo() {
       return next.length > 500 ? next.slice(-500) : next;
     });
   }, []);
+
+  const parent = useMemo(
+    () => (acct ? rootAccount(acct, engine.accounts) : null),
+    [acct, engine.accounts],
+  );
+
+  const makers = useMemo(() => {
+    if (!parent) return [] as StoredAccount[];
+    const ids = state?.makerAccountIds;
+    const resolved = (ids ?? [])
+      .map((id) => engine.accounts.find((item) => item.id === id))
+      .filter((item): item is StoredAccount => Boolean(item));
+    if (resolved.length === 2) return resolved;
+    return engine.accounts.filter((item) => item.parentId === parent.id && item.label.startsWith('Validity maker'));
+  }, [engine.accounts, parent, state?.makerAccountIds]);
+  makersRef.current = makers;
+
+  const poolForThisAccount = Boolean(
+    state?.deployment &&
+      (!state.accountId ||
+        parent?.id === state.accountId ||
+        (acct && state.makerAccountIds?.includes(acct.id))),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -143,8 +195,7 @@ export function ValidityDemo() {
           const created = createState(next.chainId, next.genesisHash);
           persist(created);
         }
-        const chain = chainFromId(next.chainId);
-        publicRef.current = makePublicClient(chain);
+        publicRef.current = makePublicClient(chainFromId(next.chainId), () => rpcSendRef.current);
       })
       .catch((err: unknown) => {
         if (!cancelled) setStatusError(err instanceof Error ? err.message : 'Could not reach the validity RPC proxy.');
@@ -157,287 +208,304 @@ export function ValidityDemo() {
     };
   }, [persist]);
 
-  const accounts = useMemo(() => (state ? accountsFrom(state) : null), [state]);
-
   useEffect(() => {
-    if (!status?.chainId || !accounts) return;
-    const chain = chainFromId(status.chainId);
-    publicRef.current = makePublicClient(chain);
-    userAccountRef.current = accounts.user;
-    userWalletRef.current = makeWalletClient(chain, accounts.user);
-  }, [accounts, status?.chainId]);
+    if (!status?.chainId) return;
+    publicRef.current = makePublicClient(chainFromId(status.chainId), () => rpcSendRef.current);
+  }, [status?.chainId]);
 
-  const refreshBalances = useCallback(async () => {
-    const client = publicRef.current;
-    const account = userAccountRef.current;
-    if (!client || !account) return;
-    const [eth, latestReserves] = await Promise.all([
-      client.getBalance({ address: account.address }),
-      state?.deployment ? getReserves(client, state.deployment.pair).catch(() => null) : Promise.resolve(null),
-    ]);
-    setEthBalance(eth);
-    if (latestReserves && state?.deployment) {
-      setReserves(latestReserves);
-      const quote = quoteWad(latestReserves.reserve0, latestReserves.reserve1, vibeIsToken0(state.deployment));
-      pushSample(Number(quote) / 1e18);
-    }
-  }, [pushSample, state?.deployment]);
-
-  useEffect(() => {
-    if (!hydrated || !accounts) return;
-    void refreshBalances().catch(() => {});
-    const id = window.setInterval(() => {
-      void refreshBalances().catch(() => {});
-    }, POLL_MS);
-    return () => window.clearInterval(id);
-  }, [accounts, hydrated, refreshBalances]);
-
-  const refuelBots = useCallback(async (): Promise<boolean> => {
-    const publicClient = publicRef.current;
-    const wallet = userWalletRef.current;
-    const account = userAccountRef.current;
-    if (!publicClient || !accounts || busyRef.current || refuelInFlightRef.current) return true;
-    refuelInFlightRef.current = true;
-    let needed = false;
-    let refilled = false;
-    try {
-      let userBal = await publicClient.getBalance({ address: accounts.user.address });
-      for (const bot of accounts.bots) {
-        const bal = await publicClient.getBalance({ address: bot.address });
-        if (!botNeedsGas(bal)) continue;
-        needed = true;
-        const value = refuelValue(bal, userBal);
-        if (value === 0n || !wallet || !account) continue;
-        await wallet.sendTransaction({
-          account,
-          chain: wallet.chain,
-          to: bot.address,
-          value,
-        });
-        userBal -= value;
-        refilled = true;
-      }
-    } finally {
-      refuelInFlightRef.current = false;
-    }
-    return !needed || refilled;
-  }, [accounts]);
-
-  useEffect(() => {
-    if (!hydrated || !accounts || !state?.deployment) return;
-    const id = window.setInterval(() => {
-      void refuelBots();
-    }, 8_000);
-    return () => window.clearInterval(id);
-  }, [accounts, hydrated, refuelBots, state?.deployment]);
-
-  useEffect(() => {
-    if (!hydrated || !status?.chainId) return;
-    let cancelled = false;
-    let inFlight = false;
-    const tick = async () => {
-      const client = publicRef.current;
-      if (!client || inFlight) return;
-      inFlight = true;
-      try {
-        const block = await client.getBlockNumber({ cacheTime: 0 });
-        if (!cancelled) setBlockNumber((prev) => (prev === block ? prev : block));
-      } catch {
-        // keep the last block we saw
-      } finally {
-        inFlight = false;
-      }
-    };
-    void tick();
-    const id = window.setInterval(() => {
-      void tick();
-    }, BLOCK_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, [hydrated, status?.chainId]);
-
-  useEffect(() => {
-    if (!status?.chainId || !state?.deployment || !accounts) return;
-    const chain = chainFromId(status.chainId);
-    const publicClient = makePublicClient(chain);
-    const wallets = accounts.bots.map((bot) => makeWalletClient(chain, bot));
-    const stop = startBots({
-      publicClient,
-      wallets,
-      accounts: [...accounts.bots],
-      deployment: state.deployment,
-      enabled: () => botsEnabledRef.current,
-      onPrice: (price) => {
-        lastMakerPriceAtRef.current = Date.now();
-        pushSample(price);
-        setMakerError(null);
-        setMakersDry(false);
-      },
-      onError: setMakerError,
-      onGasLow: () => {
-        void (async () => {
-          const ok = await refuelBots();
-          if (Date.now() - lastMakerPriceAtRef.current < 2_500) return;
-          const client = publicRef.current;
-          if (!client || !accounts) return;
-          const balances = await Promise.all(
-            accounts.bots.map((bot) => client.getBalance({ address: bot.address })),
-          );
-          if (!allNeedGas(balances)) return;
-          setMakersDry(true);
-          if (!ok) setMakerError('need ETH');
-        })();
-      },
+  const patchOrders = useCallback((patch: (order: PlacedOrder) => PlacedOrder) => {
+    let changed = false;
+    const next = ordersRef.current.map((order) => {
+      const updated = patch(order);
+      if (updated !== order) changed = true;
+      return updated;
     });
-    return stop;
-  }, [accounts, pushSample, refuelBots, state?.deployment, status?.chainId]);
+    if (!changed) return;
+    ordersRef.current = next;
+    setOrders(next);
+  }, []);
 
-  // Watch pending orders for inclusion / expiry. Refs so reserve polling cannot
-  // reset the interval before it ever fires. Wall-clock expiry does not wait on RPC.
+  const expireOrders = useCallback(
+    (block: bigint | null) => {
+      const now = Date.now();
+      const wallExpired = ordersRef.current.filter((order) => orderWallClockExpired(order, now));
+      if (wallExpired.length > 0) {
+        const ids = new Set(wallExpired.map((order) => order.id));
+        patchOrders((item) =>
+          ids.has(item.id) && item.status === 'pending' ? { ...item, status: 'expired' } : item,
+        );
+        for (const order of wallExpired) trackValidityOrder(order.side, 'expired');
+      }
+      if (block === null) return;
+      const blockExpired = ordersRef.current.filter((order) => orderBlockExpired(order, block));
+      if (blockExpired.length === 0) return;
+      const ids = new Set(blockExpired.map((order) => order.id));
+      patchOrders((item) =>
+        ids.has(item.id) && item.status === 'pending' ? { ...item, status: 'expired' } : item,
+      );
+      for (const order of blockExpired) trackValidityOrder(order.side, 'expired');
+    },
+    [patchOrders],
+  );
+
+  const markOrderLanded = useCallback(
+    (txHash: Hex, filled: boolean, fillPriceWad?: bigint) => {
+      const wanted = txHash.toLowerCase();
+      const order = ordersRef.current.find((item) => item.txHash?.toLowerCase() === wanted);
+      if (!order || (order.status !== 'pending' && order.status !== 'expired')) return;
+      const target = wadToNumber(order.targetPriceWad);
+      const crossed = tapeCrossedAt(samplesRef.current, order.submittedAt, target, order.side);
+      const filledAt = filled ? (crossed ?? Date.now()) : undefined;
+      const clamped = filled
+        ? clampToCondition(order.side, fillPriceWad ?? order.targetPriceWad, order.targetPriceWad)
+        : undefined;
+      const wasPending = order.status === 'pending';
+      patchOrders((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              status: filled ? 'filled' : 'error',
+              filledAt: filled ? (item.filledAt ?? filledAt) : item.filledAt,
+              fillPriceWad: filled ? (item.fillPriceWad ?? clamped) : item.fillPriceWad,
+            }
+          : item,
+      );
+      if (filled) trackValidityOrder(order.side, 'filled');
+      else if (wasPending) trackValidityOrder(order.side, 'error');
+    },
+    [patchOrders],
+  );
+
+  const applyReceipts = useCallback(
+    async (client: PublicClient, pending: PlacedOrder[], block: bigint | null) => {
+      const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+        new Promise((resolve, reject) => {
+          const timer = window.setTimeout(() => reject(new Error('rpc timeout')), ms);
+          promise.then(
+            (value) => {
+              window.clearTimeout(timer);
+              resolve(value);
+            },
+            (err: unknown) => {
+              window.clearTimeout(timer);
+              reject(err);
+            },
+          );
+        });
+
+      const receipts = await Promise.all(
+        pending.map((order) =>
+          order.txHash
+            ? withTimeout(client.getTransactionReceipt({ hash: order.txHash }), 2_500).catch(() => null)
+            : Promise.resolve(null),
+        ),
+      );
+      const deployment = stateRef.current?.deployment;
+      const vibeToken0Now = Boolean(deployment && vibeIsToken0(deployment));
+
+      for (let i = 0; i < pending.length; i += 1) {
+        const order = pending[i];
+        const receipt = receipts[i];
+        if (!receipt || !order.txHash) continue;
+        const filled = receipt.status === 'success';
+        const observed = filled && deployment
+          ? fillQuoteFromSwapReceipt(receipt, deployment.pair, vibeToken0Now)
+          : undefined;
+        markOrderLanded(order.txHash, filled, observed);
+      }
+      expireOrders(block);
+    },
+    [expireOrders, markOrderLanded],
+  );
+
   useEffect(() => {
+    if (!hydrated || !acct || !status?.chainId) return;
+    const client = publicRef.current;
+    if (!client) return;
     let cancelled = false;
     let inFlight = false;
+    let pollId: number | undefined;
+    let balanceId: number | undefined;
+    let stream: ReturnType<typeof connectJsonRpcStream> | undefined;
+    const logsByTx = new Map<string, StreamLog[]>();
 
-    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
-      new Promise((resolve, reject) => {
-        const timer = window.setTimeout(() => reject(new Error('rpc timeout')), ms);
-        promise.then(
-          (value) => {
-            window.clearTimeout(timer);
-            resolve(value);
-          },
-          (err: unknown) => {
-            window.clearTimeout(timer);
-            reject(err);
-          },
-        );
+    const applyMakerParts = (deployment: StoredState['deployment'], makerParts: unknown[]) => {
+      const makerList = makersRef.current;
+      const stride = deployment ? 3 : 1;
+      makerEthRef.current = makerList.map((_, index) => {
+        const value = makerParts[index * stride];
+        return typeof value === 'bigint' ? value : null;
       });
-
-    const patchOrders = (patch: (order: PlacedOrder) => PlacedOrder) => {
-      let changed = false;
-      const next = ordersRef.current.map((order) => {
-        const updated = patch(order);
-        if (updated !== order) changed = true;
-        return updated;
-      });
-      if (!changed) return;
-      ordersRef.current = next;
-      setOrders(next);
+      const tokens: Record<string, bigint> = {};
+      if (deployment) {
+        makerList.forEach((maker, index) => {
+          const vibe = makerParts[index * stride + 1];
+          const usdv = makerParts[index * stride + 2];
+          if (typeof vibe === 'bigint') tokens[`${maker.address}:${deployment.tokenA}`] = vibe;
+          if (typeof usdv === 'bigint') tokens[`${maker.address}:${deployment.tokenB}`] = usdv;
+        });
+      }
+      makerTokenRef.current = tokens;
     };
 
-    const tick = async () => {
-      if (inFlight || cancelled) return;
+    const pullBalances = async (includeReserves: boolean) => {
+      const deployment = stateRef.current?.deployment;
+      const makerList = makersRef.current;
+      const jobs: Promise<unknown>[] = [client.getBalance({ address: acct.address })];
+      if (includeReserves) {
+        jobs.push(deployment ? getReserves(client, deployment.pair).catch(() => null) : Promise.resolve(null));
+      }
+      for (const maker of makerList) {
+        jobs.push(client.getBalance({ address: maker.address }).catch(() => null));
+        if (deployment) {
+          jobs.push(tokenBalance(client, deployment.tokenA, maker.address).catch(() => null));
+          jobs.push(tokenBalance(client, deployment.tokenB, maker.address).catch(() => null));
+        }
+      }
+      const [eth, ...rest] = await Promise.all(jobs);
+      if (cancelled) return;
+      if (typeof eth === 'bigint') setEthBalance(eth);
+      if (includeReserves) {
+        const latestReserves = rest[0];
+        const makerParts = rest.slice(1);
+        if (latestReserves && deployment) {
+          const latest = latestReserves as Reserves;
+          setReserves(latest);
+          const quote = quoteWad(latest.reserve0, latest.reserve1, vibeIsToken0(deployment));
+          pushSample(Number(quote) / 1e18);
+        }
+        applyMakerParts(deployment, makerParts);
+        return;
+      }
+      applyMakerParts(deployment, rest);
+    };
+
+    const pollTick = async () => {
+      if (cancelled || inFlight) return;
       inFlight = true;
       try {
-        const latest = ordersRef.current;
-        if (latest.length === 0) return;
-
-        const client = publicRef.current;
-        if (!client) return;
-
-        const reservesNow = reservesRef.current;
-        const deployment = state?.deployment;
-        const spot =
-          reservesNow && deployment
-            ? quoteWad(reservesNow.reserve0, reservesNow.reserve1, vibeIsToken0(deployment))
-            : null;
-
-        for (const order of ordersRef.current) {
-          if (!order.txHash || (order.status !== 'pending' && order.status !== 'expired')) continue;
-          const receipt = await withTimeout(
-            client.getTransactionReceipt({ hash: order.txHash }),
-            2_500,
-          ).catch(() => null);
-          if (cancelled) return;
-          if (!receipt) continue;
-          const filled = receipt.status === 'success';
-          const vibeToken0Now = Boolean(deployment && vibeIsToken0(deployment));
-          const observed = filled
-            ? (deployment
-                ? fillQuoteFromSwapReceipt(receipt, deployment.pair, vibeToken0Now)
-                : undefined)
-            : undefined;
-          const fillPriceWad = filled
-            ? clampToCondition(order.side, observed ?? order.targetPriceWad, order.targetPriceWad)
-            : undefined;
-          const target = wadToNumber(order.targetPriceWad);
-          const crossed = tapeCrossedAt(samplesRef.current, order.submittedAt, target, order.side);
-          let filledAt = crossed;
-          if (filled && filledAt === undefined) {
-            const header = await withTimeout(
-              client.getBlock({ blockNumber: receipt.blockNumber }),
-              2_500,
-            ).catch(() => null);
-            filledAt = header ? Number(header.timestamp) * 1000 : Date.now();
-          }
-          const wasPending = order.status === 'pending';
-          patchOrders((item) =>
-            item.id === order.id
-              ? {
-                  ...item,
-                  status: filled ? 'filled' : 'error',
-                  filledAt: filled ? (item.filledAt ?? filledAt) : item.filledAt,
-                  fillPriceWad: filled ? (item.fillPriceWad ?? fillPriceWad) : item.fillPriceWad,
-                }
-              : item,
-          );
-          if (wasPending) {
-            trackValidityOrder(order.side, filled ? 'filled' : 'error');
-          }
-        }
-
-        const now = Date.now();
-        const wallExpired = ordersRef.current.filter((order) => orderWallClockExpired(order, now));
-        if (wallExpired.length > 0) {
-          const ids = new Set(wallExpired.map((order) => order.id));
-          patchOrders((item) =>
-            ids.has(item.id) && item.status === 'pending' ? { ...item, status: 'expired' } : item,
-          );
-          for (const order of wallExpired) {
-            trackValidityOrder(order.side, 'expired');
-          }
-        }
-
-        const block = await withTimeout(client.getBlockNumber({ cacheTime: 0 }), 2_500).catch(() => null);
+        const pending = pendingWithHash();
+        const block = await client.getBlockNumber({ cacheTime: 0 });
         if (cancelled) return;
-        if (block !== null) {
-          const blockExpired = ordersRef.current.filter((order) => orderBlockExpired(order, block));
-          if (blockExpired.length > 0) {
-            const ids = new Set(blockExpired.map((order) => order.id));
-            patchOrders((item) =>
-              ids.has(item.id) && item.status === 'pending' ? { ...item, status: 'expired' } : item,
-            );
-            for (const order of blockExpired) {
-              trackValidityOrder(order.side, 'expired');
-            }
-          }
-        }
-
-        if (spot) {
-          patchOrders((order) =>
-            order.status === 'expired' &&
-            !order.crossedAfterExpiry &&
-            spotPastTarget(spot, order.targetPriceWad, order.side)
-              ? { ...order, crossedAfterExpiry: true }
-              : order,
-          );
-        }
+        setBlockNumber((prev) => (prev === block ? prev : block));
+        await pullBalances(true);
+        if (pending.length > 0) await applyReceipts(client, pending, block);
+      } catch {
+        // keep last snapshot
       } finally {
         inFlight = false;
       }
     };
 
-    const id = window.setInterval(() => {
-      void tick();
-    }, 250);
-    void tick();
+    const pendingWithHash = () =>
+      ordersRef.current.filter(
+        (order) => order.txHash && (order.status === 'pending' || order.status === 'expired'),
+      );
+
+    const stopBalances = () => {
+      if (balanceId === undefined) return;
+      window.clearInterval(balanceId);
+      balanceId = undefined;
+    };
+
+    const startPoll = () => {
+      if (pollId !== undefined) return;
+      stopBalances();
+      rpcSendRef.current = null;
+      setStreamLive(false);
+      void pollTick();
+      pollId = window.setInterval(() => {
+        void pollTick();
+      }, SYNC_MS);
+    };
+
+    const handleLog = (raw: unknown) => {
+      const log = raw as StreamLog;
+      if (!log?.address || !log.topics?.length || !log.data) return;
+      const deployment = stateRef.current?.deployment;
+      if (!deployment) return;
+      const tx = log.transactionHash?.toLowerCase();
+      const pending = tx
+        ? ordersRef.current.find(
+            (order) =>
+              order.txHash?.toLowerCase() === tx && (order.status === 'pending' || order.status === 'expired'),
+          )
+        : undefined;
+      if (tx && pending) {
+        const bucket = logsByTx.get(tx) ?? [];
+        bucket.push(log);
+        logsByTx.set(tx, bucket);
+        if (bucket.length > 8) logsByTx.delete(tx);
+      }
+      const sync = reservesFromSyncLog(log);
+      if (sync) {
+        setReserves(sync);
+        const quote = quoteWad(sync.reserve0, sync.reserve1, vibeIsToken0(deployment));
+        pushSample(Number(quote) / 1e18);
+      }
+      if (!tx || !pending) return;
+      const observed = fillQuoteFromPairLogs(logsByTx.get(tx) ?? [log], deployment.pair, vibeIsToken0(deployment));
+      if (observed === undefined) return;
+      logsByTx.delete(tx);
+      markOrderLanded(pending.txHash!, true, observed);
+    };
+
+    const startStream = async (wsUrl: string) => {
+      stream = connectJsonRpcStream(wsUrl);
+      stream.setOnClose(() => {
+        rpcSendRef.current = null;
+        if (!cancelled) startPoll();
+      });
+      await stream.ready;
+      rpcSendRef.current = (method, params) => stream!.request(method, params);
+      let lastReceiptAt = 0;
+      await stream.subscribe(['newHeads'], (raw) => {
+        const head = raw as StreamHead;
+        const number = headNumber(head);
+        const fees = feesFromHead(head);
+        if (fees) headFeesRef.current = fees;
+        if (number === null) return;
+        setBlockNumber((prev) => (prev === number ? prev : number));
+        expireOrders(number);
+        const pending = pendingWithHash();
+        if (pending.length === 0 || Date.now() - lastReceiptAt < SYNC_MS) return;
+        lastReceiptAt = Date.now();
+        void applyReceipts(client, pending, number).catch(() => {});
+      });
+      const pair = stateRef.current?.deployment?.pair;
+      if (pair) {
+        await stream.subscribe(['logs', { address: pair }], handleLog);
+      }
+      if (cancelled) {
+        stream.close();
+        return;
+      }
+      setStreamLive(true);
+      void pullBalances(true);
+      balanceId = window.setInterval(() => {
+        void pullBalances(false).catch(() => {});
+      }, BALANCE_MS);
+    };
+
+    if (status.wsUrl) {
+      void startStream(status.wsUrl).catch(() => {
+        rpcSendRef.current = null;
+        stream?.close();
+        if (!cancelled) startPoll();
+      });
+    } else {
+      startPoll();
+    }
+
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      rpcSendRef.current = null;
+      if (pollId !== undefined) window.clearInterval(pollId);
+      if (balanceId !== undefined) window.clearInterval(balanceId);
+      stream?.close();
+      setStreamLive(false);
     };
-  }, [state?.deployment, status?.chainId]);
+  }, [acct, applyReceipts, expireOrders, hydrated, markOrderLanded, pushSample, status?.chainId, status?.wsUrl, state?.deployment?.pair]);
 
   const vibeToken0 = Boolean(state?.deployment && vibeIsToken0(state.deployment));
   const k = reserves ? reserves.reserve0 * reserves.reserve1 : 0n;
@@ -516,67 +584,90 @@ export function ValidityDemo() {
   }, [hoveredOrderId, orders]);
 
   const fund = useCallback(async () => {
-    if (!accounts) return;
-    const publicClient = publicRef.current;
-    if (!publicClient) return;
     setBusy(true);
     setError(null);
     try {
       setProgress('Requesting ETH from the faucet');
-      await seedEthFromFaucet(accounts.user.address, () =>
-        publicClient.getBalance({ address: accounts.user.address }),
-      );
-      await refreshBalances();
+      await engine.requestFaucet();
     } catch (err) {
       setError(faucetErrorMessage(err));
     } finally {
       setBusy(false);
       setProgress(null);
     }
-  }, [accounts, refreshBalances]);
-
-  useEffect(() => {
-    if (!hydrated || !accounts || busy || autoFaucetRef.current) return;
-    if (ethBalance === null) return;
-    if (ethBalance > 0n) {
-      autoFaucetRef.current = true;
-      return;
-    }
-    autoFaucetRef.current = true;
-    void fund();
-  }, [accounts, busy, ethBalance, fund, hydrated]);
+  }, [engine]);
 
   const deploy = async () => {
-    if (!accounts || !status?.chainId) return;
-    const wallet = userWalletRef.current;
+    if (!acct || !parent || !status?.chainId) return;
     const publicClient = publicRef.current;
-    const account = userAccountRef.current;
-    if (!wallet || !publicClient || !account || !state) return;
+    if (!publicClient) return;
+    const k1 = engine.ownerSigners.find((signer) => signer.kind === 'k1' && signer.privateKey);
+    if (!k1?.privateKey) {
+      setError('Pool deploy needs a K1 owner key on this account. Add one in Accounts.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      const [makerA, makerB] = ensureMakers(
+        parent,
+        engine.accounts,
+        state?.makerAccountIds,
+        engine.doCreateSubAccount,
+      );
+      persist({
+        ...(state ?? createState(status.chainId, status.genesisHash ?? '')),
+        accountId: parent.id,
+        makerAccountIds: [makerA.id, makerB.id],
+      });
+
+      const eoa = privateKeyToAccount(k1.privateKey);
+      const eoaBal = await publicClient.getBalance({ address: eoa.address });
+      if (eoaBal < OWNER_DEPLOY_GAS) {
+        setProgress('Sending ETH to the owner key for contract creates');
+        await engine.sendActiveCalls({
+          calls: [{ to: eoa.address, data: '0x', value: OWNER_DEPLOY_SEND }],
+          metadata: 'Validity deploy gas',
+        });
+      }
+
+      const chain = chainFromId(status.chainId);
+      const wallet = makeWalletClient(chain, eoa);
+      const traders = [acct.address, makerA.address, makerB.address];
       const deployment = await deployAmm({
         wallet,
         publicClient,
-        account,
-        extraRecipients: accounts.bots.map((bot) => bot.address),
+        account: eoa,
+        traders,
         onProgress: setProgress,
       });
-      persist({ ...state, deployment });
-      setProgress('Seeding bot gas');
-      for (const bot of accounts.bots) {
-        const userBal = await publicClient.getBalance({ address: account.address });
-        const value = refuelValue(0n, userBal);
-        if (value === 0n) continue;
-        const hash = await wallet.sendTransaction({
-          account,
-          chain: wallet.chain,
-          to: bot.address,
-          value,
-        });
-        await publicClient.waitForTransactionReceipt({ hash });
-      }
-      await refreshBalances();
+
+      setProgress('Approving the swap helper');
+      await engine.sendActiveCalls({
+        calls: [
+          encodeApprove(deployment.token0, deployment.helper),
+          encodeApprove(deployment.token1, deployment.helper),
+        ],
+        metadata: 'Validity helper approve',
+      });
+
+      persist({
+        ...(state ?? createState(status.chainId, status.genesisHash ?? '')),
+        v: 2,
+        chainId: status.chainId,
+        genesisHash: status.genesisHash ?? '',
+        accountId: parent.id,
+        makerAccountIds: [makerA.id, makerB.id],
+        deployment,
+      });
+      engine.pushActivity({
+        kind: 'transact',
+        title: 'Validity pool deployed',
+        detail: `Pair ${deployment.pair}`,
+        account: acct.address,
+        network: engine.chain.name,
+        mode: engine.chain.mode,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Deploy failed');
     } finally {
@@ -585,18 +676,75 @@ export function ValidityDemo() {
     }
   };
 
+  const makerKey = makers.map((maker) => maker.id).join(',');
+
+  useEffect(() => {
+    if (!hydrated || !status?.chainId || !state?.deployment || makersRef.current.length !== 2) return;
+    makerNonceRef.current = [];
+    const deployment = state.deployment;
+    const stop = startBots({
+      addresses: makersRef.current.map((maker) => maker.address),
+      deployment,
+      reserves: () => reservesRef.current,
+      ethBalance: (index) => makerEthRef.current[index] ?? null,
+      tokenBalance: (index, token) => {
+        const maker = makersRef.current[index];
+        if (!maker) return null;
+        return makerTokenRef.current[`${maker.address}:${token}`] ?? null;
+      },
+      sendSwap: async (index, calls) => {
+        const maker = makersRef.current[index];
+        if (!maker) throw new Error('maker missing');
+        const client = publicRef.current;
+        let nonce = makerNonceRef.current[index] ?? null;
+        if (nonce === null && client) {
+          nonce = BigInt(await client.getTransactionCount({ address: maker.address }));
+        }
+        const nonceSequence = nonce ?? 0n;
+        try {
+          await engineRef.current.sendAccountCalls({
+            account: maker,
+            calls: calls.map((call) => ({ ...call, value: '0' })),
+            wait: false,
+            seqOpt: { assumeDeployed: true, nonceSequence },
+          });
+          makerNonceRef.current[index] = nonceSequence + 1n;
+        } catch (err) {
+          makerNonceRef.current[index] = null;
+          throw err;
+        }
+      },
+      enabled: () => botsEnabledRef.current,
+      onPrice: (price) => {
+        lastMakerPriceAtRef.current = Date.now();
+        pushSample(price);
+        setMakerError(null);
+        setMakersDry(false);
+      },
+      onError: setMakerError,
+      onGasLow: () => {
+        for (const maker of makersRef.current) engineRef.current.autoFundNewAccount(maker.address);
+        if (Date.now() - lastMakerPriceAtRef.current < 2_500) return;
+        const balances = makerEthRef.current.filter((value): value is bigint => value !== null);
+        if (balances.length === makersRef.current.length && allNeedGas(balances)) {
+          setMakersDry(true);
+          setMakerError('need ETH');
+        }
+      },
+    });
+    return stop;
+  }, [hydrated, makerKey, pushSample, state?.deployment, status?.chainId]);
+
   const placeOrder = async () => {
-    if (!draft || !accounts || !state?.deployment || !reserves) return;
-    const wallet = userWalletRef.current;
+    if (!draft || !acct || !state?.deployment || !reserves || !engine.activeSigner) return;
     const publicClient = publicRef.current;
-    const account = userAccountRef.current;
-    if (!wallet || !publicClient || !account) return;
+    if (!publicClient) return;
     setBusy(true);
     setError(null);
     const side: Side = draft.side;
     const tokenIn = tokenInFor(state.deployment, side === 'sell');
     try {
-      const inventory = await tokenBalance(publicClient, tokenIn, account.address);
+      const inventory = await tokenBalance(publicClient, tokenIn, acct.address);
       const amountIn = inventory / DEFAULT_SIZE_FRACTION;
       if (amountIn === 0n) throw new Error('Not enough token inventory to swap.');
       const outExact = amountOutAtLimit(amountIn, side, k, draft.priceWad);
@@ -619,13 +767,16 @@ export function ValidityDemo() {
         submitMode === 'concurrent'
           ? clampNoncelessExpiry(expirySeconds)
           : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
-      const block = await publicClient.getBlockNumber({ cacheTime: 0 });
+      const block = blockNumber ?? (await publicClient.getBlockNumber({ cacheTime: 0 }));
       const maxBlock = maxBlockForExpiry(block, seconds);
       const validity = [...draft.predicates];
       if (status?.blockNumberPredicate) {
         validity.push(blockExpiryPredicate(maxBlock));
       }
-      const estimated = await publicClient.estimateFeesPerGas().catch(() => null);
+      const fromHead = headFeesRef.current;
+      const estimated =
+        fromHead ??
+        (await publicClient.estimateFeesPerGas().catch(() => null));
       const padded =
         estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
           ? padFees({
@@ -638,23 +789,35 @@ export function ValidityDemo() {
       let nonce: number | undefined;
       let fees = padded;
       let replaced: ReturnType<typeof restingOrderToReplace>;
+      const rows = [newCallRow({ to: call.to, data: call.data, value: '0' })];
       if (submitMode === 'concurrent') {
         replaced = undefined;
-        const signed = await signNoncelessCall({
-          privateKey: state.userKey,
-          chainId: status?.chainId ?? state.chainId,
-          to: call.to,
-          data: call.data,
-          expiresIn: seconds,
-          fees: padded,
-          publicClient,
-        });
-        hash = await sendValidityTransaction(publicClient, signed.signed, validity);
+        const fields = noncelessFields(seconds);
+        const { serialized } = await engine.signComposed(
+          acct,
+          engine.activeSigner,
+          rows,
+          [],
+          null,
+          undefined,
+          undefined,
+          undefined,
+          {
+            nonceKey: fields.nonceKey,
+            nonceSequence: 0n,
+            validBefore: fields.validBefore,
+            maxFeePerGas: padded?.maxFeePerGas,
+            maxPriorityFeePerGas: padded?.maxPriorityFeePerGas,
+          },
+        );
+        hash = await sendValidityTransaction(serialized, validity);
       } else {
-        const confirmedNonce = await publicClient.getTransactionCount({
-          address: account.address,
-          blockTag: 'latest',
-        });
+        const confirmedNonce = Number(
+          await publicClient.getTransactionCount({
+            address: acct.address,
+            blockTag: 'latest',
+          }),
+        );
         const occupant = occupyingOrder(ordersRef.current, confirmedNonce);
         replaced = restingOrderToReplace(ordersRef.current, confirmedNonce);
         if (occupant?.maxFeePerGas !== undefined && occupant.maxPriorityFeePerGas !== undefined) {
@@ -667,25 +830,21 @@ export function ValidityDemo() {
           );
         }
         const sign = (nextFees: typeof fees) =>
-          signCall({
-            wallet,
-            publicClient,
-            account,
-            to: call.to,
-            data: call.data,
-            nonce: confirmedNonce,
-            fees: nextFees,
+          engine.signComposed(acct, engine.activeSigner!, rows, [], null, undefined, undefined, undefined, {
+            nonceSequence: BigInt(confirmedNonce),
+            maxFeePerGas: nextFees?.maxFeePerGas,
+            maxPriorityFeePerGas: nextFees?.maxPriorityFeePerGas,
           });
         let signedResult = await sign(fees);
         try {
-          hash = await sendValidityTransaction(publicClient, signedResult.signed, validity);
+          hash = await sendValidityTransaction(signedResult.serialized, validity);
         } catch (err) {
-          if (!isReplacementUnderpriced(err) || !signedResult.fees) throw err;
-          signedResult = await sign(bumpReplacementFees(signedResult.fees, padded));
-          hash = await sendValidityTransaction(publicClient, signedResult.signed, validity);
+          if (!isReplacementUnderpriced(err) || !fees) throw err;
+          fees = bumpReplacementFees(fees, padded);
+          signedResult = await sign(fees);
+          hash = await sendValidityTransaction(signedResult.serialized, validity);
         }
-        nonce = signedResult.nonce;
-        fees = signedResult.fees;
+        nonce = confirmedNonce;
       }
       const order: PlacedOrder = {
         id: newId(),
@@ -715,6 +874,15 @@ export function ValidityDemo() {
         return [order, ...next];
       });
       if (replaced) trackValidityOrder(replaced.side, 'replaced');
+      engine.pushActivity({
+        kind: 'transact',
+        title: `Validity ${side} submitted`,
+        detail: submitMode === 'concurrent' ? '8130 concurrent' : '8130 replace',
+        account: acct.address,
+        txHash: hash,
+        network: engine.chain.name,
+        mode: engine.chain.mode,
+      });
     } catch (err) {
       const message = describeValidityError(err);
       setError(message);
@@ -754,14 +922,20 @@ export function ValidityDemo() {
     persist(dropDeployment(state));
   };
 
-  const address = accounts?.user.address;
+  const address = acct?.address;
   const funded = (ethBalance ?? 0n) > 0n;
-  const deployed = Boolean(state?.deployment);
-
-  if (!hydrated) return <div className="py-20" />;
+  const deployed = Boolean(poolForThisAccount);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-10 pb-16 text-foreground">
+    <AccountDemoShell
+      activity={<ActivityLog activity={engine.activity} accounts={engine.accounts} />}
+      activityCount={engine.activity.length}
+      activityEmptyMessage="Nothing has happened yet."
+    >
+      {!hydrated || !engine.hydrated ? (
+        <div className="py-20" />
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col gap-10 pb-16 text-foreground">
       <DemoHeader
         eyebrow="Validity · experimental"
         title="Send now. Land later."
@@ -771,7 +945,7 @@ export function ValidityDemo() {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[12px] text-bds-gray-60">
           <span>{status?.readHost ?? 'no rpc'}</span>
-          <span>200ms blocks</span>
+          <span>{streamLive ? '200ms heads' : '200ms blocks'}</span>
           <span>validity {status?.validitySupported ? 'on' : 'unavailable'}</span>
           {status?.blockNumberPredicate ? <span>block bounds on</span> : <span>client-side expiry only</span>}
           <span>simulation {botsOn ? (makersDry ? 'out of ETH' : 'live') : 'paused'}</span>
@@ -807,10 +981,9 @@ export function ValidityDemo() {
         <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
           <Text variant="title3">Simulated pool</Text>
           <Text variant="label.regular" tone="muted">
-            A local key signs the swaps — type-2 replacements, or 8130 nonceless
-            txs so several conditions can rest at once. The faucet funds it, then
-            you deploy a VIBE/USDV pool. Simulated flow moves the mid so you can
-            see a price condition fire — or expire unused.
+            Your Vibenet account signs the swaps — several 8130 conditions can rest
+            at once, or one sequenced replacement. Deploy creates two maker
+            subaccounts that move the simulated mid.
           </Text>
           {address ? (
             <div className="flex items-center justify-between gap-3">
@@ -829,8 +1002,8 @@ export function ValidityDemo() {
           {error ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
           {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void fund()} disabled={busy || !address}>
-              Fund from faucet
+            <Button onClick={() => void fund()} disabled={busy || !address || engine.faucetBusy !== null}>
+              {engine.faucetBusy ? 'Topping up…' : 'Top up'}
             </Button>
             <Button variant="secondary" onClick={() => void deploy()} disabled={busy || !funded}>
               Deploy pool
@@ -925,6 +1098,8 @@ export function ValidityDemo() {
           </section>
         </div>
       )}
-    </div>
+        </div>
+      )}
+    </AccountDemoShell>
   );
 }

@@ -34,7 +34,6 @@ import {
   helperBytecode,
   pairAbi,
 } from './constants';
-import { padFees, type FeeFields } from './fees';
 import { sqrt } from './predicates';
 import { quoteFromPreSwapReserves, USDV_NAME, USDV_SYMBOL, VIBE_NAME, VIBE_SYMBOL } from './quote';
 import type { Deployment, Reserves, Side } from './types';
@@ -52,7 +51,7 @@ async function wait(
   const receipt = await publicClient.waitForTransactionReceipt({
     hash,
     timeout: 120_000,
-    pollingInterval: 250,
+    pollingInterval: 1_000,
   });
   if (receipt.status === 'reverted') {
     throw new Error(`Transaction reverted (${hash})`);
@@ -174,8 +173,27 @@ export function amountOutAtLimit(
   return side === 'buy' ? amountOut(amountIn, usdv, vibe) : amountOut(amountIn, vibe, usdv);
 }
 
-export function fillQuoteFromSwapReceipt(
-  receipt: TransactionReceipt,
+export function reservesFromSyncLog(log: {
+  address: Address;
+  topics: Hex[];
+  data: Hex;
+}): Reserves | undefined {
+  try {
+    const syncs = parseEventLogs({
+      abi: pairEvents,
+      eventName: 'Sync',
+      logs: [log as never],
+    });
+    const sync = syncs[0];
+    if (sync?.args.reserve0 === undefined || sync.args.reserve1 === undefined) return undefined;
+    return { reserve0: sync.args.reserve0, reserve1: sync.args.reserve1, blockTimestampLast: 0 };
+  } catch {
+    return undefined;
+  }
+}
+
+export function fillQuoteFromPairLogs(
+  logs: { address: Address; topics: Hex[]; data: Hex }[],
   pair: Address,
   vibeToken0: boolean,
 ): bigint | undefined {
@@ -184,12 +202,12 @@ export function fillQuoteFromSwapReceipt(
     const swaps = parseEventLogs({
       abi: pairEvents,
       eventName: 'Swap',
-      logs: receipt.logs,
+      logs: logs as never,
     });
     const syncs = parseEventLogs({
       abi: pairEvents,
       eventName: 'Sync',
-      logs: receipt.logs,
+      logs: logs as never,
     });
     const swap = [...swaps].reverse().find((ev) => ev.address.toLowerCase() === wanted);
     const sync = [...syncs].reverse().find((ev) => ev.address.toLowerCase() === wanted);
@@ -219,14 +237,22 @@ export function fillQuoteFromSwapReceipt(
   }
 }
 
+export function fillQuoteFromSwapReceipt(
+  receipt: TransactionReceipt,
+  pair: Address,
+  vibeToken0: boolean,
+): bigint | undefined {
+  return fillQuoteFromPairLogs(receipt.logs, pair, vibeToken0);
+}
+
 export async function deployAmm(args: {
   wallet: WalletClient;
   publicClient: PublicClient;
   account: Account;
-  extraRecipients: Address[];
+  traders: Address[];
   onProgress?: (label: string) => void;
 }): Promise<Deployment> {
-  const { wallet, publicClient, account, extraRecipients, onProgress } = args;
+  const { wallet, publicClient, account, traders, onProgress } = args;
   const note = (label: string) => onProgress?.(label);
 
   note('Deploying VIBE');
@@ -345,8 +371,7 @@ export async function deployAmm(args: {
   await waitForBytecode(publicClient, helper, 'Swap helper');
 
   note('Minting trader inventory');
-  const recipients = [account.address, ...extraRecipients];
-  for (const recipient of recipients) {
+  for (const recipient of traders) {
     await mintTo(tokenA, recipient, TRADER_VIBE);
     await mintTo(tokenB, recipient, TRADER_USDV);
   }
@@ -367,6 +392,45 @@ export async function deployAmm(args: {
   return { tokenA, tokenB, token0, token1, factory, pair, helper };
 }
 
+export function encodeApprove(token: Address, spender: Address): { to: Address; data: Hex } {
+  return {
+    to: token,
+    data: encodeFunctionData({
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [spender, 2n ** 256n - 1n],
+    }),
+  };
+}
+
+export function encodeSwapLegs(args: {
+  tokenIn: Address;
+  pair: Address;
+  recipient: Address;
+  amountIn: bigint;
+  amount0Out: bigint;
+  amount1Out: bigint;
+}): { to: Address; data: Hex }[] {
+  return [
+    {
+      to: args.tokenIn,
+      data: encodeFunctionData({
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [args.pair, args.amountIn],
+      }),
+    },
+    {
+      to: args.pair,
+      data: encodeFunctionData({
+        abi: pairAbi,
+        functionName: 'swap',
+        args: [args.amount0Out, args.amount1Out, args.recipient, '0x'],
+      }),
+    },
+  ];
+}
+
 export function encodeHelperSwap(args: {
   helper: Address;
   tokenIn: Address;
@@ -385,113 +449,6 @@ export function encodeHelperSwap(args: {
   };
 }
 
-export async function swapExactIn(args: {
-  wallet: WalletClient;
-  publicClient: PublicClient;
-  account: Account;
-  pair: Address;
-  tokenIn: Address;
-  amountIn: bigint;
-  amount0Out: bigint;
-  amount1Out: bigint;
-  nonce?: number;
-  waitForReceipt?: boolean;
-  fees?: FeeFields | null;
-}): Promise<{ hash: Hex; nextNonce: number; fees: FeeFields | null }> {
-  const { wallet, publicClient, account, pair, tokenIn, amountIn, amount0Out, amount1Out } = args;
-  const [nonce, estimated] = await Promise.all([
-    args.nonce !== undefined
-      ? Promise.resolve(args.nonce)
-      : publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' }),
-    args.fees ? Promise.resolve(null) : publicClient.estimateFeesPerGas().catch(() => null),
-  ]);
-  const fees: FeeFields | null = args.fees
-    ?? (estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
-      ? padFees({ maxFeePerGas: estimated.maxFeePerGas, maxPriorityFeePerGas: estimated.maxPriorityFeePerGas })
-      : null);
-  const feeFields = fees ?? {};
-  await wallet.sendTransaction({
-    account,
-    chain: wallet.chain,
-    to: tokenIn,
-    data: encodeFunctionData({
-      abi: erc20Abi,
-      functionName: 'transfer',
-      args: [pair, amountIn],
-    }),
-    nonce,
-    ...feeFields,
-  });
-  const hash = await wallet.sendTransaction({
-    account,
-    chain: wallet.chain,
-    to: pair,
-    data: encodeFunctionData({
-      abi: pairAbi,
-      functionName: 'swap',
-      args: [amount0Out, amount1Out, account.address, '0x'],
-    }),
-    nonce: nonce + 1,
-    gas: 300_000n,
-    ...feeFields,
-  });
-  if (args.waitForReceipt !== false) await wait(publicClient, hash);
-  return { hash, nextNonce: nonce + 2, fees };
-}
-
-export async function tokenAllowance(
-  publicClient: PublicClient,
-  token: Address,
-  owner: Address,
-  spender: Address,
-): Promise<bigint> {
-  return (await publicClient.readContract({
-    address: token,
-    abi: erc20Abi,
-    functionName: 'allowance',
-    args: [owner, spender],
-  })) as bigint;
-}
-
-export async function approveMax(args: {
-  wallet: WalletClient;
-  publicClient: PublicClient;
-  account: Account;
-  token: Address;
-  spender: Address;
-}): Promise<void> {
-  const { wallet, publicClient, account, token, spender } = args;
-  await send(wallet, publicClient, account, {
-    to: token,
-    data: encodeFunctionData({
-      abi: erc20Abi,
-      functionName: 'approve',
-      args: [spender, 2n ** 256n - 1n],
-    }),
-  });
-}
-
-/** One-tx swap through SwapHelper (bots need a prior approve). */
-export async function swapExactInHelper(args: {
-  wallet: WalletClient;
-  publicClient: PublicClient;
-  account: Account;
-  helper: Address;
-  pair: Address;
-  tokenIn: Address;
-  amountIn: bigint;
-  amount0Out: bigint;
-  amount1Out: bigint;
-}): Promise<Hex> {
-  const call = encodeHelperSwap(args);
-  const receipt = await send(args.wallet, args.publicClient, args.account, {
-    to: call.to,
-    data: call.data,
-    gas: 400_000n,
-  });
-  return receipt.transactionHash;
-}
-
 export async function tokenBalance(
   publicClient: PublicClient,
   token: Address,
@@ -503,36 +460,4 @@ export async function tokenBalance(
     functionName: 'balanceOf',
     args: [owner],
   })) as bigint;
-}
-
-export async function signCall(args: {
-  wallet: WalletClient;
-  publicClient: PublicClient;
-  account: Account;
-  to: Address;
-  data: Hex;
-  nonce?: number;
-  fees?: FeeFields | null;
-}): Promise<{ signed: Hex; nonce: number; fees: FeeFields | null }> {
-  const { wallet, publicClient, account, to, data } = args;
-  const [nonce, estimated] = await Promise.all([
-    args.nonce !== undefined
-      ? Promise.resolve(args.nonce)
-      : publicClient.getTransactionCount({ address: account.address, blockTag: 'pending' }),
-    args.fees ? Promise.resolve(null) : publicClient.estimateFeesPerGas().catch(() => null),
-  ]);
-  const fees: FeeFields | null = args.fees
-    ?? (estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
-      ? padFees({ maxFeePerGas: estimated.maxFeePerGas, maxPriorityFeePerGas: estimated.maxPriorityFeePerGas })
-      : null);
-  const signed = await wallet.signTransaction({
-    account,
-    chain: wallet.chain,
-    to,
-    data,
-    nonce,
-    gas: 400_000n,
-    ...(fees ?? {}),
-  });
-  return { signed, nonce, fees };
 }

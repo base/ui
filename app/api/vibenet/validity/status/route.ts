@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getReadRpcUrl, getSubmitRpcUrl, rpcHost } from '../config';
+import { getReadRpcUrl, getSubmitRpcUrl, getWsRpcUrl, rpcHost } from '../config';
 import { forwardJsonRpc } from '../forward';
 
 type JsonRpcResponse = {
@@ -76,6 +76,7 @@ export async function GET() {
     genesisHash,
     readHost,
     submitHost,
+    wsUrl: getWsRpcUrl(),
     validitySupported,
     blockNumberPredicate,
     validityError: validity.error?.message ?? null,

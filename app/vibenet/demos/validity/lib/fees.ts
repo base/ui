@@ -26,19 +26,24 @@ export function isReplacementUnderpriced(err: unknown): boolean {
   return /replacement transaction underpriced|underpriced replacement/i.test(message);
 }
 
-export function isNonceTooLow(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  return /nonce too low/i.test(message);
-}
-
-export function isInsufficientFunds(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  return /insufficient funds|insufficient balance|exceeds the balance/i.test(message);
-}
-
 export function padFees(fees: FeeFields, mul = 3n): FeeFields {
   return {
     maxFeePerGas: fees.maxFeePerGas * mul,
     maxPriorityFeePerGas: fees.maxPriorityFeePerGas * mul,
   };
+}
+
+/** Tip + 2× base fee from a `newHeads` payload so submit skips `eth_getBlockByNumber`. */
+export function feesFromHead(head: { baseFeePerGas?: string | null }): FeeFields | null {
+  if (!head.baseFeePerGas) return null;
+  try {
+    const base = BigInt(head.baseFeePerGas);
+    const maxPriorityFeePerGas = 1_000_000n;
+    return {
+      maxFeePerGas: (base === 0n ? 1_000_000_000n : base * 2n) + maxPriorityFeePerGas,
+      maxPriorityFeePerGas,
+    };
+  } catch {
+    return null;
+  }
 }

@@ -1,21 +1,15 @@
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import type { Hex } from 'viem';
-
 import { LEGACY_STORAGE_KEYS, STORAGE_KEY } from './constants';
 import type { Deployment } from './types';
 
 export type StoredState = {
-  v: 1;
+  v: 2;
   chainId: number;
   genesisHash: string;
-  userKey: Hex;
-  botKeys: [Hex, Hex];
+  /** Shared account that deployed this pool (makers are its subaccounts). */
+  accountId?: string;
+  makerAccountIds?: [string, string];
   deployment?: Deployment;
 };
-
-function isHexKey(value: unknown): value is Hex {
-  return typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value);
-}
 
 function isAddress(value: unknown): value is `0x${string}` {
   return typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value);
@@ -46,6 +40,10 @@ function parseDeployment(value: unknown): Deployment | undefined {
   };
 }
 
+function isId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
 export function loadState(): StoredState | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -59,7 +57,8 @@ export function loadState(): StoredState | null {
       if (!legacy) continue;
       const migrated = parseStored(legacy);
       if (!migrated) continue;
-      const next = { ...migrated, deployment: undefined };
+      // Drop the pool: v1 keyed off Validity-specific EOAs that no longer exist.
+      const next = dropDeployment(migrated);
       saveState(next);
       return next;
     }
@@ -69,20 +68,33 @@ export function loadState(): StoredState | null {
   }
 }
 
-function parseStored(raw: string): StoredState | null {
-  const parsed = JSON.parse(raw) as Partial<StoredState>;
-  if (parsed.v !== 1) return null;
+function parseMakerIds(value: unknown): [string, string] | undefined {
+  if (!Array.isArray(value) || !isId(value[0]) || !isId(value[1])) return undefined;
+  return [value[0], value[1]];
+}
+
+export function parseStored(raw: string): StoredState | null {
+  const parsed = JSON.parse(raw) as Partial<StoredState> & { v?: number };
   if (typeof parsed.chainId !== 'number' || typeof parsed.genesisHash !== 'string') return null;
-  if (!isHexKey(parsed.userKey) || !Array.isArray(parsed.botKeys)) return null;
-  if (!isHexKey(parsed.botKeys[0]) || !isHexKey(parsed.botKeys[1])) return null;
-  return {
-    v: 1,
-    chainId: parsed.chainId,
-    genesisHash: parsed.genesisHash,
-    userKey: parsed.userKey,
-    botKeys: [parsed.botKeys[0], parsed.botKeys[1]],
-    deployment: parseDeployment(parsed.deployment),
-  };
+  if (parsed.v === 2) {
+    return {
+      v: 2,
+      chainId: parsed.chainId,
+      genesisHash: parsed.genesisHash,
+      accountId: isId(parsed.accountId) ? parsed.accountId : undefined,
+      makerAccountIds: parseMakerIds(parsed.makerAccountIds),
+      deployment: parseDeployment(parsed.deployment),
+    };
+  }
+  // v1 Validity-specific keys are not reused — keep chain identity only.
+  if (parsed.v === 1) {
+    return {
+      v: 2,
+      chainId: parsed.chainId,
+      genesisHash: parsed.genesisHash,
+    };
+  }
+  return null;
 }
 
 export function saveState(state: StoredState): void {
@@ -91,27 +103,14 @@ export function saveState(state: StoredState): void {
 
 export function dropDeployment(state: StoredState): StoredState {
   return {
-    v: 1,
+    v: 2,
     chainId: state.chainId,
     genesisHash: state.genesisHash,
-    userKey: state.userKey,
-    botKeys: state.botKeys,
+    accountId: state.accountId,
+    makerAccountIds: state.makerAccountIds,
   };
 }
 
 export function createState(chainId: number, genesisHash: string): StoredState {
-  return {
-    v: 1,
-    chainId,
-    genesisHash,
-    userKey: generatePrivateKey(),
-    botKeys: [generatePrivateKey(), generatePrivateKey()],
-  };
-}
-
-export function accountsFrom(state: StoredState) {
-  return {
-    user: privateKeyToAccount(state.userKey),
-    bots: [privateKeyToAccount(state.botKeys[0]), privateKeyToAccount(state.botKeys[1])] as const,
-  };
+  return { v: 2, chainId, genesisHash };
 }

@@ -25,8 +25,8 @@ export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Addr
 export const RPC_PATH = '/api/vibenet/validity/rpc';
 export const STATUS_PATH = '/api/vibenet/validity/status';
 
-export const STORAGE_KEY = 'vibenet.validity.v3';
-export const LEGACY_STORAGE_KEYS = ['vibenet.validity.v2', 'vibenet.validity.v1'] as const;
+export const STORAGE_KEY = 'vibenet.validity.v4';
+export const LEGACY_STORAGE_KEYS = ['vibenet.validity.v3', 'vibenet.validity.v2', 'vibenet.validity.v1'] as const;
 
 export const WAD = 10n ** 18n;
 /** ~$0.07 USDV per VIBE so the tape has room to move, not a 1:1 peg. */
@@ -50,7 +50,6 @@ export const MAX_NONCELESS_SECONDS = 20;
  * are on committed 200ms blocks, not 2s pre-Denim heads or 250ms flashblocks.
  */
 export const BLOCK_SECONDS = 0.2;
-export const BLOCK_MS = 200;
 export const CANDLE_BUCKET_MS = 200;
 export const CANDLE_WINDOW_MS = 30_000;
 

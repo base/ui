@@ -91,8 +91,6 @@ export type PlacedOrder = {
   error?: string;
   rectangle: Rectangle;
   validity: ValidityPredicate[];
-  /** True once spot has crossed the target after this order expired. */
-  crossedAfterExpiry?: boolean;
   filledAt?: number;
   /** Mid when the condition matched (pre-swap), never worse than the named price. */
   fillPriceWad?: bigint;
@@ -103,6 +101,8 @@ export type ChainStatus = {
   genesisHash: string | null;
   readHost: string;
   submitHost: string;
+  /** Browser WebSocket JSON-RPC, when the read host exposes `/ws`. */
+  wsUrl: string | null;
   validitySupported: boolean;
   blockNumberPredicate: boolean;
   validityError: string | null;

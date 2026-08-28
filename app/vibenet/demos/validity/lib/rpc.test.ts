@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { describeValidityError } from './rpc';
+import { describeValidityError, sendValidityTransaction } from './rpc';
 
 describe('describeValidityError', () => {
   it('collapses viem method-not-found dumps into one sentence', () => {
@@ -28,6 +28,27 @@ describe('describeValidityError', () => {
     });
     expect(describeValidityError(err)).toBe(
       'storage predicate at index 2 has value bits set outside its mask',
+    );
+  });
+});
+
+describe('sendValidityTransaction', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('posts base_sendRawTransactionValidity through the HTTP proxy', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ result: '0xabc' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(sendValidityTransaction('0x01', [])).resolves.toBe('0xabc');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/vibenet/validity/rpc',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('base_sendRawTransactionValidity'),
+      }),
     );
   });
 });

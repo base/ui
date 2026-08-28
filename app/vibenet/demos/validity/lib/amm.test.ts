@@ -1,6 +1,7 @@
+import { encodeAbiParameters, encodeEventTopics, parseAbi, zeroAddress } from 'viem';
 import { describe, expect, it } from 'vitest';
 
-import { amountOut, amountOutAtLimit } from './amm';
+import { amountOut, amountOutAtLimit, reservesFromSyncLog } from './amm';
 import { SEED_USDV, SEED_VIBE, WAD } from './constants';
 
 describe('amountOut', () => {
@@ -29,5 +30,46 @@ describe('amountOutAtLimit', () => {
     const fill = (amountIn * WAD) / atLimit;
     expect(fill).toBeLessThan((amountIn * WAD) / atSpot);
     expect(((fill - limit) * 10_000n) / limit).toBeLessThan(100n);
+  });
+});
+
+describe('reservesFromSyncLog', () => {
+  it('decodes Uni v2 Sync reserves', () => {
+    const abi = parseAbi(['event Sync(uint112 reserve0, uint112 reserve1)']);
+    const [topic] = encodeEventTopics({ abi, eventName: 'Sync' });
+    const log = {
+      address: zeroAddress,
+      topics: [topic],
+      data: encodeAbiParameters(
+        [{ type: 'uint112' }, { type: 'uint112' }],
+        [1_000n * WAD, 70n * WAD],
+      ),
+    };
+    expect(reservesFromSyncLog(log)).toEqual({
+      reserve0: 1_000n * WAD,
+      reserve1: 70n * WAD,
+      blockTimestampLast: 0,
+    });
+  });
+
+  it('ignores a Swap topic', () => {
+    const abi = parseAbi([
+      'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
+    ]);
+    const topics = encodeEventTopics({
+      abi,
+      eventName: 'Swap',
+      args: { sender: zeroAddress, to: zeroAddress },
+    });
+    expect(
+      reservesFromSyncLog({
+        address: zeroAddress,
+        topics,
+        data: encodeAbiParameters(
+          [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }],
+          [1n, 0n, 0n, 1n],
+        ),
+      }),
+    ).toBeUndefined();
   });
 });

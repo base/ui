@@ -143,11 +143,6 @@ export function OrderList({ orders, highlightedOrderId, onHighlight }: Props) {
                 View transaction
               </Link>
             ) : null}
-            {order.status === 'expired' && order.crossedAfterExpiry ? (
-              <Text variant="footnote" className="text-bds-orange-50">
-                Spot later crossed this price. The expired transaction was not included.
-              </Text>
-            ) : null}
             {order.error ? (
               <Text variant="footnote" className="text-bds-orange-50">
                 {order.error.length > 240 ? `${order.error.slice(0, 237)}…` : order.error}

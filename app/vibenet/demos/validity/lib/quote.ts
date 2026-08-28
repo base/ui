@@ -33,10 +33,6 @@ export function ammSide(side: Side, vibeToken0: boolean): Side {
   return side === 'buy' ? 'sell' : 'buy';
 }
 
-export function quoteFromAmmPrice(amm: bigint, vibeToken0: boolean): bigint {
-  return ammPriceFromQuote(amm, vibeToken0);
-}
-
 export function vibeReserve(reserve0: bigint, reserve1: bigint, vibeToken0: boolean): bigint {
   return vibeToken0 ? reserve0 : reserve1;
 }
@@ -63,23 +59,6 @@ export function swapOuts(args: {
 
 export function tokenInFor(deployment: Deployment, sellVibe: boolean): Address {
   return sellVibe ? deployment.tokenA : deployment.tokenB;
-}
-
-/** USDV per VIBE from a Uni v2 Swap's in/out amounts. */
-export function quoteFromSwapAmounts(args: {
-  vibeToken0: boolean;
-  amount0In: bigint;
-  amount1In: bigint;
-  amount0Out: bigint;
-  amount1Out: bigint;
-}): bigint | undefined {
-  const vibeIn = args.vibeToken0 ? args.amount0In : args.amount1In;
-  const vibeOut = args.vibeToken0 ? args.amount0Out : args.amount1Out;
-  const usdvIn = args.vibeToken0 ? args.amount1In : args.amount0In;
-  const usdvOut = args.vibeToken0 ? args.amount1Out : args.amount0Out;
-  if (vibeOut > 0n && usdvIn > 0n) return (usdvIn * WAD) / vibeOut;
-  if (vibeIn > 0n && usdvOut > 0n) return (usdvOut * WAD) / vibeIn;
-  return undefined;
 }
 
 /** Mid before a Swap, reconstructed from post-swap Sync + Swap amounts. */

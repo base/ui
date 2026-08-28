@@ -24,6 +24,23 @@ export function rpcHost(url: string): string {
   }
 }
 
+/** Map an HTTP JSON-RPC URL to the usual `/ws` WebSocket path. */
+export function wsUrlFromHttp(httpUrl: string): string | null {
+  try {
+    const url = new URL(httpUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (url.pathname === '/' || url.pathname === '') url.pathname = '/ws';
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function getWsRpcUrl(): string | null {
+  return trimEnv('VALIDITY_DEMO_WS_URL') ?? wsUrlFromHttp(getReadRpcUrl());
+}
+
 export const SUBMIT_METHODS = new Set([
   'eth_sendRawTransaction',
   'eth_sendRawTransactionSync',

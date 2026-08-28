@@ -170,12 +170,3 @@ export function blockExpiryPredicate(maxBlock: bigint): ValidityPredicate {
     params: { op: '<=', value: toWord(maxBlock) },
   };
 }
-
-export function sideFromPrices(spotWad: bigint, targetWad: bigint): Side {
-  return targetWad <= spotWad ? 'buy' : 'sell';
-}
-
-/** True when current spot is on the fill side of the target (inclusive). */
-export function spotPastTarget(spotWad: bigint, targetWad: bigint, side: Side): boolean {
-  return side === 'buy' ? spotWad <= targetWad : spotWad >= targetWad;
-}

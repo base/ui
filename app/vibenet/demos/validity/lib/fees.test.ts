@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bumpReplacementFees, isInsufficientFunds, isReplacementUnderpriced } from './fees';
+import { bumpReplacementFees, feesFromHead, isReplacementUnderpriced } from './fees';
 
 describe('bumpReplacementFees', () => {
   it('raises tip and fee cap by at least 10%', () => {
@@ -24,9 +24,15 @@ describe('isReplacementUnderpriced', () => {
   });
 });
 
-describe('isInsufficientFunds', () => {
-  it('matches common eth_sendRawTransaction balance errors', () => {
-    expect(isInsufficientFunds(new Error('insufficient funds for gas * price + value'))).toBe(true);
-    expect(isInsufficientFunds(new Error('nonce too low'))).toBe(false);
+describe('feesFromHead', () => {
+  it('uses 2× base fee plus the default tip', () => {
+    expect(feesFromHead({ baseFeePerGas: '0x3b9aca00' })).toEqual({
+      maxFeePerGas: 2_000_000_000n + 1_000_000n,
+      maxPriorityFeePerGas: 1_000_000n,
+    });
+  });
+
+  it('rejects a missing base fee', () => {
+    expect(feesFromHead({})).toBeNull();
   });
 });

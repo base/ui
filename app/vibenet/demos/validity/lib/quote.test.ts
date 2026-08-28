@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { WAD } from './constants';
-import { ammPriceFromQuote, ammSide, clampToCondition, quoteFromPreSwapReserves, quoteFromSwapAmounts, quoteWad, swapOuts, vibeIsToken0 } from './quote';
+import { ammPriceFromQuote, ammSide, clampToCondition, quoteFromPreSwapReserves, quoteWad, swapOuts, vibeIsToken0 } from './quote';
 
 const deployment = {
   tokenA: '0x000000000000000000000000000000000000000a' as const,
@@ -34,31 +34,6 @@ describe('quote', () => {
       amount0Out: 0n,
       amount1Out: 5n,
     });
-  });
-
-  it('quotes a buy from Swap in/out amounts', () => {
-    // Pay 816 USDV, receive 10_000 VIBE → $0.0816
-    expect(
-      quoteFromSwapAmounts({
-        vibeToken0: true,
-        amount0In: 0n,
-        amount1In: 816n,
-        amount0Out: 10_000n,
-        amount1Out: 0n,
-      }),
-    ).toBe((816n * WAD) / 10_000n);
-  });
-
-  it('quotes a sell when VIBE is token1', () => {
-    expect(
-      quoteFromSwapAmounts({
-        vibeToken0: false,
-        amount0In: 0n,
-        amount1In: 10_000n,
-        amount0Out: 816n,
-        amount1Out: 0n,
-      }),
-    ).toBe((816n * WAD) / 10_000n);
   });
 
   it('reconstructs the pre-swap mid from Sync + Swap amounts', () => {
