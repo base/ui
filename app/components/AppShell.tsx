@@ -1,6 +1,6 @@
 'use client';
 
-import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useInsertionEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
@@ -76,11 +76,6 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
   },
-  // Clips the pane's horizontal slide so it never becomes overflow-x on the
-  // scroll viewport. Height is content-sized, so this does not clip vertically.
-  navSlideClip: {
-    overflow: 'hidden',
-  },
   // `isolation` keeps the selected pill (z-index -1) in this stacking context
   // so it paints behind the row's label instead of behind the sidebar.
   nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative', isolation: 'isolate' },
@@ -125,7 +120,6 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     textDecoration: 'none',
-    color: 'var(--bds-gray-50)',
   },
   footerIcon: { display: 'inline-flex', width: 18, height: 18 },
   // Hugs the switch rather than filling the row: with no label beside it, a
@@ -151,10 +145,8 @@ const styles: Record<string, CSSProperties> = {
     height: 20,
     padding: 2,
     borderRadius: 999,
-    background: 'var(--bds-gray-50)',
     boxSizing: 'border-box',
   },
-  switchTrackOn: { background: BRAND_BLUE },
   switchThumb: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -377,6 +369,12 @@ const APP_BANNER_HEIGHT = '2.25rem';
 // slipped through), so it just has to be longer than a slow route.
 const PENDING_PATH_TIMEOUT_MS = 5000;
 
+const SIDEBAR_FOOTER_LINK =
+  'group outline-none text-bds-gray-50 transition-colors duration-150 hover:text-bds-gray-80';
+
+const SIDEBAR_FOOTER_LINK_LABEL =
+  'inline-flex items-center gap-2.5 rounded-sm group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue';
+
 // Rides inside the switch thumb. Stroke is heavier than the nav glyphs' 1.8
 // because at 10px that weight all but disappears.
 function ThemeIcon({ dark }: { dark: boolean }) {
@@ -472,7 +470,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
               <AnimatedBaseLogo size={BRAND_MARK_SIZE} />
             </div>
           )}
-          <div className="sidebar-gutter" style={styles.navSlideClip}>
+          <div className="sidebar-gutter overflow-clip [overflow-clip-margin:4px]">
             <AnimatePresence mode="popLayout" initial={false} custom={direction}>
               {activeParent ? (
                 <motion.div
@@ -569,38 +567,46 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
       </div>
 
       <div style={styles.sidebarFooter} className="sidebar-gutter">
-        <a href="https://status.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Status</Text>
-        </a>
-        <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
-              <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Support</Text>
-        </a>
-        <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
-        </a>
-        <div style={styles.footerLastRow}>
-          <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={{ ...styles.footerLink, flex: 1 }}>
+        <a href="https://status.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
             <span style={styles.footerIcon}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
               </svg>
             </span>
-            <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
+            <Text as="span" variant="label.medium" tone="inherit">Status</Text>
+          </span>
+        </a>
+        <a href="https://base.org/discord" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
+                <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
+              </svg>
+            </span>
+            <Text as="span" variant="label.medium" tone="inherit">Support</Text>
+          </span>
+        </a>
+        <a href="https://docs.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+              </svg>
+            </span>
+            <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
+          </span>
+        </a>
+        <div style={styles.footerLastRow}>
+          <a href="https://blog.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={{ ...styles.footerLink, flex: 1 }}>
+            <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+              <span style={styles.footerIcon}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                </svg>
+              </span>
+              <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
+            </span>
           </a>
           {/* `role="switch"` rather than a plain button: the control reports a state
               rather than firing an action, so screen readers announce "on"/"off"
@@ -613,16 +619,16 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
             aria-checked={dark}
             aria-label="Dark mode"
             onClick={onToggleTheme}
-            className="nav-header-hover theme-switch"
+            className="group outline-none"
             style={{ ...styles.footerLink, ...styles.themeButton }}
           >
             <span
               aria-hidden
-              className="theme-switch-track"
-              style={{ ...styles.switchTrack, ...(dark ? styles.switchTrackOn : null) }}
+              className="bg-bds-gray-50 transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-bds-gray-70 group-aria-checked:bg-brand-blue group-aria-checked:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue"
+              style={styles.switchTrack}
             >
               <span
-                className="theme-switch-thumb"
+                className="transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none"
                 style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
               >
                 <ThemeIcon dark={dark} />
@@ -692,6 +698,30 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
   );
 }
 
+// next-themes `disableTransitionOnChange`: stamp a global `transition: none`
+// rule, apply the theme, force a restyle, then drop the rule on the next tick
+// so color tokens don't animate through every `transition-colors` on the page.
+// https://github.com/pacocoursey/next-themes/blob/main/next-themes/src/index.tsx
+function disableAnimation() {
+  const css = document.createElement('style');
+  css.appendChild(
+    document.createTextNode(
+      `*,*::before,*::after{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}`,
+    ),
+  );
+  document.head.appendChild(css);
+
+  return () => {
+    // Force restyle
+    (() => window.getComputedStyle(document.body))();
+
+    // Wait for next tick before removing
+    setTimeout(() => {
+      document.head.removeChild(css);
+    }, 1);
+  };
+}
+
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
@@ -702,21 +732,36 @@ export function AppShell({ children }: PropsWithChildren) {
   // Starts false on both server and client so the first render matches; the
   // effect below reads the attribute the pre-paint script in layout.tsx set.
   const [dark, setDark] = useState(false);
+  // Insertion effect writes `data-theme`. It must not run on mount or on the
+  // hydration sync below: `dark` starts false to match SSR, and the pre-paint
+  // script may already have stamped dark. Flipping this in the click handler
+  // means Strict Mode's extra first-run cannot flash light.
+  const applyTheme = useRef(false);
 
   useEffect(() => {
     setDark(document.documentElement.dataset.theme === 'dark');
   }, []);
 
-  const toggleTheme = () => {
-    const nextDark = !dark;
-    document.documentElement.dataset.theme = nextDark ? 'dark' : 'light';
-    setDark(nextDark);
+  // Lock transitions before React commits so the attribute swap and the switch
+  // re-render share one no-transition frame (next-themes disableTransitionOnChange).
+  useInsertionEffect(() => {
+    if (!applyTheme.current) return;
+    const next = dark ? 'dark' : 'light';
+    if (document.documentElement.dataset.theme === next) return;
+    const restore = disableAnimation();
+    document.documentElement.dataset.theme = next;
     try {
-      localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+      localStorage.setItem('theme', next);
     } catch {
       // Private browsing or a blocked-storage profile — the theme still applies
       // for this session, it just won't survive a reload.
     }
+    restore();
+  }, [dark]);
+
+  const toggleTheme = () => {
+    applyTheme.current = true;
+    setDark((prev) => !prev);
   };
 
   return (

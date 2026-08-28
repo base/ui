@@ -585,34 +585,6 @@ button {
   background-color: var(--bds-gray-5);
 }
 
-/* Theme switch. The thumb is offset with a transform (see `switchThumbOn` in
-   AppShell) so only the compositor is involved; the track recolours alongside it. */
-.theme-switch-track {
-  transition: background-color 0.18s ease, border-color 0.18s ease;
-}
-
-.theme-switch-thumb {
-  transition: transform 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-}
-
-/* The button carries no visible border, so the ring goes on the track — the part
-   that actually reads as the control. */
-.theme-switch:focus-visible {
-  outline: none;
-}
-
-.theme-switch:focus-visible .theme-switch-track {
-  outline: 2px solid var(--bds-brand);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .theme-switch-track,
-  .theme-switch-thumb {
-    transition: none;
-  }
-}
-
 .nav-back-icon {
   color: var(--bds-gray-40);
   transition: color 0.15s ease;
