@@ -9,13 +9,13 @@
 // straight to it from a preset). Callers may fully override the review and
 // submitted bodies, or supply a custom success renderer for the default one.
 
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
+import { ViewTransactionButton } from './ViewTransactionButton';
 
 export type TxStep = 'build' | 'review' | 'submitted';
 export type TxResult = { txHash?: string } | null;
@@ -202,11 +202,7 @@ export function TransactionModal({
       <>
         {successExtra}
         {result?.txHash && explorerTxPath ? (
-          <Link href={explorerTxPath(result.txHash)} target="_blank" rel="noopener noreferrer">
-            <Button variant="secondary" size="sm">
-              View Transaction
-            </Button>
-          </Link>
+          <ViewTransactionButton href={explorerTxPath(result.txHash)} />
         ) : null}
         <Button variant="primary" size="sm" onClick={onDone}>
           Done

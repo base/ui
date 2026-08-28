@@ -41,6 +41,8 @@ type AppCardProps = {
   connectSessionApp: (app: DemoApp) => void;
   connectVault: (app: DemoApp) => void;
   unsubscribeApp: (sk: AppSessionKey) => void;
+  reviewSessionApp: (sk: AppSessionKey) => void;
+  undoSessionRevoke: (sessionKeyId: string) => void;
   deleteVault: (sub: AppSubAccount) => void;
 };
 
@@ -79,20 +81,41 @@ export function AppCard(p: AppCardProps) {
   if (app.id === 'monthly-vibes') {
     if (sk) {
       connected = true;
+      const pendingLabel = sk.pendingAuth ? 'Pending authorization' : sk.pendingRevoke ? 'Pending revoke' : null;
       footer = (
         <>
-          <Badge tone="ok">Active</Badge>
+          <Badge tone={pendingLabel ? 'default' : 'ok'}>{pendingLabel ?? 'Active'}</Badge>
           <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
             {sk.policy?.params ?? 'capped'} · {formatExpiry(sk.expiry)}
           </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => p.unsubscribeApp(sk)}
-            className="shrink-0"
-          >
-            Unsubscribe
-          </Button>
+          {pendingLabel ? (
+            <Button size="sm" onClick={() => p.reviewSessionApp(sk)} className="shrink-0">
+              Review transaction
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => p.unsubscribeApp(sk)}
+              className="shrink-0"
+            >
+              Unsubscribe
+            </Button>
+          )}
+          {sk.pendingAuth ? (
+            <Button variant="secondary" size="sm" onClick={() => p.unsubscribeApp(sk)} className="shrink-0">
+              Discard
+            </Button>
+          ) : sk.pendingRevoke ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => p.undoSessionRevoke(sk.id)}
+              className="shrink-0"
+            >
+              Undo
+            </Button>
+          ) : null}
         </>
       );
     } else {

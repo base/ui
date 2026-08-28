@@ -182,7 +182,12 @@ export function AttachPolicy({
           {updatedHash ? (
             <p className="mt-4 rounded-lg bg-bds-green-0 p-3 text-[13px] text-bds-green-70">
               Policy attached successfully.{' '}
-              <Link href={`${VIBENET_EXPLORER_PATH}/tx/${updatedHash}`} className="text-base-blue hover:underline">
+              <Link
+                href={`${VIBENET_EXPLORER_PATH}/tx/${updatedHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-base-blue hover:underline"
+              >
                 View transaction ↗
               </Link>
             </p>
