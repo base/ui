@@ -666,7 +666,14 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
             <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
             <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
             <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
-            <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
+            <Link
+              href="/vibenet/demos/account"
+              className="group flex shrink-0 items-center gap-1 no-underline"
+              onClick={(event) => {
+                if (opensInNewTab(event)) return;
+                onDismiss();
+              }}
+            >
               <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
               <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
             </Link>
