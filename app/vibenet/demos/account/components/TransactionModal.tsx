@@ -58,7 +58,7 @@ import { formatTokenAmount, KIND_LABEL, short, type WalletSigner } from '../shar
 import { conciseError, EstimateRevertedError, isSeqMismatch, TxPendingError, useAccountEngine } from '../useAccountEngine';
 
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40';
 
 export type TransactPreset = { calls: CallRow[]; gasMode?: 'eth' | 'free' | 'usdv'; metadata?: string };
 /** Apply the staged owner change, or a specific session key's change. */
@@ -812,7 +812,7 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
               spellCheck={false}
               placeholder="Optional note / app data — e.g. invoice #4242"
               onChange={(e) => setMetaField(e.target.value)}
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
+              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40"
             />
             {metadataHex ? (
               <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">

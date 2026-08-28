@@ -93,7 +93,7 @@ export function ExplorerSearch() {
           spellCheck={false}
           autoComplete="off"
           className={cn(
-            'w-full rounded-full border border-bds-gray-10 bg-bds-gray-0 py-3 pl-9 text-sm text-foreground outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-bds-blue-40',
+            'w-full rounded-full border border-bds-gray-10 bg-bds-gray-0 py-3 pl-9 text-sm text-foreground outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/40',
             hasQuery ? 'pr-20' : 'pr-3.5',
           )}
         />
