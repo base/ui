@@ -104,19 +104,22 @@ export function TransferModule({
       )}
       buildBody={
         token ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="To">
-              <AddressAutocomplete
-                value={to}
-                onChange={setTo}
-                accounts={addressBook}
-                placeholder="0x… wallet address or account name"
-                className="h-10 px-3 text-[14px]"
-              />
-            </Field>
-            <Field label="Amount">
-              <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="25" inputMode="decimal" />
-            </Field>
+          <div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="To">
+                <AddressAutocomplete
+                  value={to}
+                  onChange={setTo}
+                  accounts={addressBook}
+                  placeholder="0x… wallet address or account name"
+                  className="h-10 px-3 text-[14px]"
+                />
+              </Field>
+              <Field label="Amount">
+                <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="25" inputMode="decimal" />
+              </Field>
+            </div>
+            <ErrorNote message={error} />
           </div>
         ) : null
       }

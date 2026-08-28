@@ -36,6 +36,7 @@ export function CreatePolicy({
   onSend,
   onPolicyCreated,
   onComplete,
+  onBusyChange,
   busy,
 }: {
   wallet: Address | null;
@@ -44,6 +45,8 @@ export function CreatePolicy({
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
   onPolicyCreated: (policy: CreatedPolicy) => void;
   onComplete: (policy: CreatedPolicy) => void;
+  /** Reports the local preflight/broadcast state so the modal can block close. */
+  onBusyChange?: (busy: boolean) => void;
   busy: string | null;
 }) {
   const [mode, setMode] = useState<'simple' | 'composite'>('simple');
@@ -72,6 +75,10 @@ export function CreatePolicy({
   useEffect(() => {
     if (adminFollowsWallet.current) setAdmin(wallet ?? '');
   }, [wallet]);
+
+  useEffect(() => {
+    onBusyChange?.(finalizing);
+  }, [finalizing, onBusyChange]);
 
   const validateChildren = async () => {
     const ids = normalizeCompositeChildIds(children);

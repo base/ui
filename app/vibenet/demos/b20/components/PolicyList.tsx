@@ -6,7 +6,6 @@ import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
 import { client } from '../lib/constants';
 import { b20Abi, POLICY_SCOPES, scopeId } from '../lib/protocol';
-import { sampleTokenForAddress } from '../lib/samples';
 import type { RecentPolicy, TokenInfo } from '../lib/types';
 import type { TokenAdminStatus } from './AttachPolicy';
 import { PolicySelect } from './PolicySelect';
@@ -40,17 +39,12 @@ export function PolicyList({
   onCreate: () => void;
   onDelete: (id: bigint) => void;
 }) {
-  const isSample = Boolean(sampleTokenForAddress(token.address));
   const [assignments, setAssignments] = useState<Record<string, bigint | null>>({});
 
   // Read the policy currently mapped to each scope. Re-reads on token change and
   // whenever the parent bumps refreshKey (e.g. after an assignment lands), with
   // retries so a lagging replica can't leave the list showing the old policy.
   useEffect(() => {
-    if (isSample) {
-      setAssignments({});
-      return;
-    }
     let cancelled = false;
     const read = () =>
       client
@@ -80,9 +74,9 @@ export function PolicyList({
       cancelled = true;
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [token.address, refreshKey, isSample]);
+  }, [token.address, refreshKey]);
 
-  const locked = adminStatus !== 'allowed' || isSample;
+  const locked = adminStatus !== 'allowed';
 
   return (
     <div className="flex flex-col gap-3">
@@ -103,13 +97,9 @@ export function PolicyList({
           </div>
         ))}
       </Card>
-      {locked ? (
+      {locked && adminStatus === 'checking' ? (
         <Text variant="footnote" tone="muted">
-          {isSample
-            ? 'Assigning policies isn’t available on the sample token. Create your own token to map policies.'
-            : adminStatus === 'checking'
-              ? 'Checking whether your wallet is a token admin…'
-              : 'Only the token’s admin wallet can assign policies.'}
+          Checking whether your wallet is a token admin…
         </Text>
       ) : null}
     </div>

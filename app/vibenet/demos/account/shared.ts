@@ -61,8 +61,11 @@ export function formatTokenAmount(
   const v = typeof value === 'bigint' ? value : BigInt(value);
   const raw = v.toString().padStart(decimals + 1, '0');
   const whole = raw.slice(0, -decimals) || '0';
+  // Group thousands on the string directly — Number() would round whole parts
+  // above Number.MAX_SAFE_INTEGER and misreport large balances.
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const fraction = raw.slice(-decimals).replace(/0+$/, '').slice(0, 6);
-  return `${Number(whole).toLocaleString()}${fraction ? `.${fraction}` : ''}`;
+  return `${groupedWhole}${fraction ? `.${fraction}` : ''}`;
 }
 
 /** Display identity for a signer: address (k1), pubkey.x (p256), or credential id. */

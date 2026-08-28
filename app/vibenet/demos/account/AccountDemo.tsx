@@ -653,7 +653,7 @@ export function AccountDemo() {
     try {
       const target = mintAppKey(app.name);
       if (!target) {
-        setError("Couldn't mint an app key — try again.");
+        surfaceSendError("Couldn't mint an app key — try again.");
         return;
       }
       mintedKeyId = target.id;
@@ -676,7 +676,7 @@ export function AccountDemo() {
       }
     } catch (err) {
       const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      surfaceSendError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
       // Revert/timeout/dismiss (or a null sign result): drop the orphaned app key
       // so the card stays on "Subscribe" and no stray signer lingers.
@@ -695,7 +695,7 @@ export function AccountDemo() {
     try {
       doCreateSubAccount(app.name, { withSpareKey: true });
     } catch (err) {
-      setError((err as { message?: string }).message ?? String(err));
+      surfaceSendError((err as { message?: string }).message ?? String(err));
     } finally {
       setAppBusy(null);
     }

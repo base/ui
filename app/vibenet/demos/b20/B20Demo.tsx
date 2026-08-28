@@ -50,7 +50,6 @@ import {
   writeRecent,
   writeRecentPolicy,
 } from './lib/recent';
-import { sampleTokenForAddress } from './lib/samples';
 import { canUseTokenForGas } from './lib/tokenGas';
 import type { RecentPolicy, RecentToken, TokenAccess, TokenInfo } from './lib/types';
 
@@ -66,6 +65,41 @@ function annotateMode(label: string, mode: 'self' | 'token', symbol?: string): s
 // network fee in the selected stablecoin.
 const GAS_DEMO_RECIPIENT = '0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0' as Address;
 const GAS_DEMO_ETH = '0.001';
+
+// Role reads can hit a lagging RPC replica — especially right after a token is
+// created — where a transient error or a not-yet-visible grant reads as
+// "denied" and would otherwise stick, permanently disabling policy assignment,
+// announcements, and token-paid gas. Re-read (pinned to a fresh block) until the
+// role shows granted or the attempts run out, so access is never blocked by a
+// single slow replica.
+const ROLE_READ_RETRY_MS = [0, 2_500, 6_000];
+
+async function readRoleGranted(
+  address: Address,
+  role: Hex,
+  wallet: Address,
+  isCancelled: () => boolean,
+): Promise<boolean> {
+  let granted = false;
+  for (const delayMs of ROLE_READ_RETRY_MS) {
+    if (delayMs) await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+    if (isCancelled()) return granted;
+    try {
+      const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
+      granted = await client.readContract({
+        address,
+        abi: b20Abi,
+        functionName: 'hasRole',
+        args: [role, wallet],
+        blockNumber,
+      });
+      if (granted) return true;
+    } catch {
+      // Transient replica error — try the next block.
+    }
+  }
+  return granted;
+}
 
 // Simple line icons for the feature-grid tiles, matching the account demo's style.
 function TransferIcon() {
@@ -131,6 +165,10 @@ export function B20Demo() {
   // A policy assignment chosen from the Policies list, pending confirmation in
   // the transaction popup.
   const [pendingAssign, setPendingAssign] = useState<PendingAssignment | null>(null);
+  // True while CreatePolicy runs its own preflight reads / broadcast, before the
+  // parent-level `busy` is set. Blocks closing the modal so an aborted dialog
+  // can't still sign and broadcast a policy transaction.
+  const [policyPreflight, setPolicyPreflight] = useState(false);
 
   // The demo's own ERC-8168 payer, minted on demand when fees are switched to a
   // token. It stays separate from the account: the account spends the token, the
@@ -167,7 +205,7 @@ export function B20Demo() {
   // dropdown can hide "delete" for a policy that's still mapped somewhere.
   useEffect(() => {
     let cancelled = false;
-    const tokens = recent.filter((entry) => !sampleTokenForAddress(entry.address));
+    const tokens = recent;
     if (tokens.length === 0) {
       setUsedPolicyIds(new Set());
       return;
@@ -202,20 +240,12 @@ export function B20Demo() {
   useEffect(() => {
     let cancelled = false;
     setIsOperator(false);
-    if (!activeTokenAddress || !wallet || sampleTokenForAddress(activeTokenAddress)) return;
-    client
-      .readContract({
-        address: activeTokenAddress,
-        abi: b20Abi,
-        functionName: 'hasRole',
-        args: [roleId('OPERATOR_ROLE'), wallet],
-      })
-      .then((allowed) => {
+    if (!activeTokenAddress || !wallet) return;
+    void readRoleGranted(activeTokenAddress, roleId('OPERATOR_ROLE'), wallet, () => cancelled).then(
+      (allowed) => {
         if (!cancelled) setIsOperator(allowed);
-      })
-      .catch(() => {
-        if (!cancelled) setIsOperator(false);
-      });
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -228,23 +258,10 @@ export function B20Demo() {
     setTokenAdminCheckedFor(null);
     if (!activeTokenAddress || !wallet) return;
     const checkKey = `${activeTokenAddress.toLowerCase()}:${wallet.toLowerCase()}`;
-    if (sampleTokenForAddress(activeTokenAddress)) {
-      setTokenAdminCheckedFor(checkKey);
-      return;
-    }
     setTokenAdminLoading(true);
-    client
-      .readContract({
-        address: activeTokenAddress,
-        abi: b20Abi,
-        functionName: 'hasRole',
-        args: [DEFAULT_ADMIN_ROLE, wallet],
-      })
+    void readRoleGranted(activeTokenAddress, DEFAULT_ADMIN_ROLE, wallet, () => cancelled)
       .then((allowed) => {
         if (!cancelled) setIsTokenAdmin(allowed);
-      })
-      .catch(() => {
-        if (!cancelled) setIsTokenAdmin(false);
       })
       .finally(() => {
         if (!cancelled) {
@@ -285,15 +302,17 @@ export function B20Demo() {
     setTokenAddress(entry.address);
   }, []);
 
-  // On load / account switch, restore the first stored token instantly from
-  // localStorage. In the background, drop any stored token whose contract no
+  // On load, restore the first stored token instantly from localStorage — but
+  // only when nothing is selected yet. Tokens are shared across every local
+  // account, so switching accounts must not yank the selection back to
+  // stored[0]. In the background, drop any stored token whose contract no
   // longer exists on-chain (e.g. the network was reset) and re-point the active
   // token if the one showing was pruned.
   useEffect(() => {
     if (!wallet) return;
     let cancelled = false;
     const stored = readRecent(wallet);
-    if (stored.length > 0) selectToken(stored[0]);
+    if (stored.length > 0 && !tokenRef.current) selectToken(stored[0]);
     void (async () => {
       const codes = await Promise.all(
         stored.map((entry) => client.getBytecode({ address: entry.address }).catch(() => undefined)),
@@ -437,13 +456,7 @@ export function B20Demo() {
     setOpenModal(null);
   };
 
-  const tokenAccess: TokenAccess = sampleTokenForAddress(token?.address)
-    ? 'sample'
-    : isOperator
-      ? 'operator'
-      : wallet
-        ? 'external'
-        : 'disconnected';
+  const tokenAccess: TokenAccess = isOperator ? 'operator' : wallet ? 'external' : 'disconnected';
 
   const tokenAdminStatus: TokenAdminStatus = !wallet
     ? 'disconnected'
@@ -607,7 +620,15 @@ export function B20Demo() {
       />
 
       {/* Create Policy modal */}
-      <Modal open={openModal === 'createPolicy'} onClose={closeModal} title="Create Policy" className="max-w-3xl">
+      <Modal
+        open={openModal === 'createPolicy'}
+        onClose={() => {
+          if (policyPreflight) return;
+          closeModal();
+        }}
+        title="Create Policy"
+        className="max-w-3xl"
+      >
         {token ? (
           <CreatePolicy
             wallet={wallet}
@@ -618,6 +639,7 @@ export function B20Demo() {
               if (wallet) setRecentPolicies(writeRecentPolicy(wallet, policy));
             }}
             onComplete={() => setOpenModal(null)}
+            onBusyChange={setPolicyPreflight}
             busy={busy}
           />
         ) : null}
