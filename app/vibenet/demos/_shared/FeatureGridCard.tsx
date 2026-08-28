@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 
-import { Card } from '../../../../components/ui/Card';
-import { cn } from '../../../../components/ui/cn';
-import { Text } from '../../../../components/ui/Text';
+import { Card } from '../../../components/ui/Card';
+import { cn } from '../../../components/ui/cn';
+import { Text } from '../../../components/ui/Text';
 
-// Shared chrome for Features-grid tiles. Default footer matches the transact
-// cards (left-aligned, no divider). Pass `footerClassName` when a connected
-// grant needs the divided, status-row treatment.
+// Shared chrome for Features-grid tiles, used by both the account and B20 demos.
+// Default footer matches the transact cards (left-aligned, no divider). Pass
+// `footerClassName` when a connected grant needs the divided, status-row
+// treatment.
 
 export function FeatureGridCard({
   icon,

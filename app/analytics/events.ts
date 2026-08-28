@@ -40,6 +40,14 @@ export function trackFaucetRequest(token: string, status: FaucetStatus): void {
   track('faucet_request', { token, status });
 }
 
+// --- Account (EIP-8130) demo ---
+
+// Fired when a user invokes one of the account demo's features (transact,
+// sponsorship, batched calls, gas-in-token, modify owners, …).
+export function trackAccountAction(name: string): void {
+  track('account_action', { name });
+}
+
 // --- B20 issuer demo ---
 
 export function trackB20ModuleSelect(module: string): void {

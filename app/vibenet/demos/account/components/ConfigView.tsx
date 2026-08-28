@@ -22,7 +22,6 @@ import {
   EXPIRY_PRESETS,
   formatEthWei,
   formatExpiry,
-  formatUnits,
   scopeChips,
 } from '../library/model';
 import {
@@ -34,14 +33,14 @@ import {
   SELECTOR_PRESETS,
   stableSymbol,
 } from '../library/policy';
-import { KIND_LABEL, short, signerIdentity } from '../shared';
+import { formatTokenAmount, KIND_LABEL, short, signerIdentity } from '../shared';
 import { AccountAvatar, AccountIdentity, Badge, CheckIcon, KindBadge } from '../../_shared/primitives';
 import type { AccountEngine } from '../useAccountEngine';
 
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-background px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-base-blue dark:border-white/10 dark:bg-white/5';
 const CHIP_CLS =
   'rounded-full border border-bds-gray-10 px-2.5 py-1 text-[12px] text-bds-gray-60 transition-colors hover:border-bds-gray-15 dark:border-white/10 dark:text-bds-gray-40';
 const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue';
@@ -187,7 +186,7 @@ function AssetsTab({ p }: { p: ConfigViewModel }) {
       key: `${r.net}-stable`,
       symbol: stable,
       fullName: stable === 'USDV' ? 'Vibenet USD' : 'USD Coin',
-      balance: p.assetsLoading ? '…' : formatUnits(b?.usdv, b?.usdv_decimals),
+      balance: p.assetsLoading ? '…' : formatTokenAmount(b?.usdv, b?.usdv_decimals),
       faucet: r.faucet,
     });
   }
@@ -491,7 +490,7 @@ function SessionKeysTab({ p }: { p: ConfigViewModel }) {
                           <div key={token} className="flex items-center justify-between text-[13px]">
                             <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy!.label}</span>
                             <span className="font-normal text-foreground">
-                              {formatUnits(b.remaining, b.decimals)} / {formatUnits(b.allowance, b.decimals)} {b.symbol}{b.period ? ` ${periodLabel(b.period)}` : ''}
+                              {formatTokenAmount(b.remaining, b.decimals)} / {formatTokenAmount(b.allowance, b.decimals)} {b.symbol}{b.period ? ` ${periodLabel(b.period)}` : ''}
                             </span>
                           </div>
                         ))}
@@ -502,7 +501,7 @@ function SessionKeysTab({ p }: { p: ConfigViewModel }) {
                           <div key={lim.token} className="flex items-center justify-between text-[13px]">
                             <span className="text-bds-gray-50 dark:text-bds-gray-40">{sk.policy!.label}</span>
                             <span className="font-normal text-foreground">
-                              ≤ {formatUnits(lim.allowance, lim.decimals)} {lim.symbol}{lim.period ? ` ${periodLabel(lim.period)}` : ''}
+                              ≤ {formatTokenAmount(lim.allowance, lim.decimals)} {lim.symbol}{lim.period ? ` ${periodLabel(lim.period)}` : ''}
                             </span>
                           </div>
                         ))}

@@ -43,11 +43,14 @@ import { Tabs } from '../../../components/ui/Tabs';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { FeatureCard } from '../../components/FeatureCard';
 import { FEATURES } from '../../data/features';
+import { trackAccountAction } from '../../../analytics/events';
 import { AccountSwitcher } from '../_shared/AccountSwitcher';
 import { AddressAutocomplete, type AddressBookEntry } from '../_shared/AddressAutocomplete';
+import { CallRow as ReviewCallRow, ReviewArrow } from '../_shared/CallRow';
+import { TransactionModal } from '../_shared/TransactionModal';
 import { ActivityLog } from './components/ActivityLog';
 import { AppCard, AppCardPlaceholder, AppsNetworkNotice } from './components/AppsView';
-import { FeatureGridCard, FeatureGridPlaceholder } from './components/FeatureGridCard';
+import { FeatureGridCard, FeatureGridPlaceholder } from '../_shared/FeatureGridCard';
 import { Badge, CheckIcon, KindBadge } from '../_shared/primitives';
 import { DEMO_APPS, type DemoApp } from './library/apps';
 import { DEMO_CHAINS, estimateTxGas, PAYER_URL } from './library/chains';
@@ -66,12 +69,11 @@ import {
   type AppSessionKey,
   type AppSubAccount,
   EXPIRY_PRESETS,
-  formatUnits,
   type SignerKind,
   type StoredAccount,
 } from './library/model';
 import { scopeLabel } from './library/policy';
-import { KIND_LABEL, short, type WalletSigner } from './shared';
+import { formatTokenAmount, KIND_LABEL, short, type WalletSigner } from './shared';
 import { conciseError, TxPendingError, useAccountEngine } from './useAccountEngine';
 
 export function AccountDemo() {
@@ -174,9 +176,15 @@ export function AccountDemo() {
   // key in a ref: the "From" switcher changes the active account, and
   // remounting this subtree would tear down the open dialog.
   const activeAccountKey = activeAccountId ?? 'empty';
-  const heldKeyRef = useRef(activeAccountKey);
-  if (!transactModalOpen) heldKeyRef.current = activeAccountKey;
-  const contentKey = transactModalOpen ? heldKeyRef.current : activeAccountKey;
+  // Freeze the crossfade key while the transact modal is open (its "From"
+  // switcher changes the active account, and remounting the crossfaded subtree
+  // would tear down the open dialog). Otherwise track the active account
+  // directly: deriving the key rather than mirroring it into state via an effect
+  // avoids a one-frame stale 'empty' key on hydration, which made the features
+  // grid crossfade out-and-in on first load.
+  const frozenContentKey = useRef(activeAccountKey);
+  if (!transactModalOpen) frozenContentKey.current = activeAccountKey;
+  const contentKey = frozenContentKey.current;
 
   const signableSigners = useMemo(
     () => [...postChangeOwnerSigners, ...sessionSigners],
@@ -408,7 +416,7 @@ export function AccountDemo() {
           amount,
         });
         phase0 = [{ to: transfer.to, data: transfer.data }];
-        const human = `${formatUnits(amount, tokenChoice.decimals)} ${tokenChoice.symbol}`;
+        const human = `${formatTokenAmount(amount, tokenChoice.decimals)} ${tokenChoice.symbol}`;
         gasNote =
           declinedFree && isDeclinedOffer(declinedFree)
             ? `Free sponsorship spent — paid ${human} gas · co-signed by payer`
@@ -579,6 +587,7 @@ export function AccountDemo() {
   // Demo for the "Batched Calls" feature card: two unrelated actions — an ETH
   // send and a USDV send — atomically in one transaction.
   const sendBatchedCallsDemo = async () => {
+    trackAccountAction('batched_calls');
     const USDV = (await resolveUsdvAddress()) ?? '0x9A676e781A523b5d0C0e43731313A708CB607508';
     openTransactModal({
       calls: [
@@ -593,6 +602,7 @@ export function AccountDemo() {
   // above (an ETH send + a USDV send), but with the transaction's own gas paid
   // in USDV rather than ETH — no ETH required in the account.
   const sendGasTokenDemo = async () => {
+    trackAccountAction('gas_token');
     const USDV = (await resolveUsdvAddress()) ?? '0x9A676e781A523b5d0C0e43731313A708CB607508';
     openTransactModal({
       calls: [
@@ -643,7 +653,7 @@ export function AccountDemo() {
     try {
       const target = mintAppKey(app.name);
       if (!target) {
-        setError("Couldn't mint an app key — try again.");
+        surfaceSendError("Couldn't mint an app key — try again.");
         return;
       }
       mintedKeyId = target.id;
@@ -666,7 +676,7 @@ export function AccountDemo() {
       }
     } catch (err) {
       const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      surfaceSendError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
       // Revert/timeout/dismiss (or a null sign result): drop the orphaned app key
       // so the card stays on "Subscribe" and no stray signer lingers.
@@ -685,7 +695,7 @@ export function AccountDemo() {
     try {
       doCreateSubAccount(app.name, { withSpareKey: true });
     } catch (err) {
-      setError((err as { message?: string }).message ?? String(err));
+      surfaceSendError((err as { message?: string }).message ?? String(err));
     } finally {
       setAppBusy(null);
     }
@@ -730,23 +740,6 @@ export function AccountDemo() {
               {renderApps()}
             </motion.div>
           </AnimatePresence>
-
-          {error && !estimateBlocked && !transactModalOpen ? (
-            <div
-              role="alert"
-              className="flex items-start justify-between gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
-            >
-              <span className="[line-break:anywhere]">{error}</span>
-              <button
-                type="button"
-                onClick={() => setError('')}
-                aria-label="Dismiss error"
-                className="shrink-0 text-[12px] text-bds-red-60 hover:text-bds-red-70"
-              >
-                Dismiss
-              </button>
-            </div>
-          ) : null}
 
           {estimateBlocked ? (
             <div
@@ -884,253 +877,195 @@ export function AccountDemo() {
           title="Advanced Transactions"
           description="Compose and send EIP-8130 transactions from your account."
         >
-          <Button size="sm" onClick={() => openTransactModal()}>
+          <Button
+            size="sm"
+            onClick={() => {
+              trackAccountAction('create_transaction');
+              openTransactModal();
+            }}
+          >
             Create Transaction
           </Button>
         </FeatureGridCard>
 
-        <Modal
+        <TransactionModal
           open={transactModalOpen}
           onClose={() => {
             if (signing) return; // don't let Escape/backdrop abandon an in-flight send
             setTransactModalOpen(false);
           }}
-          title={
-            txStep === 'review' ? 'Review Transaction' : txStep === 'submitted' ? 'Submitted' : 'Create Transaction'
+          step={txStep}
+          busy={signing}
+          error={error}
+          result={result}
+          titles={{ build: 'Create Transaction', review: 'Review Transaction', submitted: 'Submitted' }}
+          buildInfo={
+            <span className="text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
+              {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'} · 1 tx · ~
+              {gasEstimate.toLocaleString()} gas
+              {!acct.deployed
+                ? acct.type === 'eoa'
+                  ? ' · first use delegates your EOA'
+                  : ' · first use deploys your account'
+                : ''}
+            </span>
           }
-          footer={
-            txStep === 'review' ? (
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setTxStep('build');
-                    setError('');
-                  }}
-                  disabled={signing}
-                >
-                  Back
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={confirmSend}
-                  disabled={signing}
-                  className="disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Send
-                </Button>
-              </>
-            ) : txStep === 'submitted' ? (
-              signing ? null : error ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setTxStep('review');
-                      setError('');
-                    }}
-                  >
-                    Back
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={confirmSend}>
-                    Retry
-                  </Button>
-                </>
-              ) : (
-                <>
-                  {result?.txHash ? (
-                    <Link href={`${VIBENET_EXPLORER_PATH}/tx/${result.txHash}`}>
-                      <Button variant="secondary" size="sm">View Transaction</Button>
-                    </Link>
-                  ) : null}
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setTransactModalOpen(false);
-                    }}
-                  >
-                    Done
-                  </Button>
-                </>
-              )
-            ) : (
-              <div className="flex w-full items-center justify-between gap-3">
-                <span className="text-[12px] text-bds-gray-50 dark:text-bds-gray-40">
-                  {chain.mode === 'eip8130-native' ? 'native 8130' : 'ERC-4337'} · 1 tx · ~
-                  {gasEstimate.toLocaleString()} gas
-                  {!acct.deployed
-                    ? acct.type === 'eoa'
-                      ? ' · first use delegates your EOA'
-                      : ' · first use deploys your account'
-                    : ''}
-                </span>
-                <Button
-                  size="sm"
-                  onClick={startSend}
-                  disabled={!callsValid || !txSigner || signing}
-                  className="disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Review
-                </Button>
-              </div>
-            )
-          }
-        >
-          {txStep === 'review' ? (
-            <ReviewBody
-              acct={acct}
-              accounts={accounts}
-              calls={calls}
-              metaField={metaField}
-              gasMode={gasMode}
-              gasEstimate={gasEstimate}
-              txSigner={txSigner}
-              signableSigners={signableSigners}
-              postChangeOwnerSigners={postChangeOwnerSigners}
-              sessionSigners={sessionSigners}
-              ownerSigners={ownerSigners}
-              onSelectSigner={selectSigner}
-              error={error}
-              signing={signing}
-            />
-          ) : txStep === 'submitted' ? (
+          canProceed={callsValid && !!txSigner}
+          proceedLabel="Review"
+          onProceed={startSend}
+          confirmLabel="Send"
+          onConfirm={confirmSend}
+          onReviewBack={() => {
+            setTxStep('build');
+            setError('');
+          }}
+          onSubmittedBack={() => {
+            setTxStep('review');
+            setError('');
+          }}
+          onRetry={confirmSend}
+          onDone={() => {
+            setTransactModalOpen(false);
+            resetTransactBuilder();
+          }}
+          explorerTxPath={(hash) => `${VIBENET_EXPLORER_PATH}/tx/${hash}`}
+          reviewBody={<ReviewBody acct={acct} accounts={accounts} calls={calls} metaField={metaField} />}
+          reviewInfo={<ReviewFooterInfo gasEstimate={gasEstimate} gasMode={gasMode} txSigner={txSigner} />}
+          submittedBody={
             <SubmittedBody signing={signing} submitStatus={submitStatus} error={error} result={result} />
-          ) : (
+          }
+          buildBody={
             <>
-          {/* From */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">From</span>
-            <AccountSwitcher
-              accounts={accounts}
-              activeAccountId={activeAccountId}
-              onSelect={(id) => setActiveAccountId(id)}
-              triggerClassName="w-full"
-            />
-          </div>
+              {/* From */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">From</span>
+                <AccountSwitcher
+                  accounts={accounts}
+                  activeAccountId={activeAccountId}
+                  onSelect={(id) => setActiveAccountId(id)}
+                  triggerClassName="w-full"
+                />
+              </div>
 
-          {/* Signer */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Signer</span>
-            {signableSigners.length > 1 ? (
-              <Select
-                ariaLabel="Signing key"
-                value={txSigner?.id ?? ''}
-                onValueChange={selectSigner}
-                options={postChangeOwnerSigners.map((s) => ({
-                  value: s.id,
-                  label: `${s.label} (${KIND_LABEL[s.kind]})${
-                    ownerSigners.some((o) => o.id === s.id) ? '' : ' · pending'
-                  }`,
-                }))}
-                groups={
-                  sessionSigners.length > 0
-                    ? [
-                        {
-                          label: 'Session keys',
-                          options: sessionSigners.map((s) => ({
-                            value: s.id,
-                            label: `${s.label} (${KIND_LABEL[s.kind]}) · session`,
-                          })),
-                        },
-                      ]
-                    : []
-                }
-              />
-            ) : (
-              <span className="flex items-center gap-1.5 text-[14px] font-normal">
-                {txSigner?.label}
-                {txSigner ? <KindBadge kind={txSigner.kind} /> : null}
-              </span>
-            )}
-          </div>
+              {/* Signer */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Signer</span>
+                {signableSigners.length > 1 ? (
+                  <Select
+                    ariaLabel="Signing key"
+                    value={txSigner?.id ?? ''}
+                    onValueChange={selectSigner}
+                    options={postChangeOwnerSigners.map((s) => ({
+                      value: s.id,
+                      label: `${s.label} (${KIND_LABEL[s.kind]})${
+                        ownerSigners.some((o) => o.id === s.id) ? '' : ' · pending'
+                      }`,
+                    }))}
+                    groups={
+                      sessionSigners.length > 0
+                        ? [
+                            {
+                              label: 'Session keys',
+                              options: sessionSigners.map((s) => ({
+                                value: s.id,
+                                label: `${s.label} (${KIND_LABEL[s.kind]}) · session`,
+                              })),
+                            },
+                          ]
+                        : []
+                    }
+                  />
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[14px] font-normal">
+                    {txSigner?.label}
+                    {txSigner ? <KindBadge kind={txSigner.kind} /> : null}
+                  </span>
+                )}
+              </div>
 
-          {DEMO_CHAINS.length > 1 ? (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Network</span>
-              <Select
-                ariaLabel="Network"
-                value={networkShort}
-                onValueChange={setNetworkShort}
-                options={DEMO_CHAINS.map((c) => ({
-                  value: c.shortName,
-                  label: `${c.name} ${c.mode === 'eip8130-native' ? '· 8130' : '· 4337'}`,
-                }))}
-              />
-            </div>
-          ) : null}
+              {DEMO_CHAINS.length > 1 ? (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Network</span>
+                  <Select
+                    ariaLabel="Network"
+                    value={networkShort}
+                    onValueChange={setNetworkShort}
+                    options={DEMO_CHAINS.map((c) => ({
+                      value: c.shortName,
+                      label: `${c.name} ${c.mode === 'eip8130-native' ? '· 8130' : '· 4337'}`,
+                    }))}
+                  />
+                </div>
+              ) : null}
 
-          {/* Calls */}
-          <div className="rounded-lg border border-bds-gray-10 px-4 pb-4 pt-2 dark:border-white/10">
-            <CallsEditor
-              calls={calls}
-              callsAdvanced={callsAdvanced}
-              setCallsAdvanced={setCallsAdvanced}
-              setRow={setRow}
-              addEthRow={addEthRow}
-              addUsdvRow={addUsdvRow}
-              removeRow={removeRow}
-              usdvRecipientDrafts={usdvRecipientDrafts}
-              setUsdvRecipientDrafts={setUsdvRecipientDrafts}
-              usdvAmountDrafts={usdvAmountDrafts}
-              setUsdvAmountDrafts={setUsdvAmountDrafts}
-              callsValid={callsValid}
-              addRow={addRow}
-              copyRandomAddress={copyRandomAddress}
-              randCopied={copied === 'randaddr'}
-              addressBook={addressBook}
-            />
-          </div>
+              {/* Calls */}
+              <div className="rounded-lg border border-bds-gray-10 px-4 pb-4 pt-2 dark:border-white/10">
+                <CallsEditor
+                  calls={calls}
+                  callsAdvanced={callsAdvanced}
+                  setCallsAdvanced={setCallsAdvanced}
+                  setRow={setRow}
+                  addEthRow={addEthRow}
+                  addUsdvRow={addUsdvRow}
+                  removeRow={removeRow}
+                  usdvRecipientDrafts={usdvRecipientDrafts}
+                  setUsdvRecipientDrafts={setUsdvRecipientDrafts}
+                  usdvAmountDrafts={usdvAmountDrafts}
+                  setUsdvAmountDrafts={setUsdvAmountDrafts}
+                  callsValid={callsValid}
+                  addRow={addRow}
+                  copyRandomAddress={copyRandomAddress}
+                  randCopied={copied === 'randaddr'}
+                  addressBook={addressBook}
+                />
+              </div>
 
-          {/* Metadata */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Metadata</span>
-              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Top-Level · Signed</span>
-            </div>
-            <input
-              value={metaField}
-              spellCheck={false}
-              placeholder="Optional note / app data — e.g. invoice #4242"
-              onChange={(e) => setMetaField(e.target.value)}
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40"
-            />
-            {metadataHex ? (
-              <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                → <span className="font-sans">{short(metadataHex, 14, 8)}</span>
-              </p>
-            ) : null}
-          </div>
+              {/* Metadata */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Metadata</span>
+                  <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Top-Level · Signed</span>
+                </div>
+                <input
+                  value={metaField}
+                  spellCheck={false}
+                  placeholder="Optional note / app data — e.g. invoice #4242"
+                  onChange={(e) => setMetaField(e.target.value)}
+                  className="w-full rounded-lg border border-bds-gray-10 bg-background px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-base-blue dark:border-white/10 dark:bg-white/5"
+                />
+                {metadataHex ? (
+                  <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                    → <span className="font-sans">{short(metadataHex, 14, 8)}</span>
+                  </p>
+                ) : null}
+              </div>
 
-          {/* Gas */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Gas</span>
-            <Select
-              ariaLabel="Gas payment"
-              value={gasMode}
-              onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
-              options={
-                txIsSession
-                  ? [{ value: 'free', label: 'Sponsored (EIP-8168)' }]
-                  : [
-                      { value: 'eth', label: 'Pay in ETH' },
-                      { value: 'free', label: 'Sponsored (EIP-8168)' },
-                      { value: 'usdv', label: 'Pay in USDV (EIP-8168)' },
-                    ]
-              }
-            />
-            {txIsSession ? (
-              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                Session keys can only send sponsored transactions.
-              </span>
-            ) : null}
-          </div>
+              {/* Gas */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Gas</span>
+                <Select
+                  ariaLabel="Gas payment"
+                  value={gasMode}
+                  onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
+                  options={
+                    txIsSession
+                      ? [{ value: 'free', label: 'Sponsored (EIP-8168)' }]
+                      : [
+                          { value: 'eth', label: 'Pay in ETH' },
+                          { value: 'free', label: 'Sponsored (EIP-8168)' },
+                          { value: 'usdv', label: 'Pay in USDV (EIP-8168)' },
+                        ]
+                  }
+                />
+                {txIsSession ? (
+                  <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                    Session keys can only send sponsored transactions.
+                  </span>
+                ) : null}
+              </div>
             </>
-          )}
-        </Modal>
+          }
+        />
       </>
     );
   }
@@ -1162,13 +1097,14 @@ export function AccountDemo() {
       >
         <Button
           size="sm"
-          onClick={() =>
+          onClick={() => {
+            trackAccountAction('sponsorship');
             openTransactModal({
               calls: [newCallRow({ to: acct.address, value: '0', data: '0x' })],
               gasMode: 'free',
               metadata: 'Sponsored transaction',
-            })
-          }
+            });
+          }}
         >
           Send Transaction
         </Button>
@@ -1202,7 +1138,13 @@ export function AccountDemo() {
         title="Modify Owners"
         description="Add or revoke owner keys and rotate signers — swap keys anytime without ever migrating accounts."
       >
-        <Button size="sm" onClick={openOwnersManager}>
+        <Button
+          size="sm"
+          onClick={() => {
+            trackAccountAction('modify_owners');
+            openOwnersManager();
+          }}
+        >
           Manage Owners
         </Button>
       </FeatureGridCard>
@@ -1295,7 +1237,7 @@ type CallsEditorProps = {
 };
 
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-background px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-base-blue dark:border-white/10 dark:bg-white/5';
 
 function CallsEditor(props: CallsEditorProps) {
   const {
@@ -1345,7 +1287,7 @@ function CallsEditor(props: CallsEditorProps) {
             {calls.map((r, i) => {
               const usdv = tryDecodeUsdvTransfer(r);
               if (usdv) {
-                const amtDisplay = usdvAmountDrafts[r.id] ?? formatUnits(usdv.amount, USDV_DECIMALS);
+                const amtDisplay = usdvAmountDrafts[r.id] ?? formatTokenAmount(usdv.amount, USDV_DECIMALS);
                 const recipientDisplay = usdvRecipientDrafts[r.id] ?? usdv.recipient;
                 return (
                   <li key={r.id} className="flex items-center gap-2">
@@ -1366,7 +1308,7 @@ function CallsEditor(props: CallsEditorProps) {
                       }}
                     />
                     <label className="flex w-28 flex-col">
-                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-background transition-colors focus-within:border-base-blue dark:border-white/10 dark:bg-white/5">
                         <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">USDV</span>
                         <input
                           className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
@@ -1409,7 +1351,7 @@ function CallsEditor(props: CallsEditorProps) {
                     accounts={addressBook}
                   />
                   <label className="flex w-28 flex-col">
-                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-background transition-colors focus-within:border-base-blue dark:border-white/10 dark:bg-white/5">
                       <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">ETH</span>
                       <input
                         className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
@@ -1537,36 +1479,39 @@ type ReviewBodyProps = {
   accounts: StoredAccount[];
   calls: CallRow[];
   metaField: string;
-  gasMode: 'eth' | 'free' | 'usdv';
-  gasEstimate: number;
-  txSigner: WalletSigner | null;
-  signableSigners: WalletSigner[];
-  postChangeOwnerSigners: WalletSigner[];
-  sessionSigners: WalletSigner[];
-  ownerSigners: WalletSigner[];
-  onSelectSigner: (id: string) => void;
-  error: string;
-  signing: boolean;
 };
 
-function ReviewBody({
-  acct,
-  accounts,
-  calls,
-  metaField,
-  gasMode,
+function gasLabelFor(gasMode: 'eth' | 'free' | 'usdv'): string {
+  return gasMode === 'eth' ? 'Pay in ETH' : gasMode === 'free' ? 'Sponsored' : 'USDV · payer';
+}
+
+// Gas estimate + who's sponsoring + signer, shown in the transaction modal's
+// review footer row (next to Back / Send). The signer is picked in the build
+// step, so this is a compact read-only summary.
+function ReviewFooterInfo({
   gasEstimate,
+  gasMode,
   txSigner,
-  signableSigners,
-  postChangeOwnerSigners,
-  sessionSigners,
-  ownerSigners,
-  onSelectSigner,
-  error,
-  signing,
-}: ReviewBodyProps) {
-  const gasLabel =
-    gasMode === 'eth' ? 'Pay in ETH' : gasMode === 'free' ? 'Sponsored' : 'USDV · payer';
+}: {
+  gasEstimate: number;
+  gasMode: 'eth' | 'free' | 'usdv';
+  txSigner: WalletSigner | null;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+      <span>~{gasEstimate.toLocaleString()} gas</span>
+      <Badge tone={gasMode === 'free' ? 'ok' : 'default'}>{gasLabelFor(gasMode)}</Badge>
+      {txSigner ? (
+        <span className="flex items-center gap-1.5">
+          <KindBadge kind={txSigner.kind} />
+          <span className="font-normal">{txSigner.label}</span>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function ReviewBody({ acct, accounts, calls, metaField }: ReviewBodyProps) {
   // Resolve a destination address to a locally-known account's label, if any
   // (e.g. "your account" or another account you hold), so recipients read as
   // more than an opaque hex string.
@@ -1600,29 +1545,23 @@ function ReviewBody({
           const ethValue = r.value.trim() && r.value.trim() !== '0' ? r.value.trim() : null;
           const isPlainCall = !usdv && !ethValue && r.data.trim() && r.data.trim() !== '0x';
           return (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center gap-2 rounded-lg border border-bds-gray-10 p-3 text-[13px] dark:border-white/10"
-            >
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bds-gray-10 text-[11px] dark:bg-white/10">
-                {i + 1}
-              </span>
+            <ReviewCallRow key={r.id} index={i + 1}>
               {usdv ? (
                 <>
-                  <span className="font-normal">Send {formatUnits(usdv.amount, USDV_DECIMALS)} USDV</span>
-                  <span aria-hidden="true" className="text-bds-gray-40 dark:text-bds-gray-50">→</span>
+                  <span className="font-normal">Send {formatTokenAmount(usdv.amount, USDV_DECIMALS)} USDV</span>
+                  <ReviewArrow />
                   <AddressChip address={usdv.recipient} />
                 </>
               ) : ethValue ? (
                 <>
                   <span className="font-normal">Send {ethValue} ETH</span>
-                  <span aria-hidden="true" className="text-bds-gray-40 dark:text-bds-gray-50">→</span>
+                  <ReviewArrow />
                   <AddressChip address={r.to.trim() || acct.address} />
                 </>
               ) : (
                 <>
                   <span className="font-normal">{isPlainCall ? 'Call' : 'No-op call'}</span>
-                  <span aria-hidden="true" className="text-bds-gray-40 dark:text-bds-gray-50">→</span>
+                  <ReviewArrow />
                   <AddressChip address={r.to.trim() || acct.address} />
                   {isPlainCall ? (
                     <span className="font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
@@ -1631,7 +1570,7 @@ function ReviewBody({
                   ) : null}
                 </>
               )}
-            </li>
+            </ReviewCallRow>
           );
         })}
         {metaField.trim() ? (
@@ -1641,65 +1580,6 @@ function ReviewBody({
           </li>
         ) : null}
       </ul>
-
-      <div className="flex flex-col gap-2 border-t border-bds-gray-10 pt-3 text-[13px] dark:border-white/10">
-        {error ? (
-          <div className="flex items-start gap-2 py-1 text-[13px] text-bds-red-60 [line-break:anywhere]">
-            <svg width={16} height={16} viewBox="0 0 40 40" fill="none" className="mt-px shrink-0" aria-hidden="true">
-              <circle cx="20" cy="24.5" r="1" fill="currentColor" stroke="currentColor" />
-              <path d="M20 15V20M30.5 20C30.5 25.799 25.799 30.5 20 30.5C14.201 30.5 9.5 25.799 9.5 20C9.5 14.201 14.201 9.5 20 9.5C25.799 9.5 30.5 14.201 30.5 20Z" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
-            </svg>
-            {error}
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                ~{gasEstimate.toLocaleString()} gas
-              </span>
-              <Badge tone={gasMode === 'free' ? 'ok' : 'default'}>{gasLabel}</Badge>
-            </div>
-            {txSigner ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Signing with</span>
-                {signableSigners.length > 1 ? (
-                  <div className="w-40">
-                    <Select
-                      ariaLabel="Signing key"
-                      value={txSigner.id}
-                      onValueChange={onSelectSigner}
-                      options={postChangeOwnerSigners.map((s) => ({
-                        value: s.id,
-                        label: `${s.label} (${KIND_LABEL[s.kind]})${
-                          ownerSigners.some((o) => o.id === s.id) ? '' : ' · pending'
-                        }`,
-                      }))}
-                      groups={
-                        sessionSigners.length > 0
-                          ? [
-                              {
-                                label: 'Session keys',
-                                options: sessionSigners.map((s) => ({
-                                  value: s.id,
-                                  label: `${s.label} (${KIND_LABEL[s.kind]}) · session`,
-                                })),
-                              },
-                            ]
-                          : []
-                      }
-                    />
-                  </div>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <KindBadge kind={txSigner.kind} />
-                    <span className="font-normal">{txSigner.label}</span>
-                  </span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

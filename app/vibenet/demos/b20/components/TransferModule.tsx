@@ -8,16 +8,13 @@ import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
-import { B20_HELP } from '../lib/glossary';
-import { READ_MEMO_PROMPT } from '../lib/prompts';
 import { amount, b20Abi, memoToBytes32 } from '../lib/protocol';
 import type { TokenInfo } from '../lib/types';
-import { CopyPromptButton } from './CopyPromptButton';
 import { ErrorNote, Field, Input } from './primitives';
 
-// Send-with-memo flow, presented through the shared TransactionModal. It attaches
-// a bytes32 reference to a B20 transfer so the transaction can be reconciled later.
-export function MemoModule({
+// Plain token transfer — a recipient and an amount, presented through the shared
+// TransactionModal.
+export function TransferModule({
   open,
   onClose,
   token,
@@ -32,7 +29,6 @@ export function MemoModule({
 }) {
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
-  const [memo, setMemo] = useState('');
   const [step, setStep] = useState<TxStep>('build');
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +41,6 @@ export function MemoModule({
     setTxHash(null);
     setTo('');
     setValue('');
-    setMemo('');
   };
 
   const handleClose = () => {
@@ -59,11 +54,10 @@ export function MemoModule({
     setError(null);
     let data: Hex;
     try {
-      const m = memoToBytes32(memo);
       const v = amount(value, token.decimals);
       if (v <= 0n) throw new Error('Enter an amount greater than zero.');
       if (!isAddress(to)) throw new Error('Paste a valid wallet address for the recipient.');
-      data = encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, m] });
+      data = encodeFunctionData({ abi: b20Abi, functionName: 'transferWithMemo', args: [to, v, memoToBytes32('')] });
     } catch (cause) {
       setError(walletErrorMessage(cause));
       return;
@@ -71,12 +65,7 @@ export function MemoModule({
     setStep('submitted');
     setFinalizing(true);
     try {
-      const hash = await onSend(
-        token.variant === 'stablecoin' ? `Send ${token.symbol} with memo` : 'Transfer with memo',
-        token.address,
-        data,
-        'memo_transfer',
-      );
+      const hash = await onSend(`Send ${token.symbol}`, token.address, data, 'transfer');
       if (!hash) throw new Error('The transfer could not be sent.');
       setTxHash(hash);
     } catch (cause) {
@@ -94,8 +83,7 @@ export function MemoModule({
       busy={finalizing}
       error={error ?? undefined}
       result={txHash ? { txHash } : null}
-      titles={{ build: 'Send with Memo', submitted: 'Send with Memo' }}
-      titleAction={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
+      titles={{ build: 'Transfer', submitted: 'Transfer' }}
       canProceed={Boolean(token)}
       proceedLabel="Send"
       onProceed={() => void submit()}
@@ -110,7 +98,7 @@ export function MemoModule({
         <div className="flex flex-col items-center gap-1">
           <Text variant="title3">Transfer sent</Text>
           <Text variant="label.regular" tone="muted">
-            Your transfer with memo was submitted.
+            Your {token?.symbol} transfer was submitted.
           </Text>
         </div>
       )}
@@ -130,21 +118,7 @@ export function MemoModule({
               <Field label="Amount">
                 <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="25" inputMode="decimal" />
               </Field>
-              <Field label="Memo" help={B20_HELP.memo}>
-                <Input value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Invoice-1042" />
-              </Field>
             </div>
-            {memo ? (
-              <p className="mt-3 font-mono text-[11px] text-bds-gray-50">
-                {(() => {
-                  try {
-                    return memoToBytes32(memo);
-                  } catch {
-                    return 'Memo is too long';
-                  }
-                })()}
-              </p>
-            ) : null}
             <ErrorNote message={error} />
           </div>
         ) : null

@@ -1,7 +1,7 @@
 import type { Address, Hex } from 'viem';
 
 export type Module = 'policy' | 'memos' | 'announcements' | 'deploy';
-export type TokenAccess = 'sample' | 'operator' | 'external' | 'disconnected';
+export type TokenAccess = 'operator' | 'external' | 'disconnected';
 export type SimplePolicyKind = 'allowlist' | 'blocklist';
 export type CompositePolicyKind = 'union' | 'intersect';
 export type PolicyKind = SimplePolicyKind | CompositePolicyKind;

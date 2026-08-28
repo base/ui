@@ -78,6 +78,11 @@ export function Select({
           // See the layer scale in globals.css.
           className="z-[130] max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-bds-gray-10 bg-background shadow-lg dark:border-white/10 dark:bg-[#1a1a1a]"
         >
+          <RadixSelect.ScrollUpButton className="flex h-6 cursor-default items-center justify-center bg-background text-bds-gray-60 dark:bg-[#1a1a1a]">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 10L8 6L4 10" />
+            </svg>
+          </RadixSelect.ScrollUpButton>
           <RadixSelect.Viewport className="p-1">
             {options.map((option) => (
               <SelectItem key={option.value} option={option} />
@@ -96,6 +101,11 @@ export function Select({
               </RadixSelect.Group>
             ))}
           </RadixSelect.Viewport>
+          <RadixSelect.ScrollDownButton className="flex h-6 cursor-default items-center justify-center bg-background text-bds-gray-60 dark:bg-[#1a1a1a]">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6L8 10L12 6" />
+            </svg>
+          </RadixSelect.ScrollDownButton>
         </RadixSelect.Content>
       </RadixSelect.Portal>
     </RadixSelect.Root>

@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { encodeFunctionData, type Address, type Hex } from 'viem';
 
 import { Button } from '../../../../components/ui/Button';
-import { Card } from '../../../../components/ui/Card';
 import { Select } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
@@ -45,7 +44,25 @@ export function AttachPolicy({
   const [policyId, setPolicyId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [updatedHash, setUpdatedHash] = useState<Hex | null>(null);
-  const currentPolicyId = token.policies.find((policy) => policy.scope === scope)?.id ?? 0n;
+  // The currently-assigned policy for the selected scope is read on demand rather
+  // than up front, so opening a token no longer pays for every scope's reads.
+  // Re-reads when the scope changes or after a successful assignment (updatedHash).
+  const [currentPolicyId, setCurrentPolicyId] = useState<bigint | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setCurrentPolicyId(null);
+    client
+      .readContract({ address: token.address, abi: b20Abi, functionName: 'policyId', args: [scopeId(scope)] })
+      .then((id) => {
+        if (!cancelled) setCurrentPolicyId(id);
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentPolicyId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token.address, scope, updatedHash]);
   useEffect(() => {
     if (suggestedPolicyId !== null) {
       setPolicyId(suggestedPolicyId.toString());
@@ -79,14 +96,14 @@ export function AttachPolicy({
   };
 
   return (
-    <Card id="attach-policy-card" className="bg-background p-5 dark:bg-white/5">
+    <div className="flex flex-col">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Text as="h3" variant="headline">
-            Attach a policy to this token
+            Assign a policy to a token feature
           </Text>
           <Text variant="footnote" tone="muted" className="mt-1 max-w-2xl">
-            Assign an existing uint64 Policy ID to a token scope. The change applies immediately to subsequent token
+            Map an existing uint64 Policy ID to a token feature. The change applies immediately to subsequent token
             operations.
           </Text>
         </div>
@@ -108,7 +125,7 @@ export function AttachPolicy({
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1.5">
               <Text as="span" variant="label" tone="muted">
-                Token policy scope
+                Token feature
               </Text>
               <Select
                 value={scope}
@@ -121,7 +138,7 @@ export function AttachPolicy({
                 className="h-10"
               />
               <Text variant="footnote" tone="muted">
-                Current Policy ID: {currentPolicyId.toString()}
+                Current Policy ID: {currentPolicyId === null ? '…' : currentPolicyId.toString()}
                 {currentPolicyId === 0n ? ' (ALWAYS_ALLOW)' : ''}
               </Text>
             </div>
@@ -175,6 +192,6 @@ export function AttachPolicy({
           </Button>
         </>
       )}
-    </Card>
+    </div>
   );
 }

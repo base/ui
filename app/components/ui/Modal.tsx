@@ -12,6 +12,8 @@ type ModalProps = {
   onClose: () => void;
   title: ReactNode;
   children: ReactNode;
+  // Rendered in the header row, left of the close button (e.g. a copy action).
+  headerAction?: ReactNode;
   // Rendered in a pinned footer row (e.g. Cancel / Confirm actions).
   footer?: ReactNode;
   // Widen/narrow the panel; defaults to a comfortable form width.
@@ -20,7 +22,7 @@ type ModalProps = {
 
 // Centered modal on Base UI Dialog: focus trap, restore-focus, Escape,
 // dismiss-on-outside-click, and document scroll lock all come from the library.
-export function Modal({ open, onClose, title, children, footer, className }: ModalProps) {
+export function Modal({ open, onClose, title, children, headerAction, footer, className }: ModalProps) {
   return (
     <Dialog.Root
       open={open}
@@ -40,15 +42,18 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
             <Dialog.Title className={cn(textVariantClasses.headline, 'm-0 text-foreground')}>
               {title}
             </Dialog.Title>
-            <Dialog.Close
-              aria-label="Close"
-              className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <CloseIcon size={14} />
-            </Dialog.Close>
+            <div className="flex shrink-0 items-center gap-2">
+              {headerAction}
+              <Dialog.Close
+                aria-label="Close"
+                className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-bds-gray-60 transition-colors hover:bg-bds-gray-10 hover:text-foreground dark:text-bds-gray-40 dark:hover:bg-white/10 dark:hover:text-white"
+              >
+                <CloseIcon size={14} />
+              </Dialog.Close>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-5 overflow-y-auto px-5 pb-8 pt-5">{children}</div>
+          <div className="flex flex-col gap-5 overflow-y-auto px-5 pb-5 pt-5">{children}</div>
 
           {footer ? (
             <div className="flex items-center justify-end gap-3 border-t border-bds-gray-10 px-5 py-4 dark:border-white/10">

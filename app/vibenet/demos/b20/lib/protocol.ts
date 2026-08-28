@@ -293,10 +293,10 @@ export const assetAbi = [
 ] as const;
 
 export const POLICY_SCOPES = [
-  ['TRANSFER_SENDER_POLICY', 'Transfer sender'],
-  ['TRANSFER_RECEIVER_POLICY', 'Transfer receiver'],
-  ['TRANSFER_EXECUTOR_POLICY', 'Transfer executor'],
-  ['MINT_RECEIVER_POLICY', 'Mint recipient'],
+  ['TRANSFER_SENDER_POLICY', 'Who can send'],
+  ['TRANSFER_RECEIVER_POLICY', 'Who can receive'],
+  ['TRANSFER_EXECUTOR_POLICY', "Who can move others' tokens"],
+  ['MINT_RECEIVER_POLICY', 'Who can receive new tokens'],
 ] as const;
 
 export const MAX_POLICY_ID = (1n << 64n) - 1n;
@@ -465,9 +465,6 @@ export function b20Variant(address: Address): 'asset' | 'stablecoin' | null {
   return variant === '00' ? 'asset' : variant === '01' ? 'stablecoin' : null;
 }
 
-export function shortAddress(value: string): string {
-  return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
-}
 
 export function memoToBytes32(value: string): Hex {
   if (/^0x[\da-fA-F]{64}$/.test(value)) return value as Hex;
@@ -486,16 +483,6 @@ export function bytes32ToMemo(memo: Hex): string | null {
   const end = bytes.indexOf(0);
   const text = new TextDecoder().decode(end === -1 ? bytes : bytes.slice(0, end));
   return text && /^[\x20-\x7E]+$/.test(text) ? text : null;
-}
-
-// Format a raw integer token amount for display: group the whole part, trim
-// trailing fractional zeros, and cap the fraction at 6 places. Assumes
-// decimals >= 1 (every B20 variant uses 6–18).
-export function formatAmount(value: bigint, decimals: number): string {
-  const raw = value.toString().padStart(decimals + 1, '0');
-  const whole = raw.slice(0, -decimals) || '0';
-  const fraction = raw.slice(-decimals).replace(/0+$/, '').slice(0, 6);
-  return `${Number(whole).toLocaleString()}${fraction ? `.${fraction}` : ''}`;
 }
 
 export function amount(value: string, decimals: number): bigint {

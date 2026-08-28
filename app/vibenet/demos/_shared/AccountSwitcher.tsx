@@ -5,32 +5,14 @@
 // appear only when the matching callback is supplied, so the same control works
 // as a full manager (toolbar) or a plain picker (e.g. a transaction "From").
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Popover } from '@base-ui/react/popover';
 
 import { cn } from '../../../components/ui/cn';
 import { Text } from '../../../components/ui/Text';
 import type { StoredAccount } from '../account/library/model';
-import { AccountAvatar, AccountIdentity, Badge, TrashIcon } from './primitives';
-
-function ChevronIcon() {
-  return (
-    <svg
-      width={16}
-      height={16}
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 text-bds-gray-50 transition-transform duration-150 group-data-[popup-open]:rotate-180"
-      aria-hidden="true"
-    >
-      <path d="M5 7.5L10 12.5L15 7.5" />
-    </svg>
-  );
-}
+import { ChevronIcon, CreateRowButton, DeleteConfirmButton } from './dropdown';
+import { AccountAvatar, AccountIdentity, Badge } from './primitives';
 
 function InfoIcon() {
   return (
@@ -73,31 +55,14 @@ export function AccountSwitcher({
   triggerClassName,
 }: AccountSwitcherProps) {
   const [open, setOpen] = useState(false);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-  const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  // Clicking anywhere other than the pending delete button cancels the confirm.
-  useEffect(() => {
-    if (!confirmId) return;
-    const onDocMouseDown = (e: MouseEvent) => {
-      if (confirmButtonRef.current?.contains(e.target as Node)) return;
-      setConfirmId(null);
-    };
-    document.addEventListener('mousedown', onDocMouseDown);
-    return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [confirmId]);
 
   const active = accounts.find((a) => a.id === activeAccountId) ?? null;
   const topLevel = accounts.filter((a) => !a.parentId);
 
-  const close = () => {
-    setOpen(false);
-    setConfirmId(null);
-  };
+  const close = () => setOpen(false);
 
   const row = (a: StoredAccount, nested: boolean) => {
     const isActive = a.id === activeAccountId;
-    const confirming = confirmId === a.id;
     return (
       <div
         key={a.id}
@@ -139,30 +104,7 @@ export function AccountSwitcher({
                 <InfoIcon />
               </button>
             ) : null}
-            {onDelete ? (
-              <button
-                type="button"
-                ref={confirming ? confirmButtonRef : undefined}
-                onClick={() => {
-                  if (confirming) {
-                    onDelete(a.id);
-                    setConfirmId(null);
-                  } else {
-                    setConfirmId(a.id);
-                  }
-                }}
-                aria-label={confirming ? `Confirm delete ${a.label}` : `Delete ${a.label}`}
-                title={confirming ? 'Click again to delete' : 'Delete account'}
-                className={cn(
-                  'rounded-md p-1.5 transition-colors',
-                  confirming
-                    ? 'bg-bds-red-0 text-bds-red-60'
-                    : 'text-bds-gray-40 hover:bg-bds-red-0 hover:text-bds-red-60',
-                )}
-              >
-                <TrashIcon size={15} />
-              </button>
-            ) : null}
+            {onDelete ? <DeleteConfirmButton onDelete={() => onDelete(a.id)} label={a.label} /> : null}
           </span>
         ) : null}
       </div>
@@ -178,7 +120,6 @@ export function AccountSwitcher({
           return;
         }
         setOpen(nextOpen);
-        if (!nextOpen) setConfirmId(null);
       }}
     >
       <Popover.Trigger
@@ -197,7 +138,7 @@ export function AccountSwitcher({
             {accounts.length === 0 ? 'Create account' : 'Select account'}
           </Text>
         )}
-        <ChevronIcon />
+        <ChevronIcon className="duration-150 group-data-[popup-open]:rotate-180" />
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner
@@ -219,16 +160,13 @@ export function AccountSwitcher({
               </div>
             ))}
             {onCreate ? (
-              <button
-                type="button"
+              <CreateRowButton
+                label="+ New Account"
                 onClick={() => {
                   onCreate();
                   close();
                 }}
-                className="mt-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-bds-gray-15 px-4 py-2.5 text-[13px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-base-blue dark:border-white/15 dark:text-bds-gray-40 dark:hover:border-bds-blue-60"
-              >
-                + New Account
-              </button>
+              />
             ) : null}
           </Popover.Popup>
         </Popover.Positioner>
