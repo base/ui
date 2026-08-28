@@ -9,8 +9,8 @@
 //   - the collapsible ActivityDrawer pinned to the bottom, for demos that hand
 //     it activity (B20 keeps its log in the page flow instead, so it passes
 //     none and the drawer is skipped).
-// Each demo owns one AccountEngine and passes it here, avoiding duplicate store
-// instances and repeated account-settings wiring.
+// Each demo renders this inside one AccountEngineProvider, avoiding duplicate
+// store instances and repeated account-settings wiring.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -19,15 +19,10 @@ import { cn } from '../../../components/ui/cn';
 import { AccountSwitcher } from '../_shared/AccountSwitcher';
 import { ActivityDrawer } from '../_shared/ActivityDrawer';
 import { DemoGate } from '../_shared/DemoGate';
-import { AccountDetailsModal } from '../account/components/AccountDetailsModal';
 import { CreateAccountModal } from '../account/components/CreateAccountModal';
-import type { AccountEngine } from '../account/useAccountEngine';
+import { useAccountEngine } from '../account/useAccountEngine';
 
 type AccountDemoShellProps = {
-  engine: AccountEngine;
-  /** Page-specific navigation from Account Details. Omit when the demo has no
-   * transaction builder of its own (for example B20). */
-  onTransactFromDetails?: () => void;
   // Empty-state copy.
   gateTitle?: string;
   gateDescription?: string;
@@ -41,8 +36,6 @@ type AccountDemoShellProps = {
 };
 
 export function AccountDemoShell({
-  engine,
-  onTransactFromDetails,
   gateTitle,
   gateDescription,
   activity,
@@ -51,7 +44,11 @@ export function AccountDemoShell({
   className,
   children,
 }: AccountDemoShellProps) {
+  const engine = useAccountEngine();
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  // The switcher and the empty-state gate both open the create-account modal.
+  const [createOpen, setCreateOpen] = useState(false);
+  const onCreate = () => setCreateOpen(true);
   useEffect(() => {
     setTopbarSlot(document.getElementById('topbar-actions-slot'));
   }, []);
@@ -61,9 +58,12 @@ export function AccountDemoShell({
       accounts={engine.accounts}
       activeAccountId={engine.activeAccountId}
       onSelect={engine.setActiveAccountId}
-      onCreate={engine.openCreate}
-      onDelete={engine.removeAccount}
-      onDetails={engine.openAccountDetails}
+      onCreate={onCreate}
+      onDelete={engine.deleteAccount}
+      onDetails={(id) => {
+        const addr = engine.accounts.find((a) => a.id === id)?.address;
+        if (addr) window.open(`/vibenet/explorer/address/${addr}`, '_blank', 'noopener,noreferrer');
+      }}
     />
   );
 
@@ -82,7 +82,7 @@ export function AccountDemoShell({
         <DemoGate
           accounts={engine.accounts}
           hydrated={engine.hydrated}
-          onCreate={engine.openCreate}
+          onCreate={onCreate}
           title={gateTitle}
           description={gateDescription}
         >
@@ -97,8 +97,7 @@ export function AccountDemoShell({
         </DemoGate>
       </div>
 
-      <AccountDetailsModal engine={engine} onTransact={onTransactFromDetails} />
-      <CreateAccountModal engine={engine} />
+      <CreateAccountModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </>
   );
 }

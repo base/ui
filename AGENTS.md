@@ -74,7 +74,31 @@ of a single commit, use `SKIP_DOCS_HOOK=1` or put `[skip-docs]` in the message.
 
 ## Testing
 
-- Run the llms-kit suite: `node --test tests/`
+Two separate suites, for two separate purposes — don't mix their files.
+
+- **Unit/component/contract tests — Vitest.** `*.test.ts(x)`, colocated next to
+  the code they cover (e.g. `app/snapshots/networks.contract.test.ts`,
+  `deploy.config.test.mjs`). Run with `npm test`. Fast, no browser, no build —
+  this is where logic, data transforms, and contract/matrix assertions live.
+  Blocking CI job (`test`).
+- **End-to-end journeys — Playwright.** `e2e/*.spec.ts`. Run with
+  `npm run test:e2e`, which builds the app and drives it in a real browser
+  against that production build. Non-blocking CI job (`e2e (non-blocking)`,
+  `continue-on-error: true`) — failures are visible but don't block merges
+  while this suite is still young. `vitest.config.mts` excludes `e2e/**` from
+  Vitest's default test glob so the two runners never pick up each other's
+  files.
+
+  **When to add an e2e test**: only for surfaces that are stable — established
+  pages/journeys not expected to change shape week to week (e.g. the home
+  page, core nav, Snapshots, Upgrades). Do not add e2e coverage for a new demo
+  or anything still being iterated on (e.g. work under `app/vibenet/demos/`)
+  — the UI will keep shifting under the test faster than the test catches
+  real regressions, making it pure maintenance overhead. Add a smoke test
+  once a demo's surface has settled, not before.
+
+- Run the llms-kit suite (generation scripts under `scripts/`, unrelated to
+  the app tests above): `node --test tests/`
 - Include liveness checks against the deployed site: `LLMS_LIVE=1 node --test tests/`
 
 ## Analytics

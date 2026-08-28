@@ -30,6 +30,7 @@ to run the **internal** build locally with those sections visible. See
 - `npm run lint` — eslint (next/core-web-vitals)
 - `npm run typecheck` — `tsc --noEmit`
 - `npm test` — vitest
+- `npm run test:e2e` — playwright end-to-end tests (builds and serves the app first)
 - `npm run llms` / `npm run agents` — regenerate the agent index files
 - `npm run docs:check` — verify the agent index is current
 
@@ -49,6 +50,9 @@ to run the **internal** build locally with those sections visible. See
 - **public build excludes internal-only surfaces** — builds the default
   (external) target and asserts that internal-only routes 404 and never appear
   in the nav or sitemap, so the deployment matrix can't silently regress
+- **e2e (non-blocking)** — playwright smoke tests against a production build.
+  `continue-on-error`, so failures show up without blocking merges while the
+  suite is still being built out.
 
 CodeQL, StepSecurity, Heimdall, and the Vercel preview build are configured
 outside this repo at the org/platform level.
