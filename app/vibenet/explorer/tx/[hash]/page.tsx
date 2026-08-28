@@ -11,6 +11,7 @@ import { ExplorerLink } from '../../../components/ExplorerLink';
 import type { ExplorerAaCall, ExplorerTxLog, ExplorerTxResponse } from '../../../library/api-types';
 import { vibenetApi, VibenetApiError } from '../../../library/client';
 import type { DecodedB20MemoCall, DecodedCall } from '../../../library/explorer';
+import { fetchTokenMeta, type TokenMeta } from '../../../library/token';
 import {
   callSelector,
   decodeB20MemoCalldata,
@@ -21,6 +22,7 @@ import {
   decodeExecuteBatch,
   decodeMetadata,
   EXECUTE_BATCH_SELECTOR,
+  findGasTokenFee,
   fmtHexInt,
   fmtTokenAmount,
   hexToInt,
@@ -365,6 +367,22 @@ function TxBody({ tx }: TxBodyProps) {
   const hasMetadata = Boolean(tx.metadata && tx.metadata !== '0x');
   const selector = tx.input && tx.input.length >= 10 ? tx.input.slice(0, 10) : null;
   const b20Memo = tx.isAa ? null : decodeB20MemoCalldata(tx.input);
+  const gasTokenFee = tx.isAa ? findGasTokenFee(tx.payer, tx.aa) : null;
+  const gasTokenAddress = gasTokenFee?.token ?? null;
+  const [gasTokenMeta, setGasTokenMeta] = useState<TokenMeta | null>(null);
+
+  useEffect(() => {
+    setGasTokenMeta(null);
+    if (!gasTokenAddress) return;
+    let cancelled = false;
+    fetchTokenMeta(gasTokenAddress).then((meta) => {
+      if (!cancelled) setGasTokenMeta(meta);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [gasTokenAddress]);
+
   const inputBytes = tx.input && tx.input !== '0x' ? (tx.input.length - 2) / 2 : 0;
   const callCount = (tx.aa?.calls ?? []).reduce((sum, phase) => sum + phase.length, 0);
   const phaseCount = tx.aa?.calls.length ?? 0;
@@ -465,7 +483,18 @@ function TxBody({ tx }: TxBodyProps) {
           ) : null}
           {!tx.isAa ? <DetailRow label="Value">{weiToEth(tx.value)}</DetailRow> : null}
           <DetailRow label="Nonce">{nonceBody}</DetailRow>
-          {tx.fee ? <DetailRow label="Fee">{weiToEth(tx.fee)}</DetailRow> : null}
+          {tx.fee ? (
+            gasTokenFee ? (
+              // Paid in the gas token instead — labeling this "Fee" would read
+              // as what the user paid, but it's still useful for debugging the
+              // payer's economics (does the flat token fee cover this?).
+              <DetailRow label="Network cost">
+                <span className={DIM}>{weiToEth(tx.fee)} (paid by payer)</span>
+              </DetailRow>
+            ) : (
+              <DetailRow label="Fee">{weiToEth(tx.fee)}</DetailRow>
+            )
+          ) : null}
           <DetailRow label="Gas limit">{fmtHexInt(tx.gas)}</DetailRow>
           {tx.gasUsed ? (
             <DetailRow label="Gas used">
@@ -475,6 +504,26 @@ function TxBody({ tx }: TxBodyProps) {
           ) : null}
           {tx.effectiveGasPrice ? (
             <DetailRow label="Effective gas price">{weiToGwei(tx.effectiveGasPrice)}</DetailRow>
+          ) : null}
+          {gasTokenFee ? (
+            <DetailRow label="Gas token fee">
+              {gasTokenMeta ? (
+                <span>
+                  {fmtTokenAmount(gasTokenFee.rawAmount, gasTokenMeta.decimals)} {gasTokenMeta.symbol}
+                </span>
+              ) : (
+                <span>
+                  <code className="font-mono">{gasTokenFee.rawAmount.toString()}</code>{' '}
+                  <span className={DIM}>raw units</span>
+                </span>
+              )}{' '}
+              <ExplorerLink
+                kind="address"
+                value={gasTokenFee.token}
+                label={gasTokenMeta ? gasTokenMeta.symbol : gasTokenFee.token}
+                className="break-all"
+              />
+            </DetailRow>
           ) : null}
           {hasMetadata ? (
             <DetailRow label="Metadata">
