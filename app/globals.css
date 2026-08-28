@@ -555,34 +555,19 @@ button {
   padding-right: 20px;
 }
 
-/* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below
-   the selected pill at -1 and below every label — so the pill can animate *over*
-   the hover surface of the row it lands on (light gray deepens to the selected
-   gray) instead of being hidden by it, and the hover fill never has to blink away
-   while the pill is in flight. The sub-nav back header never hosts the pill and
-   sits outside the nav's `isolation: isolate`, where a negative layer would escape
-   to the root stacking context, so it fills its own background instead. */
-.nav-row-hover::before {
-  content: '';
-  position: absolute; /* anchored by styles.navRow's position: relative */
-  inset: 0;
-  z-index: -2;
-  border-radius: 8px;
-  background-color: transparent;
-  pointer-events: none;
-}
-
 .nav-header-hover {
   border-radius: 8px;
-}
-
-.nav-header-hover {
   transition: background-color 0.15s ease;
 }
 
-.nav-row-hover:hover::before,
+.nav-row-hover:hover,
 .nav-header-hover:hover {
   background-color: var(--bds-gray-5);
+}
+
+.nav-row-active,
+.nav-row-active:hover {
+  background-color: var(--bds-gray-10);
 }
 
 .nav-back-icon {

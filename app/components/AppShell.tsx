@@ -76,9 +76,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
   },
-  // `isolation` keeps the selected pill (z-index -1) in this stacking context
-  // so it paints behind the row's label instead of behind the sidebar.
-  nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative', isolation: 'isolate' },
+  nav: { display: 'flex', flexDirection: 'column', gap: 2 },
   navLink: { textDecoration: 'none', color: 'inherit' },
   navRow: {
     display: 'flex',
@@ -87,9 +85,6 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     fontSize: 14,
-    // Anchors the selected pill and the `.nav-row-hover` fill, both of which are
-    // absolutely positioned within the row.
-    position: 'relative',
   },
   navIcon: { display: 'inline-flex', width: 20, height: 20 },
   soon: {
@@ -291,31 +286,8 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate }:
     color = active ? 'var(--bds-gray-80)' : 'var(--bds-gray-50)';
   }
 
-  const row = (
-    <div
-      className={`${hasChildren ? 'group ' : ''}${enabled ? 'nav-row-hover' : ''}`}
-      style={{
-        ...styles.navRow,
-        color,
-        fontWeight: active ? 500 : 400,
-        cursor: enabled ? 'pointer' : 'default',
-      }}
-    >
-      {active && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 8,
-            // SELECTED (gray-10), a step darker than the SURFACE (gray-5) hover
-            // fill, so the pill reads as landing on the hovered row rather than
-            // dissolving into it.
-            background: SELECTED,
-            zIndex: -1,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
+  const content = (
+    <>
       {icon && (
         <span style={styles.navIcon}>
           <NavGlyph name={icon} />
@@ -328,21 +300,33 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate }:
           <AnimatedArrowIcon size={16} strokeWidth={1.5} />
         </span>
       )}
-    </div>
+    </>
   );
 
-  if (!enabled) return row;
+  const rowStyle = {
+    ...styles.navRow,
+    ...styles.navLink,
+    color,
+    fontWeight: active ? 500 : 400,
+    cursor: enabled ? 'pointer' : 'default',
+  };
+
+  if (!enabled) {
+    return <div style={rowStyle}>{content}</div>;
+  }
+
   return (
     <Link
       href={href}
-      style={styles.navLink}
+      className={`${hasChildren ? 'group ' : ''}nav-row-hover${active ? ' nav-row-active' : ''} ${NAV_FOCUS_RING}`}
+      style={rowStyle}
       onClick={(event) => {
         if (opensInNewTab(event)) return;
         trackNavClick(label);
         onNavigate?.();
       }}
     >
-      {row}
+      {content}
     </Link>
   );
 }
@@ -374,7 +358,10 @@ const SIDEBAR_FOOTER_LINK =
   'group outline-none text-bds-gray-50 transition-colors duration-150 hover:text-bds-gray-80';
 
 const SIDEBAR_FOOTER_LINK_LABEL =
-  'inline-flex items-center gap-2.5 rounded-sm group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue';
+  'inline-flex items-center gap-2.5 rounded-lg group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue';
+
+const NAV_FOCUS_RING =
+  'outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue';
 
 // Track and thumb. Shared with the `:not(...)` list in disableAnimation so the
 // page-wide no-transition stamp cannot override the 180ms slide.
@@ -494,7 +481,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                 >
                   <Link
                     href="/"
-                    className="nav-header-hover group"
+                    className={`nav-header-hover group ${NAV_FOCUS_RING}`}
                     style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 2, color: 'var(--bds-gray-50)' }}
                     onClick={(event) => {
                       if (opensInNewTab(event)) return;
