@@ -126,6 +126,7 @@ export function ConfigView({ engine, onTransact }: ConfigViewProps) {
               {active ? (
                 <motion.div
                   layoutId="cfg-tab-underline"
+                  layoutDependency={p.cfgTab}
                   className="absolute right-0 bottom-0 left-0 h-0.5 bg-foreground dark:bg-white"
                   transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
                 />
