@@ -9,6 +9,7 @@ import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { type ActivityEntry, type StoredAccount, formatTime } from '../library/model';
 import { short } from '../shared';
 import { AccountIdentity, Badge } from '../../_shared/primitives';
+import { ViewTransactionButton } from '../../_shared/ViewTransactionButton';
 
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 
@@ -109,9 +110,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                 </td>
                 <td className="px-4 py-3.5 align-top text-right">
                   {txHash ? (
-                    <Link href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}>
-                      <Button variant="secondary" size="sm">View Transaction</Button>
-                    </Link>
+                    <ViewTransactionButton href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`} />
                   ) : null}
                 </td>
               </motion.tr>
@@ -174,9 +173,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
 
               <div className="flex flex-wrap items-center gap-3">
                 {txHash ? (
-                  <Link href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`}>
-                    <Button variant="secondary" size="sm">View Transaction</Button>
-                  </Link>
+                  <ViewTransactionButton href={`${VIBENET_EXPLORER_PATH}/tx/${txHash}`} />
                 ) : null}
               </div>
             </motion.div>

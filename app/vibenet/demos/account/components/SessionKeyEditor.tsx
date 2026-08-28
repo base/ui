@@ -35,8 +35,14 @@ const CHIP_CLS =
   'rounded-full border border-bds-gray-10 px-2.5 py-1 text-[12px] text-bds-gray-60 transition-colors hover:border-bds-gray-15 dark:border-white/10 dark:text-bds-gray-40';
 const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue';
 
-export function SessionKeyEditor({ onClose }: { onClose?: () => void }) {
-  const { acct, signers, activeSigner, networkShort, doAuthorizeSession, setError } = useAccountEngine();
+export function SessionKeyEditor({
+  onClose,
+  onAuthorized,
+}: {
+  onClose?: () => void;
+  onAuthorized?: (sessionKeyId: string) => void;
+}) {
+  const { acct, signers, activeSigner, networkShort, doAuthorizeSession } = useAccountEngine();
 
   const [skSignerId, setSkSignerId] = useState('');
   const [skExpiryId, setSkExpiryId] = useState('7d');
@@ -44,6 +50,7 @@ export function SessionKeyEditor({ onClose }: { onClose?: () => void }) {
   const [skLimits, setSkLimits] = useState<LimitDraft[]>(() => [newLimitDraft()]);
   const [skScopes, setSkScopes] = useState<ScopeDraft[]>([]);
   const [skBusy, setSkBusy] = useState(false);
+  const [error, setError] = useState('');
 
   if (!acct) return null;
 
@@ -106,15 +113,17 @@ export function SessionKeyEditor({ onClose }: { onClose?: () => void }) {
     setSkBusy(true);
     setError('');
     try {
-      await doAuthorizeSession(target, {
+      const sessionKey = await doAuthorizeSession(target, {
         expirySecs: EXPIRY_PRESETS.find((p) => p.id === skExpiryId)!.seconds,
         policyLabel: formPolicyLabel(),
         spec: formPolicySpec(),
         label: target.label,
         chainShort: skChainShort,
       });
+      if (!sessionKey) return;
       setSkSignerId('');
       onClose?.();
+      onAuthorized?.(sessionKey.id);
     } catch (err) {
       const e = err as { message?: string; name?: string };
       setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
@@ -310,6 +319,8 @@ export function SessionKeyEditor({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
+      {error ? <p className="text-[12px] text-bds-red-60 [line-break:anywhere]">{error}</p> : null}
+
       <div className="flex items-center gap-3">
         <p className="flex-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
           Send-only key on {getDemoChain(skChainShort).name}.
@@ -328,7 +339,7 @@ export function SessionKeyEditor({ onClose }: { onClose?: () => void }) {
           disabled={skBusy || !skSignerId || formPolicyEmpty}
           className="disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {skBusy ? 'Signing Authorization…' : 'Sign Authorization'}
+          {skBusy ? 'Signing…' : 'Review transaction'}
         </Button>
       </div>
     </div>

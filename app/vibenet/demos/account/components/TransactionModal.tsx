@@ -7,8 +7,8 @@
 // owner/session-key change, and on Send runs the engine's apply primitives
 // through the same submitted/wait step.
 //
-// Driven entirely off the account-engine context, so every surface (the Accounts
-// demo, the account management page) gets the identical transact experience.
+// Driven by declarative open/request props plus the account-engine context, so
+// every surface gets the same component without an imperative "modal hook".
 
 import {
   type Address,
@@ -23,8 +23,7 @@ import {
   selectPaymentOption,
   toHex,
 } from '@aa';
-import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '../../../../components/ui/Button';
@@ -40,6 +39,7 @@ import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { AccountSwitcher } from '../../_shared/AccountSwitcher';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { Badge, CheckIcon, KindBadge } from '../../_shared/primitives';
+import { ViewTransactionButton } from '../../_shared/ViewTransactionButton';
 import { DEMO_CHAINS, estimateTxGas, PAYER_URL } from '../library/chains';
 import {
   buildCalls,
@@ -53,30 +53,24 @@ import {
   valueBearingCallCount,
 } from '../library/calls';
 import { formatExpiry, scopeChips, type SignerKind, type StoredAccount } from '../library/model';
-import { formatTokenAmount } from '../shared';
 import { scopeLabel } from '../library/policy';
-import { KIND_LABEL, short, type WalletSigner } from '../shared';
-import { conciseError, TxPendingError, useAccountEngine } from '../useAccountEngine';
+import { formatTokenAmount, KIND_LABEL, short, type WalletSigner } from '../shared';
+import { conciseError, EstimateRevertedError, isSeqMismatch, TxPendingError, useAccountEngine } from '../useAccountEngine';
 
 const INPUT_CLS =
   'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
 
 export type TransactPreset = { calls: CallRow[]; gasMode?: 'eth' | 'free' | 'usdv'; metadata?: string };
-/** `openApply` target: apply the staged owner change, or a session key's change. */
+/** Apply the staged owner change, or a specific session key's change. */
 export type ApplyTarget = 'owner' | { session: string };
 
-export type TransactModal = {
-  /** Open the full calls builder. With a preset, jumps straight to review. */
-  open: (preset?: TransactPreset) => void;
-  /** Open in apply-config mode: review + send a staged owner/session change. */
-  openApply: (target: ApplyTarget) => void;
-  isOpen: boolean;
-  signing: boolean;
-  confirmSend: () => Promise<void>;
-  modal: React.ReactNode;
+type TransactionModalProps = {
+  onClose: () => void;
+  preset?: TransactPreset;
+  applyTarget?: ApplyTarget;
 };
 
-export function useTransactModal(): TransactModal {
+export function TransactionModal({ onClose, preset, applyTarget }: TransactionModalProps) {
   const engine = useAccountEngine();
   const {
     acct,
@@ -87,8 +81,6 @@ export function useTransactModal(): TransactModal {
     networkShort,
     setNetworkShort,
     chain,
-    copied,
-    copy,
     activeSignerId,
     setActiveSignerId,
     activeSigner,
@@ -102,37 +94,43 @@ export function useTransactModal(): TransactModal {
     broadcast8130,
     signComposed,
     applyLandedBundle,
-    handleSeqMismatch,
     pendingBundleFor,
-    setEstimateBlocked,
-    overrideEstimateRef,
-    blockOnRevertRef,
-    setInfoMsg,
-    setSeqRecovery,
-    submitStatus,
-    setSubmitStatus,
     pushActivity,
-    setError,
-    error,
     applyOwnerNow,
     applySessionKeyNow,
-    applying,
-    skApplyingId,
-    configTx,
-    setConfigTx,
+    signOwnerChange,
+    resignPendingSessionKeys,
+    dropPendingSessionKeys,
+    discardOwnerChanges,
   } = engine;
 
   const [txSignerId, setTxSignerId] = useState<string | null>(null);
-  const [calls, setCalls] = useState<CallRow[]>(() => [newCallRow()]);
+  const [calls, setCalls] = useState<CallRow[]>(() => preset?.calls ?? [newCallRow()]);
   const [callsAdvanced, setCallsAdvanced] = useState(false);
   const [usdvRecipientDrafts, setUsdvRecipientDrafts] = useState<Record<string, string>>({});
   const [usdvAmountDrafts, setUsdvAmountDrafts] = useState<Record<string, string>>({});
-  const [metaField, setMetaField] = useState('');
-  const [gasMode, setGasMode] = useState<'eth' | 'free' | 'usdv'>('eth');
+  const [metaField, setMetaField] = useState(preset?.metadata ?? '');
+  const [gasMode, setGasMode] = useState<'eth' | 'free' | 'usdv'>(preset?.gasMode ?? 'eth');
   const [signing, setSigning] = useState(false);
-  const [txStep, setTxStep] = useState<'build' | 'review' | 'submitted'>('build');
-  const [transactModalOpen, setTransactModalOpen] = useState(false);
-  const [applyTarget, setApplyTarget] = useState<ApplyTarget | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<'' | 'submitting' | 'confirming'>('');
+  const [configTx, setConfigTx] = useState<{ hash: Hex; label: string } | null>(null);
+  const [estimateBlocked, setEstimateBlocked] = useState<string | null>(null);
+  // Error + config-sequence-recovery UI is local to this dialog — nothing leaks
+  // onto the page behind it. `notice` is a transient status line (after a
+  // re-sign / drop); `seqRecovery` is the "config change sequence mismatch"
+  // prompt offering to re-sign at the current sequence or drop the change.
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [seqRecovery, setSeqRecovery] = useState<{
+    what: string;
+    resign: () => Promise<void> | void;
+    drop: () => void;
+    busy?: boolean;
+  } | null>(null);
+  const [txStep, setTxStep] = useState<'build' | 'review' | 'submitted'>(
+    applyTarget || preset ? 'review' : 'build',
+  );
   const [result, setResult] = useState<{
     serialized?: Hex;
     txHash?: Hex;
@@ -155,10 +153,8 @@ export function useTransactModal(): TransactModal {
   const activeSessionKey =
     txIsSession && txSigner ? (acct?.sessionKeys.find((sk) => sk.signerId === txSigner.id) ?? null) : null;
 
-  // Session keys can only ride sponsored (EIP-8168) transactions.
-  useEffect(() => {
-    if (txIsSession) setGasMode('free');
-  }, [txIsSession]);
+  // Session keys always use sponsorship without mutating the owner's last gas choice.
+  const effectiveGasMode = txIsSession ? 'free' : gasMode;
 
   const callsValid = useMemo(() => calls.every(rowToValid), [calls]);
   const metadataHex = useMemo<Hex | undefined>(
@@ -176,14 +172,16 @@ export function useTransactModal(): TransactModal {
     });
   }, [acct, chain.mode, calls, keyChangeCount]);
 
-  // Reset transact-local state when the active account changes.
-  useEffect(() => {
-    setTxSignerId(null);
-    setResult(null);
-    setTxStep('build');
-  }, [activeAccountId]);
-
   const clearResult = () => setResult(null);
+  const copy = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1400);
+    } catch {
+      /* Clipboard access is optional in the demo. */
+    }
+  };
   const copyRandomAddress = () => copy(privateKeyToAccount(generatePrivateKey()).address, 'randaddr');
 
   const recordResult = (
@@ -238,24 +236,65 @@ export function useTransactModal(): TransactModal {
     toast.error(message);
   };
 
+  const clearNotices = () => {
+    setNotice('');
+    setSeqRecovery(null);
+  };
+
+  // Catch a "config change sequence mismatch" from a config-carrying broadcast
+  // and show a recovery prompt inside this dialog (re-sign at the current
+  // sequence, or drop the change), scoped to what the failed tx carried. Returns
+  // true once handled so the caller skips its generic error handling.
+  const handleSeqMismatch = (err: unknown, ctx: { sessionIds: string[]; hasOwner: boolean }): boolean => {
+    if (!isSeqMismatch(err)) return false;
+    if (!ctx.hasOwner && ctx.sessionIds.length === 0) return false;
+    const parts: string[] = [];
+    if (ctx.hasOwner) parts.push('owner change');
+    if (ctx.sessionIds.length)
+      parts.push(`${ctx.sessionIds.length} session-key authorization${ctx.sessionIds.length === 1 ? '' : 's'}`);
+    setError('');
+    setNotice('');
+    setSeqRecovery({
+      what: parts.join(' + ') || 'staged config change',
+      resign: async () => {
+        setSeqRecovery((r) => (r ? { ...r, busy: true } : r));
+        setError('');
+        try {
+          if (ctx.hasOwner) await signOwnerChange();
+          if (ctx.sessionIds.length && !(await resignPendingSessionKeys())) {
+            setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
+            return;
+          }
+          setSeqRecovery(null);
+          setNotice('Re-signed at the current sequence — send again to apply it.');
+        } catch (e) {
+          const m = e as { message?: string; name?: string };
+          setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
+          setError(m.name === 'NotAllowedError' ? 'Signature was dismissed.' : (m.message ?? String(e)));
+        }
+      },
+      drop: () => {
+        if (ctx.hasOwner) discardOwnerChanges();
+        if (ctx.sessionIds.length) dropPendingSessionKeys(ctx.sessionIds);
+        setSeqRecovery(null);
+        setNotice('Dropped the out-of-sequence config change.');
+      },
+    });
+    return true;
+  };
+
   // Transact: native offline sign, own ETH gas.
-  const doSignNative = async () => {
+  const doSignNative = async (forceEstimate = false) => {
     if (!acct || !txSigner || !callsValid) return;
     const sessionPolicy = activeSessionKey?.policy;
-    if (txIsSession && gasMode !== 'free') {
-      surfaceSendError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
-      return;
-    }
     if (txIsSession && !acct.deployed && !activeSessionKey?.pendingAuth) {
       surfaceSendError('Authorize this session key with an owner key first (Apply now).');
       return;
     }
     setSigning(true);
     setError('');
-    setInfoMsg('');
-    setSeqRecovery(null);
+    clearNotices();
     setEstimateBlocked(null);
-    blockOnRevertRef.current = true;
     let seqCtx: { sessionIds: string[]; hasOwner: boolean } = { sessionIds: [], hasOwner: false };
     try {
       const bundle = pendingBundleFor(
@@ -277,6 +316,7 @@ export function useTransactModal(): TransactModal {
         metadataHex,
         sessionPolicy,
         undefined,
+        { estimateRevert: forceEstimate ? 'force' : 'throw' },
       );
       let txHash: Hex;
       let pending = false;
@@ -292,34 +332,27 @@ export function useTransactModal(): TransactModal {
       recordResult(acct, serialized, txHash, pending, txSigner, undefined, extra);
     } catch (err) {
       if (handleSeqMismatch(err, seqCtx)) return;
+      if (err instanceof EstimateRevertedError) setEstimateBlocked(err.reason);
       const e = err as { message?: string; name?: string };
       surfaceSendError(conciseError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err))));
     } finally {
       setSigning(false);
       setSubmitStatus('');
-      overrideEstimateRef.current = false;
-      blockOnRevertRef.current = false;
     }
   };
 
   // Transact: native sign co-signed by an ERC-8168 payer service.
-  const doSponsoredSign = async () => {
+  const doSponsoredSign = async (forceEstimate = false) => {
     if (!acct || !txSigner || !callsValid) return;
     const sessionPolicy = activeSessionKey?.policy;
-    if (txIsSession && gasMode !== 'free') {
-      surfaceSendError('Session keys can only send sponsored (free) transactions. Switch gas to Sponsored.');
-      return;
-    }
     if (txIsSession && !acct.deployed && !activeSessionKey?.pendingAuth) {
       surfaceSendError('Authorize this session key with an owner key first (Apply now).');
       return;
     }
     setSigning(true);
     setError('');
-    setInfoMsg('');
-    setSeqRecovery(null);
+    clearNotices();
     setEstimateBlocked(null);
-    blockOnRevertRef.current = true;
     let seqCtx: { sessionIds: string[]; hasOwner: boolean } = { sessionIds: [], hasOwner: false };
     try {
       const payerClient = createPayerClient({ url: PAYER_URL });
@@ -333,12 +366,12 @@ export function useTransactModal(): TransactModal {
       });
 
       let selToken: Address | undefined;
-      if (gasMode === 'usdv') {
+      if (effectiveGasMode === 'usdv') {
         const tokenOffer = terms.options.find(isTokenOffer);
         selToken = tokenOffer?.tokens?.[0]?.token;
         if (!selToken) throw new Error('This payer does not accept USDV gas payment.');
       }
-      const declinedFree = gasMode === 'free' ? terms.options.find(isDeclinedOffer) : undefined;
+      const declinedFree = effectiveGasMode === 'free' ? terms.options.find(isDeclinedOffer) : undefined;
       const { option, tokenChoice } = selectPaymentOption(terms, selToken ? { token: selToken } : {});
 
       let phase0: { to: Address; data: Hex }[] | undefined;
@@ -379,6 +412,7 @@ export function useTransactModal(): TransactModal {
         metadataHex,
         sessionPolicy,
         { address: option.payer, phase0 },
+        { estimateRevert: forceEstimate ? 'force' : 'throw' },
       );
       const cosigned = await payerClient.signTransaction({
         signedTransaction: serialized,
@@ -400,6 +434,7 @@ export function useTransactModal(): TransactModal {
       recordResult(acct, finalTx, txHash, pending, txSigner, gasNote, extra);
     } catch (err) {
       if (handleSeqMismatch(err, seqCtx)) return;
+      if (err instanceof EstimateRevertedError) setEstimateBlocked(err.reason);
       const e = err as { message?: string; name?: string };
       const msg = e.message ?? String(err);
       surfaceSendError(
@@ -414,29 +449,49 @@ export function useTransactModal(): TransactModal {
     } finally {
       setSigning(false);
       setSubmitStatus('');
-      overrideEstimateRef.current = false;
-      blockOnRevertRef.current = false;
     }
   };
 
-  const confirmSend = async () => {
+  const confirmSend = async (forceEstimate = false) => {
     setError('');
     setTxStep('submitted');
-    await (gasMode === 'eth' ? doSignNative() : doSponsoredSign());
+    await (effectiveGasMode === 'eth' ? doSignNative(forceEstimate) : doSponsoredSign(forceEstimate));
   };
 
   // Apply a staged config change (owner or session key) through this dialog's
-  // submitted/wait step. The engine's apply primitives broadcast + wait and set
-  // `configTx` / `error` / `submitStatus`, which the submitted body reflects.
+  // submitted/wait step. The engine's apply primitives broadcast + wait and
+  // return their result while this component owns all modal progress state.
   const confirmApply = async () => {
     if (!applyTarget) return;
     setTxStep('submitted');
     setSigning(true);
+    setError('');
+    clearNotices();
+    // What the carrying tx bundles — so a sequence mismatch prompt names the
+    // right changes to re-sign or drop.
+    const seqCtx =
+      applyTarget === 'owner'
+        ? { sessionIds: [], hasOwner: true }
+        : (() => {
+            const bundle = pendingBundleFor({ mode: 'session-send', sessionId: applyTarget.session });
+            return {
+              sessionIds: bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])),
+              hasOwner: bundle.some((i) => i.resultingOwners),
+            };
+          })();
     try {
-      if (applyTarget === 'owner') await applyOwnerNow();
-      else await applySessionKeyNow(applyTarget.session);
+      const tx =
+        applyTarget === 'owner'
+          ? await applyOwnerNow(setSubmitStatus)
+          : await applySessionKeyNow(applyTarget.session, setSubmitStatus);
+      setConfigTx(tx);
+    } catch (err) {
+      if (handleSeqMismatch(err, seqCtx)) return;
+      const e = err as { message?: string; name?: string };
+      surfaceSendError(conciseError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err))));
     } finally {
       setSigning(false);
+      setSubmitStatus('');
     }
   };
 
@@ -472,42 +527,6 @@ export function useTransactModal(): TransactModal {
     setTxStep('review');
   };
 
-  // Reset the builder/review state to defaults. Called on open (not close), so a
-  // prior preset can't bleed into the next "Create Transaction".
-  const resetTransactBuilder = () => {
-    setCalls([newCallRow()]);
-    setCallsAdvanced(false);
-    setUsdvRecipientDrafts({});
-    setUsdvAmountDrafts({});
-    setMetaField('');
-    setGasMode('eth');
-    setTxSignerId(null);
-    setResult(null);
-    setError('');
-    setTxStep('build');
-  };
-
-  const open = (preset?: TransactPreset) => {
-    setApplyTarget(null);
-    resetTransactBuilder();
-    if (preset) {
-      setCalls(preset.calls);
-      if (preset.gasMode) setGasMode(preset.gasMode);
-      setMetaField(preset.metadata ?? '');
-      setTxStep('review');
-    }
-    setTransactModalOpen(true);
-  };
-
-  const openApply = (target: ApplyTarget) => {
-    setApplyTarget(target);
-    setResult(null);
-    setError('');
-    setConfigTx(null);
-    setTxStep('review');
-    setTransactModalOpen(true);
-  };
-
   const selectSigner = (id: string) => {
     setTxSignerId(id);
     if (ownerSigners.some((s) => s.id === id)) setActiveSignerId(id);
@@ -515,11 +534,11 @@ export function useTransactModal(): TransactModal {
 
   const closeModal = () => {
     if (signing) return; // never abandon an in-flight send
-    setTransactModalOpen(false);
+    onClose();
   };
 
-  // Success shown in the submitted step. For apply mode it comes from the engine
-  // (`configTx`); for a normal transact it comes from `result`.
+  // Success shown in the submitted step. Apply and normal-send results use the
+  // same presentational shape even though their execution paths differ.
   const applyResult =
     applyTarget && configTx && txSigner
       ? { txHash: configTx.hash, by: txSigner.label, kind: txSigner.kind }
@@ -548,9 +567,9 @@ export function useTransactModal(): TransactModal {
     return [];
   }, [applyTarget, acct, pendingAuthorize, pendingRevoke, pendingScope]);
 
-  const modal = (
+  return (
     <Modal
-      open={transactModalOpen}
+      open
       onClose={closeModal}
       title={
         txStep === 'submitted'
@@ -563,7 +582,32 @@ export function useTransactModal(): TransactModal {
       }
       footer={
         txStep === 'submitted' ? (
-          signing ? null : error ? (
+          signing ? null : seqRecovery ? (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => seqRecovery.drop()} disabled={seqRecovery.busy}>
+                Drop It
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => seqRecovery.resign()} disabled={seqRecovery.busy}>
+                {seqRecovery.busy ? 'Re-Signing…' : 'Re-Sign'}
+              </Button>
+            </>
+          ) : notice ? (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setTxStep('review');
+                  setNotice('');
+                }}
+              >
+                Back
+              </Button>
+              <Button variant="primary" size="sm" onClick={onClose}>
+                Done
+              </Button>
+            </>
+          ) : error ? (
             <>
               <Button
                 variant="secondary"
@@ -575,27 +619,27 @@ export function useTransactModal(): TransactModal {
               >
                 Back
               </Button>
-              <Button variant="primary" size="sm" onClick={applyTarget ? confirmApply : confirmSend}>
-                Retry
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={applyTarget ? confirmApply : () => confirmSend(Boolean(estimateBlocked))}
+              >
+                {estimateBlocked ? 'Send Anyway' : 'Retry'}
               </Button>
             </>
           ) : (
             <>
               {submittedResult?.txHash ? (
-                <Link href={`${VIBENET_EXPLORER_PATH}/tx/${submittedResult.txHash}`}>
-                  <Button variant="secondary" size="sm">
-                    View Transaction
-                  </Button>
-                </Link>
+                <ViewTransactionButton href={`${VIBENET_EXPLORER_PATH}/tx/${submittedResult.txHash}`} />
               ) : null}
-              <Button variant="primary" size="sm" onClick={() => setTransactModalOpen(false)}>
+              <Button variant="primary" size="sm" onClick={onClose}>
                 Done
               </Button>
             </>
           )
         ) : applyTarget ? (
           <>
-            <Button variant="secondary" size="sm" onClick={() => setTransactModalOpen(false)}>
+            <Button variant="secondary" size="sm" onClick={onClose}>
               Cancel
             </Button>
             <Button variant="primary" size="sm" onClick={confirmApply}>
@@ -618,7 +662,7 @@ export function useTransactModal(): TransactModal {
             <Button
               variant="primary"
               size="sm"
-              onClick={confirmSend}
+              onClick={() => confirmSend()}
               disabled={signing}
               className="disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -649,7 +693,13 @@ export function useTransactModal(): TransactModal {
       }
     >
       {!acct ? null : txStep === 'submitted' ? (
-        <SubmittedBody signing={signing} submitStatus={submitStatus} error={error} result={submittedResult} />
+        seqRecovery ? (
+          <SeqRecoveryBody seqRecovery={seqRecovery} />
+        ) : notice ? (
+          <NoticeBody notice={notice} />
+        ) : (
+          <SubmittedBody signing={signing} submitStatus={submitStatus} error={error} result={submittedResult} />
+        )
       ) : applyTarget ? (
         <ApplyReviewBody acct={acct} changes={applyChanges} txSigner={txSigner} error={error} />
       ) : txStep === 'review' ? (
@@ -658,7 +708,7 @@ export function useTransactModal(): TransactModal {
           accounts={accounts}
           calls={calls}
           metaField={metaField}
-          gasMode={gasMode}
+          gasMode={effectiveGasMode}
           gasEstimate={gasEstimate}
           txSigner={txSigner}
           signableSigners={signableSigners}
@@ -777,7 +827,7 @@ export function useTransactModal(): TransactModal {
             <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Gas</span>
             <Select
               ariaLabel="Gas payment"
-              value={gasMode}
+              value={effectiveGasMode}
               onValueChange={(v) => setGasMode(v as 'eth' | 'free' | 'usdv')}
               options={
                 txIsSession
@@ -799,8 +849,6 @@ export function useTransactModal(): TransactModal {
       )}
     </Modal>
   );
-
-  return { open, openApply, isOpen: transactModalOpen, signing, confirmSend, modal };
 }
 
 // ---------------------------------------------------------------------------
@@ -1294,6 +1342,36 @@ function ApplyReviewBody({
   );
 }
 
+// A staged config change reverted "config change sequence mismatch": offer to
+// re-sign it at the current sequence, or drop it. The buttons live in the
+// dialog's footer (see `seqRecovery` branch there).
+function SeqRecoveryBody({
+  seqRecovery,
+}: {
+  seqRecovery: { what: string; busy?: boolean };
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10 text-center">
+      <ErrorGlyph size={28} />
+      <Text variant="label.regular" className="text-bds-yellow-70">
+        This {seqRecovery.what} is out of sequence — the account&apos;s config changed since it was signed, so it
+        can&apos;t land as-is. Re-sign it at the current sequence, or drop it.
+      </Text>
+    </div>
+  );
+}
+
+// A transient status line shown after a re-sign or drop recovery resolves.
+function NoticeBody({ notice }: { notice: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10 text-center">
+      <Text variant="label.regular" tone="muted">
+        {notice}
+      </Text>
+    </div>
+  );
+}
+
 type SubmittedResult = {
   serialized?: Hex;
   txHash?: Hex;
@@ -1304,9 +1382,7 @@ type SubmittedResult = {
 } | null;
 
 // Third stage: shown once "Send" is pressed. Renders the in-flight status, then
-// success or error. A finished send with no result and no error (e.g. a config
-// sequence mismatch that surfaces a recovery prompt on the page) shows a neutral
-// line rather than a false success.
+// success or error.
 function SubmittedBody({
   signing,
   submitStatus,

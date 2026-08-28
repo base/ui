@@ -9,7 +9,7 @@
 // page had (Overview / Owners / Session keys / Sub-accounts), with key changes
 // applied through the shared Transact review+wait dialog.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '../../../../components/ui/Button';
@@ -24,14 +24,18 @@ import type { ExplorerAddressResponse } from '../../../library/api-types';
 import { ConfirmTrashButton } from '../../../demos/_shared/ConfirmTrashButton';
 import { Badge, KindBadge } from '../../../demos/_shared/primitives';
 import { SessionKeyEditor } from '../../../demos/account/components/SessionKeyEditor';
-import { useTransactModal, type TransactModal } from '../../../demos/account/components/TransactionModal';
+import {
+  TransactionModal,
+  type ApplyTarget,
+  type TransactPreset,
+} from '../../../demos/account/components/TransactionModal';
 import { DEMO_CHAINS } from '../../../demos/account/library/chains';
 import { formatExpiry, scopeChips } from '../../../demos/account/library/model';
 import { formatTokenAmount } from '../../../demos/account/shared';
 import { OWNER_SCOPE_PRESETS, periodLabel, scopeLabel } from '../../../demos/account/library/policy';
 import { KIND_LABEL, signerIdentity } from '../../../demos/account/shared';
 import { shortAddress } from '../../../library/format';
-import { AccountEngineProvider, type AccountEngine, useAccountEngine } from '../../../demos/account/useAccountEngine';
+import { AccountEngineProvider, useAccountEngine } from '../../../demos/account/useAccountEngine';
 import { AccountShell, useSectionParam, type ShellSection } from './AccountShell';
 import { ActivityTable } from './ActivityTable';
 import { AssetsCard } from './AssetsCard';
@@ -57,10 +61,19 @@ export function OwnedAccountView({ address, data }: { address: string; data: Exp
 
 function OwnedInner({ address, data }: { address: string; data: ExplorerAddressResponse | null }) {
   const engine = useAccountEngine();
-  const transact = useTransactModal();
   const router = useRouter();
   const [routeReady, setRouteReady] = useState(false);
   const [topUpTick, setTopUpTick] = useState(0);
+  const [transactionRequest, setTransactionRequest] = useState<{
+    preset?: TransactPreset;
+    applyTarget?: ApplyTarget;
+  } | null>(null);
+  const openTransaction = (preset?: TransactPreset) => {
+    setTransactionRequest({ preset });
+  };
+  const openApply = (applyTarget: ApplyTarget) => {
+    setTransactionRequest({ applyTarget });
+  };
   const [section, selectSection] = useSectionParam(
     SECTIONS.map((s) => s.id),
     'overview',
@@ -95,15 +108,6 @@ function OwnedInner({ address, data }: { address: string; data: ExplorerAddressR
   // `engine.hydrated`, so it already implies hydration.
   const engineReady = routeReady && engine.acct?.address.toLowerCase() === lc;
 
-  // Closing the Transact modal may follow a landed send (or a staged owner/
-  // session-key apply) that moved balances — bump the same refresh signal the
-  // faucet top-up uses so AssetsCard re-fetches instead of showing stale data.
-  const wasTransactOpen = useRef(false);
-  useEffect(() => {
-    if (wasTransactOpen.current && !transact.isOpen) setTopUpTick((t) => t + 1);
-    wasTransactOpen.current = transact.isOpen;
-  }, [transact.isOpen]);
-
   const badges = acct ? (
     <>
       {acct.type === 'eoa' ? <Badge>EOA</Badge> : <Badge>Smart account</Badge>}
@@ -131,7 +135,7 @@ function OwnedInner({ address, data }: { address: string; data: ExplorerAddressR
             >
               {engine.faucetBusy ? 'Topping up…' : 'Top up'}
             </Button>
-            <Button size="sm" onClick={() => transact.open()} disabled={!engineReady}>
+            <Button size="sm" onClick={() => openTransaction()} disabled={!engineReady}>
               Transact
             </Button>
           </>
@@ -146,15 +150,14 @@ function OwnedInner({ address, data }: { address: string; data: ExplorerAddressR
           </div>
         ) : (
           <div className="flex flex-col gap-8">
-            <EngineBanners engine={engine} transact={transact} />
             {section === 'overview' ? (
               <AssetsCard address={acct.address} activity={data?.activity ?? []} refreshSignal={topUpTick} />
             ) : section === 'owners' ? (
-              <OwnersSection engine={engine} transact={transact} />
+              <OwnersSection openApply={openApply} />
             ) : section === 'sessions' ? (
-              <SessionsSection engine={engine} transact={transact} />
+              <SessionsSection openApply={openApply} />
             ) : section === 'subaccounts' ? (
-              <SubAccountsSection engine={engine} />
+              <SubAccountsSection />
             ) : (
               <ActivityTable activity={data?.activity ?? []} />
             )}
@@ -162,71 +165,19 @@ function OwnedInner({ address, data }: { address: string; data: ExplorerAddressR
         )}
       </AccountShell>
 
-      {transact.modal}
+      {transactionRequest ? (
+        <TransactionModal
+          key={engine.activeAccountId ?? 'no-account'}
+          onClose={() => {
+            setTransactionRequest(null);
+            // A landed transaction or config apply may have changed balances.
+            setTopUpTick((tick) => tick + 1);
+          }}
+          preset={transactionRequest.preset}
+          applyTarget={transactionRequest.applyTarget}
+        />
+      ) : null}
     </>
-  );
-}
-
-function EngineBanners({ engine, transact }: { engine: AccountEngine; transact: TransactModal }) {
-  if (!engine.error && !engine.estimateBlocked && !engine.seqRecovery && !engine.infoMsg) return null;
-  return (
-    <div className="flex flex-col gap-3">
-      {engine.error && !engine.estimateBlocked ? (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70">
-          <span className="[line-break:anywhere]">{engine.error}</span>
-          <button type="button" onClick={() => engine.setError('')} className="shrink-0">
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-
-      {engine.estimateBlocked ? (
-        <div className="flex flex-col gap-2 rounded-xl border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70">
-          <span className="[line-break:anywhere]">{engine.estimateBlocked}</span>
-          <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-            Estimation reverted, so this will likely fail on-chain.
-          </span>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={transact.signing}
-              onClick={() => {
-                engine.overrideEstimateRef.current = true;
-                void transact.confirmSend();
-              }}
-            >
-              Send Anyway
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {engine.seqRecovery ? (
-        <div className="flex flex-col gap-2 rounded-xl border border-bds-yellow-20 bg-bds-yellow-0 px-4 py-3 text-[13px] text-bds-yellow-70">
-          <span>
-            This {engine.seqRecovery.what} is out of sequence — the account&apos;s config changed since it was signed,
-            so it can&apos;t land as-is. Re-sign it at the current sequence, or drop it.
-          </span>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => engine.seqRecovery!.resign()} disabled={engine.seqRecovery.busy}>
-              {engine.seqRecovery.busy ? 'Re-Signing…' : 'Re-Sign'}
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => engine.seqRecovery!.drop()} disabled={engine.seqRecovery.busy}>
-              Drop It
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {engine.infoMsg ? (
-        <p className="flex items-center justify-between gap-3 rounded-xl border border-bds-gray-10 bg-bds-gray-0 px-4 py-3 text-[13px] text-bds-gray-70 dark:border-white/10 dark:bg-white/5">
-          <span>{engine.infoMsg}</span>
-          <button type="button" onClick={() => engine.setInfoMsg('')} className="shrink-0 text-[12px] text-bds-gray-60">
-            Dismiss
-          </button>
-        </p>
-      ) : null}
-    </div>
   );
 }
 
@@ -239,7 +190,8 @@ function DefinitionRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OwnersSection({ engine, transact }: { engine: AccountEngine; transact: TransactModal }) {
+function OwnersSection({ openApply }: { openApply: (target: ApplyTarget) => void }) {
+  const engine = useAccountEngine();
   const acct = engine.acct!;
   const draftOwners = acct.owners
     .filter((owner) => engine.ownerDraft.includes(owner.signerId))
@@ -263,14 +215,14 @@ function OwnersSection({ engine, transact }: { engine: AccountEngine; transact: 
 
   const reviewOwnerChange = async () => {
     const ok = await engine.signOwnerChange();
-    if (ok) transact.openApply('owner');
+    if (ok) openApply('owner');
   };
 
   return (
     <div className="flex flex-col gap-8">
 
       <Card className="overflow-hidden bg-background dark:bg-white/[0.03]">
-        <div className="hidden grid-cols-[minmax(0,1fr)_190px_40px] gap-4 border-b border-bds-gray-10 px-5 py-3 text-[12px] text-bds-gray-50 sm:grid dark:border-white/10">
+        <div className="hidden grid-cols-[minmax(0,1fr)_190px_40px] gap-4 border-b border-bds-gray-10 px-5 py-3 text-[13px] font-normal text-bds-gray-50 sm:grid dark:border-white/10">
           <span>Key</span>
           <span>Permissions</span>
           <span />
@@ -373,13 +325,14 @@ function OwnersSection({ engine, transact }: { engine: AccountEngine; transact: 
   );
 }
 
-function SessionsSection({ engine, transact }: { engine: AccountEngine; transact: TransactModal }) {
+function SessionsSection({ openApply }: { openApply: (target: ApplyTarget) => void }) {
+  const engine = useAccountEngine();
   const acct = engine.acct!;
   const [adding, setAdding] = useState(false);
 
   const handleRevoke = async (id: string) => {
     const outcome = await engine.revokeSessionKey(id);
-    if (outcome === 'staged' || outcome === 'noop') transact.openApply({ session: id });
+    if (outcome === 'staged' || outcome === 'noop') openApply({ session: id });
   };
 
   return (
@@ -435,7 +388,7 @@ function SessionsSection({ engine, transact }: { engine: AccountEngine; transact
                 </div>
                 {session.pendingAuth ? (
                   <div className="flex gap-2 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-                    <Button size="sm" onClick={() => transact.openApply({ session: session.id })} disabled={applying}>
+                    <Button size="sm" onClick={() => openApply({ session: session.id })} disabled={applying}>
                       Apply now
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => void engine.revokeSessionKey(session.id)}>
@@ -444,7 +397,7 @@ function SessionsSection({ engine, transact }: { engine: AccountEngine; transact
                   </div>
                 ) : session.pendingRevoke ? (
                   <div className="flex gap-2 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-                    <Button size="sm" onClick={() => transact.openApply({ session: session.id })} disabled={applying}>
+                    <Button size="sm" onClick={() => openApply({ session: session.id })} disabled={applying}>
                       Apply revoke
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => engine.undoStagedRevoke(session.id)}>
@@ -467,7 +420,10 @@ function SessionsSection({ engine, transact }: { engine: AccountEngine; transact
 
       {adding ? (
         <Card className="bg-background p-5 dark:bg-white/[0.03] sm:p-6">
-          <SessionKeyEditor onClose={() => setAdding(false)} />
+          <SessionKeyEditor
+            onClose={() => setAdding(false)}
+            onAuthorized={(sessionKeyId) => openApply({ session: sessionKeyId })}
+          />
         </Card>
       ) : (
         <div>
@@ -480,7 +436,8 @@ function SessionsSection({ engine, transact }: { engine: AccountEngine; transact
   );
 }
 
-function SubAccountsSection({ engine }: { engine: AccountEngine }) {
+function SubAccountsSection() {
+  const engine = useAccountEngine();
   const acct = engine.acct!;
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');

@@ -10,9 +10,10 @@
 // Demo-specific UI (the Transact modal's calls builder, gas-mode picker, Apps
 // directory orchestration) stays in each demo and calls into this engine's
 // shared primitives (signComposed, pendingBundleFor, applyLandedBundle,
-// handleSeqMismatch, broadcast8130) exactly as AccountDemo's own transact flow
-// does — those primitives are used by both config-apply and transact sends, so
-// they have to live in one place, not two.
+// broadcast8130) exactly as AccountDemo's own transact flow does — those
+// primitives are used by both config-apply and transact sends, so they have to
+// live in one place, not two. Error and config-sequence-recovery UI is owned by
+// the Transact modal, not the engine, so nothing surfaces on the page behind it.
 
 import {
   type AaAccountChange,
@@ -63,7 +64,7 @@ import {
 import { toast } from 'sonner';
 
 import { vibenetApi } from '../../library/client';
-import { ACCOUNT_RPC_URL, VIBENET_EXPLORER_PATH } from '../../library/config';
+import { ACCOUNT_RPC_URL } from '../../library/config';
 import { type DemoChain, deploymentFromContracts, estimateTxGas, getDemoChain } from './library/chains';
 import { buildPhases, type CallRow, newCallRow, safeGasLimit, valueBearingCallCount } from './library/calls';
 import {
@@ -158,7 +159,7 @@ function estimateFailureReason(err: unknown): string {
  *  change's sequence went stale (the on-chain counter advanced since it was signed)
  *  so it can never land as-is and must be re-signed at the current sequence — or
  *  dropped. */
-function isSeqMismatch(err: unknown): boolean {
+export function isSeqMismatch(err: unknown): boolean {
   const s = `${estimateFailureReason(err)} ${err instanceof Error ? err.message : String(err)}`;
   return /config change sequence mismatch/i.test(s);
 }
@@ -239,6 +240,16 @@ export class TxPendingError extends Error {
   }
 }
 
+/** Thrown when transaction composition is configured to stop on a reverting
+ * gas estimate instead of silently broadcasting with a fallback gas limit. */
+export class EstimateRevertedError extends Error {
+  readonly reason: string;
+  constructor(reason: string) {
+    super(`Gas estimate failed — this transaction would revert: ${reason}`);
+    this.reason = reason;
+  }
+}
+
 type PendingChangeItem = {
   change: AaAccountChange;
   sequence: number;
@@ -268,14 +279,10 @@ function useAccountEngineCore() {
   } = useAccounts();
 
   const [busy, setBusy] = useState<SignerKind | null>(null);
-  const [error, setError] = useState<string>('');
-  const [copied, setCopied] = useState<string | null>(null);
 
   const [activeSignerId, setActiveSignerId] = useState<string | null>(null);
 
   const [faucetBusy, setFaucetBusy] = useState<string | null>(null);
-
-  const [submitStatus, setSubmitStatus] = useState<'' | 'submitting' | 'confirming'>('');
 
   // Regenesis (devnet reset) detection.
   const [regenesisNotice, setRegenesisNotice] = useState(false);
@@ -285,32 +292,9 @@ function useAccountEngineCore() {
   const [scopeDraft, setScopeDraft] = useState<Record<string, number>>({});
   const [signedChange, setSignedChange] = useState<SignedOwnerChange | null>(null);
   const [applying, setApplying] = useState(false);
-  const [configTx, setConfigTx] = useState<{ hash: Hex; label: string } | null>(null);
 
   // Session-key apply state (the authorize/revoke form lives in SessionKeyEditor).
   const [skApplyingId, setSkApplyingId] = useState<string | null>(null);
-  const [skRevokingId, setSkRevokingId] = useState<string | null>(null);
-  // A reverting gas estimate (with `senderActorId` the node can simulate, so a
-  // revert means the tx would actually fail). Surfaces a "Send anyway" escape
-  // hatch rather than silently broadcasting a doomed tx on a heuristic floor.
-  const [estimateBlocked, setEstimateBlocked] = useState<string | null>(null);
-  // One-shot: when true, the next estimate that would block instead prices the tx
-  // at a high ceiling and broadcasts (the user chose "Send anyway").
-  const overrideEstimateRef = useRef(false);
-  // True only while a Transact send is composing — the "Send anyway" escape hatch
-  // retries the transact flow, so only transact sends surface `estimateBlocked`.
-  // Config apply flows (owner/session) keep the over-provisioned floor fallback.
-  const blockOnRevertRef = useRef(false);
-  // Transient success/info line (e.g. after a re-sign or drop recovery).
-  const [infoMsg, setInfoMsg] = useState('');
-  // Recovery prompt shown when a staged config change reverts "config change
-  // sequence mismatch": offer to re-sign it at the current sequence, or drop it.
-  const [seqRecovery, setSeqRecovery] = useState<{
-    what: string;
-    resign: () => Promise<void> | void;
-    drop: () => void;
-    busy?: boolean;
-  } | null>(null);
   const [policyRemaining, setPolicyRemaining] = useState<
     Record<
       string,
@@ -418,8 +402,6 @@ function useAccountEngineCore() {
     [accounts],
   );
 
-  const explorerAddrHref = acct ? `${VIBENET_EXPLORER_PATH}/address/${acct.address}` : VIBENET_EXPLORER_PATH;
-
   // Owner signers for the active account. A sub-account is controlled by its
   // parent (via key.delegate), so key selection resolves to the parent's owner
   // signers — plus any direct owners the sub holds itself (e.g. a minted spare key).
@@ -493,8 +475,6 @@ function useAccountEngineCore() {
     [keyChangeCount, ownerSigners, activeSignerId],
   );
   const configChangeSigner = useMemo(() => configChangeSignerFor(null), [configChangeSignerFor]);
-
-  const ownerChangeSigned = !!(acct && signedChange && signedChange.accountId === acct.id);
 
   // Which staged changes ride an outgoing tx. Owner sends never install a
   // session policy; session sends carry that key's authorize+install (plus any
@@ -628,16 +608,6 @@ function useAccountEngineCore() {
   }, [sessionPolicyKey, chain.shortName]);
 
   // --- helpers -----------------------------------------------------------
-  const copy = async (text: string, k: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(k);
-      setTimeout(() => setCopied(null), 1400);
-    } catch {
-      /* noop */
-    }
-  };
-
   const pushActivity = (e: Omit<Persisted['activity'][number], 'id' | 'ts'>) =>
     setActivity((prev) => [{ id: crypto.randomUUID(), ts: Date.now(), ...e }, ...prev]);
 
@@ -657,7 +627,6 @@ function useAccountEngineCore() {
   const requestFaucet = async () => {
     if (!acct) return;
     setFaucetBusy('eth+usdv');
-    setError('');
     try {
       // Capture the pre-drip balance as the baseline for the "did it credit?" poll.
       const before = await refreshVibenetBalances();
@@ -678,8 +647,7 @@ function useAccountEngineCore() {
       } else {
         toast.error("Top up didn't go through — Vibenet may be down for maintenance. Please try again shortly.");
       }
-    } catch (e) {
-      setError((e as Error).message);
+    } catch {
       toast.error('Top up failed');
     } finally {
       setFaucetBusy(null);
@@ -693,7 +661,6 @@ function useAccountEngineCore() {
   };
 
   const createSigner = async (kind: SignerKind): Promise<WalletSigner | null> => {
-    setError('');
     setBusy(kind);
     try {
       const n = signers.filter((s) => s.kind === kind).length + 1;
@@ -738,26 +705,18 @@ function useAccountEngineCore() {
         };
       }
       if (signers.some((s) => s.actorId === ws.actorId)) {
-        const msg = 'That key is already in your wallet (same actor). Skipped.';
-        setError(msg);
-        toast.error(msg);
+        toast.error('That key is already in your wallet (same actor). Skipped.');
         return null;
       }
       setSigners((prev) => [...prev, ws]);
       return ws;
     } catch (err) {
       const e = err as { message?: string; name?: string };
-      const msg = e.name === 'NotAllowedError' ? 'Passkey prompt was dismissed.' : (e.message ?? String(err));
-      setError(msg);
-      toast.error(msg);
+      toast.error(e.name === 'NotAllowedError' ? 'Passkey prompt was dismissed.' : (e.message ?? String(err)));
       return null;
     } finally {
       setBusy(null);
     }
-  };
-
-  const removeAccount = (id: string) => {
-    deleteAccount(id);
   };
 
   // Signer ids referenced by any account — as an owner, a session key, or a
@@ -926,7 +885,11 @@ function useAccountEngineCore() {
     // probing for code) between two sends can answer from a replica that hasn't
     // seen the previous one yet. Such a caller reads both once up front and
     // pins them here instead.
-    seqOpt?: { nonceSequence?: bigint; assumeDeployed?: boolean },
+    seqOpt?: {
+      nonceSequence?: bigint;
+      assumeDeployed?: boolean;
+      estimateRevert?: 'fallback' | 'throw' | 'force';
+    },
   ): Promise<{ serialized: Hex; nextSeq: number }> => {
     const signer = await buildSigner(signerWS);
     const account = nativeAccountFor(a, signer, signerWS.authenticator);
@@ -1067,16 +1030,15 @@ function useAccountEngineCore() {
           // DelegateAuthenticator is a shape the node's estimator may not simulate,
           // but a broadcast still lands — fall back to the generous floor.
           gasLimit = BigInt(floorGas(true) || 200_000);
-        } else if (overrideEstimateRef.current) {
+        } else if (seqOpt?.estimateRevert === 'force') {
           // User chose "Send anyway": price at a high ceiling so an under-estimate
           // isn't the cause of a revert. If it still reverts, it's a genuine logic
           // failure and the gas is spent (self-pay) / rejected (payer).
           gasLimit = BigInt(Math.max(floorGas(true) * 2, 2_000_000));
-        } else if (blockOnRevertRef.current) {
+        } else if (seqOpt?.estimateRevert === 'throw') {
           // Genuine reverting estimate on a Transact send — surface it instead of
           // broadcasting a doomed tx. The Transact view shows a "Send anyway" hatch.
-          setEstimateBlocked(estimateFailureReason(err));
-          throw new Error(`Gas estimate failed — this transaction would revert: ${estimateFailureReason(err)}`);
+          throw new EstimateRevertedError(estimateFailureReason(err));
         } else {
           // Non-transact caller (config apply flows) — keep the over-provisioned
           // floor so a genuine revert surfaces via the normal on-chain error path.
@@ -1316,11 +1278,6 @@ function useAccountEngineCore() {
     return results;
   };
 
-  const sendActiveCall = async ({ to, data }: { to: Address; data: Hex }) => {
-    const { hash, serialized } = await sendActiveCalls({ calls: [{ to, data }] });
-    return { hash, serialized };
-  };
-
   // --- owner changes -----------------------------------------------------
   const invalidateSignedChange = () => setSignedChange(null);
   const discardOwnerChanges = () => {
@@ -1381,8 +1338,6 @@ function useAccountEngineCore() {
     const changeWS = configChangeSigner ?? activeSigner;
     if (!changeWS) return false;
     setApplying(true);
-    setError('');
-    setConfigTx(null);
     try {
       const changeSigner = await buildSigner(changeWS);
       const changeAccount = nativeAccountFor(acct, changeSigner, changeWS.authenticator);
@@ -1420,7 +1375,7 @@ function useAccountEngineCore() {
       return true;
     } catch (err) {
       const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      toast.error(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
       return false;
     } finally {
       setApplying(false);
@@ -1429,26 +1384,25 @@ function useAccountEngineCore() {
 
   // Apply an already-signed owner change now: a post-change owner signs a no-op
   // tx that carries it.
-  const applyOwnerNow = async () => {
-    if (!acct || !signedChange || signedChange.accountId !== acct.id) return;
+  const applyOwnerNow = async (
+    onStatus?: (status: '' | 'submitting' | 'confirming') => void,
+  ): Promise<{ hash: Hex; label: string } | null> => {
+    if (!acct || !signedChange || signedChange.accountId !== acct.id) return null;
     const txWS = postChangeOwnerSigners.find((s) => s.id === activeSignerId) ?? postChangeOwnerSigners[0] ?? activeSigner;
-    if (!txWS) return;
+    if (!txWS) return null;
     const bundle = pendingBundleFor({ mode: 'owner-send' });
-    if (!bundle.some((i) => !i.sessionId)) {
-      setError('A pending session key is ahead in the config sequence. Apply or discard it first, then apply the owner change.');
-      return;
-    }
+    if (!bundle.some((i) => !i.sessionId))
+      throw new Error(
+        'A pending session key is ahead in the config sequence. Apply or discard it first, then apply the owner change.',
+      );
     const presigned = bundle.map((i) => i.change);
     const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : signedChange.sequence;
     const summary = signedChange.summary;
     setApplying(true);
-    setError('');
-    setConfigTx(null);
     try {
       const { serialized, nextSeq } = await signComposed(acct, txWS, [newCallRow()], presigned, changeSeq, undefined, undefined, undefined);
-      const txHash = await broadcast8130(serialized, setSubmitStatus);
+      const txHash = await broadcast8130(serialized, onStatus);
       applyLandedBundle(acct, nextSeq, bundle);
-      setConfigTx({ hash: txHash, label: 'Owner change' });
       pushActivity({
         kind: 'transact',
         title: 'Key changes landed onchain',
@@ -1459,13 +1413,10 @@ function useAccountEngineCore() {
         serialized,
         account: acct.address,
       });
-    } catch (err) {
-      if (handleSeqMismatch(err, { sessionIds: [], hasOwner: true })) return;
-      const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      return { hash: txHash, label: 'Owner change' };
     } finally {
       setApplying(false);
-      setSubmitStatus('');
+      onStatus?.('');
     }
   };
 
@@ -1697,24 +1648,23 @@ function useAccountEngineCore() {
 
   // Apply a staged session-key change now: an owner signs a no-op tx carrying its
   // authorize + install (plus lower-sequence prerequisites) — or its staged revoke.
-  const applySessionKeyNow = async (skId: string) => {
-    if (!acct || !activeSigner) return;
+  const applySessionKeyNow = async (
+    skId: string,
+    onStatus?: (status: '' | 'submitting' | 'confirming') => void,
+  ): Promise<{ hash: Hex; label: string } | null> => {
+    if (!acct || !activeSigner) return null;
     const sk = acct.sessionKeys.find((x) => x.id === skId);
-    if (!sk || (!sk.pendingAuth && !sk.pendingRevoke)) return;
+    if (!sk || (!sk.pendingAuth && !sk.pendingRevoke)) return null;
     const isRevoke = !!sk.pendingRevoke && !sk.pendingAuth;
     const txWS = postChangeOwnerSigners.find((s) => s.id === activeSignerId) ?? postChangeOwnerSigners[0] ?? activeSigner;
     const bundle = pendingBundleFor({ mode: 'session-send', sessionId: sk.id });
     const presigned = bundle.map((i) => i.change);
     const changeSeq = bundle.length ? bundle[bundle.length - 1].sequence : (sk.pendingAuth?.sequence ?? sk.pendingRevoke?.sequence ?? null);
     setSkApplyingId(sk.id);
-    setError('');
-    setInfoMsg('');
-    setSeqRecovery(null);
     try {
       const { serialized, nextSeq } = await signComposed(acct, txWS, [newCallRow()], presigned, changeSeq, undefined, undefined, undefined);
-      const txHash = await broadcast8130(serialized, setSubmitStatus);
+      const txHash = await broadcast8130(serialized, onStatus);
       applyLandedBundle(acct, nextSeq, bundle);
-      setConfigTx({ hash: txHash, label: `Session key: ${sk.label}` });
       pushActivity({
         kind: isRevoke ? 'revoke' : 'session',
         title: isRevoke ? `Session key revoked · ${sk.label}` : `Session key installed · ${sk.label}`,
@@ -1728,19 +1678,10 @@ function useAccountEngineCore() {
         serialized,
         account: acct.address,
       });
-    } catch (err) {
-      if (
-        handleSeqMismatch(err, {
-          sessionIds: bundle.flatMap((i) => (i.sessionId ? [i.sessionId] : [])),
-          hasOwner: bundle.some((i) => i.resultingOwners),
-        })
-      )
-        return;
-      const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      return { hash: txHash, label: `Session key: ${sk.label}` };
     } finally {
       setSkApplyingId(null);
-      setSubmitStatus('');
+      onStatus?.('');
     }
   };
 
@@ -1777,11 +1718,9 @@ function useAccountEngineCore() {
 
     const changeWS = ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
     if (!changeWS) {
-      setError('Select an owner key to sign the revoke.');
+      toast.error('Select an owner key to sign the revoke.');
       return 'error';
     }
-    setSkRevokingId(id);
-    setError('');
     try {
       const liveState = await fetchOnChainAccountState(acct.address);
       if (!liveState.deployed) return discard();
@@ -1808,10 +1747,8 @@ function useAccountEngineCore() {
       return 'staged';
     } catch (err) {
       const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      toast.error(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
       return 'error';
-    } finally {
-      setSkRevokingId(null);
     }
   };
 
@@ -1836,7 +1773,7 @@ function useAccountEngineCore() {
     if (pending.length === 0) return true;
     const signerWS = ownerSigners.find((s) => s.id === activeSignerId) ?? ownerSigners[0] ?? activeSigner;
     if (!signerWS) {
-      setError('Select an owner key to re-sign the session-key authorization.');
+      toast.error('Select an owner key to re-sign the session-key authorization.');
       return false;
     }
     const ownerSigner = await buildSigner(signerWS);
@@ -1909,52 +1846,6 @@ function useAccountEngineCore() {
         detail: scopeChips(sk.scope).join(' · '),
         account: acct.address,
       });
-  };
-
-  // Catch a "config change sequence mismatch" from a config-carrying broadcast and
-  // surface a recovery prompt (re-sign at current sequence / drop), scoped to what
-  // the failed tx carried. Returns true when it handled the error (caller should
-  // skip its own generic error handling).
-  const handleSeqMismatch = (err: unknown, ctx: { sessionIds: string[]; hasOwner: boolean }): boolean => {
-    if (!isSeqMismatch(err)) return false;
-    if (!ctx.hasOwner && ctx.sessionIds.length === 0) return false;
-    const parts: string[] = [];
-    if (ctx.hasOwner) parts.push('owner change');
-    if (ctx.sessionIds.length)
-      parts.push(`${ctx.sessionIds.length} session-key authorization${ctx.sessionIds.length === 1 ? '' : 's'}`);
-    const what = parts.join(' + ') || 'staged config change';
-    setError('');
-    setInfoMsg('');
-    setSeqRecovery({
-      what,
-      resign: async () => {
-        setSeqRecovery((r) => (r ? { ...r, busy: true } : r));
-        setError('');
-        try {
-          if (ctx.hasOwner) await signOwnerChange();
-          if (ctx.sessionIds.length) {
-            const ok = await resignPendingSessionKeys();
-            if (!ok) {
-              setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
-              return;
-            }
-          }
-          setSeqRecovery(null);
-          setInfoMsg('Re-signed at the current sequence — send again to apply it.');
-        } catch (e) {
-          const m = e as { message?: string; name?: string };
-          setSeqRecovery((r) => (r ? { ...r, busy: false } : r));
-          setError(m.name === 'NotAllowedError' ? 'Signature was dismissed.' : (m.message ?? String(e)));
-        }
-      },
-      drop: () => {
-        if (ctx.hasOwner) discardOwnerChanges();
-        if (ctx.sessionIds.length) dropPendingSessionKeys(ctx.sessionIds);
-        setSeqRecovery(null);
-        setInfoMsg('Dropped the out-of-sequence config change.');
-      },
-    });
-    return true;
   };
 
   // --- sub-accounts ------------------------------------------------------
@@ -2055,7 +1946,6 @@ function useAccountEngineCore() {
   return {
     // Store (useAccounts passthrough) + shared derivations
     signers,
-    setSigners,
     accounts,
     addAccount,
     activeAccountId,
@@ -2066,9 +1956,7 @@ function useAccountEngineCore() {
     setNetworkShort,
     hydrated,
     deleteAccount,
-    removeAccount,
     acct,
-    explorerAddrHref,
 
     // Chain
     chain,
@@ -2076,10 +1964,6 @@ function useAccountEngineCore() {
 
     // Shared transient state
     busy,
-    error,
-    setError,
-    copied,
-    copy,
     activeSignerId,
     setActiveSignerId,
     activeSigner,
@@ -2105,12 +1989,9 @@ function useAccountEngineCore() {
     pendingScope,
     keyChangeCount,
     postChangeOwnerSigners,
-    ownerChangeSigned,
     ownerDraft,
     scopeDraft,
     applying,
-    configTx,
-    setConfigTx,
     stageAddOwner,
     stageRemoveOwner,
     setOwnerScope,
@@ -2122,26 +2003,17 @@ function useAccountEngineCore() {
     // Signing engine (also used by each surface's own Transact flow)
     broadcast8130,
     signComposed,
-    sendActiveCall,
     sendActiveCalls,
     sendActiveCallsBatches,
     applyLandedBundle,
-    handleSeqMismatch,
     pendingBundleFor,
-    estimateBlocked,
-    setEstimateBlocked,
-    overrideEstimateRef,
-    blockOnRevertRef,
-    infoMsg,
-    setInfoMsg,
-    seqRecovery,
-    setSeqRecovery,
-    submitStatus,
-    setSubmitStatus,
+
+    // Config-sequence recovery primitives (the recovery prompt lives in the modal)
+    resignPendingSessionKeys,
+    dropPendingSessionKeys,
 
     // Session-key apply (the authorize/revoke form lives in SessionKeyEditor)
     skApplyingId,
-    skRevokingId,
     policyRemaining,
     applySessionKeyNow,
     revokeSessionKey,
@@ -2170,5 +2042,3 @@ export function useAccountEngine(): AccountEngineCore {
 }
 
 type AccountEngineCore = ReturnType<typeof useAccountEngineCore>;
-/** @deprecated Name kept for existing imports; this is the context value type. */
-export type AccountEngine = AccountEngineCore;

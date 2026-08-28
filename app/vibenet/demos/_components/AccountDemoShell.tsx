@@ -9,12 +9,11 @@
 //   - the collapsible ActivityDrawer pinned to the bottom, for demos that hand
 //     it activity (B20 keeps its log in the page flow instead, so it passes
 //     none and the drawer is skipped).
-// Each demo owns one AccountEngine and passes it here, avoiding duplicate store
-// instances and repeated account-settings wiring.
+// Each demo renders this inside one AccountEngineProvider, avoiding duplicate
+// store instances and repeated account-settings wiring.
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
 
 import { cn } from '../../../components/ui/cn';
 import { AccountSwitcher } from '../_shared/AccountSwitcher';
@@ -46,7 +45,6 @@ export function AccountDemoShell({
   children,
 }: AccountDemoShellProps) {
   const engine = useAccountEngine();
-  const router = useRouter();
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
   // The switcher and the empty-state gate both open the create-account modal.
   const [createOpen, setCreateOpen] = useState(false);
@@ -61,10 +59,10 @@ export function AccountDemoShell({
       activeAccountId={engine.activeAccountId}
       onSelect={engine.setActiveAccountId}
       onCreate={onCreate}
-      onDelete={engine.removeAccount}
+      onDelete={engine.deleteAccount}
       onDetails={(id) => {
         const addr = engine.accounts.find((a) => a.id === id)?.address;
-        if (addr) router.push(`/vibenet/explorer/address/${addr}`);
+        if (addr) window.open(`/vibenet/explorer/address/${addr}`, '_blank', 'noopener,noreferrer');
       }}
     />
   );

@@ -9,10 +9,10 @@
 // The shared account engine + transact dialog are consumed from context, so this
 // demo, B20, and the account page all behave identically.
 
-import { useRouter } from 'next/navigation';
 import { trackAccountAction } from '../../../analytics/events';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { toast } from 'sonner';
 
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -23,11 +23,11 @@ import { FEATURES } from '../../data/features';
 import { ActivityLog } from './components/ActivityLog';
 import { AppCard, AppCardPlaceholder, AppsNetworkNotice } from './components/AppsView';
 import { FeatureGridCard, FeatureGridPlaceholder } from '../_shared/FeatureGridCard';
-import { useTransactModal } from './components/TransactionModal';
+import { TransactionModal, type ApplyTarget, type TransactPreset } from './components/TransactionModal';
 import { DEMO_APPS, type DemoApp } from './library/apps';
 import { encodeUsdvTransfer, isAddressStr, newCallRow } from './library/calls';
 import { EXPIRY_PRESETS, type AppSessionKey, type AppSubAccount } from './library/model';
-import { AccountEngineProvider, conciseError, useAccountEngine } from './useAccountEngine';
+import { AccountEngineProvider, useAccountEngine } from './useAccountEngine';
 import { vibenetApi } from '../../library/client';
 import type { Address } from '@aa';
 
@@ -41,11 +41,8 @@ export function AccountDemo() {
 
 function AccountDemoInner() {
   const engine = useAccountEngine();
-  const transact = useTransactModal();
-  const router = useRouter();
   const {
     signers,
-    setSigners,
     accounts,
     activeAccountId,
     activity,
@@ -53,10 +50,6 @@ function AccountDemoInner() {
     setNetworkShort,
     deleteAccount,
 
-    error,
-    setError,
-    copied,
-    copy,
     activeSigner,
 
     chain,
@@ -65,17 +58,9 @@ function AccountDemoInner() {
 
     acct,
 
-    setConfigTx,
-    broadcast8130,
-    estimateBlocked,
-    overrideEstimateRef,
-    infoMsg,
-    setInfoMsg,
-    seqRecovery,
-    submitStatus,
-    setSubmitStatus,
-
+    deleteSigner,
     revokeSessionKey,
+    undoStagedRevoke,
     doAuthorizeSession,
     doCreateSubAccount,
     mintAppKey,
@@ -83,14 +68,22 @@ function AccountDemoInner() {
 
   // Apps directory.
   const [appBusy, setAppBusy] = useState<string | null>(null);
+  const [transactionRequest, setTransactionRequest] = useState<{
+    preset?: TransactPreset;
+    applyTarget?: ApplyTarget;
+    contentKey: string;
+  } | null>(null);
 
-  // Crossfade key for the dashboard (transact + apps). While the transact modal
-  // is open we hold the last closed key in a ref: the "From" switcher changes the
-  // active account, and remounting this subtree would tear down the open dialog.
+  // Crossfade key for the dashboard (transact + apps). Capture it in the modal
+  // request so changing "From" doesn't remount the content behind an open dialog.
   const activeAccountKey = activeAccountId ?? 'empty';
-  const heldKeyRef = useRef(activeAccountKey);
-  if (!transact.isOpen) heldKeyRef.current = activeAccountKey;
-  const contentKey = transact.isOpen ? heldKeyRef.current : activeAccountKey;
+  const contentKey = transactionRequest?.contentKey ?? activeAccountKey;
+  const openTransaction = (preset?: TransactPreset) => {
+    setTransactionRequest({ preset, contentKey: activeAccountKey });
+  };
+  const openApply = (applyTarget: ApplyTarget) => {
+    setTransactionRequest({ applyTarget, contentKey: activeAccountKey });
+  };
 
   const resolveUsdvAddress = async (): Promise<Address | null> => {
     const status = await vibenetApi.faucet.status().catch(() => null);
@@ -103,7 +96,7 @@ function AccountDemoInner() {
   const sendBatchedCallsDemo = async () => {
     trackAccountAction('batched_calls');
     const USDV = (await resolveUsdvAddress()) ?? '0x9A676e781A523b5d0C0e43731313A708CB607508';
-    transact.open({
+    openTransaction({
       calls: [
         newCallRow({ to: '0x0000000000000000000000000000000000000001', value: '0.001', data: '0x' }),
         newCallRow({ to: USDV, value: '0', data: encodeUsdvTransfer('0x0000000000000000000000000000000000000002', 1_000_000n) }),
@@ -117,7 +110,7 @@ function AccountDemoInner() {
   const sendGasTokenDemo = async () => {
     trackAccountAction('gas_token');
     const USDV = (await resolveUsdvAddress()) ?? '0x9A676e781A523b5d0C0e43731313A708CB607508';
-    transact.open({
+    openTransaction({
       calls: [
         newCallRow({ to: '0x0000000000000000000000000000000000000001', value: '0.001', data: '0x' }),
         newCallRow({ to: USDV, value: '0', data: encodeUsdvTransfer('0x0000000000000000000000000000000000000002', 1_000_000n) }),
@@ -127,15 +120,12 @@ function AccountDemoInner() {
     });
   };
 
-  // Unsubscribe from a session-key app card. Revoking a landed key is a config
-  // change that must be signed AND applied on-chain, so once it's staged we send
-  // the user to the account page's session section to apply it. (A never-landed
-  // key is just discarded, so there's nothing to apply and nowhere to send.)
+  // Session-app config changes use the same transaction review popup as every
+  // other account-demo send. A never-landed authorization is only local, so
+  // revoking it simply discards it without opening a transaction.
   const unsubscribeApp = async (sk: AppSessionKey) => {
     const outcome = await revokeSessionKey(sk.id);
-    if ((outcome === 'staged' || outcome === 'noop') && acct) {
-      router.push(`/vibenet/explorer/address/${acct.address}?section=sessions`);
-    }
+    if (outcome === 'staged' || outcome === 'noop') openApply({ session: sk.id });
   };
 
   const sessionKeyFor = (name: string) => acct?.sessionKeys.find((sk) => sk.label === name);
@@ -147,17 +137,16 @@ function AccountDemoInner() {
     if (rec) deleteAccount(rec.id);
   };
 
-  // Connect a session-key app: mint a dedicated key, authorize it with the app's
-  // policy (owner-signed, immediate), and broadcast so it's bound on-chain.
+  // Connect a session-key app: mint a dedicated key and stage its owner-signed
+  // authorization, then hand submission to the common transaction popup.
   const connectSessionApp = async (app: DemoApp) => {
     if (!acct || !activeSigner) return;
     setAppBusy(app.id);
-    setError('');
     let mintedKeyId: string | null = null;
     try {
       const target = mintAppKey(app.name);
       if (!target) {
-        setError("Couldn't mint an app key — try again.");
+        toast.error("Couldn't mint an app key — try again.");
         return;
       }
       mintedKeyId = target.id;
@@ -168,21 +157,17 @@ function AccountDemoInner() {
         spec: app.spec?.(acct.address) ?? {},
         label: app.name,
         chainShort: chain.shortName,
-        defer: false,
       });
-      if (sk?.serialized) {
-        const txHash = await broadcast8130(sk.serialized, setSubmitStatus);
-        sk.commit?.();
+      if (sk) {
         mintedKeyId = null;
-        setConfigTx({ hash: txHash, label: `Connected: ${app.name}` });
+        openApply({ session: sk.id });
       }
     } catch (err) {
       const e = err as { message?: string; name?: string };
-      setError(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
+      toast.error(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
     } finally {
-      if (mintedKeyId) setSigners((prev) => prev.filter((s) => s.id !== mintedKeyId));
+      if (mintedKeyId) deleteSigner(mintedKeyId);
       setAppBusy(null);
-      setSubmitStatus('');
     }
   };
 
@@ -191,11 +176,10 @@ function AccountDemoInner() {
   const connectVault = (app: DemoApp) => {
     if (!acct) return;
     setAppBusy(app.id);
-    setError('');
     try {
       doCreateSubAccount(app.name, { withSpareKey: true });
     } catch (err) {
-      setError((err as { message?: string }).message ?? String(err));
+      toast.error((err as { message?: string }).message ?? String(err));
     } finally {
       setAppBusy(null);
     }
@@ -233,89 +217,16 @@ function AccountDemoInner() {
             {renderApps()}
           </motion.div>
         </AnimatePresence>
-
-        {error && !estimateBlocked ? (
-          <div
-            role="alert"
-            className="flex items-start justify-between gap-3 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
-          >
-            <span className="[line-break:anywhere]">{error}</span>
-            <button
-              type="button"
-              onClick={() => setError('')}
-              aria-label="Dismiss error"
-              className="shrink-0 text-[12px] text-bds-red-60 hover:text-bds-red-70"
-            >
-              Dismiss
-            </button>
-          </div>
-        ) : null}
-
-        {estimateBlocked ? (
-          <div
-            role="alert"
-            className="flex flex-col gap-2 rounded-lg border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
-          >
-            <span className="[line-break:anywhere]">{conciseError(estimateBlocked)}</span>
-            <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-              Estimation reverted, so this will likely fail on-chain.
-            </span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" onClick={() => copy(estimateBlocked, 'estimate-error')}>
-                {copied === 'estimate-error' ? 'Copied' : 'Copy Error'}
-              </Button>
-              <Button
-                size="sm"
-                disabled={transact.signing}
-                onClick={() => {
-                  overrideEstimateRef.current = true;
-                  void transact.confirmSend();
-                }}
-              >
-                Send Anyway
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {seqRecovery ? (
-          <div
-            role="alert"
-            className="flex flex-col gap-2 rounded-lg border border-bds-yellow-20 bg-bds-yellow-0 px-4 py-3 text-[13px] text-bds-yellow-70"
-          >
-            <span>
-              This {seqRecovery.what} is out of sequence — the account&apos;s config changed since it was signed, so it
-              can&apos;t land as-is. Re-sign it at the current sequence, or drop it.
-            </span>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => seqRecovery.resign()} disabled={seqRecovery.busy}>
-                {seqRecovery.busy ? 'Re-Signing…' : 'Re-Sign'}
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => seqRecovery.drop()} disabled={seqRecovery.busy}>
-                Drop It
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {infoMsg ? (
-          <p
-            role="status"
-            className="flex items-center justify-between gap-3 rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-4 py-3 text-[13px] text-bds-gray-70 dark:border-white/10 dark:bg-white/5"
-          >
-            <span>{infoMsg}</span>
-            <button
-              type="button"
-              onClick={() => setInfoMsg('')}
-              className="shrink-0 text-[12px] text-bds-gray-60 hover:text-bds-gray-70 dark:text-bds-gray-40"
-            >
-              Dismiss
-            </button>
-          </p>
-        ) : null}
       </AccountDemoShell>
 
-      {transact.modal}
+      {transactionRequest ? (
+        <TransactionModal
+          key={activeAccountId ?? 'no-account'}
+          onClose={() => setTransactionRequest(null)}
+          preset={transactionRequest.preset}
+          applyTarget={transactionRequest.applyTarget}
+        />
+      ) : null}
 
       <Modal
         open={regenesisNotice}
@@ -358,6 +269,8 @@ function AccountDemoInner() {
             connectSessionApp={connectSessionApp}
             connectVault={connectVault}
             unsubscribeApp={unsubscribeApp}
+            reviewSessionApp={(sessionKey) => openApply({ session: sessionKey.id })}
+            undoSessionRevoke={undoStagedRevoke}
             deleteVault={deleteVault}
           />
         ))}
@@ -387,7 +300,7 @@ function AccountDemoInner() {
           size="sm"
           onClick={() => {
             trackAccountAction('create_transaction');
-            transact.open();
+            openTransaction();
           }}
         >
           Create Transaction
@@ -420,7 +333,7 @@ function AccountDemoInner() {
           size="sm"
           onClick={() => {
             trackAccountAction('sponsorship');
-            transact.open({
+            openTransaction({
               calls: [newCallRow({ to: acct.address, value: '0', data: '0x' })],
               gasMode: 'free',
               metadata: 'Sponsored transaction',

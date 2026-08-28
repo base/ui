@@ -10,7 +10,6 @@ import type { Address } from 'viem';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Card } from '../../../../components/ui/Card';
-import { Text } from '../../../../components/ui/Text';
 import type { ActivityRow, AccountBalancesResponse } from '../../../library/api-types';
 import { vibenetApi } from '../../../library/client';
 import { formatEthWei } from '../../../demos/account/library/model';
@@ -138,9 +137,7 @@ export function AssetsCard({
   return (
     <Card className="overflow-hidden bg-background dark:bg-white/[0.03]">
       <div className="border-b border-bds-gray-10 px-5 py-2.5 dark:border-white/10">
-        <Text variant="label.medium" className="font-medium">
-          Assets
-        </Text>
+        <span className="text-[13px] font-normal text-bds-gray-50">Assets</span>
       </div>
       {rows.map((asset) => (
         <div

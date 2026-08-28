@@ -46,7 +46,6 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
     createSigner,
     pushActivity,
     autoFundNewAccount,
-    setError,
   } = useAccountEngine();
 
   const [createMode, setCreateMode] = useState<CreateMode>('default');
@@ -65,8 +64,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
     setModalSalt(randomHex32());
     setModalIds([]);
     setModalEoaId(null);
-    setError('');
-  }, [open, setError]);
+  }, [open]);
 
   const eoaSigners = useMemo(() => signers.filter((s) => s.kind === 'k1'), [signers]);
   const defaultModeSigner = useMemo(
