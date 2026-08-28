@@ -620,6 +620,17 @@ function SessionForm({ p }: { p: ConfigViewModel }) {
               };
             })}
           />
+          <button
+            type="button"
+            onClick={async () => {
+              const s = await p.createSigner('k1');
+              if (s) p.setSkSignerId(s.id);
+            }}
+            disabled={p.busy !== null}
+            className="self-start text-[11px] text-base-blue hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {p.busy === 'k1' ? 'Minting…' : '+ New signer'}
+          </button>
         </label>
         <label className="flex flex-col gap-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
           Chain
