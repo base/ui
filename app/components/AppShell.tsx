@@ -4,7 +4,7 @@ import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEff
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { AnimatePresence, easeOut, motion, useMotionTemplate, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
+import { AnimatePresence, easeOut, motion, useIsPresent, useMotionTemplate, useMotionValue, usePresenceData, useReducedMotion, type MotionValue } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
@@ -14,7 +14,7 @@ import { demoLabel } from '../vibenet/demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 
 import { trackNavClick } from '../analytics/events';
-import { navSlideDirection } from './nav-motion';
+import { navExitingHighlightPath, navSlideDirection, type NavPresenceCustom } from './nav-motion';
 import { NavScrollArea } from './NavScrollArea';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
@@ -340,10 +340,35 @@ function opensInNewTab(event: ReactMouseEvent): boolean {
 }
 
 const slideVariants = {
-  enter: (direction: number) => ({ x: direction > 0 ? 10 : -10, opacity: 0, filter: 'blur(1px)' }),
+  enter: ({ direction }: NavPresenceCustom) => ({ x: direction > 0 ? 10 : -10, opacity: 0, filter: 'blur(1px)' }),
   center: { x: 0, opacity: 1, filter: 'none' },
-  exit: (direction: number) => ({ x: direction > 0 ? -10 : 10, opacity: 0, filter: 'blur(1px)' }),
+  exit: ({ direction }: NavPresenceCustom) => ({ x: direction > 0 ? -10 : 10, opacity: 0, filter: 'blur(1px)' }),
 };
+
+function useExitingHighlightPath(presentPath: string): string {
+  const isPresent = useIsPresent();
+  return navExitingHighlightPath(isPresent, usePresenceData(), presentPath);
+}
+
+function TopNavList({ highlightPath, onSelect }: { highlightPath: string; onSelect: (href: string) => void }) {
+  const path = useExitingHighlightPath(highlightPath);
+  return (
+    <nav style={styles.nav}>
+      {NAV_ITEMS.filter((item) => item.icon).map((item) => (
+        <NavRow
+          key={item.href}
+          icon={item.icon}
+          label={item.label}
+          href={item.href}
+          active={isTopNavActive(item, path)}
+          enabled={item.enabled}
+          hasChildren={!!item.children}
+          onNavigate={() => onSelect(item.href)}
+        />
+      ))}
+    </nav>
+  );
+}
 
 const slideTransition = { duration: 0.2, ease: easeOut, x: { visualDuration: 0.2, type: 'spring', bounce: 0 } };
 /** Matches `h-9` / theme(spacing.9). */
@@ -455,6 +480,9 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
   };
 
   const direction = directionRef.current;
+  // highlightPath rides AnimatePresence custom so the exiting root list can
+  // move the pill — its React props are frozen on the previous commit.
+  const presenceCustom: NavPresenceCustom = { direction, highlightPath: activePath };
 
   return (
     <>
@@ -466,11 +494,11 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
             </div>
           )}
           <div className="sidebar-gutter overflow-clip [overflow-clip-margin:4px]">
-            <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+            <AnimatePresence mode="popLayout" initial={false} custom={presenceCustom}>
               {activeParent ? (
                 <motion.div
                   key={`sub-nav:${activeParent.href}`}
-                  custom={direction}
+                  custom={presenceCustom}
                   variants={slideVariants}
                   initial="enter"
                   animate="center"
@@ -531,7 +559,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
               ) : (
                 <motion.div
                   key="main-nav"
-                  custom={direction}
+                  custom={presenceCustom}
                   variants={slideVariants}
                   initial="enter"
                   animate="center"
@@ -540,20 +568,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                   className="sidebar-nav-pane"
                   style={styles.navPane}
                 >
-                  <nav style={styles.nav}>
-                    {NAV_ITEMS.filter((item) => item.icon).map((item) => (
-                      <NavRow
-                        key={item.href}
-                        icon={item.icon}
-                        label={item.label}
-                        href={item.href}
-                        active={isTopNavActive(item, activePath)}
-                        enabled={item.enabled}
-                        hasChildren={!!item.children}
-                        onNavigate={() => selectPath(item.href)}
-                      />
-                    ))}
-                  </nav>
+                  <TopNavList highlightPath={activePath} onSelect={selectPath} />
                 </motion.div>
               )}
             </AnimatePresence>
