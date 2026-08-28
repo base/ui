@@ -165,6 +165,9 @@ export function B20Demo() {
   // A policy assignment chosen from the Policies list, pending confirmation in
   // the transaction popup.
   const [pendingAssign, setPendingAssign] = useState<PendingAssignment | null>(null);
+  // The scope whose "+ Policy" opened the Create Policy dialog. When set, the
+  // newly created policy is auto-assigned to this scope once creation lands.
+  const [pendingCreateScope, setPendingCreateScope] = useState<{ scope: string; label: string } | null>(null);
   // True while CreatePolicy runs its own preflight reads / broadcast, before the
   // parent-level `busy` is set. Blocks closing the modal so an aborted dialog
   // can't still sign and broadcast a policy transaction.
@@ -583,7 +586,10 @@ export function B20Demo() {
             usedPolicyIds={usedPolicyIds}
             refreshKey={engine.activity.length}
             onAssign={startAssignPolicy}
-            onCreate={() => openFeature('createPolicy')}
+            onCreate={(scope, label) => {
+              setPendingCreateScope({ scope, label });
+              openFeature('createPolicy');
+            }}
             onDelete={handleDeletePolicy}
           />
         </>
@@ -624,6 +630,7 @@ export function B20Demo() {
         open={openModal === 'createPolicy'}
         onClose={() => {
           if (policyPreflight) return;
+          setPendingCreateScope(null);
           closeModal();
         }}
         title="Create Policy"
@@ -638,7 +645,21 @@ export function B20Demo() {
             onPolicyCreated={(policy) => {
               if (wallet) setRecentPolicies(writeRecentPolicy(wallet, policy));
             }}
-            onComplete={() => setOpenModal(null)}
+            onComplete={(policy) => {
+              setOpenModal(null);
+              // Created from a scope's "+ Policy" — carry straight into
+              // assigning the new policy to that scope.
+              const target = pendingCreateScope;
+              setPendingCreateScope(null);
+              if (target) {
+                setPendingAssign({
+                  scope: target.scope,
+                  scopeLabel: target.label,
+                  policyId: policy.id,
+                  policyLabel: policy.label || `Policy ${policy.id.toString()}`,
+                });
+              }
+            }}
             onBusyChange={setPolicyPreflight}
             busy={busy}
           />

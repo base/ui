@@ -9,6 +9,7 @@ import { Select } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { walletErrorMessage } from '../../../library/wallet';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
+import { TrashIcon } from '../../_shared/primitives';
 import { client } from '../lib/constants';
 import {
   ACTIVATION_REGISTRY,
@@ -19,7 +20,6 @@ import {
   normalizePolicyMembers,
   POLICY_REGISTRY,
   policyKindLabel,
-  policyKindFromId,
   policyKindValue,
   policyRegistryAbi,
   readCreatedPolicy,
@@ -201,42 +201,46 @@ export function CreatePolicy({
             </Field>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">{compositeKinds.map((item) => <button key={item} type="button" aria-pressed={compositeKind === item} onClick={() => setCompositeKind(item)} className={cn('rounded-xl border p-4 text-left', compositeKind === item ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{policyKindLabel(item)}</strong><span className="mt-1 block text-[12px] text-bds-gray-60">{item === 'union' ? 'UNION · A wallet passes when any child allows it.' : 'INTERSECT · A wallet passes only when every child allows it.'}</span></button>)}</div>
-          <div className="mt-5 space-y-3">
+          <div className="mt-5 divide-y divide-bds-gray-10 overflow-hidden rounded-lg border border-bds-gray-10 dark:divide-white/10 dark:border-white/10">
             {children.map((child, index) => {
-              const recent = simpleRecent.find((policy) => policy.id.toString() === child);
+              // Keep this row's current selection in the option list so the Select
+              // renders its label; otherwise hide policies already picked in another slot.
+              const options = simpleRecent
+                .filter((policy) => policy.id.toString() === child || !children.includes(policy.id.toString()))
+                .map((policy) => ({
+                  value: policy.id.toString(),
+                  label: `${policy.label ? `${policy.label} · ` : ''}${policyKindLabel(policy.kind)}`,
+                }));
               return (
-                <div key={index} className="rounded-xl border border-bds-gray-10 p-4 dark:border-white/10">
-                  <div className="flex items-center justify-between gap-3">
-                    <Text variant="label">Child policy {String.fromCharCode(65 + index)}</Text>
-                    {children.length > 1 ? (
-                      <Button size="sm" variant="outline" onClick={() => setChildren((current) => current.filter((_, i) => i !== index))}>Remove slot</Button>
-                    ) : null}
+                <div key={index} className="flex items-center gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <Select
+                      value={child}
+                      onValueChange={(value) => updateChild(index, value)}
+                      options={options}
+                      placeholder="Choose a policy"
+                      ariaLabel={`Choose child policy ${index + 1}`}
+                      disabled={options.length === 0}
+                    />
                   </div>
-                  {child ? (
-                    <div className="mt-3 rounded-lg bg-bds-green-0 p-3">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <strong className="text-[13px]">{recent?.label || policyKindLabel((recent?.kind || policyKindFromId(BigInt(child))) as PolicyKind)}</strong>
-                          <p className="mt-1 text-[12px] text-bds-gray-60">
-                            {policyKindLabel((recent?.kind || policyKindFromId(BigInt(child))) as PolicyKind)} · Created in Policy Registry
-                          </p>
-                        </div>
-                        <Button size="sm" variant="outline" onClick={() => updateChild(index, '')}>Change</Button>
-                      </div>
-                      <details className="mt-2 text-[11px] text-bds-gray-50"><summary className="cursor-pointer">Technical details</summary><p className="mt-1 font-mono">Policy ID {child}</p></details>
-                    </div>
-                  ) : simpleRecent.length ? (
-                    <div className="mt-3">
-                      <Text variant="footnote" tone="muted">Select an existing allowlist or blocklist policy to combine.</Text>
-                      <div className="mt-3"><Select value="" onValueChange={(value) => updateChild(index, value)} options={simpleRecent.filter((policy) => !children.includes(policy.id.toString())).map((policy) => ({ value: policy.id.toString(), label: `${policy.label ? `${policy.label} · ` : ''}${policyKindLabel(policy.kind)}` }))} placeholder="Choose an existing child policy" ariaLabel={`Choose child policy ${index + 1}`} /></div>
-                    </div>
-                  ) : (
-                    <Text variant="footnote" tone="muted" className="mt-3 block">Create an Allowlist or Blocklist first, then combine them here.</Text>
-                  )}
+                  {children.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setChildren((current) => current.filter((_, i) => i !== index))}
+                      aria-label={`Remove child policy ${index + 1}`}
+                      title="Remove policy"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 text-bds-gray-50 transition-colors hover:border-bds-red-40 hover:text-bds-red-60 dark:border-white/10"
+                    >
+                      <TrashIcon size={16} />
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
           </div>
+          {simpleRecent.length === 0 ? (
+            <Text variant="footnote" tone="muted" className="mt-2 block">Create an Allowlist or Blocklist first, then combine them here.</Text>
+          ) : null}
           {children.length < 4 ? <Button className="mt-3" size="sm" variant="outline" onClick={() => setChildren((current) => [...current, ''])}>Add child policy</Button> : null}
         </>
       )}

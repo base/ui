@@ -199,7 +199,7 @@ export function TransactionModal({
       <>
         {successExtra}
         {result?.txHash && explorerTxPath ? (
-          <Link href={explorerTxPath(result.txHash)}>
+          <Link href={explorerTxPath(result.txHash)} target="_blank" rel="noopener noreferrer">
             <Button variant="secondary" size="sm">
               View Transaction
             </Button>

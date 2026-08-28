@@ -12,4 +12,3 @@ export const POLICY_STORAGE_KEY = 'vibenet.b20.recent-policies.v1';
 export const PAYER_STORAGE_KEY = 'vibenet.b20.payer.v1';
 
 export const INITIAL_ALLOCATION_MEMO = 'Initial deposit';
-export const INITIAL_ALLOCATION_MAX = 100n;

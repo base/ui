@@ -8,10 +8,10 @@ export const B20_FEATURE: VibenetFeature = {
   tag: 'B20',
   title: 'Tokens',
   summary:
-    "Base's native, ERC-20-compatible token standard. Configure mint permissions, transfer policies, pauses, memos, and announcements — no custom contracts — while staying compatible with every ERC-20 wallet.",
+    'Create asset and stablecoin tokens with configurable mint permissions, transfer policies, pauses, memos, and announcements without custom contracts.',
   status: 'live',
   highlights: [
-    { title: 'Asset & Stablecoin', detail: '6–18-decimal assets with multipliers, or fixed-6 fiat stablecoins.' },
+    { title: 'Asset & Stablecoin', detail: '6–18 decimal assets with multipliers, or fixed 6-decimal fiat stablecoins.' },
     {
       title: 'Policy-Gated Transfers',
       detail: 'Allowlists, blocklists, and composite policies across transfer, mint, and seizure scopes.',

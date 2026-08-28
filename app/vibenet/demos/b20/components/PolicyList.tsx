@@ -17,7 +17,7 @@ const READ_RETRY_MS = [0, 2_500, 6_000];
 // Inline policy assignment: one row per token feature (scope), each with a
 // dropdown of the account's named policies. Selecting one hands the choice up to
 // the transaction popup flow (it does not assign in place); "+ Policy" opens the
-// Create Policy dialog.
+// Create Policy dialog for that scope, then assigns the new policy to it.
 export function PolicyList({
   token,
   adminStatus,
@@ -36,7 +36,7 @@ export function PolicyList({
   /** Bumped by the parent after each transaction so assignments re-read. */
   refreshKey: number;
   onAssign: (scope: string, label: string, policyId: bigint) => void;
-  onCreate: () => void;
+  onCreate: (scope: string, label: string) => void;
   onDelete: (id: bigint) => void;
 }) {
   const [assignments, setAssignments] = useState<Record<string, bigint | null>>({});
@@ -89,7 +89,7 @@ export function PolicyList({
               policies={recentPolicies}
               usedPolicyIds={usedPolicyIds}
               onSelect={(id) => onAssign(scope, label, id)}
-              onCreate={onCreate}
+              onCreate={() => onCreate(scope, label)}
               onDelete={onDelete}
               disabled={locked}
               ariaLabel={`${label} policy`}
@@ -97,11 +97,6 @@ export function PolicyList({
           </div>
         ))}
       </Card>
-      {locked && adminStatus === 'checking' ? (
-        <Text variant="footnote" tone="muted">
-          Checking whether your wallet is a token admin…
-        </Text>
-      ) : null}
     </div>
   );
 }

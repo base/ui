@@ -12,7 +12,7 @@ import { formatTokenAmount, short } from '../../account/shared';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
-import { client, INITIAL_ALLOCATION_MAX, INITIAL_ALLOCATION_MEMO } from '../lib/constants';
+import { client, INITIAL_ALLOCATION_MEMO } from '../lib/constants';
 import { B20_HELP } from '../lib/glossary';
 import {
   ACTIVATION_REGISTRY,
@@ -65,7 +65,7 @@ export function DeployModule({
   const [salt, setSalt] = useState('');
   const [cap, setCap] = useState('10000000');
   const [uri, setUri] = useState('');
-  const [initialMint, setInitialMint] = useState(INITIAL_ALLOCATION_MAX.toString());
+  const [initialMint, setInitialMint] = useState('100');
   const [step, setStep] = useState<TxStep>('build');
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,8 +101,6 @@ export function DeployModule({
         throw new Error('Choose between 6 and 18 decimal places for an Asset token.');
       initialMintAmount = amount(initialMint, d);
       if (initialMintAmount <= 0n) throw new Error('Enter a starting amount greater than zero for your wallet.');
-      if (initialMintAmount > amount(INITIAL_ALLOCATION_MAX.toString(), d))
-        throw new Error(`The starting amount is limited to ${INITIAL_ALLOCATION_MAX.toString()} tokens.`);
       capAmount = cap ? amount(cap, d) : null;
       if (capAmount !== null && initialMintAmount > capAmount)
         throw new Error('The starting amount cannot be greater than the maximum supply.');
