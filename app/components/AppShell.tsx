@@ -4,7 +4,7 @@ import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEff
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
+import { AnimatePresence, easeOut, motion, useMotionTemplate, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
@@ -363,12 +363,12 @@ function opensInNewTab(event: ReactMouseEvent): boolean {
 }
 
 const slideVariants = {
-  enter: (direction: number) => ({ x: direction > 0 ? '60%' : '-60%', opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (direction: number) => ({ x: direction > 0 ? '-60%' : '60%', opacity: 0 }),
+  enter: (direction: number) => ({ x: direction > 0 ? 10 : -10, opacity: 0, filter: 'blur(1px)' }),
+  center: { x: 0, opacity: 1, filter: 'none' },
+  exit: (direction: number) => ({ x: direction > 0 ? -10 : 10, opacity: 0, filter: 'blur(1px)' }),
 };
 
-const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
+const slideTransition = { duration: 0.2, ease: easeOut, x: { visualDuration: 0.2, type: 'spring', bounce: 0 } };
 /** Matches `h-9` / theme(spacing.9). */
 const APP_BANNER_HEIGHT = '2.25rem';
 
@@ -489,7 +489,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                   <Link
                     href="/"
                     className="nav-header-hover group"
-                    style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: 'var(--bds-gray-50)' }}
+                    style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 2, color: 'var(--bds-gray-50)' }}
                     onClick={(event) => {
                       if (opensInNewTab(event)) return;
                       // Stay on the current page and keep the mobile drawer
