@@ -145,14 +145,14 @@ export function AnnouncementModule({
         ) : (
           <div>
             {tokenAccess !== 'operator' ? (
-              <div className="mt-4 rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4 text-[13px]">
+              <div className="rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4 text-[13px]">
                 <strong>Publishing needs the operator role on this asset</strong>
                 <p className="mt-1 text-bds-gray-60">
                   Create your own Asset token to write and publish announcements.
                 </p>
               </div>
             ) : null}
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className={`grid gap-4 md:grid-cols-2 ${tokenAccess !== 'operator' ? 'mt-5' : ''}`}>
               <Field label="Announcement ID (required)" help={B20_HELP.announcementId}>
                 <Input value={id} onChange={(e) => setId(e.target.value)} placeholder="2026-Q4-reserves" required />
               </Field>
