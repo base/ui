@@ -9,8 +9,10 @@ import { walletErrorMessage } from '../../../library/wallet';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import { client } from '../lib/constants';
 import { B20_HELP } from '../lib/glossary';
+import { READ_ANNOUNCEMENT_PROMPT } from '../lib/prompts';
 import { assetAbi, b20Abi, roleId } from '../lib/protocol';
 import type { TokenAccess, TokenInfo } from '../lib/types';
+import { CopyPromptButton } from './CopyPromptButton';
 import { ErrorNote, Field, Input, Notice } from './primitives';
 
 // Disclosure-only announcement flow, presented through the shared TransactionModal.
@@ -118,6 +120,7 @@ export function AnnouncementModule({
       error={error ?? undefined}
       result={txHash ? { txHash } : null}
       titles={{ build: 'Publish Announcement', submitted: 'Publish Announcement' }}
+      titleAction={<CopyPromptButton prompt={READ_ANNOUNCEMENT_PROMPT} module="announcements" />}
       canProceed={Boolean(isAsset && tokenAccess === 'operator')}
       proceedLabel="Publish Announcement"
       onProceed={() => void submit()}

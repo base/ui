@@ -36,6 +36,8 @@ type TransactionModalProps = {
   result?: TxResult;
   /** Per-step titles; falls back to sensible defaults. */
   titles?: Partial<Record<TxStep, string>>;
+  /** Optional action rendered in the modal header, left of the close button. */
+  titleAction?: ReactNode;
 
   // Build step.
   buildBody: ReactNode;
@@ -114,6 +116,7 @@ export function TransactionModal({
   error,
   result,
   titles,
+  titleAction,
   buildBody,
   buildInfo,
   canProceed,
@@ -213,7 +216,7 @@ export function TransactionModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={title} footer={footer}>
+    <Modal open={open} onClose={onClose} title={title} headerAction={titleAction} footer={footer}>
       {body}
     </Modal>
   );

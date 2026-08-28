@@ -9,8 +9,10 @@ import { walletErrorMessage } from '../../../library/wallet';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import { B20_HELP } from '../lib/glossary';
+import { READ_MEMO_PROMPT } from '../lib/prompts';
 import { amount, b20Abi, memoToBytes32 } from '../lib/protocol';
 import type { TokenInfo } from '../lib/types';
+import { CopyPromptButton } from './CopyPromptButton';
 import { ErrorNote, Field, Input } from './primitives';
 
 // Send-with-memo flow, presented through the shared TransactionModal. It attaches
@@ -93,6 +95,7 @@ export function MemoModule({
       error={error ?? undefined}
       result={txHash ? { txHash } : null}
       titles={{ build: 'Send with Memo', submitted: 'Send with Memo' }}
+      titleAction={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
       canProceed={Boolean(token)}
       proceedLabel="Send"
       onProceed={() => void submit()}
