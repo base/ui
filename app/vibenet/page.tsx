@@ -50,15 +50,15 @@ export default function VibenetHomePage() {
         <Card className="flex flex-col gap-0.5 bg-background px-5 py-5 dark:bg-white/5 md:min-w-[360px]">
           <Text variant="label" className="mb-2.5">Connect to Vibenet</Text>
           <div className="flex items-center justify-between gap-3">
-            <Text variant="label" tone="muted">Chain ID</Text>
+            <Text variant="label" tone="muted" className="font-[400]">Chain ID</Text>
             <CopyableValue value={chainId} />
           </div>
           <div className="mt-1.5 flex items-center justify-between gap-3">
-            <Text variant="label" tone="muted">RPC URL</Text>
+            <Text variant="label" tone="muted" className="font-[400]">RPC URL</Text>
             <CopyableValue value={VIBENET_RPC_URL} />
           </div>
           <div className="mt-1.5 flex items-center justify-between gap-3">
-            <Text variant="label" tone="muted">Explorer</Text>
+            <Text variant="label" tone="muted" className="font-[400]">Explorer</Text>
             <Link
               href={VIBENET_EXPLORER_PATH}
               className="font-mono text-[13px] text-foreground transition-colors hover:text-base-blue dark:text-white"
@@ -98,15 +98,15 @@ export default function VibenetHomePage() {
         <Text variant="title2">Connect</Text>
         <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Text variant="label" tone="muted">Chain ID</Text>
+            <Text variant="label" tone="muted" className="font-[400]">Chain ID</Text>
             <CopyableValue value={chainId} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <Text variant="label" tone="muted">RPC URL</Text>
+            <Text variant="label" tone="muted" className="font-[400]">RPC URL</Text>
             <CopyableValue value={VIBENET_RPC_URL} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-            <Text variant="label" tone="muted">Explorer</Text>
+            <Text variant="label" tone="muted" className="font-[400]">Explorer</Text>
             <Link
               href={VIBENET_EXPLORER_PATH}
               className="font-mono text-[13px] text-base-blue hover:underline"

@@ -55,7 +55,8 @@ export function Tabs({
             disabled={item.disabled}
             className={cn(
               'relative flex shrink-0 select-none items-center gap-1.5 rounded-full whitespace-nowrap transition-colors font-[500]',
-              size === 'sm' ? 'px-2.5 py-1 text-[12px]' : 'px-3 py-1.5 text-[14px]',
+              // Height is on the control so cap-trim cannot collapse the pill.
+              size === 'sm' ? 'h-7 px-2.5 py-1 text-[12px]' : 'h-8 px-3 py-1.5 text-[14px]',
               item.disabled
                 ? 'cursor-not-allowed text-bds-gray-40'
                 : active
@@ -77,7 +78,7 @@ export function Tabs({
               />
             ) : null}
             {item.icon ? <span className="relative z-[1] flex shrink-0">{item.icon}</span> : null}
-            <span className="relative z-[1]">{item.label}</span>
+            <span className="relative z-[1] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic]">{item.label}</span>
           </button>
         );
       })}

@@ -685,8 +685,8 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
       >
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
           <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
-            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500]">New!</Text>
-            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500]">EIP-8130: Accounts</Text>
+            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic]">New!</Text>
+            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic]">EIP-8130: Accounts</Text>
             <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
             <Link
               href="/vibenet/demos/account"
@@ -696,7 +696,7 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
                 onDismiss();
               }}
             >
-              <Text as="span" variant="label.medium" className="text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] text-base-blue">Test on Vibenet</Text>
+              <Text as="span" variant="label.medium" className="text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic] text-base-blue">Test on Vibenet</Text>
               <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
             </Link>
           </div>
