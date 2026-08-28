@@ -51,6 +51,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
   const classes = cn(
     'group flex whitespace-nowrap w-fit active:scale-[0.96] transition-[background-color,border-color,color,transform] duration-150 ease-out max-w-full items-center justify-center rounded-full sm:w-auto',
+    // Trim half-leading to cap/alphabetic so Google Sans Flex sits optically
+    // centered in the fixed-height pill. Type styles live on this same node.
+    '[text-box-trim:trim-both] [text-box-edge:cap_alphabetic]',
     sizeClasses,
     size === 'sm' ? textVariantClasses.label : textVariantClasses.button,
     'md:leading-[20px]',

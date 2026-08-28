@@ -38,22 +38,22 @@ export const textVariantClasses: Record<TextVariant, string> = {
   title1:
     'text-[28px] md:text-[36px] leading-[34px] md:leading-[44px] font-[528] tracking-tight',
   title2:
-    'text-[20px] md:text-[24px] leading-[28px] md:leading-[32px] font-[525] tracking-tight',
+    'text-[20px] md:text-[24px] leading-[28px] md:leading-[32px] font-[500] tracking-tight',
   title3:
-    'text-[18px] md:text-[20px] leading-[26px] md:leading-[28px] font-[525] tracking-tight',
+    'text-[18px] md:text-[20px] leading-[26px] md:leading-[28px] font-[500] tracking-tight',
   headline:
     'text-[16px] md:text-[18px] leading-[24px] md:leading-[26px] font-[500] tracking-tight',
   body: 'text-[15px] md:text-[16px] leading-[140%] font-[425] tracking-[0px]',
   label:
-    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-[535] tracking-[-0.01em]',
+    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-[500] tracking-[-0.01em]',
   'label.medium':
-    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-[535] tracking-[0px]',
+    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-[500] tracking-[0px]',
   'label.regular':
     'text-[13px] md:text-[14px] leading-[20px] font-[400] tracking-[0px]',
   'label.mono':
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-mono font-[400] tracking-[0px]',
   caption:
-    'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[535] tracking-[0px] uppercase',
+    'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[500] tracking-[0px] uppercase',
   button: 'text-[14px] leading-[20px] font-[500] tracking-[-0.01em]',
   footnote: 'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[400] tracking-[0px]',
 };

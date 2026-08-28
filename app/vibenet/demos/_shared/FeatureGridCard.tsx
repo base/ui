@@ -31,7 +31,7 @@ export function FeatureGridCard({
         >
           {icon}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[15px] font-normal">{title}</span>
+        <span className="min-w-0 flex-1 truncate text-[15px] font-[500]">{title}</span>
       </div>
       <p className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">{description}</p>
       <div className={cn('mt-auto flex flex-wrap items-center gap-3', footerClassName)}>{children}</div>
