@@ -483,9 +483,18 @@ function TxBody({ tx }: TxBodyProps) {
           ) : null}
           {!tx.isAa ? <DetailRow label="Value">{weiToEth(tx.value)}</DetailRow> : null}
           <DetailRow label="Nonce">{nonceBody}</DetailRow>
-          {/* Paid in the gas token instead — the ETH fee was covered by the
-              payer, so surfacing it here would read as what the user paid. */}
-          {tx.fee && !gasTokenFee ? <DetailRow label="Fee">{weiToEth(tx.fee)}</DetailRow> : null}
+          {tx.fee ? (
+            gasTokenFee ? (
+              // Paid in the gas token instead — labeling this "Fee" would read
+              // as what the user paid, but it's still useful for debugging the
+              // payer's economics (does the flat token fee cover this?).
+              <DetailRow label="Network cost">
+                <span className={DIM}>{weiToEth(tx.fee)} (paid by payer)</span>
+              </DetailRow>
+            ) : (
+              <DetailRow label="Fee">{weiToEth(tx.fee)}</DetailRow>
+            )
+          ) : null}
           <DetailRow label="Gas limit">{fmtHexInt(tx.gas)}</DetailRow>
           {tx.gasUsed ? (
             <DetailRow label="Gas used">
