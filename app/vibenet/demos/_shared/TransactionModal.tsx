@@ -47,6 +47,8 @@ type TransactionModalProps = {
 
   // Review step (optional — omit reviewBody for flows that skip review).
   reviewBody?: ReactNode;
+  /** Summary shown to the left of the review footer buttons (e.g. gas + signer). */
+  reviewInfo?: ReactNode;
   confirmLabel?: string;
   onConfirm?: () => void;
   onReviewBack?: () => void;
@@ -118,6 +120,7 @@ export function TransactionModal({
   proceedLabel,
   onProceed,
   reviewBody,
+  reviewInfo,
   confirmLabel = 'Send',
   onConfirm,
   onReviewBack,
@@ -159,20 +162,23 @@ export function TransactionModal({
     );
   } else if (step === 'review') {
     footer = (
-      <>
-        <Button variant="secondary" size="sm" onClick={onReviewBack} disabled={busy}>
-          Back
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={onConfirm}
-          disabled={busy}
-          className="disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {confirmLabel}
-        </Button>
-      </>
+      <div className="flex w-full items-center justify-between gap-3">
+        {reviewInfo ?? <span />}
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={onReviewBack} disabled={busy}>
+            Back
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onConfirm}
+            disabled={busy}
+            className="disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
     );
   } else {
     // submitted

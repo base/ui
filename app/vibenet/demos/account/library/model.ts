@@ -370,22 +370,3 @@ export function formatEthWei(wei: string | bigint | null | undefined): string {
   const frac = (v % 10n ** 18n).toString().padStart(18, "0").slice(0, 4);
   return `${whole}.${frac}`;
 }
-
-/** Token amount from base units with `decimals`, 2-decimal display. */
-export function formatUnits(
-  amount: string | bigint | null | undefined,
-  decimals: number | null | undefined,
-): string {
-  if (
-    amount === null ||
-    amount === undefined ||
-    decimals === null ||
-    decimals === undefined
-  )
-    return "N/A";
-  const v = typeof amount === "bigint" ? amount : BigInt(amount);
-  const base = 10n ** BigInt(decimals);
-  const whole = v / base;
-  const frac = (v % base).toString().padStart(decimals, "0").slice(0, 2);
-  return `${whole.toLocaleString()}.${frac}`;
-}

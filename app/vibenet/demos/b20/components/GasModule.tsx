@@ -5,10 +5,12 @@ import type { Hex } from 'viem';
 
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
+import { short } from '../../account/shared';
 import { walletErrorMessage } from '../../../library/wallet';
+import { CallRow, ReviewArrow } from '../../_shared/CallRow';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
-import { shortAddress } from '../lib/protocol';
 import type { TokenInfo } from '../lib/types';
+import { Notice } from './primitives';
 
 // "Gas Payments" flow: send a real transaction whose network fee is paid in the
 // currently selected stablecoin, not ETH. The account spends the token; the
@@ -102,16 +104,11 @@ export function GasModule({
         token && isStablecoin ? (
           <div className="flex flex-col gap-4">
             <ul className="flex flex-col gap-2">
-              <li className="flex flex-wrap items-center gap-2 rounded-lg border border-bds-gray-10 p-3 text-[13px] dark:border-white/10">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bds-gray-10 text-[11px] dark:bg-white/10">
-                  1
-                </span>
+              <CallRow index={1}>
                 <span className="font-normal">Send {ethAmount} ETH</span>
-                <span aria-hidden="true" className="text-bds-gray-40 dark:text-bds-gray-50">
-                  →
-                </span>
-                <span className="font-sans text-bds-gray-70 dark:text-bds-gray-30">{shortAddress(recipient)}</span>
-              </li>
+                <ReviewArrow />
+                <span className="font-sans text-bds-gray-70 dark:text-bds-gray-30">{short(recipient)}</span>
+              </CallRow>
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-bds-gray-10 pt-3 text-[13px] dark:border-white/10">
               <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Network fee</span>
@@ -121,9 +118,7 @@ export function GasModule({
             </div>
           </div>
         ) : (
-          <p className="rounded-lg bg-bds-orange-0 p-4 text-[13px] text-bds-orange-70">
-            Paying for gas in a token is a Stablecoin feature.
-          </p>
+          <Notice>Paying for gas in a token is a Stablecoin feature.</Notice>
         )
       }
     />

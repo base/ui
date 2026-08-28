@@ -92,7 +92,7 @@ export function MemoModule({
       busy={finalizing}
       error={error ?? undefined}
       result={txHash ? { txHash } : null}
-      titles={{ build: 'Send with memo', submitted: 'Send with memo' }}
+      titles={{ build: 'Send with Memo', submitted: 'Send with Memo' }}
       canProceed={Boolean(token)}
       proceedLabel="Send"
       onProceed={() => void submit()}

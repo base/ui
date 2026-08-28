@@ -6,7 +6,7 @@ import type { DemoApp } from '../library/apps';
 import { formatExpiry, type AppSessionKey, type AppSubAccount, type StoredAccount } from '../library/model';
 import { short, type WalletSigner } from '../shared';
 import { Badge } from '../../_shared/primitives';
-import { FeatureGridCard, FeatureGridPlaceholder } from './FeatureGridCard';
+import { FeatureGridCard, FeatureGridPlaceholder } from '../../_shared/FeatureGridCard';
 
 const CONNECTED_FOOTER =
   'border-t border-bds-gray-10 pt-3 dark:border-white/10';

@@ -48,7 +48,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
             </Dialog.Close>
           </div>
 
-          <div className="flex flex-col gap-5 overflow-y-auto px-5 pb-8 pt-5">{children}</div>
+          <div className="flex flex-col gap-5 overflow-y-auto px-5 pb-5 pt-5">{children}</div>
 
           {footer ? (
             <div className="flex items-center justify-end gap-3 border-t border-bds-gray-10 px-5 py-4 dark:border-white/10">

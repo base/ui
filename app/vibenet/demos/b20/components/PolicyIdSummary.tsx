@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Address } from 'viem';
 
 import { cn } from '../../../../components/ui/cn';
+import { short } from '../../account/shared';
 import { client } from '../lib/constants';
 import {
   normalizePolicyId,
@@ -11,7 +12,6 @@ import {
   policyKindFromId,
   policyKindLabel,
   policyRegistryAbi,
-  shortAddress,
 } from '../lib/protocol';
 import type { PolicyKind, RecentPolicy } from '../lib/types';
 
@@ -117,7 +117,7 @@ export function PolicyIdSummary({
         Resolves to Policy Registry entry #{resolution.id.toString()}.
       </p>
       {!/^0x0{40}$/i.test(resolution.admin) ? (
-        <p className={cn('mt-1 text-[11px] text-bds-gray-50')}>Managed by {shortAddress(resolution.admin)}</p>
+        <p className={cn('mt-1 text-[11px] text-bds-gray-50')}>Managed by {short(resolution.admin)}</p>
       ) : null}
     </div>
   );

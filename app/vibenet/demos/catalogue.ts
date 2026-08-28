@@ -38,11 +38,11 @@ export const DEMOS: DemoEntry[] = [
     title: 'Tokens',
     shortTitle: 'Tokens',
     summary:
-      'Create an EIP-8130 account in one click, then inspect policy scopes, attach transaction memos, publish Asset announcements, and create Base-native B20 tokens.',
+      "Create tokens with B20 — Base's enshrined, ERC-20-compatible token standard — then attach transfer policies, transaction memos, and Asset announcements with no custom contracts.",
     points: [
-      'One-click 8130 account — faucet-seeded and shared with the Accounts demo',
       'Pay gas with your own stablecoin (ERC-8168 token payment)',
-      'Policies, memos, and Asset announcements',
+      'Transaction memos for payment tracking and reconciliation',
+      'Policies and Asset announcements',
     ],
     available: true,
   },

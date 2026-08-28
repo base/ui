@@ -74,7 +74,7 @@ export function AddressAutocomplete({
 
   return (
     <div ref={ref} className={cn('relative flex-1')}>
-      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
+      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-background transition-colors focus-within:border-base-blue dark:border-white/10 dark:bg-white/5">
         {tag ? <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">{tag}</span> : null}
         <input
           className={cn('w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40', className)}

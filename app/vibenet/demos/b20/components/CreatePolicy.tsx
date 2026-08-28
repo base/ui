@@ -146,7 +146,7 @@ export function CreatePolicy({
           ] as const).map(([value, title, body]) => {
             const selected = value === 'advanced' ? mode === 'composite' : mode === 'simple' && simpleKind === value;
             return (
-              <button key={value} type="button" aria-pressed={selected} onClick={() => selectType(value)} className={cn('rounded-xl border p-4 text-left', selected ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{title}</strong><span className="mt-1 block text-[12px] text-bds-gray-60">{body}</span></button>
+              <button key={value} type="button" aria-pressed={selected} onClick={() => selectType(value)} className={cn('flex flex-col gap-1 rounded-xl border p-4 text-left', selected ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{title}</strong><span className="text-[12px] text-bds-gray-60">{body}</span></button>
             );
           })}
         </div>

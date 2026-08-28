@@ -6,6 +6,7 @@ import { encodeFunctionData, type Address, type Hex } from 'viem';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
+import { CallRow, ReviewArrow } from '../../_shared/CallRow';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import { b20Abi, scopeId } from '../lib/protocol';
 import type { TokenInfo } from '../lib/types';
@@ -74,7 +75,7 @@ export function AssignPolicyModal({
       busy={finalizing}
       error={error ?? undefined}
       result={txHash ? { txHash } : null}
-      titles={{ build: 'Assign policy', submitted: 'Assign policy' }}
+      titles={{ build: 'Assign Policy', submitted: 'Assign Policy' }}
       canProceed={Boolean(assignment)}
       proceedLabel="Assign"
       onProceed={() => void submit()}
@@ -96,16 +97,11 @@ export function AssignPolicyModal({
       buildBody={
         assignment ? (
           <ul className="flex flex-col gap-2">
-            <li className="flex flex-wrap items-center gap-2 rounded-lg border border-bds-gray-10 p-3 text-[13px] dark:border-white/10">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bds-gray-10 text-[11px] dark:bg-white/10">
-                1
-              </span>
+            <CallRow index={1}>
               <span className="font-normal">{assignment.scopeLabel}</span>
-              <span aria-hidden="true" className="text-bds-gray-40 dark:text-bds-gray-50">
-                →
-              </span>
+              <ReviewArrow />
               <span className="font-sans text-bds-gray-70 dark:text-bds-gray-30">{assignment.policyLabel}</span>
-            </li>
+            </CallRow>
           </ul>
         ) : null
       }

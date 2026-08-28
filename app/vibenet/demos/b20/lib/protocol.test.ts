@@ -11,6 +11,7 @@ import {
   type Log,
 } from 'viem';
 
+import { formatTokenAmount } from '../../account/shared';
 import {
   amount,
   assetAbi,
@@ -20,7 +21,6 @@ import {
   encodeDeploymentParams,
   evaluateComposite,
   featureId,
-  formatAmount,
   memoToBytes32,
   normalizeInitialPolicyIds,
   normalizePolicyAdmin,
@@ -35,7 +35,6 @@ import {
   readCreatedPolicy,
   ROLES,
   saltFor,
-  shortAddress,
 } from './protocol';
 
 describe('B20 demo protocol helpers', () => {
@@ -234,17 +233,12 @@ describe('B20 demo protocol helpers', () => {
     expect(featureId('policy_registry')).toBe(keccak256(stringToHex('base.policy_registry')));
   });
 
-  it('shortens long addresses and leaves short values intact', () => {
-    expect(shortAddress('0x1234567890abcdef1234567890abcdef12345678')).toBe('0x1234…5678');
-    expect(shortAddress('short')).toBe('short');
-  });
-
   it('formats token amounts, grouping the whole part and trimming zeros', () => {
-    expect(formatAmount(0n, 18)).toBe('0');
-    expect(formatAmount(1_500_000_000_000_000_000n, 18)).toBe('1.5');
-    expect(formatAmount(1_234_000_000n, 6)).toBe('1,234');
+    expect(formatTokenAmount(0n, 18)).toBe('0');
+    expect(formatTokenAmount(1_500_000_000_000_000_000n, 18)).toBe('1.5');
+    expect(formatTokenAmount(1_234_000_000n, 6)).toBe('1,234');
     // Fraction is capped at 6 places.
-    expect(formatAmount(1_123_456_789_000_000_000n, 18)).toBe('1.123456');
+    expect(formatTokenAmount(1_123_456_789_000_000_000n, 18)).toBe('1.123456');
   });
 
   // The Asset variant is a native contract on Vibenet, so a mistyped function

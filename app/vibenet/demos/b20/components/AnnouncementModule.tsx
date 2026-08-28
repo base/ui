@@ -11,7 +11,7 @@ import { client } from '../lib/constants';
 import { B20_HELP } from '../lib/glossary';
 import { assetAbi, b20Abi, roleId } from '../lib/protocol';
 import type { TokenAccess, TokenInfo } from '../lib/types';
-import { ErrorNote, Field, Input } from './primitives';
+import { ErrorNote, Field, Input, Notice } from './primitives';
 
 // Disclosure-only announcement flow, presented through the shared TransactionModal.
 // Publishing requires OPERATOR_ROLE and an Asset token (Stablecoins do not support
@@ -66,7 +66,7 @@ export function AnnouncementModule({
       return;
     }
     if (!wallet) {
-      setError('Make a wallet before you announce.');
+      setError('Create an account before you announce.');
       return;
     }
     setStep('submitted');
@@ -117,9 +117,9 @@ export function AnnouncementModule({
       busy={finalizing}
       error={error ?? undefined}
       result={txHash ? { txHash } : null}
-      titles={{ build: 'Publish announcement', submitted: 'Publish announcement' }}
+      titles={{ build: 'Publish Announcement', submitted: 'Publish Announcement' }}
       canProceed={Boolean(isAsset && tokenAccess === 'operator')}
-      proceedLabel="Publish announcement"
+      proceedLabel="Publish Announcement"
       onProceed={() => void submit()}
       onSubmittedBack={() => {
         setStep('build');
@@ -138,14 +138,9 @@ export function AnnouncementModule({
       )}
       buildBody={
         !token ? null : !isAsset ? (
-          <p className="rounded-lg bg-bds-orange-0 p-4 text-[13px] text-bds-orange-70">
-            Announcements are an Asset token feature. Create an Asset token to publish updates for holders.
-          </p>
+          <Notice>Announcements are an Asset token feature. Create an Asset token to publish updates for holders.</Notice>
         ) : (
           <div>
-            <Text variant="body" tone="muted">
-              Publish an on-chain disclosure for {token.symbol} holders.
-            </Text>
             {tokenAccess !== 'operator' ? (
               <div className="mt-4 rounded-xl border border-bds-blue-20 bg-bds-blue-0 p-4 text-[13px]">
                 <strong>Publishing needs the operator role on this asset</strong>

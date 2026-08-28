@@ -8,6 +8,7 @@ import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
 import { Text } from '../../../../components/ui/Text';
 import { CopyableValue } from '../../../components/CopyableValue';
+import { formatTokenAmount, short } from '../../account/shared';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
@@ -23,11 +24,9 @@ import {
   encodeRoleGrant,
   factoryAbi,
   featureId,
-  formatAmount,
   memoToBytes32,
   ROLES,
   saltFor,
-  shortAddress,
 } from '../lib/protocol';
 import type { CreatedToken } from '../lib/types';
 import { ErrorNote, Field, Input } from './primitives';
@@ -93,7 +92,7 @@ export function DeployModule({
     let initialMintAmount: bigint;
     let capAmount: bigint | null;
     try {
-      if (!wallet) throw new Error('Make a wallet before you create a token.');
+      if (!wallet) throw new Error('Create an account before you create a token.');
       if (!name || !symbol) throw new Error('Add a token name and symbol first.');
       if (variant === 'stablecoin' && !/^[A-Z]+$/.test(currency))
         throw new Error('Use uppercase letters for the stablecoin currency code.');
@@ -164,7 +163,7 @@ export function DeployModule({
         }),
       });
       const configured: string[] = [];
-      if (capAmount !== null) configured.push(`Set the maximum supply to ${formatAmount(capAmount, d)} ${symbol}`);
+      if (capAmount !== null) configured.push(`Set the maximum supply to ${formatTokenAmount(capAmount, d)} ${symbol}`);
       const hash = await onSendCalls(`Create ${symbol}`, calls, 'create_b20');
       if (!hash) throw new Error('The token could not be created.');
       await waitForB20Initialization(address);
@@ -186,9 +185,9 @@ export function DeployModule({
       busy={finalizing}
       error={error ?? undefined}
       result={createdToken ? { txHash: createdToken.hash } : null}
-      titles={{ build: 'Create a token', submitted: 'Create a token' }}
+      titles={{ build: 'Create a Token', submitted: 'Create a Token' }}
       canProceed={Boolean(name && symbol)}
-      proceedLabel="Create token"
+      proceedLabel="Create Token"
       onProceed={() => void submit()}
       onSubmittedBack={() => {
         setStep('build');
@@ -213,7 +212,7 @@ export function DeployModule({
             <Text variant="label.regular" tone="muted">
               {createdToken.symbol} · {createdToken.name} is ready on Vibenet.
             </Text>
-            <CopyableValue value={createdToken.address} display={shortAddress(createdToken.address)} className="mt-1" />
+            <CopyableValue value={createdToken.address} display={short(createdToken.address)} className="mt-1" />
             {createdToken.variant === 'stablecoin' && onFirstPayment ? (
               <Button
                 className="mt-2"
@@ -268,12 +267,12 @@ export function DeployModule({
                       }
                     }}
                     className={cn(
-                      'rounded-xl border p-4 text-left',
+                      'flex flex-col gap-1 rounded-xl border p-4 text-left',
                       selected ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10',
                     )}
                   >
                     <strong className="text-[13px]">{title}</strong>
-                    <span className="mt-1 block text-[12px] text-bds-gray-60">{body}</span>
+                    <span className="text-[12px] text-bds-gray-60">{body}</span>
                   </button>
                 );
               })}

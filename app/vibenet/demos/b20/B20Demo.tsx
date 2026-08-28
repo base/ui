@@ -13,7 +13,8 @@ import { Text } from '../../../components/ui/Text';
 import { FeatureCard } from '../../components/FeatureCard';
 import { walletErrorMessage } from '../../library/wallet';
 import { ActivityLog } from '../account/components/ActivityLog';
-import { FeatureGridCard } from '../account/components/FeatureGridCard';
+import { formatTokenAmount } from '../account/shared';
+import { FeatureGridCard } from '../_shared/FeatureGridCard';
 import { useAccountEngine } from '../account/useAccountEngine';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { AnnouncementModule } from './components/AnnouncementModule';
@@ -40,7 +41,7 @@ import {
   tokenGasFee,
   type StoredB20Payer,
 } from './lib/gasPayer';
-import { b20Abi, DEFAULT_ADMIN_ROLE, formatAmount, POLICY_SCOPES, roleId, scopeId } from './lib/protocol';
+import { b20Abi, DEFAULT_ADMIN_ROLE, POLICY_SCOPES, roleId, scopeId } from './lib/protocol';
 import {
   readRecent,
   readRecentPolicies,
@@ -121,7 +122,6 @@ export function B20Demo() {
   const [recentsRead, setRecentsRead] = useState(false);
   const [tokenAddress, setTokenAddress] = useState('');
   const [token, setToken] = useState<TokenInfo | null>(null);
-  const [inspectError, setInspectError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [isOperator, setIsOperator] = useState(false);
   const [isTokenAdmin, setIsTokenAdmin] = useState(false);
@@ -281,7 +281,6 @@ export function B20Demo() {
   // RPC on every load is what made the demo slow to open. `supply`/`cap` are not
   // rendered, and the live policy IDs are fetched on demand by the Policies list.
   const selectToken = useCallback((entry: RecentToken) => {
-    setInspectError('');
     setToken({ ...entry, supply: 0n, cap: 0n, policies: [] });
     setTokenAddress(entry.address);
   }, []);
@@ -332,13 +331,9 @@ export function B20Demo() {
       action: string,
       payInToken = false,
     ): Promise<Hex | null> => {
-      if (!activeAccount) {
-        setInspectError('Select an account before you continue.');
-        return null;
-      }
+      if (!activeAccount) throw new Error('Select an account before you continue.');
       const trackingModule = openModal ?? 'b20';
       setBusy(action);
-      setInspectError('');
       trackB20Action(trackingModule, action, 'submitted');
       try {
         // Pay the network fee in the token via the demo's ERC-8168 payer when
@@ -378,10 +373,9 @@ export function B20Demo() {
         refreshWallet(activeAccount.address as Address);
         return hash;
       } catch (error) {
-        const detail = payerErrorMessage(error) ?? walletErrorMessage(error);
+        // Surface the failure in the calling popup, not on the page.
         trackB20Action(trackingModule, action, 'error');
-        setInspectError(detail);
-        return null;
+        throw new Error(payerErrorMessage(error) ?? walletErrorMessage(error));
       } finally {
         setBusy(null);
       }
@@ -418,14 +412,12 @@ export function B20Demo() {
   }, []);
 
   const openFeature = (key: FeatureModal) => {
-    setInspectError('');
     setOpenModal(key);
     trackB20ModuleSelect(key);
   };
   // Guided next step from the token-created screen: jump straight into the Gas
   // Payments demo for the new stablecoin.
   const startFirstPayment = () => {
-    setInspectError('');
     setOpenModal('gas');
     trackB20ModuleSelect('gas');
   };
@@ -433,7 +425,6 @@ export function B20Demo() {
   const startAssignPolicy = (scope: string, scopeLabel: string, policyId: bigint) => {
     const policy = recentPolicies.find((entry) => entry.id === policyId);
     const policyLabel = policyId === 0n ? 'Anyone' : policy?.label || `Policy ${policyId.toString()}`;
-    setInspectError('');
     setPendingAssign({ scope, scopeLabel, policyId, policyLabel });
   };
   // Forget a policy locally (it stays in the on-chain registry).
@@ -495,7 +486,7 @@ export function B20Demo() {
       activity={<ActivityLog activity={engine.activity} accounts={engine.accounts} />}
       activityCount={engine.activity.length}
       activityEmptyMessage="Nothing has happened yet."
-      className="animate-in gap-8 dark:text-white"
+      className="animate-in gap-10"
     >
       <FeatureCard feature={B20_FEATURE} />
 
@@ -563,7 +554,7 @@ export function B20Demo() {
                   description="Pay transactions using your token — settle a transaction's network fee in the token itself."
                 >
                   <Button size="sm" onClick={() => openFeature('gas')}>
-                    Pay gas in {token.symbol}
+                    Pay Gas in {token.symbol}
                   </Button>
                 </FeatureGridCard>
               ) : null}
@@ -601,15 +592,6 @@ export function B20Demo() {
           </div>
         </Card>
       )}
-
-      {inspectError && !openModal ? (
-        <div
-          role="alert"
-          className="rounded-xl border border-bds-red-20 bg-bds-red-0 px-4 py-3 text-[13px] text-bds-red-70"
-        >
-          {inspectError}
-        </div>
-      ) : null}
 
       {/* Create-token modal (owns the shared transaction dialog) */}
       <DeployModule
@@ -675,7 +657,7 @@ export function B20Demo() {
         token={token}
         ethAmount={GAS_DEMO_ETH}
         recipient={GAS_DEMO_RECIPIENT}
-        fee={token ? formatAmount(tokenGasFee(token.decimals), token.decimals) : ''}
+        fee={token ? formatTokenAmount(tokenGasFee(token.decimals), token.decimals) : ''}
         onPay={sendGasPayment}
       />
 
