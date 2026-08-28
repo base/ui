@@ -41,7 +41,7 @@ export function DemoTabs({ items, value, onChange, ariaLabel, layoutId = 'demo-t
             disabled={item.disabled}
             onClick={() => !item.disabled && onChange(item.value)}
             className={cn(
-              'relative select-none rounded-full px-4 py-1.5 text-[14px] transition-colors',
+              'relative select-none rounded-full px-4 py-1.5 text-[14px] font-[500] transition-colors',
               item.disabled
                 ? 'cursor-not-allowed text-bds-gray-40'
                 : active

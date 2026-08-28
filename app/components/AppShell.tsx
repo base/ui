@@ -293,7 +293,14 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate }:
           <NavGlyph name={icon} />
         </span>
       )}
-      <Text as="span" variant="label.medium" tone="inherit">{label}</Text>
+      <Text
+        as="span"
+        variant="label.medium"
+        tone="inherit"
+        className="font-[500]"
+      >
+        {label}
+      </Text>
       {!enabled && <span style={styles.soon}>Soon</span>}
       {hasChildren && (
         <span style={{ marginLeft: 'auto', color: 'var(--bds-gray-50)' }}>
@@ -307,7 +314,6 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate }:
     ...styles.navRow,
     ...styles.navLink,
     color,
-    fontWeight: active ? 500 : 400,
     cursor: enabled ? 'pointer' : 'default',
   };
 
@@ -537,7 +543,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                         className="transition-[stroke-dashoffset] duration-200 ease-out group-hover:[stroke-dashoffset:0]"
                       />
                     </svg>
-                    <Text as="span" variant="label.medium" style={{ flex: 1, textAlign: 'center', paddingRight: 16 }}>{activeParent.label}</Text>
+                    <Text as="span" variant="label.medium" className="font-[500]" style={{ flex: 1, textAlign: 'center', paddingRight: 16 }}>{activeParent.label}</Text>
                   </Link>
                   <nav style={styles.nav}>
                     {activeParent.children!.map((child) => {
@@ -584,7 +590,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                 <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
               </svg>
             </span>
-            <Text as="span" variant="label.medium" tone="inherit">Status</Text>
+            <Text as="span" variant="label.medium" tone="inherit" className="font-[500]">Status</Text>
           </span>
         </a>
         <a href="https://base.org/discord" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
@@ -594,7 +600,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                 <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
               </svg>
             </span>
-            <Text as="span" variant="label.medium" tone="inherit">Support</Text>
+            <Text as="span" variant="label.medium" tone="inherit" className="font-[500]">Support</Text>
           </span>
         </a>
         <a href="https://docs.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
@@ -604,7 +610,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                 <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
               </svg>
             </span>
-            <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
+            <Text as="span" variant="label.medium" tone="inherit" className="font-[500]">Docs</Text>
           </span>
         </a>
         <div style={styles.footerLastRow}>
@@ -615,7 +621,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                   <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                 </svg>
               </span>
-              <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
+              <Text as="span" variant="label.medium" tone="inherit" className="font-[500]">Blog</Text>
             </span>
           </a>
           {/* `role="switch"` rather than a plain button: the control reports a state
@@ -679,8 +685,8 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
       >
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
           <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
-            <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
-            <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
+            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500]">New!</Text>
+            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500]">EIP-8130: Accounts</Text>
             <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
             <Link
               href="/vibenet/demos/account"
@@ -690,7 +696,7 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
                 onDismiss();
               }}
             >
-              <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
+              <Text as="span" variant="label.medium" className="text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] text-base-blue">Test on Vibenet</Text>
               <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
             </Link>
           </div>

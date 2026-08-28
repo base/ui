@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { cn } from '../../../components/ui/cn';
+import { textVariantClasses } from '../../../components/ui/Text';
 import { TrashIcon } from './primitives';
 
 export function ChevronIcon({ open, className }: { open?: boolean; className?: string }) {
@@ -103,7 +104,10 @@ export function CreateRowButton({ label, onClick }: { label: string; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className="mt-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-bds-gray-15 px-4 py-2.5 text-[13px] text-bds-gray-60 transition-colors hover:border-base-blue hover:text-base-blue dark:border-white/15 dark:text-bds-gray-40 dark:hover:border-bds-blue-60"
+      className={cn(
+        'mt-1 flex items-center justify-center gap-2 rounded-lg border border-dashed border-bds-gray-15 px-4 py-2.5 text-bds-gray-60 transition-colors hover:border-base-blue hover:text-base-blue dark:border-white/15 dark:text-bds-gray-40 dark:hover:border-bds-blue-60',
+        textVariantClasses.button,
+      )}
     >
       {label}
     </button>
