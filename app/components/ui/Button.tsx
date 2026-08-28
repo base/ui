@@ -42,7 +42,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 ) {
   let sizeClasses: string;
   if (size === 'sm') {
-    sizeClasses = 'h-[34px] px-3 gap-1 pb-px';
+    sizeClasses = 'h-[34px] px-3 gap-1';
   } else if (arrow) {
     sizeClasses = 'h-10 pl-4 pr-3 gap-1';
   } else {
