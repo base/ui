@@ -388,7 +388,7 @@ body {
 
 body {
   font-family:
-    var(--font-base-sans),
+    var(--font-google-sans-flex),
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
@@ -396,10 +396,20 @@ body {
     Helvetica,
     Arial,
     sans-serif;
+  /* Same axes as the dashboard UI sans so Google Sans Flex matches there. */
+  font-variation-settings: 'wdth' 101, 'GRAD' 0, 'ROND' 30, 'slnt' 0;
   color: var(--bds-gray-100);
   background: var(--bds-gray-0);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+.font-mono,
+code,
+pre,
+kbd,
+samp {
+  font-variation-settings: normal;
 }
 
 a {

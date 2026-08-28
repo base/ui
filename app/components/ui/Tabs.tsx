@@ -54,7 +54,7 @@ export function Tabs({
             onClick={() => !item.disabled && onChange(item.value)}
             disabled={item.disabled}
             className={cn(
-              'relative flex shrink-0 select-none items-center gap-1.5 rounded-full font-sans whitespace-nowrap transition-colors',
+              'relative flex shrink-0 select-none items-center gap-1.5 rounded-full whitespace-nowrap transition-colors',
               size === 'sm' ? 'px-2.5 py-1 text-[12px]' : 'px-3 py-1.5 text-[14px]',
               item.disabled
                 ? 'cursor-not-allowed text-bds-gray-40'

@@ -892,7 +892,7 @@ export function AppShell({ children }: PropsWithChildren) {
           </main>
         </div>
       </div>
-      <Toaster position="top-center" style={{ '--width': '300px' } as React.CSSProperties} toastOptions={{ className: 'text-[13px] font-base tracking-[0px]' }} />
+      <Toaster position="top-center" style={{ '--width': '300px' } as React.CSSProperties} toastOptions={{ className: 'text-[13px] tracking-[0px]' }} />
     </div>
   );
 }

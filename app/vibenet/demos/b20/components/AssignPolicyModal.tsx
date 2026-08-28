@@ -100,7 +100,7 @@ export function AssignPolicyModal({
             <CallRow index={1}>
               <span className="font-normal">{assignment.scopeLabel}</span>
               <ReviewArrow />
-              <span className="font-sans text-bds-gray-70 dark:text-bds-gray-30">{assignment.policyLabel}</span>
+              <span className="text-bds-gray-70 dark:text-bds-gray-30">{assignment.policyLabel}</span>
             </CallRow>
           </ul>
         ) : null

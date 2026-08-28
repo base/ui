@@ -8,7 +8,7 @@ import { CSSProperties, SVGProps, useCallback, useRef } from 'react';
 /**
  * The animated Base logo from base.org: hovering the square splits it into four
  * squares, springs up an SVG "b" glyph, spells `base` in dot-matrix Doto, then
- * resolves each character into Base Sans via a 5x5 pixel-grid shuffle.
+ * resolves each character into the UI sans via a 5x5 pixel-grid shuffle.
  *
  * Ported from the base.org web app:
  *   apps/web/app/(current)/components/illustration/AnimatedLogo.tsx
@@ -610,7 +610,7 @@ function Logo({ size, color }: { size: number; color?: string }) {
 
       {/* normal */}
       <div
-        className="pointer-events-none absolute left-0 flex h-full w-full select-none items-center font-base font-medium leading-[70%] tracking-[-0.01em] text-base-blue transition-colors duration-150 dark:text-white"
+        className="pointer-events-none absolute left-0 flex h-full w-full select-none items-center font-medium leading-[70%] tracking-[-0.01em] text-base-blue transition-colors duration-150 dark:text-white"
         style={color ? { ...normalTextStyle, color } : normalTextStyle}
       >
         <span className="char block opacity-0">b</span>

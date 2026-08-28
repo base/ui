@@ -69,11 +69,8 @@ const config: Config = {
         content: 'var(--content-max-width, 1280px)',
       },
       fontFamily: {
-        sans: ['var(--font-base-sans)', 'sans-serif'],
-        base: ['var(--font-base-sans)', 'sans-serif'],
-        mono: ['var(--font-base-sans-mono)', 'monospace'],
-        'base-sans': ['var(--font-base-sans)', 'sans-serif'],
-        'base-text': ['var(--font-base-sans-text)', 'var(--font-base-sans)', 'sans-serif'],
+        sans: ['var(--font-google-sans-flex)', 'sans-serif'],
+        mono: ['var(--font-roboto-mono)', 'monospace'],
         doto: ['var(--font-doto)', 'monospace'],
       },
     },

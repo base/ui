@@ -2,8 +2,8 @@ import type { ComponentPropsWithoutRef } from 'react';
 
 import { cn } from './cn';
 
-// Typographic scale ported from the Base Design System (BDS) so migrated Upgrades markup keeps
-// its variants in both color modes.
+// Sizes stay on this site's scale. Weights match the dashboard type tokens so
+// Google Sans Flex (a variable face) renders the same as there.
 type TextVariant =
   | 'display'
   | 'stats'
@@ -32,29 +32,29 @@ type TextProps = ComponentPropsWithoutRef<'p'> & {
 
 export const textVariantClasses: Record<TextVariant, string> = {
   display:
-    'text-[36px] sm:text-[40px] md:text-[56px] leading-[40px] sm:leading-[48px] md:leading-[64px] font-base font-[400] tracking-[-0.04em]',
+    'text-[36px] sm:text-[40px] md:text-[56px] leading-[40px] sm:leading-[48px] md:leading-[64px] font-[550] tracking-[-0.04em]',
   stats:
-    'text-[24px] sm:text-[32px] md:text-[40px] leading-[28px] sm:leading-[36px] md:leading-[48px] font-base font-[400] tracking-[0px]',
+    'text-[24px] sm:text-[32px] md:text-[40px] leading-[28px] sm:leading-[36px] md:leading-[48px] font-[550] tracking-[0px]',
   title1:
-    'text-[28px] md:text-[36px] leading-[34px] md:leading-[44px] font-base font-[400] tracking-tight',
+    'text-[28px] md:text-[36px] leading-[34px] md:leading-[44px] font-[528] tracking-tight',
   title2:
-    'text-[20px] md:text-[24px] leading-[28px] md:leading-[32px] font-base font-[400] tracking-tight',
+    'text-[20px] md:text-[24px] leading-[28px] md:leading-[32px] font-[525] tracking-tight',
   title3:
-    'text-[18px] md:text-[20px] leading-[26px] md:leading-[28px] font-base font-[400] tracking-tight',
+    'text-[18px] md:text-[20px] leading-[26px] md:leading-[28px] font-[525] tracking-tight',
   headline:
-    'text-[16px] md:text-[18px] leading-[24px] md:leading-[26px] font-base font-[400] tracking-tight',
-  body: 'text-[15px] md:text-[16px] leading-[140%] font-base-text font-[400] tracking-[0px]',
+    'text-[16px] md:text-[18px] leading-[24px] md:leading-[26px] font-[520] tracking-tight',
+  body: 'text-[15px] md:text-[16px] leading-[140%] font-[425] tracking-[0px]',
   label:
-    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-base font-[400] tracking-[-0.01em]',
+    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-[535] tracking-[-0.01em]',
   'label.medium':
-    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-base font-[400] tracking-[0px]',
+    'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-[535] tracking-[0px]',
   'label.regular':
-    'text-[13px] md:text-[14px] leading-[20px] font-base-text font-[400] tracking-[0px]',
+    'text-[13px] md:text-[14px] leading-[20px] font-[400] tracking-[0px]',
   'label.mono':
     'text-[13px] md:text-[14px] leading-[18px] md:leading-[20px] font-mono font-[400] tracking-[0px]',
   caption:
-    'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[500] tracking-[0px] uppercase',
-  button: 'text-[14px] leading-[20px] font-base font-[400] tracking-[-0.01em]',
+    'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[535] tracking-[0px] uppercase',
+  button: 'text-[14px] leading-[20px] font-[520] tracking-[-0.01em]',
   footnote: 'text-[11px] md:text-[12px] leading-[14px] md:leading-[16px] font-[400] tracking-[0px]',
 };
 

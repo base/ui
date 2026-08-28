@@ -107,7 +107,7 @@ export function GasModule({
               <CallRow index={1}>
                 <span className="font-normal">Send {ethAmount} ETH</span>
                 <ReviewArrow />
-                <span className="font-sans text-bds-gray-70 dark:text-bds-gray-30">{short(recipient)}</span>
+                <span className="text-bds-gray-70 dark:text-bds-gray-30">{short(recipient)}</span>
               </CallRow>
             </ul>
             <div className="flex items-center justify-between gap-3 border-t border-bds-gray-10 pt-3 text-[13px] dark:border-white/10">

@@ -164,7 +164,7 @@ export function KindBadge({ kind }: { kind: SignerKind }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full px-2 py-1 font-sans text-[11px] leading-none tracking-[0px]',
+        'inline-flex shrink-0 items-center rounded-full px-2 py-1 text-[11px] leading-none tracking-[0px]',
         KIND_BADGE[kind],
       )}
     >
