@@ -194,7 +194,6 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
     extraChanges: string[] = [],
   ) => {
     setResult({ serialized, txHash, by: by.label, kind: by.kind, pending, gasNote });
-    toast.success(pending ? 'Submitted — awaiting confirmation' : 'Transaction landed onchain');
     pushActivity({
       kind: a.deployed && !pending ? 'transact' : 'create',
       txHash,
