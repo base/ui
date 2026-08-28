@@ -5,7 +5,12 @@
 //   Passkey  — one-click smart account owned by your first unused passkey
 //   Advanced — hand-pick smart/EOA + initial keys + salt
 // Default/Passkey stay minimal (name only); Advanced reveals the full controls.
-// Driven off the create-modal slice of `useAccountEngine`'s return value.
+//
+// Owns its own form state; reads the shared store + account-building primitives
+// from the account-engine context.
+
+import { type Address, computeAddress, type Hex } from '@aa';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
@@ -13,11 +18,13 @@ import { Text } from '../../../../components/ui/Text';
 import { Modal } from '../../../../components/ui/Modal';
 import { KIND_LABEL, short, signerIdentity, type CreateMode, type WalletSigner } from '../shared';
 import { CheckIcon, KindBadge, TrashIcon } from '../../_shared/primitives';
-import type { SignerKind } from '../library/model';
-import type { AccountEngine } from '../useAccountEngine';
+import { actorPairs, normalizeSalt, randomHex32, sortActors, toStoredActor } from '../library/derive';
+import type { AccountType, SignerKind, StoredAccount } from '../library/model';
+import { useAccountEngine } from '../useAccountEngine';
 
 type CreateAccountModalProps = {
-  engine: AccountEngine;
+  open: boolean;
+  onClose: () => void;
 };
 
 const MODES: ReadonlyArray<readonly [CreateMode, string, string]> = [
@@ -26,34 +33,184 @@ const MODES: ReadonlyArray<readonly [CreateMode, string, string]> = [
   ['advanced', 'Advanced', 'Pick type, keys & salt'],
 ];
 
-export function CreateAccountModal({ engine }: CreateAccountModalProps) {
+export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
   const {
-    modalOpen,
-    setModalOpen,
-    createMode,
-    setCreateMode,
-    suggestedName,
-    modalType,
-    setModalType,
-    modalLabel,
-    setModalLabel,
-    modalSalt,
-    setModalSalt,
-    modalIds,
-    setModalIds,
-    modalEoaId,
-    setModalEoaId,
     signers,
-    eoaSigners,
-    modalSigners,
-    modalAddress,
+    accounts,
+    addAccount,
+    chain,
+    code,
     busy,
     usedSignerIds,
     deleteSigner,
     createSigner,
-    createAccount,
-    randomizeCreateSalt,
-  } = engine;
+    pushActivity,
+    autoFundNewAccount,
+    setError,
+  } = useAccountEngine();
+
+  const [createMode, setCreateMode] = useState<CreateMode>('default');
+  const [modalType, setModalType] = useState<AccountType>('eoa');
+  const [modalLabel, setModalLabel] = useState('');
+  const [modalSalt, setModalSalt] = useState<string>(() => randomHex32());
+  const [modalIds, setModalIds] = useState<string[]>([]);
+  const [modalEoaId, setModalEoaId] = useState<string | null>(null);
+
+  // Reset to the one-click default each time the modal opens.
+  useEffect(() => {
+    if (!open) return;
+    setCreateMode('default');
+    setModalType('eoa');
+    setModalLabel('');
+    setModalSalt(randomHex32());
+    setModalIds([]);
+    setModalEoaId(null);
+    setError('');
+  }, [open, setError]);
+
+  const eoaSigners = useMemo(() => signers.filter((s) => s.kind === 'k1'), [signers]);
+  const defaultModeSigner = useMemo(
+    () => eoaSigners.find((s) => !usedSignerIds.has(s.id)) ?? null,
+    [eoaSigners, usedSignerIds],
+  );
+  const passkeyModeSigner = useMemo(
+    () => signers.find((s) => s.kind === 'passkey' && !usedSignerIds.has(s.id)) ?? null,
+    [signers, usedSignerIds],
+  );
+  const modalEoaSigner = useMemo(() => eoaSigners.find((s) => s.id === modalEoaId) ?? null, [eoaSigners, modalEoaId]);
+  const modalSigners = useMemo(() => signers.filter((s) => modalIds.includes(s.id)), [signers, modalIds]);
+  const modalSalt32 = useMemo(() => normalizeSalt(modalSalt), [modalSalt]);
+  const modalAddress = useMemo<Address | null>(() => {
+    if (modalType === 'eoa') return modalEoaSigner?.address ?? null;
+    if (modalSigners.length === 0) return null;
+    const ids = new Set(modalSigners.map((s) => s.actorId));
+    if (ids.size !== modalSigners.length) return null;
+    try {
+      return computeAddress({ userSalt: modalSalt32, code, initialActors: sortActors(actorPairs(modalSigners)) });
+    } catch {
+      return null;
+    }
+  }, [modalType, modalEoaSigner, modalSigners, modalSalt32, code]);
+
+  const suggestedName = useMemo(() => {
+    if (createMode === 'default') return 'Default';
+    if (createMode === 'passkey') return 'Passkey';
+    return modalType === 'eoa' ? 'EOA' : 'Smart Account';
+  }, [createMode, modalType]);
+
+  // Keep the auto-suggested fallback name unique (Default, Default 2, …). A name
+  // the user typed by hand is respected as-is, collisions and all.
+  const uniqueAccountName = (base: string): string => {
+    const taken = new Set(accounts.map((a) => a.label));
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n++) {
+      const candidate = `${base} ${n}`;
+      if (!taken.has(candidate)) return candidate;
+    }
+  };
+
+  // Build + persist an EOA account: the signer's own K1 key IS the account and
+  // its default owner; it delegates to DefaultAccount on first use.
+  const buildEoaAccount = (signer: WalletSigner, label: string) => {
+    if (!signer.address) return;
+    const selfActor = toStoredActor(signer);
+    const account: StoredAccount = {
+      id: crypto.randomUUID(),
+      label,
+      type: 'eoa',
+      saltField: '',
+      salt: `0x${'00'.repeat(32)}` as Hex,
+      address: signer.address,
+      delegate: chain.deployment.accounts.default,
+      initialActors: [selfActor],
+      owners: [selfActor],
+      deployed: false,
+      configSeq: 0,
+      sessionKeys: [],
+      subAccounts: [],
+      createdAt: Date.now(),
+    };
+    addAccount(account);
+    pushActivity({
+      kind: 'create',
+      title: `EOA account · ${account.label}`,
+      detail: 'Delegates to DefaultAccount on first use',
+      account: account.address,
+    });
+    autoFundNewAccount(account.address);
+  };
+
+  // Build + persist a counterfactual smart account from its initial owner keys
+  // and salt. Returns false (no-op) if the keys collide or the address won't derive.
+  const buildSmartAccount = (chosen: WalletSigner[], salt32: Hex, saltField: string, label: string): boolean => {
+    if (chosen.length === 0) return false;
+    const ids = new Set(chosen.map((s) => s.actorId));
+    if (ids.size !== chosen.length) return false;
+    let address: Address;
+    try {
+      address = computeAddress({ userSalt: salt32, code, initialActors: sortActors(actorPairs(chosen)) });
+    } catch {
+      return false;
+    }
+    const initialActors = chosen.map(toStoredActor);
+    const account: StoredAccount = {
+      id: crypto.randomUUID(),
+      label,
+      type: 'smart',
+      saltField,
+      salt: salt32,
+      address,
+      initialActors,
+      owners: [...initialActors],
+      deployed: false,
+      configSeq: 0,
+      sessionKeys: [],
+      subAccounts: [],
+      createdAt: Date.now(),
+    };
+    addAccount(account);
+    pushActivity({
+      kind: 'create',
+      title: `Account created · ${account.label}`,
+      detail: 'Stored locally · deploys on first use',
+      changes: initialActors.map((a) => `${a.label} (${KIND_LABEL[a.kind]})`),
+      account: account.address,
+    });
+    autoFundNewAccount(address);
+    return true;
+  };
+
+  const createAccount = async () => {
+    const name = modalLabel.trim() || uniqueAccountName(suggestedName);
+
+    // Advanced: honour the hand-picked type, keys, and salt.
+    if (createMode === 'advanced') {
+      if (!modalAddress) return;
+      if (modalType === 'eoa') {
+        if (!modalEoaSigner) return;
+        buildEoaAccount(modalEoaSigner, name);
+      } else if (!buildSmartAccount(modalSigners, modalSalt32, modalSalt, name)) {
+        return;
+      }
+      onClose();
+      return;
+    }
+
+    // Default: an EOA off your first unused K1 key (mint one if you have none).
+    if (createMode === 'default') {
+      const signer = defaultModeSigner ?? (await createSigner('k1'));
+      if (!signer) return;
+      buildEoaAccount(signer, name);
+      onClose();
+      return;
+    }
+
+    // Passkey: a smart account owned by your first unused passkey (mint if none).
+    const signer = passkeyModeSigner ?? (await createSigner('passkey'));
+    if (!signer) return;
+    const saltField = randomHex32();
+    if (buildSmartAccount([signer], normalizeSalt(saltField), saltField, name)) onClose();
+  };
 
   const busyCreating = busy !== null;
   const canCreate = createMode === 'advanced' ? Boolean(modalAddress) : true;
@@ -64,12 +221,12 @@ export function CreateAccountModal({ engine }: CreateAccountModalProps) {
 
   return (
     <Modal
-      open={modalOpen}
-      onClose={() => setModalOpen(false)}
+      open={open}
+      onClose={onClose}
       title="Create Account"
       footer={
         <>
-          <Button variant="secondary" size="sm" onClick={() => setModalOpen(false)}>
+          <Button variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button
@@ -187,7 +344,7 @@ export function CreateAccountModal({ engine }: CreateAccountModalProps) {
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={randomizeCreateSalt}
+                    onClick={() => setModalSalt(randomHex32())}
                     className="mr-1.5 shrink-0"
                   >
                     Randomize

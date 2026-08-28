@@ -15,7 +15,7 @@ import { walletErrorMessage } from '../../library/wallet';
 import { ActivityLog } from '../account/components/ActivityLog';
 import { formatTokenAmount } from '../account/shared';
 import { FeatureGridCard } from '../_shared/FeatureGridCard';
-import { useAccountEngine } from '../account/useAccountEngine';
+import { AccountEngineProvider, useAccountEngine } from '../account/useAccountEngine';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { AnnouncementModule } from './components/AnnouncementModule';
 import { AssignPolicyModal, type PendingAssignment } from './components/AssignPolicyModal';
@@ -137,6 +137,14 @@ function FuelIcon() {
 }
 
 export function B20Demo() {
+  return (
+    <AccountEngineProvider>
+      <B20DemoInner />
+    </AccountEngineProvider>
+  );
+}
+
+function B20DemoInner() {
   // Local EIP-8130 accounts, shared with the account demo via localStorage. B20
   // transacts from the active account and signs with its stored signers, and
   // shares the account demo's full create/delete/details engine so the account
@@ -498,7 +506,6 @@ export function B20Demo() {
 
   return (
     <AccountDemoShell
-      engine={engine}
       activity={<ActivityLog activity={engine.activity} accounts={engine.accounts} />}
       activityCount={engine.activity.length}
       activityEmptyMessage="Nothing has happened yet."
