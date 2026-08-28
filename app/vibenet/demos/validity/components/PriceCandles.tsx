@@ -3,13 +3,14 @@
 import { scaleLinear } from 'd3';
 import { useMemo } from 'react';
 
+import { CANDLE_BUCKET_MS, CANDLE_WINDOW_MS } from '../lib/constants';
 import type { Side } from '../lib/types';
 
 const BUY_PLOT = '#22ad73';
 const SELL_PLOT = '#ed5966';
 const TICKER = '#c8ff4a';
-const BUCKET_MS = 2_000;
-const WINDOW_MS = 120_000;
+const BUCKET_MS = CANDLE_BUCKET_MS;
+const WINDOW_MS = CANDLE_WINDOW_MS;
 const WIDTH = 960;
 const HEIGHT = 440;
 const PAD = { top: 20, right: 20, bottom: 40, left: 68 };
@@ -165,7 +166,7 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
           <VibeMark />
           <div>
             <div className="font-mono text-[13px] tracking-[0.08em] text-white">VIBE / USDV</div>
-            <div className="font-mono text-[11px] text-[#7d8a96]">simulated pool · 2s candles</div>
+            <div className="font-mono text-[11px] text-[#7d8a96]">simulated pool · 200ms candles</div>
           </div>
         </div>
         <div className="text-right">

@@ -46,6 +46,8 @@ export type ValidityPredicate =
 
 export type Side = 'buy' | 'sell';
 
+export type SubmitMode = 'replace' | 'concurrent';
+
 export type Rectangle = {
   r0Min: bigint;
   r0Max: bigint;
@@ -78,6 +80,7 @@ export type PlacedOrder = {
   targetPriceWad: bigint;
   size: bigint;
   expirySeconds: number;
+  submitMode?: SubmitMode;
   maxBlock?: bigint;
   submittedAt: number;
   txHash?: Hex;

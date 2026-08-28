@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Account, PublicClient, WalletClient } from 'viem';
+import type { Account, Hex, PublicClient, WalletClient } from 'viem';
 import { formatEther } from 'viem';
 
 import { trackValidityOrder } from '../../../analytics/events';
@@ -25,8 +25,9 @@ import {
   signCall,
   tokenBalance,
 } from './lib/amm';
+import { clampNoncelessExpiry, signNoncelessCall } from './lib/aa';
 import { startBots, allNeedGas, botNeedsGas, refuelValue } from './lib/bots';
-import { MAX_EXPIRY_SECONDS } from './lib/constants';
+import { BLOCK_MS, MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS } from './lib/constants';
 import { faucetErrorMessage, seedEthFromFaucet } from './lib/faucet';
 import {
   maxBlockForExpiry,
@@ -56,11 +57,11 @@ import {
   sendValidityTransaction,
 } from './lib/rpc';
 import { accountsFrom, createState, dropDeployment, loadState, saveState, type StoredState } from './lib/store';
-import type { ChainStatus, PlacedOrder, Rectangle, Reserves, Side } from './lib/types';
+import type { ChainStatus, PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/types';
 
-const POLL_MS = 400;
-/** L2 blocks are ~2s. viem's default 4s block cache made this skip 2–3 heads. */
-const BLOCK_POLL_MS = 1_000;
+const POLL_MS = BLOCK_MS;
+/** Denim heads are 200ms. viem's default 4s block cache would skip dozens. */
+const BLOCK_POLL_MS = BLOCK_MS;
 const DEFAULT_SIZE_FRACTION = 50n; // 1/50 of inventory
 
 function wadToNumber(wad: bigint): number {
@@ -85,7 +86,8 @@ export function ValidityDemo() {
   const [hoverPrice, setHoverPrice] = useState<bigint | null>(null);
   const [side, setSide] = useState<Side>('buy');
   const [offsetBps, setOffsetBps] = useState(100);
-  const [expirySeconds, setExpirySeconds] = useState(60);
+  const [expirySeconds, setExpirySeconds] = useState(15);
+  const [submitMode, setSubmitMode] = useState<SubmitMode>('concurrent');
   const [orders, setOrders] = useState<PlacedOrder[]>([]);
   const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
   const [samples, setSamples] = useState<PriceSample[]>([]);
@@ -429,7 +431,7 @@ export function ValidityDemo() {
 
     const id = window.setInterval(() => {
       void tick();
-    }, 700);
+    }, 250);
     void tick();
     return () => {
       cancelled = true;
@@ -613,12 +615,16 @@ export function ValidityDemo() {
         amount0Out,
         amount1Out,
       });
-      const confirmedNonce = await publicClient.getTransactionCount({
-        address: account.address,
-        blockTag: 'latest',
-      });
-      const occupant = occupyingOrder(ordersRef.current, confirmedNonce);
-      const replaced = restingOrderToReplace(ordersRef.current, confirmedNonce);
+      const seconds =
+        submitMode === 'concurrent'
+          ? clampNoncelessExpiry(expirySeconds)
+          : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
+      const block = await publicClient.getBlockNumber({ cacheTime: 0 });
+      const maxBlock = maxBlockForExpiry(block, seconds);
+      const validity = [...draft.predicates];
+      if (status?.blockNumberPredicate) {
+        validity.push(blockExpiryPredicate(maxBlock));
+      }
       const estimated = await publicClient.estimateFeesPerGas().catch(() => null);
       const padded =
         estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
@@ -627,42 +633,59 @@ export function ValidityDemo() {
               maxPriorityFeePerGas: estimated.maxPriorityFeePerGas,
             })
           : null;
+      trackValidityOrder(side, 'submitted');
+      let hash: Hex;
+      let nonce: number | undefined;
       let fees = padded;
-      if (occupant?.maxFeePerGas !== undefined && occupant.maxPriorityFeePerGas !== undefined) {
-        fees = bumpReplacementFees(
-          {
-            maxFeePerGas: occupant.maxFeePerGas,
-            maxPriorityFeePerGas: occupant.maxPriorityFeePerGas,
-          },
-          padded,
-        );
-      }
-      const sign = (nextFees: typeof fees) =>
-        signCall({
-          wallet,
-          publicClient,
-          account,
+      let replaced: ReturnType<typeof restingOrderToReplace>;
+      if (submitMode === 'concurrent') {
+        replaced = undefined;
+        const signed = await signNoncelessCall({
+          privateKey: state.userKey,
+          chainId: status?.chainId ?? state.chainId,
           to: call.to,
           data: call.data,
-          nonce: confirmedNonce,
-          fees: nextFees,
+          expiresIn: seconds,
+          fees: padded,
+          publicClient,
         });
-      let signedResult = await sign(fees);
-      const seconds = Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
-      const block = await publicClient.getBlockNumber({ cacheTime: 0 });
-      const maxBlock = maxBlockForExpiry(block, seconds);
-      const validity = [...draft.predicates];
-      if (status?.blockNumberPredicate) {
-        validity.push(blockExpiryPredicate(maxBlock));
-      }
-      trackValidityOrder(side, 'submitted');
-      let hash;
-      try {
-        hash = await sendValidityTransaction(publicClient, signedResult.signed, validity);
-      } catch (err) {
-        if (!isReplacementUnderpriced(err) || !signedResult.fees) throw err;
-        signedResult = await sign(bumpReplacementFees(signedResult.fees, padded));
-        hash = await sendValidityTransaction(publicClient, signedResult.signed, validity);
+        hash = await sendValidityTransaction(publicClient, signed.signed, validity);
+      } else {
+        const confirmedNonce = await publicClient.getTransactionCount({
+          address: account.address,
+          blockTag: 'latest',
+        });
+        const occupant = occupyingOrder(ordersRef.current, confirmedNonce);
+        replaced = restingOrderToReplace(ordersRef.current, confirmedNonce);
+        if (occupant?.maxFeePerGas !== undefined && occupant.maxPriorityFeePerGas !== undefined) {
+          fees = bumpReplacementFees(
+            {
+              maxFeePerGas: occupant.maxFeePerGas,
+              maxPriorityFeePerGas: occupant.maxPriorityFeePerGas,
+            },
+            padded,
+          );
+        }
+        const sign = (nextFees: typeof fees) =>
+          signCall({
+            wallet,
+            publicClient,
+            account,
+            to: call.to,
+            data: call.data,
+            nonce: confirmedNonce,
+            fees: nextFees,
+          });
+        let signedResult = await sign(fees);
+        try {
+          hash = await sendValidityTransaction(publicClient, signedResult.signed, validity);
+        } catch (err) {
+          if (!isReplacementUnderpriced(err) || !signedResult.fees) throw err;
+          signedResult = await sign(bumpReplacementFees(signedResult.fees, padded));
+          hash = await sendValidityTransaction(publicClient, signedResult.signed, validity);
+        }
+        nonce = signedResult.nonce;
+        fees = signedResult.fees;
       }
       const order: PlacedOrder = {
         id: newId(),
@@ -670,12 +693,13 @@ export function ValidityDemo() {
         targetPriceWad: draft.priceWad,
         size: amountIn,
         expirySeconds: seconds,
+        submitMode,
         maxBlock: status?.blockNumberPredicate ? maxBlock : undefined,
         submittedAt: Date.now(),
         txHash: hash,
-        nonce: signedResult.nonce,
-        maxFeePerGas: signedResult.fees?.maxFeePerGas,
-        maxPriorityFeePerGas: signedResult.fees?.maxPriorityFeePerGas,
+        nonce,
+        maxFeePerGas: fees?.maxFeePerGas,
+        maxPriorityFeePerGas: fees?.maxPriorityFeePerGas,
         status: 'pending',
         rectangle: draft.rectangle,
         validity,
@@ -747,6 +771,7 @@ export function ValidityDemo() {
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[12px] text-bds-gray-60">
           <span>{status?.readHost ?? 'no rpc'}</span>
+          <span>200ms blocks</span>
           <span>validity {status?.validitySupported ? 'on' : 'unavailable'}</span>
           {status?.blockNumberPredicate ? <span>block bounds on</span> : <span>client-side expiry only</span>}
           <span>simulation {botsOn ? (makersDry ? 'out of ETH' : 'live') : 'paused'}</span>
@@ -782,9 +807,10 @@ export function ValidityDemo() {
         <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
           <Text variant="title3">Simulated pool</Text>
           <Text variant="label.regular" tone="muted">
-            A local EOA (not the Vibenet 8130 account) signs the swaps. The faucet
-            funds it, then you deploy a VIBE/USDV pool. Simulated flow moves the mid
-            so you can see a price condition fire — or expire unused.
+            A local key signs the swaps — type-2 replacements, or 8130 nonceless
+            txs so several conditions can rest at once. The faucet funds it, then
+            you deploy a VIBE/USDV pool. Simulated flow moves the mid so you can
+            see a price condition fire — or expire unused.
           </Text>
           {address ? (
             <div className="flex items-center justify-between gap-3">
@@ -836,11 +862,18 @@ export function ValidityDemo() {
                   side={side}
                   offsetBps={offsetBps}
                   expirySeconds={expirySeconds}
+                  submitMode={submitMode}
                   busy={busy}
                   validitySupported={Boolean(status?.validitySupported)}
                   onSide={setSide}
                   onOffset={setOffsetBps}
                   onExpiry={setExpirySeconds}
+                  onSubmitMode={(mode) => {
+                    setSubmitMode(mode);
+                    if (mode === 'concurrent' && expirySeconds > MAX_NONCELESS_SECONDS) {
+                      setExpirySeconds(15);
+                    }
+                  }}
                   onSubmit={() => void placeOrder()}
                 />
               ) : (

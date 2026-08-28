@@ -21,7 +21,7 @@ export function chainFromId(id: number): Chain {
     id,
     name,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: { default: { http: [typeof window === 'undefined' ? 'http://127.0.0.1:8545' : RPC_PATH] } },
+    rpcUrls: { default: { http: [RPC_PATH] } },
   };
 }
 

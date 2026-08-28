@@ -41,11 +41,18 @@ export const RESERVE1_MASK = RESERVE0_MASK << RESERVE_BITS;
 
 export const MAX_EXPIRY_SECONDS = 60;
 /**
- * Canonical L2 block time. `block_number` predicates and mempool eviction
- * (`expire_by_block`) are on committed L2 blocks, not 250ms flashblocks.
- * Using 0.25s here made a 60s UI timer last ~8 minutes in the pool.
+ * EIP-8130 nonce-free (`nonceKeyMax`) txs are capped at a 20s `validBefore`.
+ * Concurrent mode uses that envelope, so the ticket snaps to this ceiling.
  */
-export const BLOCK_SECONDS = 2;
+export const MAX_NONCELESS_SECONDS = 20;
+/**
+ * Denim-native L2 block time. `block_number` predicates and mempool eviction
+ * are on committed 200ms blocks, not 2s pre-Denim heads or 250ms flashblocks.
+ */
+export const BLOCK_SECONDS = 0.2;
+export const BLOCK_MS = 200;
+export const CANDLE_BUCKET_MS = 200;
+export const CANDLE_WINDOW_MS = 30_000;
 
 /**
  * Finite box span around the target point on the current hyperbola.

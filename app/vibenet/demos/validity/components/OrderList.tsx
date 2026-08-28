@@ -74,7 +74,8 @@ export function OrderList({ orders, highlightedOrderId, onHighlight }: Props) {
       <div className="flex flex-col gap-2">
         <Text variant="title3">Submitted</Text>
         <Text variant="footnote" tone="muted">
-          Conditional swaps land here. They also draw as a dashed line on the tape.
+          Conditional swaps land here. Concurrent 8130 orders stack; replace
+          mode bumps the last nonce.
         </Text>
       </div>
     );
@@ -125,6 +126,7 @@ export function OrderList({ orders, highlightedOrderId, onHighlight }: Props) {
             </div>
             <Text variant="footnote" tone="muted" className="tabular-nums">
               {formatClock(order.submittedAt)}
+              {order.submitMode === 'concurrent' ? ' · 8130' : order.submitMode === 'replace' ? ' · replace' : null}
               {order.filledAt ? ` → ${formatClock(order.filledAt)}` : null}
               {filled && order.fillPriceWad !== undefined
                 ? ` · ${formatPrice(order.fillPriceWad)}`

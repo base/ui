@@ -5,8 +5,8 @@ import { occupyingOrder, maxBlockForExpiry, orderBlockExpired, orderWallClockExp
 describe('orderWallClockExpired', () => {
   it('expires a resting order after the window plus grace', () => {
     const order = { status: 'pending' as const, submittedAt: 1_000, expirySeconds: 5 };
-    expect(orderWallClockExpired(order, 1_000 + 5_000 + 1_000)).toBe(false);
-    expect(orderWallClockExpired(order, 1_000 + 5_000 + 2_001)).toBe(true);
+    expect(orderWallClockExpired(order, 1_000 + 5_000 + 400)).toBe(false);
+    expect(orderWallClockExpired(order, 1_000 + 5_000 + 401)).toBe(true);
   });
 
   it('does not expire fills', () => {
@@ -24,9 +24,9 @@ describe('orderBlockExpired', () => {
 });
 
 describe('maxBlockForExpiry', () => {
-  it('uses ~2s L2 blocks, not flashblock cadence', () => {
-    expect(maxBlockForExpiry(1_000n, 60)).toBe(1_030n);
-    expect(maxBlockForExpiry(1_000n, 5)).toBe(1_003n);
+  it('uses 200ms Denim blocks, not 2s pre-Denim heads', () => {
+    expect(maxBlockForExpiry(1_000n, 60)).toBe(1_300n);
+    expect(maxBlockForExpiry(1_000n, 5)).toBe(1_025n);
   });
 });
 

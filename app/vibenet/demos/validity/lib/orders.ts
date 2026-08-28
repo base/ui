@@ -1,7 +1,7 @@
 import { BLOCK_SECONDS } from './constants';
 import type { PlacedOrder, Side } from './types';
 
-const WALL_CLOCK_GRACE_MS = 2_000;
+const WALL_CLOCK_GRACE_MS = 400;
 
 export function orderWallClockExpired(
   order: Pick<PlacedOrder, 'status' | 'submittedAt' | 'expirySeconds'>,

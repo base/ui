@@ -2,8 +2,9 @@
 
 import { Button } from '../../../../components/ui/Button';
 import { Text } from '../../../../components/ui/Text';
+import { MAX_NONCELESS_SECONDS } from '../lib/constants';
 import { applyOffsetBps, formatPrice } from '../lib/predicates';
-import type { Side } from '../lib/types';
+import type { Side, SubmitMode } from '../lib/types';
 
 const EXPIRIES = [5, 15, 60] as const;
 const OFFSETS = [0, 50, 100, 200, 500] as const;
@@ -13,11 +14,13 @@ type Props = {
   side: Side;
   offsetBps: number;
   expirySeconds: number;
+  submitMode: SubmitMode;
   busy: boolean;
   validitySupported: boolean;
   onSide: (side: Side) => void;
   onOffset: (bps: number) => void;
   onExpiry: (seconds: number) => void;
+  onSubmitMode: (mode: SubmitMode) => void;
   onSubmit: () => void;
 };
 
@@ -31,11 +34,13 @@ export function OrderTicket({
   side,
   offsetBps,
   expirySeconds,
+  submitMode,
   busy,
   validitySupported,
   onSide,
   onOffset,
   onExpiry,
+  onSubmitMode,
   onSubmit,
 }: Props) {
   const target = applyOffsetBps(spotWad, side, offsetBps);
@@ -116,23 +121,64 @@ export function OrderTicket({
       </div>
       <div className="flex flex-col gap-2">
         <Text variant="caption" tone="muted">
+          Mempool
+        </Text>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onSubmitMode('replace')}
+            className={
+              submitMode === 'replace'
+                ? 'rounded-xl bg-foreground px-3 py-2 text-[13px] font-medium text-background'
+                : 'rounded-xl border border-bds-gray-10 px-3 py-2 text-[13px] dark:border-white/10'
+            }
+          >
+            Replace
+          </button>
+          <button
+            type="button"
+            onClick={() => onSubmitMode('concurrent')}
+            className={
+              submitMode === 'concurrent'
+                ? 'rounded-xl bg-foreground px-3 py-2 text-[13px] font-medium text-background'
+                : 'rounded-xl border border-bds-gray-10 px-3 py-2 text-[13px] dark:border-white/10'
+            }
+          >
+            Concurrent
+          </button>
+        </div>
+        <Text variant="footnote" tone="muted">
+          {submitMode === 'replace'
+            ? 'Same nonce, fee bump. The new swap takes the resting slot.'
+            : `8130 nonceless — stack several at once. Envelope max ${MAX_NONCELESS_SECONDS}s.`}
+        </Text>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Text variant="caption" tone="muted">
           Expiry
         </Text>
         <div className="flex gap-2">
-          {EXPIRIES.map((seconds) => (
-            <button
-              key={seconds}
-              type="button"
-              onClick={() => onExpiry(seconds)}
-              className={
-                seconds === expirySeconds
-                  ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
-                  : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
-              }
-            >
-              {seconds}s
-            </button>
-          ))}
+          {EXPIRIES.map((seconds) => {
+            const blocked = submitMode === 'concurrent' && seconds > MAX_NONCELESS_SECONDS;
+            return (
+              <button
+                key={seconds}
+                type="button"
+                disabled={blocked}
+                title={blocked ? `8130 nonceless max is ${MAX_NONCELESS_SECONDS}s` : undefined}
+                onClick={() => onExpiry(seconds)}
+                className={
+                  blocked
+                    ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
+                    : seconds === expirySeconds
+                      ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
+                      : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
+                }
+              >
+                {seconds}s
+              </button>
+            );
+          })}
         </div>
       </div>
       {!validitySupported ? (

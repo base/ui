@@ -55,7 +55,7 @@ export const DEMOS: DemoEntry[] = [
     points: [
       'Add storage and block-number conditions to an ordinary swap',
       'A simulated AMM makes those conditions visible on a moving mid',
-      'Optional 5s / 15s / 60s bound so a stale condition cannot fire later',
+      'Stack several 8130 conditions at once, or replace the resting one',
     ],
     available: true,
   },

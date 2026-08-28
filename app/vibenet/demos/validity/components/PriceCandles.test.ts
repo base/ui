@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { isUpCandle, toCandles, type PriceSample } from './PriceCandles';
 
 describe('toCandles', () => {
-  it('builds a wick when price reverses inside a 2s bucket', () => {
+  it('builds a wick when price reverses inside a 200ms bucket', () => {
     const t0 = 1_000_000;
     const samples: PriceSample[] = [
       { t: t0, price: 1.0 },
-      { t: t0 + 400, price: 1.03 },
-      { t: t0 + 800, price: 0.98 },
-      { t: t0 + 1_200, price: 1.01 },
+      { t: t0 + 40, price: 1.03 },
+      { t: t0 + 80, price: 0.98 },
+      { t: t0 + 120, price: 1.01 },
     ];
     const [candle] = toCandles(samples);
     expect(candle.o).toBe(1.0);
@@ -24,8 +24,8 @@ describe('toCandles', () => {
     const t0 = 1_000_000;
     const samples: PriceSample[] = [
       { t: t0, price: 1.008 },
-      { t: t0 + 400, price: 1.008 },
-      { t: t0 + 800, price: 1.008 },
+      { t: t0 + 40, price: 1.008 },
+      { t: t0 + 80, price: 1.008 },
     ];
     const [candle] = toCandles(samples);
     expect(candle.o).toBe(candle.h);
@@ -37,8 +37,8 @@ describe('toCandles', () => {
     const t0 = 2_000_000;
     const samples: PriceSample[] = [
       { t: t0, price: 0.08 },
-      { t: t0 + 2_000, price: 0.078 },
-      { t: t0 + 2_400, price: 0.0784 },
+      { t: t0 + 200, price: 0.078 },
+      { t: t0 + 240, price: 0.0784 },
     ];
     const candles = toCandles(samples);
     expect(candles).toHaveLength(2);
