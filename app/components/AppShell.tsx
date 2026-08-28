@@ -732,10 +732,8 @@ export function AppShell({ children }: PropsWithChildren) {
   // Starts false on both server and client so the first render matches; the
   // effect below reads the attribute the pre-paint script in layout.tsx set.
   const [dark, setDark] = useState(false);
-  // Insertion effect writes `data-theme`. It must not run on mount or on the
-  // hydration sync below: `dark` starts false to match SSR, and the pre-paint
-  // script may already have stamped dark. Flipping this in the click handler
-  // means Strict Mode's extra first-run cannot flash light.
+  // Stays false through mount and the hydration sync below so we don't overwrite
+  // the pre-paint script with the SSR default (`dark` starts false).
   const applyTheme = useRef(false);
 
   useEffect(() => {
