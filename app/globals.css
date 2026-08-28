@@ -576,7 +576,6 @@ button {
   border-radius: 8px;
 }
 
-.nav-row-hover::before,
 .nav-header-hover {
   transition: background-color 0.15s ease;
 }
