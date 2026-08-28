@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { encodeAbiParameters, encodeFunctionData, padHex, stringToHex } from 'viem';
 
+import type { ExplorerAaCall, ExplorerAaPayload } from './api-types';
 import {
   B20_ANNOUNCEMENT_TOPIC,
   B20_END_ANNOUNCEMENT_TOPIC,
@@ -10,6 +11,7 @@ import {
   decodeB20MemoCalldata,
   decodeB20MemoEvent,
   decodeExecuteBatch,
+  findGasTokenFee,
   fmtHexInt,
   fmtTokenAmount,
   hexToInt,
@@ -31,6 +33,9 @@ const memoAbi = [
 ] as const;
 const batchAbi = [
   { type: 'function', name: 'executeBatch', stateMutability: 'nonpayable', inputs: [{ type: 'tuple[]', components: [{ type: 'address' }, { type: 'uint256' }, { type: 'bytes' }] }], outputs: [] },
+] as const;
+const erc20Abi = [
+  { type: 'function', name: 'transfer', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
 ] as const;
 
 const ADDR_A = '0x1111111111111111111111111111111111111111';
@@ -270,5 +275,48 @@ describe('B20 announcement event decoding', () => {
       description: '2:1 forward split demonstration',
       uri: 'https://example.com/disclosure',
     });
+  });
+});
+
+describe('gas token fee detection', () => {
+  const PAYER = ADDR_B;
+  const TOKEN = '0x3333333333333333333333333333333333333333';
+
+  function aaWith(calls: ExplorerAaCall[][]): ExplorerAaPayload {
+    return {
+      sender: ADDR_A,
+      nonceKey: '0x0',
+      nonceSequence: '0x0',
+      expiry: '0x0',
+      maxFeePerGas: null,
+      maxPriorityFeePerGas: null,
+      calls,
+      accountChanges: [],
+    };
+  }
+
+  it('picks up a phase-0 transfer(payer, fee) as the gas token fee', () => {
+    const data = encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [PAYER, 100_000_000n] });
+    const aa = aaWith([[{ to: TOKEN, value: '0x0', data }], [{ to: ADDR_A, value: '0x0', data: '0x' }]]);
+
+    expect(findGasTokenFee(PAYER, aa)).toEqual({ token: TOKEN.toLowerCase(), rawAmount: 100_000_000n });
+  });
+
+  it('returns null when self-paying (no aa payload / payer)', () => {
+    const data = encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [PAYER, 1n] });
+    const aa = aaWith([[{ to: TOKEN, value: '0x0', data }]]);
+
+    expect(findGasTokenFee(null, aa)).toBeNull();
+    expect(findGasTokenFee(PAYER, null)).toBeNull();
+  });
+
+  it('ignores a phase 0 that is not a lone transfer to the payer', () => {
+    const data = encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [ADDR_A, 1n] });
+    const wrongRecipient = aaWith([[{ to: TOKEN, value: '0x0', data }]]);
+    expect(findGasTokenFee(PAYER, wrongRecipient)).toBeNull();
+
+    const feeData = encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [PAYER, 1n] });
+    const multiCallPhase0 = aaWith([[{ to: TOKEN, value: '0x0', data: feeData }, { to: ADDR_A, value: '0x0', data: '0x' }]]);
+    expect(findGasTokenFee(PAYER, multiCallPhase0)).toBeNull();
   });
 });

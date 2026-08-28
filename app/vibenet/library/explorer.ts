@@ -4,7 +4,7 @@
 
 import { decodeAbiParameters, type Hex } from 'viem';
 
-import type { ExplorerTxLog } from './api-types';
+import type { ExplorerAaPayload, ExplorerTxLog } from './api-types';
 
 // --- Time -----------------------------------------------------------------
 
@@ -382,6 +382,33 @@ export function decodeErc20TransferCalldata(
   } catch {
     return null;
   }
+}
+
+export type GasTokenFee = {
+  /** The ERC-20 contract the fee was paid in. */
+  token: string;
+  rawAmount: bigint;
+};
+
+/**
+ * The b20 demo pays gas by having the AA account transfer(payer, fee) as
+ * phase 0 of the batch (see useAccountEngine's sendActiveCalls) instead of
+ * the payer deducting it from a receipt field — there is no dedicated gas
+ * field for this. Detect that pattern: phase 0's sole call is an ERC-20
+ * transfer to `payer`.
+ */
+export function findGasTokenFee(
+  payer: string | null,
+  aa: ExplorerAaPayload | null,
+): GasTokenFee | null {
+  if (!payer || !aa) return null;
+  const phase0 = aa.calls[0];
+  if (!phase0 || phase0.length !== 1) return null;
+  const [call] = phase0;
+  if (!call.to) return null;
+  const transfer = decodeErc20TransferCalldata(call.data);
+  if (!transfer || transfer.recipient.toLowerCase() !== payer.toLowerCase()) return null;
+  return { token: call.to, rawAmount: transfer.rawAmount };
 }
 
 export type DecodedB20MemoCall = {
