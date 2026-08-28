@@ -7,7 +7,7 @@
 
 import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
-import { use, useEffect, useState } from 'react';
+import { Suspense, use, useEffect, useState } from 'react';
 
 import { Card } from '../../../../components/ui/Card';
 import { Spinner } from '../../../../components/ui/Spinner';
@@ -77,7 +77,13 @@ export default function ExplorerAddressPage({ params }: PageProps) {
   // Owned accounts render the management view even when the explorer API has
   // nothing (undeployed → data null, or an outage → failed) — the account data
   // itself lives in localStorage, not behind this request.
-  if (owned) return <OwnedAccountView address={addr} data={data} />;
+  if (owned) {
+    return (
+      <Suspense fallback={<CenteredSpinner />}>
+        <OwnedAccountView address={addr} data={data} />
+      </Suspense>
+    );
+  }
 
   if (is404) notFound();
 
@@ -91,5 +97,11 @@ export default function ExplorerAddressPage({ params }: PageProps) {
     );
   }
 
-  return <PublicAddressView address={addr} data={data!} />;
+  if (!data) return <CenteredSpinner />;
+
+  return (
+    <Suspense fallback={<CenteredSpinner />}>
+      <PublicAddressView address={addr} data={data} />
+    </Suspense>
+  );
 }

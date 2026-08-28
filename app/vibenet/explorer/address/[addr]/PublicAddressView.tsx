@@ -66,10 +66,10 @@ function ActorCard({ actor }: { actor: ActorEntry }) {
 }
 
 export function PublicAddressView({ address, data }: { address: string; data: ExplorerAddressResponse }) {
-  const [section, selectSection] = useSectionParam(
-    SECTIONS.map((s) => s.id),
-    'overview',
-  );
+  const [section, selectSection] = useSectionParam({
+    valid: SECTIONS.map((s) => s.id),
+    fallback: 'overview',
+  });
 
   const typeBadge = data.is_contract ? 'Contract' : data.is_aa ? 'Smart account' : 'EOA';
 

@@ -67,6 +67,7 @@ export function Tabs({
               <motion.span
                 layoutId={layoutId}
                 layoutDependency={value}
+                initial={false}
                 transition={pillTransition}
                 className="absolute inset-0 bg-background"
                 style={{
