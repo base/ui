@@ -487,13 +487,13 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
   return (
     <>
       <div style={styles.navSlot}>
-        <NavScrollArea viewportRef={scrollViewportRef}>
+        <NavScrollArea viewportRef={scrollViewportRef} contentClassName={hideBrand ? 'pt-3' : undefined}>
           {!hideBrand && (
             <div style={styles.brand} className="sidebar-gutter sidebar-brand">
               <AnimatedBaseLogo size={BRAND_MARK_SIZE} />
             </div>
           )}
-          <div className="sidebar-gutter overflow-clip [overflow-clip-margin:4px]">
+          <div className="sidebar-gutter">
             <AnimatePresence mode="popLayout" initial={false} custom={presenceCustom}>
               {activeParent ? (
                 <motion.div

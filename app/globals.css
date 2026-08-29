@@ -761,7 +761,7 @@ button {
     bottom: 0;
     z-index: 100;
     background: var(--bds-gray-0);
-    padding: 12px 0 20px;
+    padding: 0 0 20px;
     overflow: hidden;
   }
 
