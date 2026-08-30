@@ -5,6 +5,7 @@ import { PropsWithChildren, Ref } from 'react';
 
 type NavScrollAreaProps = PropsWithChildren<{
   viewportRef?: Ref<HTMLDivElement>;
+  contentClassName?: string;
 }>;
 
 /**
@@ -13,11 +14,11 @@ type NavScrollAreaProps = PropsWithChildren<{
  * hidden and a thin custom thumb appears while scrolling. The bottom fade is
  * a CSS mask on the viewport driven by `--scroll-area-overflow-y-end`.
  */
-export function NavScrollArea({ children, viewportRef }: NavScrollAreaProps) {
+export function NavScrollArea({ children, viewportRef, contentClassName }: NavScrollAreaProps) {
   return (
     <ScrollArea.Root className="sidebar-scroll-area">
       <ScrollArea.Viewport ref={viewportRef} className="sidebar-scroll-viewport">
-        <ScrollArea.Content>
+        <ScrollArea.Content className={contentClassName}>
           {children}
         </ScrollArea.Content>
       </ScrollArea.Viewport>

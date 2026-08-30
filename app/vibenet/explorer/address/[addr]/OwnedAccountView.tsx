@@ -74,10 +74,10 @@ function OwnedInner({ address, data }: { address: string; data: ExplorerAddressR
   const openApply = (applyTarget: ApplyTarget) => {
     setTransactionRequest({ applyTarget });
   };
-  const [section, selectSection] = useSectionParam(
-    SECTIONS.map((s) => s.id),
-    'overview',
-  );
+  const [section, selectSection] = useSectionParam({
+    valid: SECTIONS.map((s) => s.id),
+    fallback: 'overview',
+  });
 
   const lc = address.toLowerCase();
   const routeAcct = useMemo(

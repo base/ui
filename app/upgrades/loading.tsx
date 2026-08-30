@@ -2,7 +2,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 
 export default function UpgradesLoading() {
   return (
-    <div className="flex flex-col gap-8 text-foreground">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 text-foreground">
       <Skeleton className="h-6 w-40" />
       <div className="flex flex-col gap-4">
         {[0, 1, 2].map((i) => (

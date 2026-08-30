@@ -76,16 +76,6 @@ const config: Config = {
         'base-text': ['var(--font-base-sans-text)', 'var(--font-base-sans)', 'sans-serif'],
         doto: ['var(--font-doto)', 'monospace'],
       },
-      // Radix tooltip open/close transitions, ported with app/benchmark from
-      // base/benchmark (which had them in its own Tailwind config).
-      keyframes: {
-        'fade-in': { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        'fade-out': { '0%': { opacity: '1' }, '100%': { opacity: '0' } },
-      },
-      animation: {
-        'fade-in': 'fade-in 0.2s ease-out',
-        'fade-out': 'fade-out 0.2s ease-out',
-      },
     },
   },
   plugins: [],

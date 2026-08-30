@@ -1,20 +1,20 @@
 'use client';
 
-import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
+import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEffect, useInsertionEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, type MotionValue } from 'motion/react';
+import { AnimatePresence, easeOut, motion, useIsPresent, useMotionTemplate, useMotionValue, usePresenceData, useReducedMotion, type MotionValue } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
-import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
+import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
 import { demoLabel } from '../vibenet/demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 
 import { trackNavClick } from '../analytics/events';
-import { navSlideDirection } from './nav-motion';
+import { navExitingHighlightPath, navSlideDirection, type NavPresenceCustom } from './nav-motion';
 import { NavScrollArea } from './NavScrollArea';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
@@ -76,14 +76,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
   },
-  // Clips the pane's horizontal slide so it never becomes overflow-x on the
-  // scroll viewport. Height is content-sized, so this does not clip vertically.
-  navSlideClip: {
-    overflow: 'hidden',
-  },
-  // `isolation` keeps the selected pill (z-index -1) in this stacking context
-  // so it paints behind the row's label instead of behind the sidebar.
-  nav: { display: 'flex', flexDirection: 'column', gap: 2, position: 'relative', isolation: 'isolate' },
+  nav: { display: 'flex', flexDirection: 'column', gap: 2 },
   navLink: { textDecoration: 'none', color: 'inherit' },
   navRow: {
     display: 'flex',
@@ -92,9 +85,6 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     fontSize: 14,
-    // Anchors the selected pill and the `.nav-row-hover` fill, both of which are
-    // absolutely positioned within the row.
-    position: 'relative',
   },
   navIcon: { display: 'inline-flex', width: 20, height: 20 },
   soon: {
@@ -125,7 +115,6 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 10px',
     borderRadius: 8,
     textDecoration: 'none',
-    color: 'var(--bds-gray-50)',
   },
   footerIcon: { display: 'inline-flex', width: 18, height: 18 },
   // Hugs the switch rather than filling the row: with no label beside it, a
@@ -151,10 +140,8 @@ const styles: Record<string, CSSProperties> = {
     height: 20,
     padding: 2,
     borderRadius: 999,
-    background: 'var(--bds-gray-50)',
     boxSizing: 'border-box',
   },
-  switchTrackOn: { background: BRAND_BLUE },
   switchThumb: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -162,11 +149,12 @@ const styles: Record<string, CSSProperties> = {
     width: 16,
     height: 16,
     borderRadius: '50%',
-    // Reads against both the grey off-track and the blue on-track.
+    // Reads against both the grey off-track and the blue on-track. On-state
+    // color and travel are Tailwind `dark:` variants on the thumb, keyed off
+    // `html[data-theme]` — React state lags a frame behind the pre-paint
+    // script, and driving those here flashes the switch on reload.
     background: 'var(--bds-gray-0)',
-    color: 'var(--bds-gray-50)',
   },
-  switchThumbOn: { transform: 'translateX(14px)', color: BRAND_BLUE },
   main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
   // Grow on short pages so the activity drawer can sit at the bottom; don't
   // shrink, or tall pages compress instead of letting the document scroll.
@@ -298,31 +286,8 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate }:
     color = active ? 'var(--bds-gray-80)' : 'var(--bds-gray-50)';
   }
 
-  const row = (
-    <div
-      className={`${hasChildren ? 'group ' : ''}${enabled ? 'nav-row-hover' : ''}`}
-      style={{
-        ...styles.navRow,
-        color,
-        fontWeight: active ? 500 : 400,
-        cursor: enabled ? 'pointer' : 'default',
-      }}
-    >
-      {active && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 8,
-            // SELECTED (gray-10), a step darker than the SURFACE (gray-5) hover
-            // fill, so the pill reads as landing on the hovered row rather than
-            // dissolving into it.
-            background: SELECTED,
-            zIndex: -1,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
+  const content = (
+    <>
       {icon && (
         <span style={styles.navIcon}>
           <NavGlyph name={icon} />
@@ -335,21 +300,33 @@ function NavRow({ icon, label, href, active, enabled, hasChildren, onNavigate }:
           <AnimatedArrowIcon size={16} strokeWidth={1.5} />
         </span>
       )}
-    </div>
+    </>
   );
 
-  if (!enabled) return row;
+  const rowStyle = {
+    ...styles.navRow,
+    ...styles.navLink,
+    color,
+    fontWeight: active ? 500 : 400,
+    cursor: enabled ? 'pointer' : 'default',
+  };
+
+  if (!enabled) {
+    return <div style={rowStyle}>{content}</div>;
+  }
+
   return (
     <Link
       href={href}
-      style={styles.navLink}
+      className={`${hasChildren ? 'group ' : ''}nav-row-hover${active ? ' nav-row-active' : ''} ${NAV_FOCUS_RING}`}
+      style={rowStyle}
       onClick={(event) => {
         if (opensInNewTab(event)) return;
         trackNavClick(label);
         onNavigate?.();
       }}
     >
-      {row}
+      {content}
     </Link>
   );
 }
@@ -363,12 +340,37 @@ function opensInNewTab(event: ReactMouseEvent): boolean {
 }
 
 const slideVariants = {
-  enter: (direction: number) => ({ x: direction > 0 ? '60%' : '-60%', opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (direction: number) => ({ x: direction > 0 ? '-60%' : '60%', opacity: 0 }),
+  enter: ({ direction }: NavPresenceCustom) => ({ x: direction > 0 ? 10 : -10, opacity: 0, filter: 'blur(1px)' }),
+  center: { x: 0, opacity: 1, filter: 'none' },
+  exit: ({ direction }: NavPresenceCustom) => ({ x: direction > 0 ? -10 : 10, opacity: 0, filter: 'blur(1px)' }),
 };
 
-const slideTransition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const };
+function useExitingHighlightPath(presentPath: string): string {
+  const isPresent = useIsPresent();
+  return navExitingHighlightPath(isPresent, usePresenceData(), presentPath);
+}
+
+function TopNavList({ highlightPath, onSelect }: { highlightPath: string; onSelect: (href: string) => void }) {
+  const path = useExitingHighlightPath(highlightPath);
+  return (
+    <nav style={styles.nav}>
+      {NAV_ITEMS.filter((item) => item.icon).map((item) => (
+        <NavRow
+          key={item.href}
+          icon={item.icon}
+          label={item.label}
+          href={item.href}
+          active={isTopNavActive(item, path)}
+          enabled={item.enabled}
+          hasChildren={!!item.children}
+          onNavigate={() => onSelect(item.href)}
+        />
+      ))}
+    </nav>
+  );
+}
+
+const slideTransition = { duration: 0.2, ease: easeOut, x: { visualDuration: 0.2, type: 'spring', bounce: 0 } };
 /** Matches `h-9` / theme(spacing.9). */
 const APP_BANNER_HEIGHT = '2.25rem';
 
@@ -377,9 +379,24 @@ const APP_BANNER_HEIGHT = '2.25rem';
 // slipped through), so it just has to be longer than a slow route.
 const PENDING_PATH_TIMEOUT_MS = 5000;
 
+const SIDEBAR_FOOTER_LINK =
+  'group outline-none text-bds-gray-50 transition-colors duration-150 hover:text-bds-gray-80';
+
+const SIDEBAR_FOOTER_LINK_LABEL =
+  'inline-flex items-center gap-2.5 rounded-lg group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue';
+
+const NAV_FOCUS_RING =
+  'outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue';
+
+// Track and thumb. Shared with the `:not(...)` list in disableAnimation so the
+// page-wide no-transition stamp cannot override the 180ms slide.
+const THEME_SWITCH_ANIM = 'theme-switch-anim';
+
 // Rides inside the switch thumb. Stroke is heavier than the nav glyphs' 1.8
-// because at 10px that weight all but disappears.
-function ThemeIcon({ dark }: { dark: boolean }) {
+// because at 10px that weight all but disappears. Both glyphs are in the
+// tree so `dark:` (html[data-theme]) can pick the right one on first paint,
+// before React hydrates the stored preference.
+function ThemeIcon() {
   const common = {
     width: 10,
     height: 10,
@@ -390,15 +407,16 @@ function ThemeIcon({ dark }: { dark: boolean }) {
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
   };
-  return dark ? (
-    <svg {...common}>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-    </svg>
-  ) : (
-    <svg {...common}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
-    </svg>
+  return (
+    <>
+      <svg {...common} className="dark:hidden">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+      </svg>
+      <svg {...common} className="hidden dark:block">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+      </svg>
+    </>
   );
 }
 
@@ -462,22 +480,25 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
   };
 
   const direction = directionRef.current;
+  // highlightPath rides AnimatePresence custom so the exiting root list can
+  // move the pill — its React props are frozen on the previous commit.
+  const presenceCustom: NavPresenceCustom = { direction, highlightPath: activePath };
 
   return (
     <>
       <div style={styles.navSlot}>
-        <NavScrollArea viewportRef={scrollViewportRef}>
+        <NavScrollArea viewportRef={scrollViewportRef} contentClassName={hideBrand ? 'pt-3' : undefined}>
           {!hideBrand && (
             <div style={styles.brand} className="sidebar-gutter sidebar-brand">
               <AnimatedBaseLogo size={BRAND_MARK_SIZE} />
             </div>
           )}
-          <div className="sidebar-gutter" style={styles.navSlideClip}>
-            <AnimatePresence mode="popLayout" initial={false} custom={direction}>
+          <div className="sidebar-gutter">
+            <AnimatePresence mode="popLayout" initial={false} custom={presenceCustom}>
               {activeParent ? (
                 <motion.div
                   key={`sub-nav:${activeParent.href}`}
-                  custom={direction}
+                  custom={presenceCustom}
                   variants={slideVariants}
                   initial="enter"
                   animate="center"
@@ -488,8 +509,8 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                 >
                   <Link
                     href="/"
-                    className="nav-header-hover group"
-                    style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 4, color: 'var(--bds-gray-50)' }}
+                    className={`nav-header-hover group ${NAV_FOCUS_RING}`}
+                    style={{ ...styles.navLink, display: 'flex', alignItems: 'center', padding: '9px 6px 9px 2px', marginBottom: 2, color: 'var(--bds-gray-50)' }}
                     onClick={(event) => {
                       if (opensInNewTab(event)) return;
                       // Stay on the current page and keep the mobile drawer
@@ -538,7 +559,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
               ) : (
                 <motion.div
                   key="main-nav"
-                  custom={direction}
+                  custom={presenceCustom}
                   variants={slideVariants}
                   initial="enter"
                   animate="center"
@@ -547,20 +568,7 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
                   className="sidebar-nav-pane"
                   style={styles.navPane}
                 >
-                  <nav style={styles.nav}>
-                    {NAV_ITEMS.filter((item) => item.icon).map((item) => (
-                      <NavRow
-                        key={item.href}
-                        icon={item.icon}
-                        label={item.label}
-                        href={item.href}
-                        active={isTopNavActive(item, activePath)}
-                        enabled={item.enabled}
-                        hasChildren={!!item.children}
-                        onNavigate={() => selectPath(item.href)}
-                      />
-                    ))}
-                  </nav>
+                  <TopNavList highlightPath={activePath} onSelect={selectPath} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -569,38 +577,46 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
       </div>
 
       <div style={styles.sidebarFooter} className="sidebar-gutter">
-        <a href="https://status.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Status</Text>
-        </a>
-        <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
-              <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Support</Text>
-        </a>
-        <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
-        </a>
-        <div style={styles.footerLastRow}>
-          <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={{ ...styles.footerLink, flex: 1 }}>
+        <a href="https://status.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
             <span style={styles.footerIcon}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
               </svg>
             </span>
-            <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
+            <Text as="span" variant="label.medium" tone="inherit">Status</Text>
+          </span>
+        </a>
+        <a href="https://base.org/discord" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
+                <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
+              </svg>
+            </span>
+            <Text as="span" variant="label.medium" tone="inherit">Support</Text>
+          </span>
+        </a>
+        <a href="https://docs.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+              </svg>
+            </span>
+            <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
+          </span>
+        </a>
+        <div style={styles.footerLastRow}>
+          <a href="https://blog.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={{ ...styles.footerLink, flex: 1 }}>
+            <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+              <span style={styles.footerIcon}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                </svg>
+              </span>
+              <Text as="span" variant="label.medium" tone="inherit">Blog</Text>
+            </span>
           </a>
           {/* `role="switch"` rather than a plain button: the control reports a state
               rather than firing an action, so screen readers announce "on"/"off"
@@ -613,19 +629,19 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
             aria-checked={dark}
             aria-label="Dark mode"
             onClick={onToggleTheme}
-            className="nav-header-hover theme-switch"
+            className="group outline-none"
             style={{ ...styles.footerLink, ...styles.themeButton }}
           >
             <span
               aria-hidden
-              className="theme-switch-track"
-              style={{ ...styles.switchTrack, ...(dark ? styles.switchTrackOn : null) }}
+              className={`${THEME_SWITCH_ANIM} bg-bds-gray-50 transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-bds-gray-70 dark:bg-brand-blue dark:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue`}
+              style={styles.switchTrack}
             >
               <span
-                className="theme-switch-thumb"
-                style={{ ...styles.switchThumb, ...(dark ? styles.switchThumbOn : null) }}
+                className={`${THEME_SWITCH_ANIM} text-bds-gray-50 transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none dark:translate-x-[14px] dark:text-brand-blue`}
+                style={styles.switchThumb}
               >
-                <ThemeIcon dark={dark} />
+                <ThemeIcon />
               </span>
             </span>
           </button>
@@ -666,7 +682,14 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
             <Text as="span" variant="label.medium" className="whitespace-nowrap">New!</Text>
             <Text as="span" variant="label.medium" className="whitespace-nowrap">EIP-8130: Accounts</Text>
             <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
-            <Link href="/vibenet/demos/account" className="group flex shrink-0 items-center gap-1 no-underline">
+            <Link
+              href="/vibenet/demos/account"
+              className="group flex shrink-0 items-center gap-1 no-underline"
+              onClick={(event) => {
+                if (opensInNewTab(event)) return;
+                onDismiss();
+              }}
+            >
               <Text as="span" variant="label.medium" className="text-base-blue">Test on Vibenet</Text>
               <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
             </Link>
@@ -685,6 +708,31 @@ function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerP
   );
 }
 
+// next-themes `disableTransitionOnChange`: stamp a global `transition: none`
+// rule, apply the theme, force a restyle, then drop the rule on the next tick
+// so color tokens don't animate through every `transition-colors` on the page.
+// The switch is excluded: its motion is the control, not a side effect.
+// https://github.com/pacocoursey/next-themes/blob/main/next-themes/src/index.tsx
+function disableAnimation() {
+  const css = document.createElement('style');
+  css.appendChild(
+    document.createTextNode(
+      `*:not(.${THEME_SWITCH_ANIM}),*:not(.${THEME_SWITCH_ANIM})::before,*:not(.${THEME_SWITCH_ANIM})::after{-webkit-transition:none!important;-moz-transition:none!important;-o-transition:none!important;-ms-transition:none!important;transition:none!important}`,
+    ),
+  );
+  document.head.appendChild(css);
+
+  return () => {
+    // Force restyle
+    (() => window.getComputedStyle(document.body))();
+
+    // Wait for next tick before removing
+    setTimeout(() => {
+      document.head.removeChild(css);
+    }, 1);
+  };
+}
+
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
@@ -692,24 +740,39 @@ export function AppShell({ children }: PropsWithChildren) {
   const sidebarHeight = useMotionTemplate`calc(100dvh - ${bannerHeight})`;
   const [menuOpen, setMenuOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  // Starts false on both server and client so the first render matches; the
-  // effect below reads the attribute the pre-paint script in layout.tsx set.
+  // aria-checked only. The switch's look is CSS against html[data-theme],
+  // which the pre-paint script already set — this state starts false so SSR
+  // and the first client render match, then catches up after mount.
   const [dark, setDark] = useState(false);
+  // Stays false through mount and the hydration sync below so we don't overwrite
+  // the pre-paint script with the SSR default (`dark` starts false).
+  const applyTheme = useRef(false);
 
   useEffect(() => {
     setDark(document.documentElement.dataset.theme === 'dark');
   }, []);
 
-  const toggleTheme = () => {
-    const nextDark = !dark;
-    document.documentElement.dataset.theme = nextDark ? 'dark' : 'light';
-    setDark(nextDark);
+  // Lock page transitions before React commits so color tokens don't tween
+  // (next-themes disableTransitionOnChange). The switch is opted out of that
+  // stamp and keeps its 180ms slide.
+  useInsertionEffect(() => {
+    if (!applyTheme.current) return;
+    const next = dark ? 'dark' : 'light';
+    if (document.documentElement.dataset.theme === next) return;
+    const restore = disableAnimation();
+    document.documentElement.dataset.theme = next;
     try {
-      localStorage.setItem('theme', nextDark ? 'dark' : 'light');
+      localStorage.setItem('theme', next);
     } catch {
       // Private browsing or a blocked-storage profile — the theme still applies
       // for this session, it just won't survive a reload.
     }
+    restore();
+  }, [dark]);
+
+  const toggleTheme = () => {
+    applyTheme.current = true;
+    setDark(document.documentElement.dataset.theme !== 'dark');
   };
 
   return (

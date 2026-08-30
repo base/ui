@@ -11,6 +11,7 @@
  *   120  modals                   (components/ui/Modal.tsx)
  *   130  poppers over modals      (components/ui/Select.tsx,
  *                                  vibenet/demos/_shared/AccountSwitcher.tsx)
+ *   140  tooltips over poppers    (components/ui/InfoTooltip.tsx)
  *
  * A popper below the modal layer still opens, but paints behind the panel —
  * which reads as "the dropdown does nothing". */
@@ -555,63 +556,19 @@ button {
   padding-right: 20px;
 }
 
-/* Sidebar hover surfaces. Nav rows paint theirs on a layer at z-index -2 — below
-   the selected pill at -1 and below every label — so the pill can animate *over*
-   the hover surface of the row it lands on (light gray deepens to the selected
-   gray) instead of being hidden by it, and the hover fill never has to blink away
-   while the pill is in flight. The sub-nav back header never hosts the pill and
-   sits outside the nav's `isolation: isolate`, where a negative layer would escape
-   to the root stacking context, so it fills its own background instead. */
-.nav-row-hover::before {
-  content: '';
-  position: absolute; /* anchored by styles.navRow's position: relative */
-  inset: 0;
-  z-index: -2;
-  border-radius: 8px;
-  background-color: transparent;
-  pointer-events: none;
-}
-
 .nav-header-hover {
   border-radius: 8px;
-}
-
-.nav-row-hover::before,
-.nav-header-hover {
   transition: background-color 0.15s ease;
 }
 
-.nav-row-hover:hover::before,
+.nav-row-hover:hover,
 .nav-header-hover:hover {
   background-color: var(--bds-gray-5);
 }
 
-/* Theme switch. The thumb is offset with a transform (see `switchThumbOn` in
-   AppShell) so only the compositor is involved; the track recolours alongside it. */
-.theme-switch-track {
-  transition: background-color 0.18s ease, border-color 0.18s ease;
-}
-
-.theme-switch-thumb {
-  transition: transform 0.18s ease, color 0.18s ease, border-color 0.18s ease;
-}
-
-/* The button carries no visible border, so the ring goes on the track — the part
-   that actually reads as the control. */
-.theme-switch:focus-visible {
-  outline: none;
-}
-
-.theme-switch:focus-visible .theme-switch-track {
-  outline: 2px solid var(--bds-brand);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .theme-switch-track,
-  .theme-switch-thumb {
-    transition: none;
-  }
+.nav-row-active,
+.nav-row-active:hover {
+  background-color: var(--bds-gray-10);
 }
 
 .nav-back-icon {
@@ -804,7 +761,7 @@ button {
     bottom: 0;
     z-index: 100;
     background: var(--bds-gray-0);
-    padding: 12px 0 20px;
+    padding: 0 0 20px;
     overflow: hidden;
   }
 

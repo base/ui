@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { navSlideDirection, SCROLL_FADE_MAX_PX, scrollEdges } from './nav-motion';
+import { navExitingHighlightPath, navSlideDirection, SCROLL_FADE_MAX_PX, scrollEdges } from './nav-motion';
 
 describe('navSlideDirection', () => {
   it('slides forward when entering a section', () => {
@@ -18,6 +18,23 @@ describe('navSlideDirection', () => {
   it('returns null when the parent is unchanged', () => {
     expect(navSlideDirection('/vibenet', '/vibenet')).toBeNull();
     expect(navSlideDirection(null, null)).toBeNull();
+  });
+});
+
+describe('navExitingHighlightPath', () => {
+  const custom = { direction: 1, highlightPath: '/vibenet' };
+
+  it('uses the live path while the pane is present', () => {
+    expect(navExitingHighlightPath(true, custom, '/')).toBe('/');
+  });
+
+  it('reads AnimatePresence custom after the pane is removed', () => {
+    expect(navExitingHighlightPath(false, custom, '/')).toBe('/vibenet');
+  });
+
+  it('falls back when custom is not a presence payload', () => {
+    expect(navExitingHighlightPath(false, 1, '/')).toBe('/');
+    expect(navExitingHighlightPath(false, null, '/snapshots')).toBe('/snapshots');
   });
 });
 

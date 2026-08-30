@@ -14,6 +14,37 @@ export function navSlideDirection(
   return currParentHref ? 1 : -1;
 }
 
+/**
+ * Payload on AnimatePresence `custom`. Direction drives the slide variants;
+ * `highlightPath` is for the exiting pane, whose React props are frozen.
+ */
+export type NavPresenceCustom = {
+  direction: number;
+  highlightPath: string;
+};
+
+/**
+ * Highlight path for a nav pane. Present panes use their live props. Exiting
+ * panes read `highlightPath` off AnimatePresence custom — the same render that
+ * unmounts the pane can still move the pill.
+ */
+export function navExitingHighlightPath(
+  isPresent: boolean,
+  custom: unknown,
+  presentPath: string,
+): string {
+  if (isPresent) return presentPath;
+  if (
+    typeof custom === 'object' &&
+    custom !== null &&
+    'highlightPath' in custom &&
+    typeof custom.highlightPath === 'string'
+  ) {
+    return custom.highlightPath;
+  }
+  return presentPath;
+}
+
 export const SCROLL_FADE_MAX_PX = 40;
 
 export type ScrollEdges = {

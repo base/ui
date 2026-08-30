@@ -5,7 +5,8 @@
 // bar. Both the read-only public view and the owned management view render
 // inside it, so an address you own and one you don't look like the same page.
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Tabs } from '../../../../components/ui/Tabs';
 import { Text } from '../../../../components/ui/Text';
@@ -15,29 +16,35 @@ import { AccountAvatar } from '../../../demos/_shared/primitives';
 export type ShellSection = { id: string; label: string };
 
 /**
- * Section selection synced to `?section=`. Returns the active id (falling back to
- * the first section) and a setter that also rewrites the URL. `valid` is the list
- * of section ids allowed for the current view.
+ * Section selection synced to `?section=`. The URL is the source of truth —
+ * `useSearchParams` supplies the active id on the first render (so a deep link
+ * does not paint the fallback tab and then animate the pill), and the setter
+ * rewrites just that param via `router.replace`. Callers need a Suspense
+ * boundary: `useSearchParams` opts the subtree out of static prerendering.
  */
-export function useSectionParam(valid: string[], fallback: string): [string, (next: string) => void] {
-  const [section, setSection] = useState(fallback);
+export function useSectionParam({
+  valid,
+  fallback,
+}: {
+  valid: string[];
+  fallback: string;
+}): [string, (next: string) => void] {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
 
-  useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get('section');
-    if (requested && valid.includes(requested)) setSection(requested);
-    // Read once on mount; deep links set the initial section.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const requested = searchParams.get('section');
+  const section = requested && valid.includes(requested) ? requested : fallback;
 
   const select = useCallback(
     (next: string) => {
-      setSection(next);
-      const url = new URL(window.location.href);
-      if (next === fallback) url.searchParams.delete('section');
-      else url.searchParams.set('section', next);
-      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === fallback) params.delete('section');
+      else params.set('section', next);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
-    [fallback],
+    [fallback, pathname, router, searchParams],
   );
 
   return [section, select];
