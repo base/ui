@@ -120,6 +120,16 @@ async function fetchBlockByNumber(
   };
 }
 
+export async function fetchBlocksByNumbers(
+  rpcUrl: string,
+  numbers: number[],
+): Promise<BlockSummary[]> {
+  const blocks = await Promise.all(
+    numbers.map((blockNumber) => fetchBlockByNumber(rpcUrl, blockNumber)),
+  );
+  return blocks.filter((block): block is BlockSummary => block !== null);
+}
+
 export async function listBlocks(rpcUrl: string, query: BlockListQuery): Promise<BlocksResponse> {
   const latestBlockNumber = await fetchLatestBlockNumber(rpcUrl);
   if (latestBlockNumber === null) {

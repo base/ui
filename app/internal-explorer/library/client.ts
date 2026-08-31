@@ -8,6 +8,7 @@ import type { ExplorerChain } from '../chains';
 import type {
   BlockDetailResponse,
   BlocksResponse,
+  BlockSummary,
   LatestActiveBlockResponse,
   BundleHistoryResponse,
   RejectedTransactionsResponse,
@@ -116,6 +117,25 @@ export const explorerApi = {
   shadowBlock: (hash: string, chain: ExplorerChain, signal?: AbortSignal) =>
     get<{ summary: ShadowBlockSummary; detail: ShadowBlockDetail }>(
       `/api/internal-explorer/shadow-block/${enc(hash)}`,
+      chain,
+      signal,
+    ),
+  recentShadowBlocks: (
+    chain: ExplorerChain,
+    options?: { limit?: number; before?: number },
+    signal?: AbortSignal,
+  ) =>
+    get<ShadowBlockSummary[]>(
+      withQuery('/api/internal-explorer/shadow-blocks', {
+        limit: options?.limit,
+        before: options?.before,
+      }),
+      chain,
+      signal,
+    ),
+  blocksByNumbers: (chain: ExplorerChain, numbers: number[], signal?: AbortSignal) =>
+    get<BlockSummary[]>(
+      withQuery('/api/internal-explorer/blocks-by-numbers', { numbers: numbers.join(',') }),
       chain,
       signal,
     ),

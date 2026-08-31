@@ -147,6 +147,20 @@ export async function fetchShadowCandidatesBatch(
   }
 }
 
+export async function fetchRecentShadowBlocks(
+  baseUrl: string,
+  options: { limit?: number; before?: number } = {},
+): Promise<ShadowBlockSummary[]> {
+  const root = baseUrl.replace(/\/$/, '');
+  const params = new URLSearchParams();
+  if (options.limit !== undefined) params.set('limit', String(options.limit));
+  if (options.before !== undefined) params.set('before', String(options.before));
+  const query = params.toString();
+  const url = query ? `${root}/shadow-blocks?${query}` : `${root}/shadow-blocks`;
+  const summaries = await fetchShadowMetrics<ShadowBlockSummaryWire[]>(url);
+  return summaries.map(normalizeShadowSummary);
+}
+
 export async function fetchShadowBlockSummary(
   baseUrl: string,
   hash: string,

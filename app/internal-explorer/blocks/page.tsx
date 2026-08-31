@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
 import { Card } from '../../components/ui/Card';
 import { Spinner } from '../../components/ui/Spinner';
@@ -29,17 +29,18 @@ function BlocksContent() {
   const [error, setError] = useState<string | null>(null);
   const [showShadowDelta, setShowShadowDelta] = useState(false);
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
-  const shadowKey = useMemo(
-    () => (data?.blocks ?? []).map((block) => block.hash.toLowerCase()).sort().join(','),
-    [data?.blocks],
-  );
 
+  // Canonical-block view: paginate the chain tip directly. The shadow-delta
+  // view has its own source below, so this fetch stands down when it is on.
   useEffect(() => {
+    if (showShadowDelta) return undefined;
+
     let cancelled = false;
     const controller = new AbortController();
     setLoading(true);
     setError(null);
     setData(null);
+    setShadowCandidates({});
 
     explorerApi
       .blocksPage(chain, { cursor, limit: PAGE_LIMIT }, controller.signal)
@@ -58,26 +59,72 @@ function BlocksContent() {
       cancelled = true;
       controller.abort();
     };
-  }, [chain, cursor]);
+  }, [chain, cursor, showShadowDelta]);
 
+  // The canonical tip rarely holds a block with a shadow replacement, so this
+  // view is driven by recent shadow blocks (dense, newest first) with each
+  // canonical block resolved by number to fill the base columns.
   useEffect(() => {
-    if (!showShadowDelta || shadowKey.length === 0) {
-      setShadowCandidates({});
-      return undefined;
-    }
+    if (!showShadowDelta) return undefined;
 
+    let cancelled = false;
     const controller = new AbortController();
-    const hashes = shadowKey.split(',');
+    setLoading(true);
+    setError(null);
+    setData(null);
+    setShadowCandidates({});
 
     explorerApi
-      .shadowCandidatesBatch(chain, hashes, controller.signal)
-      .then((response) => setShadowCandidates(response))
-      .catch(() => setShadowCandidates({}));
+      .recentShadowBlocks(chain, { limit: PAGE_LIMIT }, controller.signal)
+      .then(async (shadows) => {
+        if (cancelled) return;
+        if (shadows.length === 0) {
+          setData({
+            blocks: [],
+            page: { cursor: null, limit: PAGE_LIMIT, latestBlockNumber: 0, nextCursor: null, hasMore: false },
+          });
+          return;
+        }
+
+        const numbers = shadows.map((shadow) => shadow.number);
+        const canonicalBlocks = await explorerApi.blocksByNumbers(chain, numbers, controller.signal);
+        if (cancelled) return;
+
+        const canonicalByNumber = new Map(canonicalBlocks.map((block) => [block.number, block]));
+        const orderedBlocks = shadows
+          .map((shadow) => canonicalByNumber.get(shadow.number))
+          .filter((block): block is NonNullable<typeof block> => block !== undefined);
+        const candidates = Object.fromEntries(
+          shadows
+            .filter((shadow) => shadow.canonicalHash !== undefined)
+            .map((shadow) => [shadow.canonicalHash!.toLowerCase(), [shadow]]),
+        );
+
+        setShadowCandidates(candidates);
+        setData({
+          blocks: orderedBlocks,
+          page: {
+            cursor: null,
+            limit: PAGE_LIMIT,
+            latestBlockNumber: orderedBlocks[0]?.number ?? 0,
+            nextCursor: null,
+            hasMore: false,
+          },
+        });
+      })
+      .catch(() => {
+        if (controller.signal.aborted || cancelled) return;
+        setError('Failed to fetch shadow blocks');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
+      cancelled = true;
       controller.abort();
     };
-  }, [chain, shadowKey, showShadowDelta]);
+  }, [chain, showShadowDelta]);
 
   return (
     <div className="animate-in flex flex-col gap-6">
