@@ -8,10 +8,8 @@ import { AnimatePresence, easeOut, motion, useIsPresent, useMotionTemplate, useM
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
-import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
-import { getChangeBySlug } from '../upgrades/data/changes';
+import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { demoLabel } from '../vibenet/demos/catalogue';
-import { getUpgradeById } from '../upgrades/data/upgrades';
 
 import { trackNavClick } from '../analytics/events';
 import { navExitingHighlightPath, navSlideDirection, type NavPresenceCustom } from './nav-motion';
@@ -95,8 +93,8 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     padding: '1px 6px',
   },
-  // Pinned below the sliding panes so Status/Support/Docs/Blog stay put when
-  // a section sub-nav slides in. The switch sits on the last row beside Blog.
+  // Pinned below the sliding panes so Status/Support/Docs/Upgrades/Blog stay put
+  // when a section sub-nav slides in. The switch sits on the last row beside Blog.
   sidebarFooter: {
     display: 'flex',
     flexDirection: 'column',
@@ -201,22 +199,6 @@ function NavGlyph({ name }: NavGlyphProps) {
         <svg width={common.width} height={common.height} viewBox="5 6.5 30 27" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="nav-snapshots-icon">
           <path d="M23.5 21C23.5 22.933 21.933 24.5 20 24.5C18.067 24.5 16.5 22.933 16.5 21C16.5 19.067 18.067 17.5 20 17.5C21.933 17.5 23.5 19.067 23.5 21Z" />
           <path d="M9 16.5826C9 14.604 10.604 13 12.5826 13H12.6972C13.8235 13 14.8753 12.4371 15.5 11.5C16.1247 10.5629 17.1765 10 18.3028 10H21.6972C22.8235 10 23.8753 10.5629 24.5 11.5C25.1247 12.4371 26.1765 13 27.3028 13H27.4174C29.396 13 31 14.604 31 16.5826V26C31 28.2091 29.2091 30 27 30H13C10.7909 30 9 28.2091 9 26V16.5826Z" />
-        </svg>
-      );
-    case 'upgrades':
-      return (
-        <svg {...common}>
-          <path d="M3 6.7C3 4.65 4.65 3 6.7 3h10.6C19.35 3 21 4.65 21 6.7v10.6c0 2.05-1.65 3.7-3.7 3.7H6.7C4.65 21 3 19.35 3 17.3V6.7Z" />
-          <path
-            d="M12.2 16.5V7.9M16.9 12.6 12.2 7.9 7.6 12.6"
-            className="nav-upgrades-arrow"
-          />
-        </svg>
-      );
-    case 'changelog':
-      return (
-        <svg {...common} viewBox="0 0 24 24" strokeWidth={1.8} className="nav-changelog-icon">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
         </svg>
       );
     case 'vibenet':
@@ -581,8 +563,41 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
       </div>
 
       <div style={styles.sidebarFooter} className="sidebar-gutter">
-        <a href="https://status.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
-          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+        <a href="https://status.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
+          <span style={styles.footerIcon}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
+            </svg>
+          </span>
+          <Text as="span" variant="label.medium" tone="inherit">Status</Text>
+        </a>
+        <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
+          <span style={styles.footerIcon}>
+            <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
+              <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
+            </svg>
+          </span>
+          <Text as="span" variant="label.medium" tone="inherit">Support</Text>
+        </a>
+        <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
+          <span style={styles.footerIcon}>
+            <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+            </svg>
+          </span>
+          <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
+        </a>
+        <a href="https://docs.base.org/base-chain/specs/upgrades/overview" target="_blank" rel="noreferrer" style={styles.footerLink}>
+          <span style={styles.footerIcon}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6.7C3 4.65 4.65 3 6.7 3h10.6C19.35 3 21 4.65 21 6.7v10.6c0 2.05-1.65 3.7-3.7 3.7H6.7C4.65 21 3 19.35 3 17.3V6.7Z" />
+              <path d="M12.2 16.5V7.9M16.9 12.6 12.2 7.9 7.6 12.6" />
+            </svg>
+          </span>
+          <Text as="span" variant="label.medium" tone="inherit">Upgrades</Text>
+        </a>
+        <div style={styles.footerLastRow}>
+          <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={{ ...styles.footerLink, flex: 1 }}>
             <span style={styles.footerIcon}>
               <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
@@ -843,28 +858,6 @@ export function AppShell({ children }: PropsWithChildren) {
           >
             <div id="topbar-actions-slot" className="absolute right-7 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2" />
             {(() => {
-              const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
-              if (slugMatch) {
-                const change = getChangeBySlug(slugMatch[1]);
-                return (
-                  <Breadcrumb
-                    parentLabel="Changelog"
-                    parentHref="/upgrades/changelog"
-                    childLabel={change?.title ?? slugMatch[1]}
-                  />
-                );
-              }
-              const upgradeMatch = pathname.match(/^\/upgrades\/upgrade\/(.+)$/);
-              if (upgradeMatch) {
-                const upgrade = getUpgradeById(upgradeMatch[1]);
-                return (
-                  <Breadcrumb
-                    parentLabel="Upgrades"
-                    parentHref="/upgrades"
-                    childLabel={upgrade?.name ?? upgradeMatch[1]}
-                  />
-                );
-              }
               if (pathname.startsWith('/vibenet') && pathname !== '/vibenet') {
                 let childLabel = title;
                 let middle: { label: string; href: string } | undefined;

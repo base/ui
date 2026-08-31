@@ -47,11 +47,6 @@ describe('isChildActive', () => {
 });
 
 describe('isTopNavActive', () => {
-  it('does not highlight Upgrades on the changelog path', () => {
-    expect(isTopNavActive({ label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true }, '/upgrades/changelog')).toBe(false);
-    expect(isTopNavActive({ label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true }, '/upgrades/changelog')).toBe(true);
-  });
-
   it('highlights a section root while inside it', () => {
     expect(isTopNavActive({ label: 'Vibenet', href: '/vibenet', icon: 'vibenet', enabled: true, children: [] }, '/vibenet/faucet')).toBe(true);
   });

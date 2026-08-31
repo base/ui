@@ -20,12 +20,6 @@ const SURFACES: Surface[] = [
     enabled: true,
   },
   {
-    label: 'Upgrades',
-    href: '/upgrades',
-    description: 'Track Base network upgrades and the features shipping in each fork.',
-    enabled: true,
-  },
-  {
     label: 'Snapshots',
     href: '/snapshots',
     description: 'Download and configure Reth v2 snapshots to sync a Base node faster.',

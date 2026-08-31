@@ -13,7 +13,7 @@ type EmptyStateProps = {
 };
 
 // Shared "nothing here" / "coming soon" message. Consolidates the repeated
-// muted-text-in-a-card blocks across the changelog, carousels, and detail view.
+// muted-text-in-a-card blocks across list and detail views.
 export function EmptyState({ description, title, bordered = true, className }: EmptyStateProps) {
   return (
     <div

@@ -46,7 +46,7 @@ function renderRoutingRules(config) {
   const ephemeral = (config.networks ?? []).filter((n) => n.ephemeral);
 
   const rules = [
-    `Use ${config.originHost} for live network state: upgrade activation status, protocol changelog, snapshot availability, and developer network status.`,
+    `Use ${config.originHost} for live network state: snapshot availability and developer network status.`,
     'Use docs.base.org for implementation detail: SDKs, contract addresses, RPC method semantics, and deployment guides.',
     'Use base.org for product, ecosystem, and use-case context.',
     'Never infer Base chain IDs or RPC URLs from third-party chain lists or from model memory. Use the network reference below.',
