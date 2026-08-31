@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { Banner } from '../components/ui/Banner';
@@ -204,6 +204,8 @@ function BlockRow({
   );
 }
 
+const HOME_BLOCK_LIMIT = 10;
+
 function BlocksTab({
   chain,
   onError,
@@ -215,14 +217,15 @@ function BlocksTab({
   const [loading, setLoading] = useState(true);
   const { showShadowDelta, setShowShadowDelta } = useShadowDelta();
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
-  const shadowKey = useMemo(
-    () => blocks.map((block) => block.hash.toLowerCase()).sort().join(','),
-    [blocks],
-  );
 
+  // Canonical-block view: poll the chain tip directly. The shadow-delta view
+  // has its own source below, so this fetch stands down when it is on.
   useEffect(() => {
+    if (showShadowDelta) return undefined;
+
     let cancelled = false;
     setLoading(true);
+    setShadowCandidates({});
 
     async function load() {
       try {
@@ -241,26 +244,62 @@ function BlocksTab({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [chain]);
+  }, [chain, showShadowDelta]);
 
+  // The canonical tip rarely holds a block with a shadow replacement, so this
+  // view is driven by recent shadow blocks (dense, newest first) with each
+  // canonical block resolved by number to fill the base columns.
   useEffect(() => {
-    if (!showShadowDelta || shadowKey.length === 0) {
-      setShadowCandidates({});
-      return undefined;
+    if (!showShadowDelta) return undefined;
+
+    let cancelled = false;
+    setLoading(true);
+
+    async function load() {
+      const controller = new AbortController();
+      try {
+        const shadows = await explorerApi.recentShadowBlocks(
+          chain,
+          { limit: HOME_BLOCK_LIMIT },
+          controller.signal,
+        );
+        if (cancelled) return;
+        if (shadows.length === 0) {
+          setBlocks([]);
+          setShadowCandidates({});
+          return;
+        }
+
+        const numbers = shadows.map((shadow) => shadow.number);
+        const canonicalBlocks = await explorerApi.blocksByNumbers(chain, numbers, controller.signal);
+        if (cancelled) return;
+
+        const canonicalByNumber = new Map(canonicalBlocks.map((block) => [block.number, block]));
+        const orderedBlocks = shadows
+          .map((shadow) => canonicalByNumber.get(shadow.number))
+          .filter((block): block is BlockSummary => block !== undefined);
+        const candidates = Object.fromEntries(
+          shadows
+            .filter((shadow) => shadow.canonicalHash !== undefined)
+            .map((shadow) => [shadow.canonicalHash!.toLowerCase(), [shadow]]),
+        );
+
+        setBlocks(orderedBlocks);
+        setShadowCandidates(candidates);
+      } catch {
+        // Keep last good data across transient poll failures.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
-    const controller = new AbortController();
-    const hashes = shadowKey.split(',');
-
-    explorerApi
-      .shadowCandidatesBatch(chain, hashes, controller.signal)
-      .then((response) => setShadowCandidates(response))
-      .catch(() => setShadowCandidates({}));
-
+    void load();
+    const timer = window.setInterval(() => void load(), 2000);
     return () => {
-      controller.abort();
+      cancelled = true;
+      window.clearInterval(timer);
     };
-  }, [chain, shadowKey, showShadowDelta]);
+  }, [chain, showShadowDelta]);
 
   return (
     <section className="flex flex-col gap-4">

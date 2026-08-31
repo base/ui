@@ -127,7 +127,12 @@ export async function fetchBlocksByNumbers(
   const blocks = await Promise.all(
     numbers.map((blockNumber) => fetchBlockByNumber(rpcUrl, blockNumber)),
   );
-  return blocks.filter((block): block is BlockSummary => block !== null);
+
+  if (blocks.some((block) => block === null)) {
+    throw new BlockListUnavailableError('failed to fetch one or more blocks');
+  }
+
+  return blocks as BlockSummary[];
 }
 
 export async function listBlocks(rpcUrl: string, query: BlockListQuery): Promise<BlocksResponse> {
