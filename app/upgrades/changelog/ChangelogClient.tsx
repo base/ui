@@ -190,7 +190,7 @@ export function ChangelogClient() {
           onChange={handleQueryChange}
           placeholder="Search by title, EIP, or summary keyword"
           aria-label="Search changes"
-          className="h-[34px] min-w-[min(100%,14rem)] flex-1 rounded-full border border-bds-gray-10 bg-background px-4 text-[14px] text-foreground outline-none placeholder:text-bds-gray-50"
+          className="h-[34px] min-w-[min(100%,14rem)] flex-1 rounded-full border border-bds-gray-10 bg-background px-4 text-[14px] text-foreground outline-none transition-colors placeholder:text-bds-gray-50 focus:border-foreground dark:border-white/10 dark:focus:border-white/40"
         />
       </div>
 

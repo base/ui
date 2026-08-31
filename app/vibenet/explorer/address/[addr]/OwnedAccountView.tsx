@@ -41,7 +41,7 @@ import { ActivityTable } from './ActivityTable';
 import { AssetsCard } from './AssetsCard';
 
 const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-background px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-bds-blue-40';
+  'w-full rounded-lg border border-bds-gray-10 bg-background px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40';
 
 const SECTIONS: ShellSection[] = [
   { id: 'overview', label: 'Overview' },
