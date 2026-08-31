@@ -146,7 +146,7 @@ export function AssetsCard({
         >
           <AssetIcon symbol={asset.symbol} />
           <span className="text-[14px] font-normal">{asset.symbol}</span>
-          <span className="ml-auto font-sans text-[14px]">{asset.balance}</span>
+          <span className="ml-auto text-[14px]">{asset.balance}</span>
         </div>
       ))}
     </Card>
