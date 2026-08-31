@@ -1,9 +1,9 @@
 'use client';
 
 import { scaleLinear } from 'd3';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { CANDLE_BUCKET_MS, CANDLE_WINDOW_MS } from '../lib/constants';
+import { CANDLE_BUCKET_MS, CANDLE_SAMPLE_MS, CANDLE_WINDOW_MS } from '../lib/constants';
 import type { Side } from '../lib/types';
 
 const BUY_PLOT = '#22ad73';
@@ -27,14 +27,26 @@ export type PriceLevel = {
 
 export type Candle = { t: number; o: number; h: number; l: number; c: number };
 
-export function toCandles(samples: PriceSample[]): Candle[] {
+export function toCandles(
+  samples: PriceSample[],
+  opts?: { now?: number; windowMs?: number; bucketMs?: number },
+): Candle[] {
   if (!samples || samples.length === 0) return [];
-  const lastT = samples[samples.length - 1].t;
-  const start = lastT - WINDOW_MS;
+  const windowMs = opts?.windowMs ?? WINDOW_MS;
+  const bucketMs = opts?.bucketMs ?? BUCKET_MS;
+  const lastSample = samples[samples.length - 1].t;
+  const now = opts?.now ?? lastSample;
+  const end = Math.floor(now / bucketMs) * bucketMs;
+  const start = end - windowMs + bucketMs;
   const buckets = new Map<number, Candle>();
+  let seed: number | undefined;
   for (const sample of samples) {
-    if (sample.t < start || !Number.isFinite(sample.price) || sample.price <= 0) continue;
-    const bucket = Math.floor(sample.t / BUCKET_MS) * BUCKET_MS;
+    if (!Number.isFinite(sample.price) || sample.price <= 0) continue;
+    if (sample.t < start) {
+      seed = sample.price;
+      continue;
+    }
+    const bucket = Math.floor(sample.t / bucketMs) * bucketMs;
     const existing = buckets.get(bucket);
     if (!existing) {
       buckets.set(bucket, { t: bucket, o: sample.price, h: sample.price, l: sample.price, c: sample.price });
@@ -44,17 +56,24 @@ export function toCandles(samples: PriceSample[]): Candle[] {
     existing.l = Math.min(existing.l, sample.price);
     existing.c = sample.price;
   }
-  const raw = [...buckets.values()].sort((a, b) => a.t - b.t);
   const stitched: Candle[] = [];
-  for (const candle of raw) {
-    const open = stitched.length === 0 ? candle.o : stitched[stitched.length - 1].c;
-    stitched.push({
-      t: candle.t,
-      o: open,
-      h: Math.max(candle.h, open),
-      l: Math.min(candle.l, open),
-      c: candle.c,
-    });
+  let prevClose = seed;
+  for (let t = start; t <= end; t += bucketMs) {
+    const raw = buckets.get(t);
+    if (raw) {
+      const open = prevClose ?? raw.o;
+      stitched.push({
+        t,
+        o: open,
+        h: Math.max(raw.h, open),
+        l: Math.min(raw.l, open),
+        c: raw.c,
+      });
+      prevClose = raw.c;
+      continue;
+    }
+    if (prevClose === undefined) continue;
+    stitched.push({ t, o: prevClose, h: prevClose, l: prevClose, c: prevClose });
   }
   return stitched;
 }
@@ -107,12 +126,16 @@ type Props = {
 };
 
 export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
-  const candles = useMemo(() => toCandles(samples ?? []), [samples]);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), CANDLE_SAMPLE_MS);
+    return () => window.clearInterval(id);
+  }, []);
+  const candles = useMemo(() => toCandles(samples ?? [], { now }), [now, samples]);
   const innerW = WIDTH - PAD.left - PAD.right;
   const innerH = HEIGHT - PAD.top - PAD.bottom;
   const visibleLevels = levels.filter((level) => Number.isFinite(level.price) && level.price > 0);
   const visibleFills = fills.filter((fill) => Number.isFinite(fill.price) && fill.price > 0 && fill.t > 0);
-  const focusFill = visibleFills.find((fill) => fill.highlighted) ?? null;
 
   const layout = useMemo(() => {
     if (candles.length === 0) return null;
@@ -140,18 +163,14 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
     const pad = (hi - lo) * 0.08;
     const yMin = Math.max(lo - pad, 0);
     const yMax = hi + pad;
-    let t0 = candles[0].t;
-    let t1 = Math.max(candles[candles.length - 1].t + BUCKET_MS, t0 + BUCKET_MS);
-    if (focusFill) {
-      t0 = Math.min(t0, focusFill.t - BUCKET_MS);
-      t1 = Math.max(t1, focusFill.t + BUCKET_MS);
-    }
+    const t1 = candles[candles.length - 1].t + BUCKET_MS;
+    const t0 = t1 - WINDOW_MS;
     const x = scaleLinear().domain([t0, t1]).range([0, innerW]);
     const y = scaleLinear().domain([yMin, yMax]).range([innerH, 0]);
     const yTicks = y.ticks(6);
     const xTicks = x.ticks(5);
-    return { x, y, yMin, yMax, yTicks, xTicks, last, slot: innerW / Math.max(candles.length, 1) };
-  }, [candles, focusFill, innerH, innerW, visibleFills, visibleLevels]);
+    return { x, y, yMin, yMax, yTicks, xTicks, last, slot: innerW / (WINDOW_MS / BUCKET_MS) };
+  }, [candles, innerH, innerW, visibleFills, visibleLevels]);
 
   const firstOpen = candles[0]?.o;
   const lastClose = layout?.last;
@@ -166,7 +185,7 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
           <VibeMark />
           <div>
             <div className="font-mono text-[13px] tracking-[0.08em] text-white">VIBE / USDV</div>
-            <div className="font-mono text-[11px] text-[#7d8a96]">simulated pool · 200ms candles</div>
+            <div className="font-mono text-[11px] text-[#7d8a96]">simulated pool · 5s candles</div>
           </div>
         </div>
         <div className="text-right">

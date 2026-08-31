@@ -34,7 +34,7 @@ import {
 } from './lib/amm';
 import { clampNoncelessExpiry, noncelessFields } from './lib/aa';
 import { startBots, allNeedGas } from './lib/bots';
-import { MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS } from './lib/constants';
+import { CANDLE_SAMPLE_MS, CANDLE_WINDOW_MS, MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS } from './lib/constants';
 import { faucetErrorMessage } from './lib/faucet';
 import { ensureMakers, rootAccount } from './lib/makers';
 import {
@@ -151,9 +151,31 @@ function ValidityDemoInner() {
     if (!Number.isFinite(price) || price <= 0) return;
     setSamples((prev) => {
       const next = [...prev, { t: Date.now(), price }];
-      return next.length > 500 ? next.slice(-500) : next;
+      const keep = Math.ceil(CANDLE_WINDOW_MS / CANDLE_SAMPLE_MS) + 8;
+      return next.length > keep ? next.slice(-keep) : next;
     });
   }, []);
+
+  useEffect(() => {
+    const stamp = () => {
+      const current = reservesRef.current;
+      const deployment = stateRef.current?.deployment;
+      if (!current || !deployment) return;
+      const quote = quoteWad(current.reserve0, current.reserve1, vibeIsToken0(deployment));
+      pushSample(Number(quote) / 1e18);
+    };
+    let interval: number | undefined;
+    const delay = CANDLE_SAMPLE_MS - (Date.now() % CANDLE_SAMPLE_MS);
+    const timeout = window.setTimeout(() => {
+      stamp();
+      interval = window.setInterval(stamp, CANDLE_SAMPLE_MS);
+    }, delay);
+    stamp();
+    return () => {
+      window.clearTimeout(timeout);
+      if (interval !== undefined) window.clearInterval(interval);
+    };
+  }, [pushSample]);
 
   const parent = useMemo(
     () => (acct ? rootAccount(acct, engine.accounts) : null),
@@ -371,8 +393,6 @@ function ValidityDemoInner() {
         if (latestReserves && deployment) {
           const latest = latestReserves as Reserves;
           setReserves(latest);
-          const quote = quoteWad(latest.reserve0, latest.reserve1, vibeIsToken0(deployment));
-          pushSample(Number(quote) / 1e18);
         }
         applyMakerParts(deployment, makerParts);
         return;
@@ -715,9 +735,8 @@ function ValidityDemoInner() {
         }
       },
       enabled: () => botsEnabledRef.current,
-      onPrice: (price) => {
+      onPrice: () => {
         lastMakerPriceAtRef.current = Date.now();
-        pushSample(price);
         setMakerError(null);
         setMakersDry(false);
       },
@@ -733,7 +752,7 @@ function ValidityDemoInner() {
       },
     });
     return stop;
-  }, [hydrated, makerKey, pushSample, state?.deployment, status?.chainId]);
+  }, [hydrated, makerKey, state?.deployment, status?.chainId]);
 
   const placeOrder = async () => {
     if (!draft || !acct || !state?.deployment || !reserves || !engine.activeSigner) return;
