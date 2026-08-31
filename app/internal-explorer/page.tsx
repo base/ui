@@ -253,9 +253,16 @@ function BlocksTab({
     if (!showShadowDelta) return undefined;
 
     let cancelled = false;
+    let inFlight = false;
     setLoading(true);
+    setBlocks([]);
+    setShadowCandidates({});
 
     async function load() {
+      // This poll chains two requests, so skip if the previous one is still
+      // running to avoid stacking calls and clobbering fresh data out of order.
+      if (inFlight) return;
+      inFlight = true;
       const controller = new AbortController();
       try {
         const shadows = await explorerApi.recentShadowBlocks(
@@ -289,6 +296,7 @@ function BlocksTab({
       } catch {
         // Keep last good data across transient poll failures.
       } finally {
+        inFlight = false;
         if (!cancelled) setLoading(false);
       }
     }
