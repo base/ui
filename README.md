@@ -65,7 +65,7 @@ outside this repo at the org/platform level.
   - `vibenet/` — devnet explorer and faucet
   - `components/` — shared shell and UI primitives
   - `theme.ts` / `spectrum.ts` / `globals.css` — BDS design tokens
-- `public/` — Base Sans fonts and images
+- `public/` — Google Sans Flex, Doto, and images
 
 ## Environment
 

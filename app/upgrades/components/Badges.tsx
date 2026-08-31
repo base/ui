@@ -80,7 +80,7 @@ export function StatusPill({ variant, children, className }: StatusPillProps) {
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-2 rounded-full px-1.5 py-1 font-sans text-[12px] leading-none',
+        'inline-flex max-w-full items-center gap-2 rounded-full px-1.5 py-1 text-[12px] leading-none',
         statusClassName[variant],
         className,
       )}
@@ -99,7 +99,7 @@ export function CategoryBadge({ category }: CategoryBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-md px-2 py-1 font-sans text-[11px] leading-none',
+        'inline-flex items-center rounded-md px-2 py-1 text-[11px] leading-none',
         CATEGORY_METADATA[category].className,
       )}
     >
@@ -114,7 +114,7 @@ type KindBadgeProps = {
 
 export function KindBadge({ kind }: KindBadgeProps) {
   return (
-    <span className="inline-flex items-center rounded-md bg-bds-gray-5 px-1.5 py-1 font-sans text-[11px] leading-none text-bds-gray-60">
+    <span className="inline-flex items-center rounded-md bg-bds-gray-5 px-1.5 py-1 text-[11px] leading-none text-bds-gray-60">
       {kindLabel(kind)}
     </span>
   );

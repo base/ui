@@ -6,19 +6,16 @@ exceptions listed below. Where this file and LICENSE disagree, this file
 governs for the files it names.
 
 
-Base Sans and Base Sans Mono (brand typefaces) — NOT MIT licensed
------------------------------------------------------------------
+Google Sans Flex (UI typeface) — NOT MIT licensed
+-------------------------------------------------
 
-    public/fonts/BaseSans/*
-    public/fonts/BaseSansMono/*
+    public/fonts/GoogleSansFlex/*
 
-These typefaces are Base's proprietary brand assets. Copyright (c) Base. All
-rights reserved.
-
-They are included in this repository solely so that this application renders
-with correct branding. They are NOT covered by the MIT license in LICENSE, and
-no license to them is granted by it. You may not copy, redistribute, embed,
-modify, sublicense, or otherwise use these font files outside of this project.
+This typeface is a proprietary Google font, included here solely so that this
+application renders with the same UI sans as the Base dashboard. It is NOT
+covered by the MIT license in LICENSE, and no license to it is granted by it.
+You may not copy, redistribute, embed, modify, sublicense, or otherwise use
+these font files outside of this project.
 
 If you fork this repository or reuse its code, remove these files and
 substitute your own typeface. Note that they are loaded via next/font/local in

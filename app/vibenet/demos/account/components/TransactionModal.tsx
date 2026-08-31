@@ -816,7 +816,7 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
             />
             {metadataHex ? (
               <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                → <span className="font-sans">{short(metadataHex, 14, 8)}</span>
+                → <span>{short(metadataHex, 14, 8)}</span>
               </p>
             ) : null}
           </div>
@@ -900,7 +900,7 @@ function CallsEditor(props: CallsEditorProps) {
           <Text variant="label" className="font-normal">
             Calls
           </Text>
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-bds-gray-10 px-1.5 font-base text-[11px] font-medium tabular-nums text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-40">
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-bds-gray-10 px-1.5 text-[11px] font-medium tabular-nums text-bds-gray-60 dark:bg-white/10 dark:text-bds-gray-40">
             {calls.length}
           </span>
         </div>
@@ -1068,7 +1068,7 @@ function CallsEditor(props: CallsEditorProps) {
                   onChange={(e) => setRow(r.id, { value: e.target.value })}
                 />
                 <input
-                  className={cn(INPUT_CLS, 'flex-1 font-sans')}
+                  className={cn(INPUT_CLS, 'flex-1')}
                   value={r.data}
                   spellCheck={false}
                   placeholder="0x"
@@ -1145,7 +1145,7 @@ function ReviewBody({
   const AddressChip = ({ address }: { address: string }) => {
     const label = addressLabel(address);
     return (
-      <span className="font-sans text-bds-gray-70 dark:text-bds-gray-30">
+      <span className="text-bds-gray-70 dark:text-bds-gray-30">
         {label ? `${label} · ` : ''}
         {short(address)}
       </span>
@@ -1201,7 +1201,7 @@ function ReviewBody({
                   </span>
                   <AddressChip address={r.to.trim() || acct.address} />
                   {isPlainCall ? (
-                    <span className="font-sans text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+                    <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
                       {short(r.data.trim(), 8, 4)}
                     </span>
                   ) : null}
@@ -1444,7 +1444,7 @@ function SubmittedBody({
       ) : null}
       {result.gasNote ? <Text variant="label.regular" tone="muted">{result.gasNote}</Text> : null}
       {result.txHash ? (
-        <span className="font-sans text-[13px] text-bds-gray-60 dark:text-bds-gray-40">{short(result.txHash)}</span>
+        <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">{short(result.txHash)}</span>
       ) : null}
     </div>
   );

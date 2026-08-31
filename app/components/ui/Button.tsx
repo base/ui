@@ -42,7 +42,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 ) {
   let sizeClasses: string;
   if (size === 'sm') {
-    sizeClasses = 'h-[34px] px-3 gap-1 pb-px';
+    sizeClasses = 'h-[34px] px-3 gap-1';
   } else if (arrow) {
     sizeClasses = 'h-10 pl-4 pr-3 gap-1';
   } else {
@@ -50,7 +50,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   }
 
   const classes = cn(
-    'group flex whitespace-nowrap w-fit active:scale-[0.96] transition-[background-color,border-color,color,transform] duration-150 ease-out max-w-full items-center justify-center rounded-full font-sans sm:w-auto',
+    'group flex whitespace-nowrap w-fit active:scale-[0.96] transition-[background-color,border-color,color,transform] duration-150 ease-out max-w-full items-center justify-center rounded-full sm:w-auto',
+    // Trim half-leading to cap/alphabetic so Google Sans Flex sits optically
+    // centered in the fixed-height pill. Type styles live on this same node.
+    '[text-box-trim:trim-both] [text-box-edge:cap_alphabetic]',
     sizeClasses,
     size === 'sm' ? textVariantClasses.label : textVariantClasses.button,
     'md:leading-[20px]',

@@ -41,7 +41,7 @@ export function DemoTabs({ items, value, onChange, ariaLabel, layoutId = 'demo-t
             disabled={item.disabled}
             onClick={() => !item.disabled && onChange(item.value)}
             className={cn(
-              'relative select-none rounded-full px-4 py-1.5 font-sans text-[14px] transition-colors',
+              'relative flex h-8 select-none items-center rounded-full px-4 py-1.5 text-[14px] font-[500] transition-colors',
               item.disabled
                 ? 'cursor-not-allowed text-bds-gray-40'
                 : active
@@ -56,7 +56,7 @@ export function DemoTabs({ items, value, onChange, ariaLabel, layoutId = 'demo-t
                 className="absolute inset-0 rounded-full bg-background shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:bg-white/15"
               />
             )}
-            <span className="relative z-[1]">{item.label}</span>
+            <span className="relative z-[1] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic]">{item.label}</span>
           </button>
         );
       })}

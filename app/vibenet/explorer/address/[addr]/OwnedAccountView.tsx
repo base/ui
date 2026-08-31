@@ -250,7 +250,7 @@ function OwnersSection({ openApply }: { openApply: (target: ApplyTarget) => void
                       {isEoa ? <Badge>EOA</Badge> : null}
                       {isNew ? <Badge tone="ok">New</Badge> : changed ? <Badge>Changed</Badge> : null}
                     </div>
-                    <span className="font-sans text-[12px] text-bds-gray-50">{shortAddress(owner.identity)}</span>
+                    <span className="text-[12px] text-bds-gray-50">{shortAddress(owner.identity)}</span>
                   </div>
                 </div>
                 <Select
@@ -349,7 +349,7 @@ function SessionsSection({ openApply }: { openApply: (target: ApplyTarget) => vo
                     <KindBadge kind={session.kind} />
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[15px] font-normal">{session.label}</span>
-                      <span className="font-sans text-[12px] text-bds-gray-50">{shortAddress(session.actorId)}</span>
+                      <span className="text-[12px] text-bds-gray-50">{shortAddress(session.actorId)}</span>
                     </div>
                   </div>
                   {!session.pendingAuth && !session.pendingRevoke ? (
@@ -467,7 +467,7 @@ function SubAccountsSection() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate text-[15px] font-normal">{subAccount.label}</span>
-                    <span className="font-sans text-[12px] text-bds-gray-50">{shortAddress(subAccount.address)}</span>
+                    <span className="text-[12px] text-bds-gray-50">{shortAddress(subAccount.address)}</span>
                   </div>
                   {stored ? (
                     <ConfirmTrashButton

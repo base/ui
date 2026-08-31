@@ -93,7 +93,7 @@ export function FeatureCard({ feature }: FeatureCardProps) {
               key={highlight.title}
               className="rounded-lg bg-bds-gray-5 p-3 dark:bg-white/5"
             >
-              <Text as="span" variant="label.medium" className="block">
+              <Text as="span" variant="label.medium" className="block font-[500]">
                 {highlight.title}
               </Text>
               <Text as="span" variant="footnote" tone="muted" className="mt-0.5 block">

@@ -337,7 +337,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
                     spellCheck={false}
                     onChange={(e) => setModalSalt(e.target.value)}
                     placeholder="0x… (32 bytes) or any phrase"
-                    className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 font-sans text-[13px] font-normal outline-none placeholder:text-bds-gray-40"
+                    className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 text-[13px] font-normal outline-none placeholder:text-bds-gray-40"
                   />
                   <Button
                     size="sm"
@@ -372,7 +372,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
           <div className="flex flex-col gap-1">
             <span className="text-[11px] tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">Address</span>
             {modalAddress ? (
-              <span className="break-all font-sans text-[13px] text-foreground">{modalAddress}</span>
+              <span className="break-all text-[13px] text-foreground">{modalAddress}</span>
             ) : modalType === 'eoa' ? (
               <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Pick a K1 key</span>
             ) : modalSigners.length === 0 ? (
@@ -447,7 +447,7 @@ function KeyPicker({
                     {s.label}
                   </Text>
                   <KindBadge kind={s.kind} />
-                  <Text as="span" variant="caption" tone="muted" className="min-w-0 flex-1 text-right font-sans">
+                  <Text as="span" variant="caption" tone="muted" className="min-w-0 flex-1 text-right">
                     {short(signerIdentity(s))}
                   </Text>
                   <span className="flex w-4 items-center justify-center">{on ? <CheckIcon size={16} /> : null}</span>

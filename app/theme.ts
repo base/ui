@@ -46,5 +46,5 @@ export const WARNING_TEXT = 'var(--bds-yellow-70)';
 export const BLUE_TINT = 'var(--bds-blue-tint)';
 
 // --- Typography ---
-export const TEXT = 'var(--font-base-sans-text), var(--font-base-sans), Arial, sans-serif';
-export const MONO = 'var(--font-base-sans-mono), "SF Mono", Menlo, Consolas, monospace';
+export const TEXT = 'var(--font-google-sans-flex), Arial, sans-serif';
+export const MONO = 'var(--font-roboto-mono), "SF Mono", Menlo, Consolas, monospace';
