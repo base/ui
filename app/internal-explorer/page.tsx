@@ -224,12 +224,14 @@ function BlocksTab({
     if (showShadowDelta) return undefined;
 
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
+    setBlocks([]);
     setShadowCandidates({});
 
     async function load() {
       try {
-        const data = await explorerApi.blocks(chain);
+        const data = await explorerApi.blocks(chain, controller.signal);
         if (!cancelled) setBlocks(data.blocks);
       } catch {
         // Transient errors are expected between polls; keep the last good data.
@@ -242,6 +244,7 @@ function BlocksTab({
     const timer = window.setInterval(() => void load(), 2000);
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(timer);
     };
   }, [chain, showShadowDelta]);
@@ -254,6 +257,7 @@ function BlocksTab({
 
     let cancelled = false;
     let inFlight = false;
+    let activeController: AbortController | null = null;
     setLoading(true);
     setBlocks([]);
     setShadowCandidates({});
@@ -264,6 +268,7 @@ function BlocksTab({
       if (inFlight) return;
       inFlight = true;
       const controller = new AbortController();
+      activeController = controller;
       try {
         const shadows = await explorerApi.recentShadowBlocks(
           chain,
@@ -305,6 +310,7 @@ function BlocksTab({
     const timer = window.setInterval(() => void load(), 2000);
     return () => {
       cancelled = true;
+      activeController?.abort();
       window.clearInterval(timer);
     };
   }, [chain, showShadowDelta]);
