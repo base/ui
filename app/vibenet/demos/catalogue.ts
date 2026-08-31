@@ -17,7 +17,14 @@ export type DemoEntry = {
   summary: string;
   points: string[];
   available: boolean;
+  /** When false, the route stays live but is omitted from the Vibenet demos grid. */
+  listed?: boolean;
 };
+
+/** Demos shown on the Vibenet index. Unlisted entries stay reachable by URL. */
+export function listedDemos(): DemoEntry[] {
+  return DEMOS.filter((demo) => demo.listed !== false);
+}
 
 export const DEMOS: DemoEntry[] = [
   {
@@ -58,6 +65,7 @@ export const DEMOS: DemoEntry[] = [
       'Stack several 8130 conditions at once, or replace the resting one',
     ],
     available: true,
+    listed: false,
   },
 ];
 

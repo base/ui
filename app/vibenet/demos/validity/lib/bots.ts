@@ -22,6 +22,8 @@ const HARD_HI = 1;
 /** One maker swap per second is enough to walk the mid. */
 const TICK_MS = 1_000;
 export const BOT_GAS_FLOOR = parseEther('0.002');
+/** Ignore gas-low while a maker swap just landed — balances can lag the send. */
+export const MAKER_DRY_GRACE_MS = 2_500;
 const GAS_LOW_MS = 4_000;
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -34,6 +36,23 @@ export function botNeedsGas(balance: bigint, floor = BOT_GAS_FLOOR): boolean {
 
 export function allNeedGas(balances: readonly bigint[]): boolean {
   return balances.length > 0 && balances.every((balance) => botNeedsGas(balance));
+}
+
+/**
+ * Banner only after the simulation has swapped and then every known maker
+ * balance is below the floor. `lastSwapAt === 0` means no swap yet — empty,
+ * null, or pre-fund 0n readings must not look like "ran out of ETH".
+ */
+export function shouldFlagMakersDry(
+  balances: readonly (bigint | null)[],
+  makerCount: number,
+  lastSwapAt: number,
+  now = Date.now(),
+): boolean {
+  if (lastSwapAt === 0 || now - lastSwapAt < MAKER_DRY_GRACE_MS) return false;
+  if (makerCount <= 0) return false;
+  const known = balances.filter((value): value is bigint => value !== null);
+  return known.length === makerCount && allNeedGas(known);
 }
 
 /**

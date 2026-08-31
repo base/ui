@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { annotatedValidity } from './annotate';
+import { annotatedValidity, reviewClauses } from './annotate';
 import { WAD } from './constants';
 import { blockExpiryPredicate, priceValidity } from './predicates';
 
@@ -39,5 +39,17 @@ describe('annotatedValidity', () => {
     expect(notes).toContain('Block-number expiry');
     expect(notes).toContain('L2 block 18422105');
     expect(notes.some((note) => note?.includes('at most'))).toBe(true);
+  });
+});
+
+describe('reviewClauses', () => {
+  it('summarizes each predicate for the review dialog', () => {
+    const clauses = reviewClauses([blockExpiryPredicate(18_422_105n)]);
+    expect(clauses).toEqual([
+      {
+        title: 'Block-number expiry',
+        detail: 'Include only while the head is at most — L2 block 18422105',
+      },
+    ]);
   });
 });

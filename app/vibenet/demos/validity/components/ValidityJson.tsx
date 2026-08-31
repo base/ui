@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '../../../../components/ui/cn';
 import { Text } from '../../../../components/ui/Text';
 import { annotatedValidity } from '../lib/annotate';
 import type { ValidityPredicate } from '../lib/types';
@@ -33,21 +34,23 @@ function tokenizeJson(source: string): Array<{ kind: TokenKind; text: string }> 
 }
 
 const KIND_CLASS: Record<TokenKind, string> = {
-  key: 'text-[#7eb8ff]',
-  string: 'text-[#7ee0a8]',
-  number: 'text-[#f5c542]',
-  literal: 'text-[#ed9a6c]',
-  punct: 'text-[#8b98a5]',
+  key: 'text-base-blue dark:text-[#7eb8ff]',
+  string: 'text-bds-green-70 dark:text-[#7ee0a8]',
+  number: 'text-bds-orange-70 dark:text-[#f5c542]',
+  literal: 'text-bds-orange-60 dark:text-[#ed9a6c]',
+  punct: 'text-bds-gray-50 dark:text-bds-gray-40',
 };
 
 export function ValidityJson({
   predicates,
   frozen,
   vibeToken0,
+  compact,
 }: {
   predicates: ValidityPredicate[];
   frozen?: boolean;
   vibeToken0: boolean;
+  compact?: boolean;
 }) {
   const rows = annotatedValidity(predicates, vibeToken0);
   const hasBlockBound = predicates.some((predicate) => predicate.type === 'block_number');
@@ -55,29 +58,36 @@ export function ValidityJson({
     ? hasBlockBound
       ? 'Frozen at submit. The block bound does not walk with the live chain.'
       : 'Frozen at submit.'
-    : 'Hover a field. The right column is what the sequencer is actually checking.';
+    : 'The sequencer checks every clause before inclusion.';
   return (
-    <aside className="flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-[#0c1117] dark:border-white/10">
-      <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
-        <Text as="h2" variant="title3" tone="inverse">
+    <aside
+      className={cn(
+        'flex min-w-0 flex-col',
+        compact
+          ? ''
+          : 'min-h-[16rem] overflow-hidden rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/5',
+      )}
+    >
+      <div className={cn('flex items-baseline justify-between gap-3', !compact && 'px-5 pt-4')}>
+        <Text as="h2" variant="title3">
           Predicates
         </Text>
-        <Text variant="label.mono" tone="inverseMuted">
+        <Text variant="label.mono" tone="muted">
           {frozen ? 'submitted tx' : 'draft'}
         </Text>
       </div>
-      <Text variant="footnote" tone="inverseMuted" className="px-5 pt-2">
+      <Text variant="footnote" tone="muted" className={cn('pt-2', !compact && 'px-5')}>
         {footnote}
       </Text>
-      <div className="mt-3 min-h-0 flex-1 overflow-auto px-5 pb-5">
+      <div className={cn('mt-3 min-h-0 flex-1 overflow-auto', !compact && 'px-5 pb-5')}>
         <div
-          className="grid min-w-[36rem] grid-cols-[minmax(0,1fr)_minmax(15rem,19rem)] gap-x-6 border-b border-white/10 pb-1"
+          className="grid grid-cols-1 gap-x-6 border-b border-bds-gray-10 pb-1 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] dark:border-white/10"
           aria-hidden
         >
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#5d6b78]">
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-bds-gray-50">
             payload
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#5d6b78]">
+          <span className="hidden font-mono text-[10px] uppercase tracking-[0.16em] text-bds-gray-50 sm:block">
             meaning
           </span>
         </div>
@@ -85,7 +95,7 @@ export function ValidityJson({
           {rows.map((row, index) => (
             <div
               key={`${index}-${row.text}`}
-              className="grid min-w-[36rem] grid-cols-[minmax(0,1fr)_minmax(15rem,19rem)] gap-x-6 rounded-sm hover:bg-white/[0.04]"
+              className="grid grid-cols-1 gap-x-6 rounded-sm hover:bg-bds-gray-5 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] dark:hover:bg-white/[0.04]"
             >
               <pre className="min-w-0 overflow-x-auto font-mono text-[11px] leading-5">
                 {tokenizeJson(row.text).map((token, tokenIndex) => (
@@ -94,7 +104,7 @@ export function ValidityJson({
                   </span>
                 ))}
               </pre>
-              <p className="min-h-5 min-w-0 text-[11px] leading-5 text-[#c5d0d8]">
+              <p className="min-h-5 min-w-0 text-[11px] leading-5 text-bds-gray-70 dark:text-bds-gray-80">
                 {row.note ?? ''}
               </p>
             </div>

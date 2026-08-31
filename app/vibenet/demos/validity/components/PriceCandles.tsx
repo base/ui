@@ -8,7 +8,6 @@ import type { Side } from '../lib/types';
 
 const BUY_PLOT = '#22ad73';
 const SELL_PLOT = '#ed5966';
-const TICKER = '#c8ff4a';
 const BUCKET_MS = CANDLE_BUCKET_MS;
 const WINDOW_MS = CANDLE_WINDOW_MS;
 const WIDTH = 960;
@@ -179,20 +178,20 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
   const up = change >= 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-bds-gray-10 bg-[#0c1117] dark:border-white/10">
+    <div className="relative overflow-hidden rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-[#0c1117]">
       <div className="flex items-start justify-between gap-3 px-4 pt-3">
         <div className="flex items-center gap-2">
           <VibeMark />
           <div>
-            <div className="font-mono text-[13px] tracking-[0.08em] text-white">VIBE / USDV</div>
-            <div className="font-mono text-[11px] text-[#7d8a96]">simulated pool · 5s candles</div>
+            <div className="font-mono text-[13px] tracking-[0.08em] text-foreground">VIBE / USDV</div>
+            <div className="font-mono text-[11px] text-bds-gray-50">simulated pool · 5s candles</div>
           </div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-[28px] tabular-nums leading-none" style={{ color: TICKER }}>
+          <div className="font-mono text-[28px] tabular-nums leading-none text-[#3f6b00] dark:text-[#c8ff4a]">
             {layout ? formatAxisPrice(layout.last) : '—'}
           </div>
-          <div className={`mt-1 font-mono text-[12px] tabular-nums ${up ? 'text-[#22ad73]' : 'text-[#ed5966]'}`}>
+          <div className={`mt-1 font-mono text-[12px] tabular-nums ${up ? 'text-bds-green-60' : 'text-bds-red-60'}`}>
             {layout ? `${up ? '+' : ''}${change.toFixed(2)}%` : ''}
           </div>
         </div>
@@ -202,13 +201,13 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
           <g transform={`translate(${PAD.left},${PAD.top})`}>
             {layout.yTicks.map((tick) => (
               <g key={`y-${tick}`}>
-                <line x1={0} x2={innerW} y1={layout.y(tick)} y2={layout.y(tick)} stroke="#1e2a36" />
+                <line x1={0} x2={innerW} y1={layout.y(tick)} y2={layout.y(tick)} className="stroke-bds-gray-10 dark:stroke-[#1e2a36]" />
                 <text
                   x={-8}
                   y={layout.y(tick)}
                   textAnchor="end"
                   dominantBaseline="middle"
-                  fill="#7d8a96"
+                  className="fill-bds-gray-50"
                   fontSize={11}
                   fontFamily="ui-monospace, monospace"
                 >
@@ -222,14 +221,14 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
                 x={layout.x(tick)}
                 y={innerH + 22}
                 textAnchor="middle"
-                fill="#7d8a96"
+                className="fill-bds-gray-50"
                 fontSize={10}
                 fontFamily="ui-monospace, monospace"
               >
                 {formatAxisTime(tick)}
               </text>
             ))}
-            <text x={innerW} y={-6} textAnchor="end" fill="#7d8a96" fontSize={10} fontFamily="ui-monospace, monospace">
+            <text x={innerW} y={-6} textAnchor="end" className="fill-bds-gray-50" fontSize={10} fontFamily="ui-monospace, monospace">
               USDV
             </text>
             {candles.map((candle, index) => {
@@ -307,7 +306,7 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
                     />
                   ) : null}
                   <circle cx={cx} cy={cy} r={r + 3} fill="none" stroke={color} strokeWidth={fill.highlighted ? 1.6 : 1} opacity={0.45} />
-                  <circle cx={cx} cy={cy} r={r} fill={color} stroke="#0c1117" strokeWidth={1.4} />
+                  <circle cx={cx} cy={cy} r={r} fill={color} className="stroke-background dark:stroke-[#0c1117]" strokeWidth={1.4} />
                   {fill.highlighted ? (
                     <text
                       x={cx > innerW * 0.62 ? cx - 10 : cx + 10}
@@ -326,7 +325,7 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
           </g>
         </svg>
       ) : (
-        <p className="px-4 pb-6 pt-8 text-[13px] text-[#7d8a96]">
+        <p className="px-4 pb-6 pt-8 text-[13px] text-bds-gray-50">
           Tape starts once the simulated pool prints a mid.
         </p>
       )}

@@ -7,7 +7,7 @@ import { Card, LinkCard } from '../components/ui/Card';
 import { Text } from '../components/ui/Text';
 
 import { CopyableValue } from './components/CopyableValue';
-import { DEMOS, type DemoEntry } from './demos/catalogue';
+import { listedDemos, type DemoEntry } from './demos/catalogue';
 import type { ConfigResponse } from './library/api-types';
 import { vibenetApi } from './library/client';
 import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from './library/config';
@@ -72,7 +72,7 @@ export default function VibenetHomePage() {
       <section className="flex flex-col gap-6">
         <Text variant="headline">Demos</Text>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {DEMOS.map((demo) =>
+          {listedDemos().map((demo) =>
             demo.available ? (
               <LinkCard
                 key={demo.href}

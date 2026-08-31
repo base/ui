@@ -104,6 +104,21 @@ function notesFor(predicate: ValidityPredicate, vibeToken0: boolean): Record<str
   };
 }
 
+export type PredicateClause = { title: string; detail: string };
+
+/** One review row per clause — title plus the include condition. */
+export function reviewClauses(
+  predicates: ValidityPredicate[],
+  vibeToken0 = true,
+): PredicateClause[] {
+  return predicates.map((predicate) => {
+    const notes = notesFor(predicate, vibeToken0);
+    const title = notes.type ?? predicate.type;
+    const detail = [notes.op, notes.value].filter(Boolean).join(' — ');
+    return { title, detail };
+  });
+}
+
 /** Pretty JSON plus a plain-English note for each field the sequencer actually reads. */
 export function annotatedValidity(
   predicates: ValidityPredicate[],

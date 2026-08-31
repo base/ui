@@ -16,10 +16,13 @@ import { newCallRow } from '../account/library/calls';
 import type { StoredAccount } from '../account/library/model';
 import { ActivityLog } from '../account/components/ActivityLog';
 import { AccountEngineProvider, useAccountEngine } from '../account/useAccountEngine';
+import { VIBENET_EXPLORER_PATH } from '../../library/config';
+import { CallRow } from '../_shared/CallRow';
+import { ChevronIcon } from '../_shared/dropdown';
+import { TransactionModal, type TxStep } from '../_shared/TransactionModal';
 import { OrderList } from './components/OrderList';
 import { OrderTicket } from './components/OrderTicket';
 import { PriceCandles, type FillMark, type PriceLevel, type PriceSample } from './components/PriceCandles';
-import { ReserveChart } from './components/ReserveChart';
 import { ValidityJson } from './components/ValidityJson';
 import {
   amountOutAtLimit,
@@ -33,7 +36,7 @@ import {
   tokenBalance,
 } from './lib/amm';
 import { clampNoncelessExpiry, noncelessFields } from './lib/aa';
-import { startBots, allNeedGas } from './lib/bots';
+import { startBots, allNeedGas, shouldFlagMakersDry } from './lib/bots';
 import { CANDLE_SAMPLE_MS, CANDLE_WINDOW_MS, MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS } from './lib/constants';
 import { faucetErrorMessage } from './lib/faucet';
 import { ensureMakers, rootAccount } from './lib/makers';
@@ -46,6 +49,7 @@ import {
   tapeCrossedAt,
 } from './lib/orders';
 import { bumpReplacementFees, feesFromHead, isReplacementUnderpriced, padFees } from './lib/fees';
+import { reviewClauses } from './lib/annotate';
 import { applyOffsetBps, blockExpiryPredicate, formatPrice, priceValidity } from './lib/predicates';
 import {
   ammPriceFromQuote,
@@ -107,7 +111,9 @@ function ValidityDemoInner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [botsOn, setBotsOn] = useState(true);
-  const [hoverPrice, setHoverPrice] = useState<bigint | null>(null);
+  const [txOpen, setTxOpen] = useState(false);
+  const [txStep, setTxStep] = useState<TxStep>('review');
+  const [txHash, setTxHash] = useState<Hex | null>(null);
   const [side, setSide] = useState<Side>('buy');
   const [offsetBps, setOffsetBps] = useState(100);
   const [expirySeconds, setExpirySeconds] = useState(15);
@@ -368,6 +374,10 @@ function ValidityDemoInner() {
         });
       }
       makerTokenRef.current = tokens;
+      const known = makerEthRef.current.filter((value): value is bigint => value !== null);
+      if (known.length === makerList.length && makerList.length > 0 && !allNeedGas(known)) {
+        setMakersDry(false);
+      }
     };
 
     const pullBalances = async (includeReserves: boolean) => {
@@ -550,17 +560,16 @@ function ValidityDemoInner() {
     }
   }, [k, offsetBps, side, spot, state?.deployment, vibeToken0]);
 
-  const jsonOrder =
-    orders.find((order) => order.id === hoveredOrderId && order.validity.length > 0) ?? null;
-
-  const hoodPredicates = useMemo(() => {
-    if (jsonOrder) return jsonOrder.validity;
+  const reviewPredicates = useMemo(() => {
     if (!draft) return [];
     if (blockNumber === null || !status?.blockNumberPredicate) return draft.predicates;
-    const seconds = Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
+    const seconds =
+      submitMode === 'concurrent'
+        ? clampNoncelessExpiry(expirySeconds)
+        : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
     const maxBlock = maxBlockForExpiry(blockNumber, seconds);
     return [...draft.predicates, blockExpiryPredicate(maxBlock)];
-  }, [blockNumber, draft, expirySeconds, jsonOrder, status?.blockNumberPredicate]);
+  }, [blockNumber, draft, expirySeconds, status?.blockNumberPredicate, submitMode]);
 
   const chartLevels = useMemo((): PriceLevel[] => {
     const levels: PriceLevel[] = [];
@@ -671,6 +680,9 @@ function ValidityDemoInner() {
         metadata: 'Validity helper approve',
       });
 
+      setMakersDry(false);
+      setMakerError(null);
+      lastMakerPriceAtRef.current = 0;
       persist({
         ...(state ?? createState(status.chainId, status.genesisHash ?? '')),
         v: 2,
@@ -701,6 +713,8 @@ function ValidityDemoInner() {
   useEffect(() => {
     if (!hydrated || !status?.chainId || !state?.deployment || makersRef.current.length !== 2) return;
     makerNonceRef.current = [];
+    makerEthRef.current = makersRef.current.map(() => null);
+    setMakersDry(false);
     const deployment = state.deployment;
     const stop = startBots({
       addresses: makersRef.current.map((maker) => maker.address),
@@ -743,9 +757,13 @@ function ValidityDemoInner() {
       onError: setMakerError,
       onGasLow: () => {
         for (const maker of makersRef.current) engineRef.current.autoFundNewAccount(maker.address);
-        if (Date.now() - lastMakerPriceAtRef.current < 2_500) return;
-        const balances = makerEthRef.current.filter((value): value is bigint => value !== null);
-        if (balances.length === makersRef.current.length && allNeedGas(balances)) {
+        if (
+          shouldFlagMakersDry(
+            makerEthRef.current,
+            makersRef.current.length,
+            lastMakerPriceAtRef.current,
+          )
+        ) {
           setMakersDry(true);
           setMakerError('need ETH');
         }
@@ -754,7 +772,7 @@ function ValidityDemoInner() {
     return stop;
   }, [hydrated, makerKey, state?.deployment, status?.chainId]);
 
-  const placeOrder = async () => {
+  const placeOrder = async (): Promise<Hex | undefined> => {
     if (!draft || !acct || !state?.deployment || !reserves || !engine.activeSigner) return;
     const publicClient = publicRef.current;
     if (!publicClient) return;
@@ -902,6 +920,7 @@ function ValidityDemoInner() {
         network: engine.chain.name,
         mode: engine.chain.mode,
       });
+      return hash;
     } catch (err) {
       const message = describeValidityError(err);
       setError(message);
@@ -1066,7 +1085,12 @@ function ValidityDemoInner() {
                       setExpirySeconds(15);
                     }
                   }}
-                  onSubmit={() => void placeOrder()}
+                  onSubmit={() => {
+                    setError(null);
+                    setTxHash(null);
+                    setTxStep('review');
+                    setTxOpen(true);
+                  }}
                 />
               ) : (
                 <Card className="bg-background p-5 dark:bg-white/5">
@@ -1076,7 +1100,7 @@ function ValidityDemoInner() {
                   </Text>
                 </Card>
               )}
-              {error ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
+              {error && !txOpen ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
             </div>
             <div className="min-h-0 lg:sticky lg:top-4">
               <OrderList
@@ -1087,38 +1111,99 @@ function ValidityDemoInner() {
             </div>
           </div>
 
-          <section className="flex flex-col gap-4">
-            <div>
-              <Text as="h2" variant="title3">
-                Under the hood
-              </Text>
-              <Text variant="footnote" tone="muted" className="mt-1">
-                The hatched box on the curve is four storage reads on the pair&apos;s
-                reserves word, plus an optional block expiry. The payload on the left
-                is what gets submitted; the right column is what each field means.
+        </div>
+      )}
+        </div>
+      )}
+      {draft ? (
+        <TransactionModal
+          open={txOpen}
+          onClose={() => {
+            if (busy) return;
+            setTxOpen(false);
+            setTxStep('review');
+          }}
+          step={txStep}
+          busy={busy}
+          error={error ?? undefined}
+          result={txHash ? { txHash } : null}
+          titles={{ review: 'Review Transaction', submitted: 'Submitted' }}
+          buildBody={null}
+          canProceed
+          proceedLabel="Review"
+          onProceed={() => setTxStep('review')}
+          reviewBody={
+            <div className="flex flex-col gap-4">
+              <div>
+                <Text variant="title3">
+                  {draft.side === 'buy' ? 'Buy' : 'Sell'} VIBE if mid {draft.side === 'buy' ? '≤' : '≥'} $
+                  {formatPrice(draft.priceWad)}
+                </Text>
+                <Text variant="footnote" tone="muted" className="mt-1">
+                  {submitMode === 'concurrent' ? '8130 concurrent' : 'Replace resting nonce'} · expires in{' '}
+                  {expirySeconds}s
+                </Text>
+              </div>
+              <ul className="flex flex-col gap-2">
+                {reviewClauses(reviewPredicates, vibeToken0).map((clause, index) => (
+                  <CallRow key={`${clause.title}-${index}`} index={index + 1}>
+                    <span className="font-medium text-foreground">{clause.title}</span>
+                    <span className="font-sans text-bds-gray-70 dark:text-bds-gray-80">{clause.detail}</span>
+                  </CallRow>
+                ))}
+              </ul>
+              <details className="group rounded-lg border border-bds-gray-10 dark:border-white/10">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-[13px] font-medium text-bds-gray-70 marker:content-none dark:text-bds-gray-80 [&::-webkit-details-marker]:hidden">
+                  Advanced Details
+                  <ChevronIcon className="duration-150 group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-bds-gray-10 px-3 py-3 dark:border-white/10">
+                  <ValidityJson predicates={reviewPredicates} vibeToken0={vibeToken0} compact />
+                </div>
+              </details>
+            </div>
+          }
+          confirmLabel={`Submit if ${draft.side === 'buy' ? '≤' : '≥'} $${formatPrice(draft.priceWad)}`}
+          onConfirm={() => {
+            void (async () => {
+              setTxStep('submitted');
+              const hash = await placeOrder();
+              if (hash) setTxHash(hash);
+            })();
+          }}
+          onReviewBack={() => {
+            if (busy) return;
+            setTxOpen(false);
+          }}
+          onSubmittedBack={() => {
+            setTxStep('review');
+            setError(null);
+          }}
+          onRetry={() => {
+            void (async () => {
+              setError(null);
+              setTxHash(null);
+              setTxStep('submitted');
+              const hash = await placeOrder();
+              if (hash) setTxHash(hash);
+            })();
+          }}
+          onDone={() => {
+            setTxOpen(false);
+            setTxStep('review');
+            setTxHash(null);
+          }}
+          explorerTxPath={(hash) => `${VIBENET_EXPLORER_PATH}/tx/${hash}`}
+          renderSuccess={() => (
+            <div className="flex flex-col items-center gap-1">
+              <Text variant="title3">Condition submitted</Text>
+              <Text variant="label.regular" tone="muted">
+                The sequencer will include this swap only while the predicates hold.
               </Text>
             </div>
-            <ReserveChart
-              reserves={reserves}
-              hoverPriceWad={hoverPrice}
-              draft={draft}
-              orders={orders}
-              highlightedOrderId={hoveredOrderId}
-              vibeToken0={vibeToken0}
-              onHover={setHoverPrice}
-            />
-            {draft || jsonOrder ? (
-              <ValidityJson
-                predicates={hoodPredicates}
-                frozen={Boolean(jsonOrder)}
-                vibeToken0={vibeToken0}
-              />
-            ) : null}
-          </section>
-        </div>
-      )}
-        </div>
-      )}
+          )}
+        />
+      ) : null}
     </AccountDemoShell>
   );
 }
