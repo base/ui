@@ -46,7 +46,6 @@ import {
   orderBlockExpired,
   orderWallClockExpired,
   restingOrderToReplace,
-  tapeCrossedAt,
 } from './lib/orders';
 import { bumpReplacementFees, feesFromHead, isReplacementUnderpriced, padFees } from './lib/fees';
 import { reviewClauses } from './lib/annotate';
@@ -130,6 +129,7 @@ function ValidityDemoInner() {
   const rpcSendRef = useRef<RpcSend | null>(null);
   const headFeesRef = useRef<ReturnType<typeof feesFromHead>>(null);
   const makerNonceRef = useRef<(bigint | null)[]>([]);
+  const makerDeployedRef = useRef<boolean[]>([]);
   const engineRef = useRef(engine);
   engineRef.current = engine;
   const botsEnabledRef = useRef(true);
@@ -277,13 +277,11 @@ function ValidityDemoInner() {
   );
 
   const markOrderLanded = useCallback(
-    (txHash: Hex, filled: boolean, fillPriceWad?: bigint) => {
+    (txHash: Hex, filled: boolean, fillPriceWad?: bigint, includedAt?: number) => {
       const wanted = txHash.toLowerCase();
       const order = ordersRef.current.find((item) => item.txHash?.toLowerCase() === wanted);
       if (!order || (order.status !== 'pending' && order.status !== 'expired')) return;
-      const target = wadToNumber(order.targetPriceWad);
-      const crossed = tapeCrossedAt(samplesRef.current, order.submittedAt, target, order.side);
-      const filledAt = filled ? (crossed ?? Date.now()) : undefined;
+      const filledAt = filled ? (includedAt ?? Date.now()) : undefined;
       const clamped = filled
         ? clampToCondition(order.side, fillPriceWad ?? order.targetPriceWad, order.targetPriceWad)
         : undefined;
@@ -713,6 +711,7 @@ function ValidityDemoInner() {
   useEffect(() => {
     if (!hydrated || !status?.chainId || !state?.deployment || makersRef.current.length !== 2) return;
     makerNonceRef.current = [];
+    makerDeployedRef.current = [];
     makerEthRef.current = makersRef.current.map(() => null);
     setMakersDry(false);
     const deployment = state.deployment;
@@ -735,13 +734,30 @@ function ValidityDemoInner() {
           nonce = BigInt(await client.getTransactionCount({ address: maker.address }));
         }
         const nonceSequence = nonce ?? 0n;
-        try {
-          await engineRef.current.sendAccountCalls({
+        const rows = calls.map((call) => ({ ...call, value: '0' as const }));
+        const send = (deployed: boolean) =>
+          engineRef.current.sendAccountCalls({
             account: maker,
-            calls: calls.map((call) => ({ ...call, value: '0' })),
-            wait: false,
-            seqOpt: { assumeDeployed: true, nonceSequence },
+            calls: rows,
+            // First swap carries `create` and must land before we pin nonces.
+            wait: !deployed,
+            seqOpt: {
+              nonceSequence,
+              ...(deployed ? { assumeDeployed: true } : {}),
+            },
           });
+        try {
+          const deployed = makerDeployedRef.current[index] === true;
+          try {
+            await send(deployed);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (!deployed || !/actor is not bound/i.test(message)) throw err;
+            // Replica still missing the create, or we guessed deployed too early.
+            makerDeployedRef.current[index] = false;
+            await send(false);
+          }
+          makerDeployedRef.current[index] = true;
           makerNonceRef.current[index] = nonceSequence + 1n;
         } catch (err) {
           makerNonceRef.current[index] = null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { occupyingOrder, maxBlockForExpiry, orderBlockExpired, orderWallClockExpired, restingOrderToReplace, tapeCrossedAt } from './orders';
+import { occupyingOrder, maxBlockForExpiry, orderBlockExpired, orderWallClockExpired, restingOrderToReplace } from './orders';
 
 describe('orderWallClockExpired', () => {
   it('expires a resting order after the window plus grace', () => {
@@ -27,25 +27,6 @@ describe('maxBlockForExpiry', () => {
   it('uses 200ms Denim blocks, not 2s pre-Denim heads', () => {
     expect(maxBlockForExpiry(1_000n, 60)).toBe(1_300n);
     expect(maxBlockForExpiry(1_000n, 5)).toBe(1_025n);
-  });
-});
-
-describe('tapeCrossedAt', () => {
-  it('uses the first print on the fill side, not a later wick', () => {
-    const samples = [
-      { t: 1_000, price: 0.083 },
-      { t: 2_000, price: 0.0816 },
-      { t: 3_000, price: 0.0828 },
-    ];
-    expect(tapeCrossedAt(samples, 1_500, 0.0816, 'buy')).toBe(2_000);
-  });
-
-  it('ignores prints before submit', () => {
-    const samples = [
-      { t: 1_000, price: 0.08 },
-      { t: 3_000, price: 0.082 },
-    ];
-    expect(tapeCrossedAt(samples, 2_000, 0.081, 'sell')).toBe(3_000);
   });
 });
 

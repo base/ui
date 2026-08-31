@@ -1,5 +1,5 @@
 import { BLOCK_SECONDS } from './constants';
-import type { PlacedOrder, Side } from './types';
+import type { PlacedOrder } from './types';
 
 const WALL_CLOCK_GRACE_MS = 400;
 
@@ -23,22 +23,6 @@ export function maxBlockForExpiry(currentBlock: bigint, expirySeconds: number): 
   const seconds = Math.max(1, expirySeconds);
   const blocks = Math.max(1, Math.ceil(seconds / BLOCK_SECONDS));
   return currentBlock + BigInt(blocks);
-}
-
-/** First tape print on the fill side of the limit after submit — not when the receipt lagged in. */
-export function tapeCrossedAt(
-  samples: { t: number; price: number }[],
-  submittedAt: number,
-  target: number,
-  side: Side,
-): number | undefined {
-  if (!Number.isFinite(target) || target <= 0) return undefined;
-  for (const sample of samples) {
-    if (sample.t < submittedAt) continue;
-    const hit = side === 'buy' ? sample.price <= target : sample.price >= target;
-    if (hit) return sample.t;
-  }
-  return undefined;
 }
 
 export function occupyingOrder(
