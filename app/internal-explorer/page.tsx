@@ -33,6 +33,7 @@ import {
   type ShadowBlockSummary,
 } from './library/types';
 import { useExplorerChain } from './library/useExplorerChain';
+import { useShadowDelta } from './library/useShadowDelta';
 
 type Tab = 'blocks' | 'rejected';
 
@@ -212,7 +213,7 @@ function BlocksTab({
 }) {
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showShadowDelta, setShowShadowDelta] = useState(false);
+  const { showShadowDelta, setShowShadowDelta } = useShadowDelta();
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
   const shadowKey = useMemo(
     () => blocks.map((block) => block.hash.toLowerCase()).sort().join(','),

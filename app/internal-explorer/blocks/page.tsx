@@ -15,11 +15,13 @@ import { formatInteger } from '../library/explorer-format';
 import { explorerHref } from '../library/links';
 import type { BlocksResponse, ShadowBlockSummary } from '../library/types';
 import { useExplorerChain } from '../library/useExplorerChain';
+import { useShadowDelta } from '../library/useShadowDelta';
 
 const PAGE_LIMIT = 25;
 
 function BlocksContent() {
   const { chain } = useExplorerChain();
+  const { showShadowDelta, setShowShadowDelta } = useShadowDelta();
   const searchParams = useSearchParams();
   const cursorParam = searchParams.get('cursor');
   const cursor = cursorParam !== null ? Number(cursorParam) : undefined;
@@ -27,7 +29,6 @@ function BlocksContent() {
   const [data, setData] = useState<BlocksResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showShadowDelta, setShowShadowDelta] = useState(false);
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
 
   // Canonical-block view: paginate the chain tip directly. The shadow-delta
