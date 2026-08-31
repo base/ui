@@ -39,7 +39,7 @@ export type VibenetFeature = {
   /** Emphasized release name appended to the availability note. */
   availabilityLabel?: string;
   /** Optional link for the availability note. */
-  availabilityHref?: string;
+  availabilityHref?: FeatureLink;
   /** Bullet highlights; when present the card renders the richer promo layout. */
   highlights?: FeatureHighlight[];
   /** Primary action. Omitted while a target isn't ready (the card shows status). */

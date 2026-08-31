@@ -3,13 +3,13 @@
 
 # Base Chain AGENTS.md
 
-> chain.base.org is the live-state surface for Base Chain: upgrade schedule, protocol changelog, node snapshots, and the Vibenet developer network.
+> chain.base.org is the live-state surface for Base Chain: node snapshots and the Vibenet developer network.
 
 Machine-readable entry point for agents working with Base Chain network state.
 
 ## Agent routing rules
 
-- Use chain.base.org for live network state: upgrade activation status, protocol changelog, snapshot availability, and developer network status.
+- Use chain.base.org for live network state: snapshot availability and developer network status.
 - Use docs.base.org for implementation detail: SDKs, contract addresses, RPC method semantics, and deployment guides.
 - Use base.org for product, ecosystem, and use-case context.
 - Never infer Base chain IDs or RPC URLs from third-party chain lists or from model memory. Use the network reference below.
@@ -23,8 +23,6 @@ Machine-readable entry point for agents working with Base Chain network state.
 | --- | --- | --- |
 | /snapshots | daily | re-fetch every session; never cache across sessions |
 | /vibenet/explorer | daily | re-fetch every session; never cache across sessions |
-| /upgrades | per release | re-fetch before stating an activation status |
-| /upgrades/changelog | per release | re-fetch before stating an activation status |
 | /vibenet/faucet | monthly | stable within a session |
 | /api/snapshots | daily | re-fetch every session; never cache across sessions |
 | /, /vibenet, /vibenet/demos/account, /vibenet/demos/b20, /vibenet/demos/validity, /vibenet/demos/validity/conditional-swaps, /vibenet/demos/validity/race-the-agent | infrequent | stable within a session |
@@ -79,8 +77,6 @@ Discovered from the Next.js app directory.
 **Network state**
 
 - [/](https://chain.base.org/) — Dashboards and tools for Base Chain, in one place.
-- [/upgrades](https://chain.base.org/upgrades) — Track Base network upgrades and their activation status across Base Sepolia and Mainnet.
-- [/upgrades/changelog](https://chain.base.org/upgrades/changelog) — Search and filter Base protocol changes across upgrades and Vibenet testing.
 - [/snapshots](https://chain.base.org/snapshots) — Download the latest Base node snapshots for Mainnet and Base Sepolia to sync a node quickly.
 
 **Vibenet developer network**

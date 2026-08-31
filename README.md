@@ -1,7 +1,7 @@
 # Base Chain Dashboard
 
-One UI for Base network dashboards and stats: snapshots, network upgrades, and
-the Vibenet devnet explorer/faucet, under a single shell.
+One UI for Base network dashboards and stats: snapshots and the Vibenet devnet
+explorer/faucet, under a single shell.
 
 A standalone Next.js (App Router) app, deployed on Vercel. Migrated out of the
 internal Nx template so it builds and ships with the standard Next toolchain.
@@ -61,7 +61,6 @@ outside this repo at the org/platform level.
 
 - `app/` — App Router routes and API handlers
   - `snapshots/` — Reth v2 snapshot browser (`/api/snapshots` reads Cloudflare R2)
-  - `upgrades/` — network upgrade schedule, changelog, per-fork detail
   - `vibenet/` — devnet explorer and faucet
   - `components/` — shared shell and UI primitives
   - `theme.ts` / `spectrum.ts` / `globals.css` — BDS design tokens

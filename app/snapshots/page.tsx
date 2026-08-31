@@ -4,7 +4,7 @@ import { SAMPLE_SNAPSHOTS, Snapshot } from './data';
 import { getSnapshots, isNetworkVisibleInUi } from './r2';
 import { SnapshotsClient } from './SnapshotsClient';
 
-// Statically rendered and revalidated, matching app/upgrades/page.tsx. This keeps the
+// Statically rendered and revalidated. This keeps the
 // route prefetchable, so tapping Snapshots paints complete content instead of the
 // loading skeleton a per-request render would show on every visit. Must stay a
 // literal for Next to read it; mirrors SNAPSHOT_CACHE_SECONDS in ./r2.
