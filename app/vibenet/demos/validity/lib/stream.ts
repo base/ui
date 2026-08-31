@@ -26,11 +26,29 @@ type Pending = {
   reject: (error: Error) => void;
 };
 
+type SubscriptionListener = (result: unknown) => void;
+
+function isRpcId(value: unknown): value is string | number {
+  return typeof value === 'string' || typeof value === 'number';
+}
+
+/** Invoke a Map-registered callback; never treats `id` as a method name. */
+export function dispatchSubscriptionListener(
+  listeners: Map<string, SubscriptionListener>,
+  id: unknown,
+  result: unknown,
+): void {
+  if (!isRpcId(id)) return;
+  const listener = listeners.get(String(id));
+  if (typeof listener !== 'function') return;
+  listener(result);
+}
+
 /** Browser JSON-RPC WebSocket with eth_subscribe. */
 export function connectJsonRpcStream(url: string) {
   const ws = new WebSocket(url);
   const pending = new Map<number, Pending>();
-  const listeners = new Map<string, (result: unknown) => void>();
+  const listeners = new Map<string, SubscriptionListener>();
   let nextId = 1;
   let opened = false;
   let onClose: (() => void) | undefined;
@@ -56,8 +74,7 @@ export function connectJsonRpcStream(url: string) {
       return;
     }
     if (body.method === 'eth_subscription') {
-      const id = body.params?.subscription;
-      if (id) listeners.get(id)?.(body.params?.result);
+      dispatchSubscriptionListener(listeners, body.params?.subscription, body.params?.result);
       return;
     }
     if (typeof body.id !== 'number') return;
