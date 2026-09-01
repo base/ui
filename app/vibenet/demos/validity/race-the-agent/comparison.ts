@@ -1,4 +1,9 @@
-import type { Hex } from 'viem';
+import type { Address, Hex } from 'viem';
+
+import { CANDLE_SAMPLE_MS } from '../lib/constants';
+import { conditionalWithdrawalEnabledPredicate } from '../lib/conditionalWithdrawal';
+import { blockNumberPredicate } from '../lib/predicates';
+import type { ValidityPredicate } from '../lib/types';
 
 export const RACE_VALIDITY_SECONDS = 15;
 export const AGENT_DISABLED_DWELL_MIN_MS = 2_000;
@@ -113,13 +118,24 @@ export function randomAgentDwellMs(random = Math.random()): number {
   return randomInteger(random, AGENT_DISABLED_DWELL_MIN_MS, AGENT_DISABLED_DWELL_MAX_MS);
 }
 
-export function randomAgentOpenBlocks(random = Math.random()): 1 | 2 {
-  return randomInteger(random, 1, 2) as 1 | 2;
+export function scheduledAgentOpenBlock(currentBlock: bigint, dwellMs: number): bigint {
+  return currentBlock + BigInt(Math.ceil(dwellMs / CANDLE_SAMPLE_MS));
 }
 
-/** Submit disable at this head; its own inclusion closes the roughly 1-2 block window. */
-export function agentDisableSubmitBlock(enabledBlock: bigint, openBlocks: 1 | 2): bigint {
-  return enabledBlock + BigInt(openBlocks - 1);
+export function scheduledAgentPredicates(
+  withdrawal: Address,
+  openBlock: bigint,
+): { open: ValidityPredicate[]; close: ValidityPredicate[] } {
+  return {
+    open: [
+      blockNumberPredicate('>=', openBlock),
+      blockNumberPredicate('<=', openBlock),
+    ],
+    close: [
+      blockNumberPredicate('>=', openBlock + 1n),
+      conditionalWithdrawalEnabledPredicate(withdrawal),
+    ],
+  };
 }
 
 export function shouldRunConditionAgent(args: {

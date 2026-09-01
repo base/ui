@@ -16,7 +16,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { cn } from '../../../../components/ui/cn';
 import { Text } from '../../../../components/ui/Text';
-import { VIBENET_EXPLORER_PATH } from '../../../library/config';
+import { VIBENET_EXPLORER_PATH, VIBENET_WS_URL } from '../../../library/config';
 import { CopyableValue } from '../../../components/CopyableValue';
 import { AccountDemoShell } from '../../_components/AccountDemoShell';
 import { DemoHeader } from '../../_components/DemoHeader';
@@ -34,7 +34,6 @@ import {
   readConditionalWithdrawalState,
 } from '../lib/conditionalWithdrawal';
 import { noncelessFields } from '../../../library/aa';
-import { CANDLE_SAMPLE_MS } from '../lib/constants';
 import { rootAccount } from '../lib/makers';
 import {
   describeValidityError,
@@ -42,10 +41,11 @@ import {
   makeWalletClient,
   sendValidityTransaction,
   VIBENET_CHAIN,
+  type RpcSend,
 } from '../lib/rpc';
 import { ensureSingleton, probeSingleton } from '../lib/singleton';
+import { connectJsonRpcStream, headNumber, type StreamHead } from '../lib/stream';
 import {
-  agentDisableSubmitBlock,
   attemptHistoryRows,
   canResetRace,
   canSubmitManual,
@@ -54,8 +54,9 @@ import {
   isAttemptTerminal,
   preserveCompletedAttempt,
   randomAgentDwellMs,
-  randomAgentOpenBlocks,
   RACE_VALIDITY_SECONDS,
+  scheduledAgentOpenBlock,
+  scheduledAgentPredicates,
   shouldRestartConditionAgent,
   shouldRunConditionAgent,
   shortHash,
@@ -69,12 +70,11 @@ const AGENT_GAS_FLOOR = parseEther('0.01');
 const AGENT_GAS_SEND = '0.02';
 const ACTIVE_ACCOUNT_FUNDING_FLOOR = parseEther('0.2');
 const RECEIPT_POLL_MS = 1_000;
-const STATE_POLL_MS = CANDLE_SAMPLE_MS;
-const AGENT_BLOCK_POLL_MS = 100;
+const STATE_FALLBACK_POLL_MS = 1_000;
 const AGENT_RETRY_MS = 750;
 
 type Observation = { enabled: boolean; block: bigint; at: number };
-type AgentPhase = 'Waiting' | 'Opening' | 'Closing' | 'Retrying';
+type AgentPhase = 'Waiting' | 'Scheduling' | 'Opening' | 'Closing' | 'Retrying';
 
 const EMPTY_ATTEMPT: Attempt = { status: 'idle' };
 
@@ -105,6 +105,7 @@ function RaceTheAgentDemoInner() {
   const [agentPhase, setAgentPhase] = useState<AgentPhase>('Waiting');
   const [agentRestartToken, setAgentRestartToken] = useState(0);
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [streamLive, setStreamLive] = useState(false);
   const [prepared, setPrepared] = useState(false);
   const [setupRunning, setSetupRunning] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
@@ -121,8 +122,6 @@ function RaceTheAgentDemoInner() {
   const [validBefore, setValidBefore] = useState<number | null>(null);
 
   const generationRef = useRef(0);
-  const agentNonceRef = useRef<bigint | null>(null);
-  const agentDeployedRef = useRef(false);
   const observedRef = useRef<Observation | null>(null);
   const validityRef = useRef(validity);
   const accountKeyRef = useRef<string | null>(null);
@@ -131,6 +130,7 @@ function RaceTheAgentDemoInner() {
   const setupFailedKeyRef = useRef<string | null>(null);
   const setupGenerationRef = useRef(0);
   const observationsScrollRef = useRef<HTMLDivElement | null>(null);
+  const rpcSendRef = useRef<RpcSend | null>(null);
   const engineRef = useRef(engine);
   engineRef.current = engine;
   validityRef.current = validity;
@@ -151,8 +151,6 @@ function RaceTheAgentDemoInner() {
     setupInFlightKeyRef.current = null;
     setupReadyKeyRef.current = null;
     setupFailedKeyRef.current = null;
-    agentNonceRef.current = null;
-    agentDeployedRef.current = false;
     setAgent(null);
     setPrepared(false);
     setSetupRunning(false);
@@ -170,6 +168,7 @@ function RaceTheAgentDemoInner() {
   }, [acct, parent]);
 
   const applyObservation = useCallback((next: Observation) => {
+    observedRef.current = next;
     setObserved(next);
     setObservations((previous) => {
       const last = previous.at(-1);
@@ -184,21 +183,9 @@ function RaceTheAgentDemoInner() {
     scroller.scrollTo({ left: scroller.scrollWidth, behavior: 'smooth' });
   }, [observations.length]);
 
-  const refreshState = useCallback(async () => {
-    if (!client || !vibe || !withdrawal) return null;
-    const [state, block] = await Promise.all([
-      readConditionalWithdrawalState(client, vibe),
-      client.getBlockNumber({ cacheTime: 0 }),
-    ]);
-    const next = { enabled: state.enabled, block, at: Date.now() };
-    setContractBalance(state.balance);
-    applyObservation(next);
-    return next;
-  }, [applyObservation, client, vibe, withdrawal]);
-
   useEffect(() => {
     let cancelled = false;
-    const nextClient = makePublicClient();
+    const nextClient = makePublicClient(() => rpcSendRef.current);
     void (async () => {
       const genesis = await nextClient.getBlock({ blockNumber: 0n });
       if (!genesis.hash) throw new Error('RPC did not return a genesis hash.');
@@ -231,23 +218,74 @@ function RaceTheAgentDemoInner() {
   useEffect(() => {
     if (!client || !vibe || !withdrawal) return;
     let cancelled = false;
-    const poll = () => {
-      void Promise.all([
-        readConditionalWithdrawalState(client, vibe),
-        client.getBlockNumber({ cacheTime: 0 }),
-      ])
-        .then(([state, block]) => {
-          if (cancelled) return;
-          setContractBalance(state.balance);
-          applyObservation({ enabled: state.enabled, block, at: Date.now() });
-        })
-        .catch(() => {});
+    let inFlight = false;
+    let pollId: number | undefined;
+    let stream: ReturnType<typeof connectJsonRpcStream> | undefined;
+
+    const syncState = async (block?: bigint) => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const [state, observedBlock] = await Promise.all([
+          readConditionalWithdrawalState(client, vibe),
+          block === undefined
+            ? client.getBlockNumber({ cacheTime: 0 })
+            : Promise.resolve(block),
+        ]);
+        if (cancelled) return;
+        setContractBalance(state.balance);
+        applyObservation({ enabled: state.enabled, block: observedBlock, at: Date.now() });
+      } catch {
+        // Keep the last observed state while the feed reconnects or polling recovers.
+      } finally {
+        inFlight = false;
+      }
     };
-    poll();
-    const id = window.setInterval(poll, STATE_POLL_MS);
+
+    const startPoll = () => {
+      if (pollId !== undefined) return;
+      rpcSendRef.current = null;
+      setStreamLive(false);
+      void syncState();
+      pollId = window.setInterval(() => void syncState(), STATE_FALLBACK_POLL_MS);
+    };
+
+    const startStream = async (wsUrl: string) => {
+      stream = connectJsonRpcStream(wsUrl);
+      stream.setOnClose(() => {
+        rpcSendRef.current = null;
+        if (!cancelled) startPoll();
+      });
+      await stream.ready;
+      rpcSendRef.current = (method, params) => stream!.request(method, params);
+      await stream.subscribe(['newHeads'], (raw) => {
+        const block = headNumber(raw as StreamHead);
+        if (block !== null) void syncState(block);
+      });
+      if (cancelled) {
+        stream.close();
+        return;
+      }
+      setStreamLive(true);
+      void syncState();
+    };
+
+    if (VIBENET_WS_URL) {
+      void startStream(VIBENET_WS_URL).catch(() => {
+        rpcSendRef.current = null;
+        stream?.close();
+        if (!cancelled) startPoll();
+      });
+    } else {
+      startPoll();
+    }
+
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      rpcSendRef.current = null;
+      if (pollId !== undefined) window.clearInterval(pollId);
+      stream?.close();
+      setStreamLive(false);
     };
   }, [applyObservation, client, vibe, withdrawal]);
 
@@ -411,7 +449,7 @@ function RaceTheAgentDemoInner() {
         }
         if (!isCurrent()) return;
 
-        const latestEngine = engineRef.current;
+        let latestEngine = engineRef.current;
         let conditionAgent = latestEngine.accounts.find(
           (item) => item.parentId === parent.id && item.label === AGENT_LABEL,
         );
@@ -424,6 +462,22 @@ function RaceTheAgentDemoInner() {
         if (!conditionAgent) throw new Error('Could not create the condition agent subaccount.');
         setAgent(conditionAgent);
 
+        const agentSignerIds = new Set(
+          conditionAgent.owners.flatMap((ownerActor) => ownerActor.signerId ? [ownerActor.signerId] : []),
+        );
+        const signerDeadline = Date.now() + 2_000;
+        while (
+          isCurrent() &&
+          !engineRef.current.signers.some((signer) => agentSignerIds.has(signer.id)) &&
+          Date.now() < signerDeadline
+        ) {
+          await delay(50);
+        }
+        latestEngine = engineRef.current;
+        if (!latestEngine.signers.some((signer) => agentSignerIds.has(signer.id))) {
+          throw new Error('Could not load the condition agent signing key.');
+        }
+
         let agentBalance = await client.getBalance({ address: conditionAgent.address });
         if (agentBalance < AGENT_GAS_FLOOR) {
           setProgress('Waiting for condition agent funding');
@@ -434,21 +488,26 @@ function RaceTheAgentDemoInner() {
           latestEngine.autoFundNewAccount(conditionAgent.address);
           agentBalance = await waitForBalance(client, conditionAgent.address, AGENT_GAS_FLOOR, 8_000);
         }
-        setProgress('Disabling condition');
-        const disable = encodeSetConditionalWithdrawalEnabled(contract, false);
-        const setupCalls: { to: Address; data: Hex; value?: string }[] = [
-          { to: disable.to, data: disable.data },
-        ];
         if (agentBalance < AGENT_GAS_FLOOR) {
-          setupCalls.push({ to: conditionAgent.address, data: '0x', value: AGENT_GAS_SEND });
+          setProgress('Funding the condition agent from the active account');
+          await latestEngine.sendActiveCalls({
+            calls: [{ to: conditionAgent.address, data: '0x', value: AGENT_GAS_SEND }],
+            metadata: 'Race the Agent funding fallback',
+          });
+          agentBalance = await waitForBalance(client, conditionAgent.address, AGENT_GAS_FLOOR, 8_000);
         }
-        await latestEngine.sendActiveCalls({
-          calls: setupCalls,
+        if (agentBalance < AGENT_GAS_FLOOR) {
+          throw new Error('The condition agent needs ETH for deployment and gas.');
+        }
+
+        setProgress('Deploying condition agent and disabling condition');
+        const disable = encodeSetConditionalWithdrawalEnabled(contract, false);
+        await latestEngine.sendAccountCalls({
+          account: conditionAgent,
+          calls: [{ to: disable.to, data: disable.data, value: '0' }],
           metadata: 'Race the Agent setup',
         });
 
-        agentNonceRef.current = null;
-        agentDeployedRef.current = false;
         await refreshPreparedState(client, deployment.tokenA, contract, applyObservation, setContractBalance);
         if (!isCurrent()) return;
         setupReadyKeyRef.current = setupKey;
@@ -569,74 +628,56 @@ function RaceTheAgentDemoInner() {
     trackValidityRace('agent', 'started');
     const active = () => generationRef.current === generation;
 
-    const sendEnabled = async (enabled: boolean): Promise<bigint> => {
+    const ensureAgentFunding = async () => {
       const agentBalance = await client.getBalance({ address: agent.address });
-      if (agentBalance < AGENT_GAS_FLOOR) {
-        setAgentPhase('Retrying');
-        engineRef.current.autoFundNewAccount(agent.address);
-        const funded = await waitForBalance(client, agent.address, AGENT_GAS_FLOOR, 8_000);
-        if (funded < AGENT_GAS_FLOOR) throw new Error('Condition agent needs ETH for gas.');
-      }
-      let nonce = agentNonceRef.current;
-      if (nonce === null) {
-        nonce = BigInt(await client.getTransactionCount({ address: agent.address }));
-      }
-      const call = encodeSetConditionalWithdrawalEnabled(withdrawal, enabled);
-      const send = (assumeDeployed: boolean) => engineRef.current.sendAccountCalls({
-        account: agent,
-        calls: [{ to: call.to, data: call.data, value: '0' }],
-        seqOpt: {
-          nonceSequence: nonce!,
-          ...(assumeDeployed ? { assumeDeployed: true } : {}),
-        },
-        metadata: AGENT_LABEL,
-      });
-      try {
-        let result;
-        try {
-          result = await send(agentDeployedRef.current);
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          if (!agentDeployedRef.current || !/actor is not bound/i.test(message)) throw err;
-          agentDeployedRef.current = false;
-          result = await send(false);
-        }
-        agentDeployedRef.current = true;
-        agentNonceRef.current = nonce + 1n;
-        setAgentError(null);
-        await refreshState().catch(() => null);
-        return await agentReceiptBlock(client, result.hash, active);
-      } catch (err) {
-        agentNonceRef.current = null;
-        throw err;
-      }
+      if (agentBalance >= AGENT_GAS_FLOOR) return;
+      setAgentPhase('Retrying');
+      engineRef.current.autoFundNewAccount(agent.address);
+      const funded = await waitForBalance(client, agent.address, AGENT_GAS_FLOOR, 8_000);
+      if (funded < AGENT_GAS_FLOOR) throw new Error('Condition agent needs ETH for gas.');
     };
 
     const run = async () => {
       while (active()) {
         try {
-          const [state, block] = await Promise.all([
-            readConditionalWithdrawalState(client, vibe),
-            client.getBlockNumber({ cacheTime: 0 }),
-          ]);
+          await ensureAgentFunding();
+          const block = await client.getBlockNumber({ cacheTime: 0 });
           if (!active()) break;
-          setContractBalance(state.balance);
-          applyObservation({ enabled: state.enabled, block, at: Date.now() });
-          if (state.enabled) {
-            setAgentPhase('Closing');
-            await sendEnabled(false);
-          }
+          const openBlock = scheduledAgentOpenBlock(block, randomAgentDwellMs());
+          const validity = scheduledAgentPredicates(withdrawal, openBlock);
+          const fields = noncelessFields(RACE_VALIDITY_SECONDS);
+          const open = encodeSetConditionalWithdrawalEnabled(withdrawal, true);
+          const close = encodeSetConditionalWithdrawalEnabled(withdrawal, false);
+          const seqOpt = { ...fields, assumeDeployed: true };
 
-          setAgentPhase('Waiting');
-          await delay(randomAgentDwellMs());
-          if (!active()) break;
+          setAgentPhase('Scheduling');
+          // The same signer cannot service two composition requests concurrently.
+          // Sign sequentially, then submit both scheduled transactions together.
+          const signedOpen = await engineRef.current.signAccountCalls({
+            account: agent,
+            calls: [{ to: open.to, data: open.data, value: '0' }],
+            seqOpt,
+            metadata: `${AGENT_LABEL} open`,
+          });
+          const signedClose = await engineRef.current.signAccountCalls({
+            account: agent,
+            calls: [{ to: close.to, data: close.data, value: '0' }],
+            seqOpt,
+            metadata: `${AGENT_LABEL} close`,
+          });
+          await Promise.all([
+            sendValidityTransaction(signedOpen.serialized, validity.open),
+            sendValidityTransaction(signedClose.serialized, validity.close),
+          ]);
+          setAgentError(null);
           setAgentPhase('Opening');
-          const enabledBlock = await sendEnabled(true);
-          const openBlocks = randomAgentOpenBlocks();
-          await waitForBlock(client, agentDisableSubmitBlock(enabledBlock, openBlocks), active);
-          if (!active()) break;
-          setAgentPhase('Closing');
-          await sendEnabled(false);
+          await waitForScheduledClose(
+            openBlock,
+            active,
+            () => observedRef.current,
+            () => setAgentPhase('Closing'),
+          );
+          if (active()) setAgentPhase('Waiting');
         } catch (err) {
           if (!active()) break;
           setAgentPhase('Retrying');
@@ -658,7 +699,7 @@ function RaceTheAgentDemoInner() {
       setAgentPhase('Waiting');
       trackValidityRace('agent', 'stopped');
     };
-  }, [agent, agentRestartToken, applyObservation, client, prepared, refreshState, vibe, withdrawal]);
+  }, [agent, agentRestartToken, client, prepared, vibe, withdrawal]);
 
   const withdrawNow = async () => {
     if (!withdrawal || !client || !observed || !canSubmitManual({
@@ -808,7 +849,10 @@ function RaceTheAgentDemoInner() {
             <Metric label="Agent" value={agentRunning ? agentPhase : agent ? 'Restarting' : 'Not prepared'} />
           </div>
           <Text variant="footnote" tone="muted" className="mt-4">
-            Browser observations are sampled every 200ms to match Vibenet&apos;s block cadence. Inclusion blocks below remain the primary ordering evidence.
+            {streamLive
+              ? 'WebSocket observations follow each Vibenet head at roughly 200ms cadence.'
+              : 'WebSocket unavailable; state observations are polling every second.'}{' '}
+            Inclusion blocks below remain the primary ordering evidence.
           </Text>
         </Card>
 
@@ -821,7 +865,7 @@ function RaceTheAgentDemoInner() {
             <RaceStep
               number="01"
               title="Automatic condition agent"
-              detail="Always running after setup. It holds disabled for 2-10 seconds, then opens for roughly 1-2 L2 blocks before explicitly disabling again."
+              detail="Always running after setup. It pre-submits an exact-block open and a guarded close for the following Vibenet block, then schedules the next pair."
               active={prepared && !agentRunning}
               complete={agentRunning}
             >
@@ -967,29 +1011,23 @@ async function waitForBalance(
   return balance;
 }
 
-async function agentReceiptBlock(
-  client: PublicClient,
-  hash: Hex,
+async function waitForScheduledClose(
+  openBlock: bigint,
   active: () => boolean,
-): Promise<bigint> {
-  const deadline = Date.now() + 3_000;
-  while (active() && Date.now() < deadline) {
-    const receipt = await getAaTransactionReceipt(client as never, { hash }).catch(() => null);
-    if (receipt?.blockNumber !== undefined) return BigInt(receipt.blockNumber);
-    await delay(AGENT_BLOCK_POLL_MS);
-  }
-  return client.getBlockNumber({ cacheTime: 0 });
-}
-
-async function waitForBlock(
-  client: PublicClient,
-  target: bigint,
-  active: () => boolean,
+  observation: () => Observation | null,
+  onClosing: () => void,
 ): Promise<void> {
+  let closing = false;
+  const deadline = Date.now() + (RACE_VALIDITY_SECONDS + 2) * 1_000;
   while (active()) {
-    const block = await client.getBlockNumber({ cacheTime: 0 });
-    if (block >= target) return;
-    await delay(AGENT_BLOCK_POLL_MS);
+    const current = observation();
+    if (current && current.block >= openBlock && !closing) {
+      closing = true;
+      onClosing();
+    }
+    if (current && current.block >= openBlock + 1n && !current.enabled) return;
+    if (Date.now() >= deadline) throw new Error('Scheduled close was not observed before expiry.');
+    await delay(100);
   }
 }
 
