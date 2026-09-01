@@ -844,7 +844,7 @@ function RaceTheAgentDemoInner() {
               active={readyToWithdraw}
               complete={manualAttemptCount > 0}
             >
-              <Button onClick={withdrawNow} disabled={!readyToWithdraw} className="w-full sm:w-full">
+              <Button onClick={withdrawNow} disabled={!readyToWithdraw}>
                 Withdraw now
               </Button>
             </RaceStep>
