@@ -13,41 +13,40 @@ import type { TokenInfo } from '../lib/types';
 
 export type PendingAssignment = { scope: string; scopeLabel: string; policyId: bigint; policyLabel: string };
 
-// Assign (or clear) a policy on a token feature, through the shared
-// TransactionModal so the change is reviewed and confirmed like every other send.
-export function AssignPolicyModal({
-  open,
-  onClose,
-  token,
-  assignment,
-  onSend,
-}: {
+type AssignPolicyModalProps = {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
   assignment: PendingAssignment | null;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
-}) {
+};
+
+// Assign (or clear) a policy on a token feature, through the shared
+// TransactionModal so the change is reviewed and confirmed like every other send.
+export function AssignPolicyModal(props: AssignPolicyModalProps) {
+  if (!props.open || !props.assignment) return null;
+  return <AssignPolicyInner {...props} assignment={props.assignment} />;
+}
+
+function AssignPolicyInner({
+  open,
+  onClose,
+  token,
+  assignment,
+  onSend,
+}: Omit<AssignPolicyModalProps, 'assignment'> & { assignment: PendingAssignment }) {
   const [step, setStep] = useState<TxStep>('build');
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<Hex | null>(null);
 
-  const reset = () => {
-    setStep('build');
-    setFinalizing(false);
-    setError(null);
-    setTxHash(null);
-  };
-
   const handleClose = () => {
     if (finalizing) return;
-    reset();
     onClose();
   };
 
   const submit = async () => {
-    if (!token || !assignment) return;
+    if (!token) return;
     setError(null);
     setStep('submitted');
     setFinalizing(true);
@@ -76,7 +75,7 @@ export function AssignPolicyModal({
       error={error ?? undefined}
       result={txHash ? { txHash } : null}
       titles={{ build: 'Assign Policy', submitted: 'Assign Policy' }}
-      canProceed={Boolean(assignment)}
+      canProceed
       proceedLabel="Assign"
       onProceed={() => void submit()}
       onSubmittedBack={() => {
@@ -90,20 +89,18 @@ export function AssignPolicyModal({
         <div className="flex flex-col items-center gap-1">
           <Text variant="title3">Policy updated</Text>
           <Text variant="label.regular" tone="muted">
-            Updated “{assignment?.scopeLabel}” to {assignment?.policyLabel}.
+            Updated “{assignment.scopeLabel}” to {assignment.policyLabel}.
           </Text>
         </div>
       )}
       buildBody={
-        assignment ? (
-          <ul className="flex flex-col gap-2">
-            <CallRow index={1}>
-              <span className="font-normal">{assignment.scopeLabel}</span>
-              <ReviewArrow />
-              <span className="text-bds-gray-70 dark:text-bds-gray-30">{assignment.policyLabel}</span>
-            </CallRow>
-          </ul>
-        ) : null
+        <ul className="flex flex-col gap-2">
+          <CallRow index={1}>
+            <span className="font-normal">{assignment.scopeLabel}</span>
+            <ReviewArrow />
+            <span className="text-bds-gray-70 dark:text-bds-gray-30">{assignment.policyLabel}</span>
+          </CallRow>
+        </ul>
       }
     />
   );

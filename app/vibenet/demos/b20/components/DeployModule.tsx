@@ -31,20 +31,7 @@ import {
 import type { CreatedToken } from '../lib/types';
 import { ErrorNote, Field, Input } from './primitives';
 
-// Create-token flow, presented through the shared TransactionModal: the form is
-// the build step and a successful deploy shows a compact custom success view.
-// The whole deployment runs as ONE atomic EIP-8130 transaction whose calls
-// create the bare token, then grant roles, apply options, and mint — all in a
-// single transaction (the 8130 account executes the calls in order, so the
-// freshly deployed token is callable by the calls that follow it).
-export function DeployModule({
-  open,
-  onClose,
-  wallet,
-  onSendCalls,
-  onCreated,
-  onFirstPayment,
-}: {
+type DeployModuleProps = {
   open: boolean;
   onClose: () => void;
   wallet: Address | null;
@@ -52,7 +39,27 @@ export function DeployModule({
   onCreated: (token: CreatedToken) => Promise<void>;
   /** Guided flow: after a stablecoin is created, jump to a first payment in it. */
   onFirstPayment?: () => void;
-}) {
+};
+
+// Create-token flow, presented through the shared TransactionModal: the form is
+// the build step and a successful deploy shows a compact custom success view.
+// The whole deployment runs as ONE atomic EIP-8130 transaction whose calls
+// create the bare token, then grant roles, apply options, and mint — all in a
+// single transaction (the 8130 account executes the calls in order, so the
+// freshly deployed token is callable by the calls that follow it).
+export function DeployModule(props: DeployModuleProps) {
+  if (!props.open) return null;
+  return <DeployModuleInner {...props} />;
+}
+
+function DeployModuleInner({
+  open,
+  onClose,
+  wallet,
+  onSendCalls,
+  onCreated,
+  onFirstPayment,
+}: DeployModuleProps) {
   const [variant, setVariant] = useState<'asset' | 'stablecoin'>('asset');
   // Advanced mode reveals the salt, supply cap, and token-info link — hidden by
   // default so the common path stays short (mirrors the account create modal's
@@ -71,17 +78,8 @@ export function DeployModule({
   const [error, setError] = useState<string | null>(null);
   const [createdToken, setCreatedToken] = useState<CreatedToken | null>(null);
 
-  const reset = () => {
-    setStep('build');
-    setFinalizing(false);
-    setError(null);
-    setCreatedToken(null);
-    setSalt('');
-  };
-
   const handleClose = () => {
     if (finalizing) return;
-    reset();
     onClose();
   };
 
@@ -215,10 +213,7 @@ export function DeployModule({
               <Button
                 className="mt-2"
                 size="sm"
-                onClick={() => {
-                  reset();
-                  onFirstPayment();
-                }}
+                onClick={onFirstPayment}
               >
                 Send your first payment in {createdToken.symbol} →
               </Button>
