@@ -31,7 +31,7 @@ export function Drawer({ open, onClose, title, children, footer, className }: Dr
       }}
     >
       <BaseDrawer.Portal>
-        <BaseDrawer.Backdrop className="[--backdrop-opacity:0.4] dark:[--backdrop-opacity:0.6] fixed inset-0 z-[120] min-h-dvh bg-black opacity-[calc(var(--backdrop-opacity)*(1-var(--drawer-swipe-progress)))] backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[swiping]:duration-0 data-[ending-style]:duration-[calc(var(--drawer-swipe-strength)*400ms)] supports-[-webkit-touch-callout:none]:absolute" />
+        <BaseDrawer.Backdrop className="[--backdrop-opacity:0.4] dark:[--backdrop-opacity:0.6] fixed inset-0 z-[120] min-h-dvh bg-black opacity-[calc(var(--backdrop-opacity)*(1-var(--drawer-swipe-progress)))] backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[swiping]:duration-0 data-[ending-style]:duration-[calc(var(--drawer-swipe-strength)*400ms)] ios:absolute" />
         <BaseDrawer.Viewport className="fixed inset-0 z-[120] flex items-stretch justify-end">
           <BaseDrawer.Popup
             className={cn(

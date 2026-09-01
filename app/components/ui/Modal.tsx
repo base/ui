@@ -31,7 +31,7 @@ export function Modal({ open, onClose, title, children, headerAction, footer, cl
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[120] min-h-dvh bg-black/40 backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 dark:bg-black/60 supports-[-webkit-touch-callout:none]:absolute" />
+        <Dialog.Backdrop className="fixed inset-0 z-[120] min-h-dvh bg-black/40 backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 dark:bg-black/60 ios:absolute" />
         <Dialog.Popup
           className={cn(
             'fixed left-1/2 top-1/2 z-[120] flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-background text-foreground shadow-xl outline-none ring-1 ring-black/[0.06] transition-[opacity,transform] duration-150 data-[ending-style]:scale-[0.96] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.96] data-[starting-style]:opacity-0 dark:bg-[#141414] dark:text-white dark:ring-white/10 motion-reduce:transition-none',

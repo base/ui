@@ -387,6 +387,11 @@ body {
 }
 
 body {
+  /* Containing block for iOS 26+ absolute dialog/drawer backdrops. Without
+     this, `position: absolute; inset: 0` still sizes to the visual viewport
+     and leaves gaps under the browser chrome.
+     https://base-ui.com/react/overview/quick-start#ios-26-safari */
+  position: relative;
   font-family:
     var(--font-google-sans-flex),
     -apple-system,
