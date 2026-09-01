@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEMOS, demoLabel } from './catalogue';
+import { DEMOS, demoLabel, listedDemos } from './catalogue';
 
 describe('demoLabel', () => {
-  it('uses the catalogue entry so the crumb matches the demo name', () => {
-    expect(demoLabel('account')).toBe('Account');
+  it('prefers shortTitle for the validity demo', () => {
+    expect(demoLabel('validity')).toBe('Validity');
   });
 
   it('prefers shortTitle over title when both are set', () => {
@@ -40,5 +40,10 @@ describe('DEMOS', () => {
   it('has no duplicate hrefs', () => {
     const hrefs = DEMOS.map((d) => d.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
+  it('keeps Validity off the Vibenet demos grid while the route still resolves', () => {
+    expect(listedDemos().some((demo) => demo.href === '/vibenet/demos/validity')).toBe(false);
+    expect(demoLabel('validity')).toBe('Validity');
   });
 });

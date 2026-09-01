@@ -182,12 +182,15 @@ export type ExplorerTxLog = {
   decoded: DecodedAccountConfigEvent | null;
 };
 export type ExplorerTxResponse = {
-  hash: Hex;
-  blockHash: Hex;
+  /** May be omitted; the explorer page falls back to the route hash. */
+  hash?: Hex | null;
+  /** Null while the tx is still in the mempool / not yet included. */
+  blockHash: Hex | null;
   blockNumber: Hex | null;
   timestamp: Hex | null;
   blockTimestampMs?: Hex;
-  from: Address;
+  /** Recovered signer; may be absent on some pending payloads. */
+  from: Address | null;
   to: Address | null;
   value: Hex | null;
   gas: Hex | null;

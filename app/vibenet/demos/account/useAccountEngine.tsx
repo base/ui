@@ -887,8 +887,12 @@ function useAccountEngineCore() {
     // pins them here instead.
     seqOpt?: {
       nonceSequence?: bigint;
+      nonceKey?: bigint;
+      validBefore?: bigint;
       assumeDeployed?: boolean;
       estimateRevert?: 'fallback' | 'throw' | 'force';
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
     },
   ): Promise<{ serialized: Hex; nextSeq: number }> => {
     const signer = await buildSigner(signerWS);
@@ -956,11 +960,12 @@ function useAccountEngineCore() {
     const plainCallCount = Math.max(totalCalls - heavyCallCount, 1);
     const wire = encodeWalletCalls({ account: account.address, calls: phases });
 
+    const nonceKey = seqOpt?.nonceKey ?? 0n;
     const nonceSequence =
       seqOpt?.nonceSequence ??
       (await getTransactionCount(makeRpcClient(), {
         address: account.address as Address,
-        nonceKey: 0n,
+        nonceKey,
       }));
 
     // Authenticator hint so estimateGas shapes the senderAuth stub for the
@@ -1055,10 +1060,11 @@ function useAccountEngineCore() {
         accountChanges,
         calls: wire,
         metadata: meta,
-        nonceKey: 0n,
+        nonceKey,
         nonceSequence,
-        maxFeePerGas: 1_000_000_000n,
-        maxPriorityFeePerGas: 1_000_000n,
+        ...(seqOpt?.validBefore !== undefined ? { validBefore: seqOpt.validBefore } : {}),
+        maxFeePerGas: seqOpt?.maxFeePerGas ?? 1_000_000_000n,
+        maxPriorityFeePerGas: seqOpt?.maxPriorityFeePerGas ?? 1_000_000n,
         gas: gasLimit,
         // A local payer signs `payerAuth` here, so don't stub it out.
         ...(payerOpt ? { payer: payerOpt.address, ...(payerOpt.localSigner ? {} : { payerAuth: '0x' as Hex }) } : {}),
@@ -1146,6 +1152,72 @@ function useAccountEngineCore() {
     const hash = await broadcast8130(serialized);
     applyLandedBundle(acct, nextSeq, bundle);
     return { hash, serialized, mode: tokenGas ? 'token' : 'self' };
+  };
+
+  // Sign + broadcast from a specific stored account (not necessarily the active
+  // one). Validity's simulated makers are delegated sub-accounts; switching
+  // `activeAccountId` to send from them would steal the user's selection.
+  const signerForAccount = (account: StoredAccount): WalletSigner => {
+    const parent = account.parentId ? (accounts.find((item) => item.id === account.parentId) ?? null) : null;
+    const ownerIds = new Set<string>();
+    for (const owner of account.owners) if (owner.signerId) ownerIds.add(owner.signerId);
+    if (parent) for (const owner of parent.owners) if (owner.signerId) ownerIds.add(owner.signerId);
+    const candidates = signers.filter((signer) => ownerIds.has(signer.id));
+    const spare = candidates.find(
+      (signer) =>
+        signer.kind === 'k1' &&
+        signer.privateKey &&
+        account.owners.some((owner) => owner.signerId === signer.id),
+    );
+    const signer = spare ?? candidates[0];
+    if (!signer) throw new Error(`No local owner key found for ${account.label}.`);
+    return signer;
+  };
+
+  const sendAccountCalls = async ({
+    account,
+    calls,
+    wait = true,
+    seqOpt,
+    metadata,
+  }: {
+    account: StoredAccount;
+    calls: { to: Address; data: Hex; value?: string }[];
+    wait?: boolean;
+    seqOpt?: {
+      nonceSequence?: bigint;
+      nonceKey?: bigint;
+      validBefore?: bigint;
+      assumeDeployed?: boolean;
+      maxFeePerGas?: bigint;
+      maxPriorityFeePerGas?: bigint;
+    };
+    metadata?: string;
+  }): Promise<{ hash: Hex; serialized: Hex; nextSeq: number }> => {
+    if (!calls.length) throw new Error('No calls to send.');
+    const signer = signerForAccount(account);
+    const { serialized, nextSeq } = await signComposed(
+      account,
+      signer,
+      calls.map((call) => newCallRow({ to: call.to, data: call.data, value: call.value ?? '0' })),
+      [],
+      null,
+      metadata?.trim() ? toHex(metadata.trim()) : undefined,
+      undefined,
+      undefined,
+      seqOpt,
+    );
+    if (wait) {
+      const hash = await broadcast8130(serialized);
+      applyLandedBundle(account, nextSeq, []);
+      return { hash, serialized, nextSeq };
+    }
+    const hash = (await makeRpcClient().request({
+      method: 'eth_sendRawTransaction',
+      params: [serialized],
+    })) as Hex;
+    applyLandedBundle(account, nextSeq, []);
+    return { hash, serialized, nextSeq };
   };
 
   /**
@@ -1871,10 +1943,14 @@ function useAccountEngineCore() {
   // Derive + store a delegated sub-account (its own address, controlled by this
   // account via key.delegate). `withSpareKey` also mints a fresh owner key you
   // hold, so you can spend from the sub-account without your main keys.
-  const doCreateSubAccount = (label: string, opts?: { withSpareKey?: boolean }): AppSubAccount | null => {
-    if (!acct) return null;
+  const doCreateSubAccount = (
+    label: string,
+    opts?: { withSpareKey?: boolean; parent?: StoredAccount },
+  ): { sub: AppSubAccount; account: StoredAccount } | null => {
+    const parent = opts?.parent ?? acct;
+    if (!parent) return null;
     const subSalt = randomHex32() as Hex;
-    const actors = [key.delegate(acct.address)];
+    const actors = [key.delegate(parent.address)];
     const signerIds: string[] = [];
     let spare: WalletSigner | null = null;
     if (opts?.withSpareKey) {
@@ -1892,11 +1968,11 @@ function useAccountEngineCore() {
     });
     const sub: AppSubAccount = {
       id: crypto.randomUUID(),
-      label: label.trim() || `Sub-account ${acct.subAccounts.length + 1}`,
+      label: label.trim() || `Sub-account ${parent.subAccounts.length + 1}`,
       salt: subSalt,
       address: subAddress,
       signerIds,
-      delegateTo: acct.address,
+      delegateTo: parent.address,
       createdAt: Date.now(),
     };
     // Selectable account record for the sub. The on-chain owner is the parent (via
@@ -1906,11 +1982,11 @@ function useAccountEngineCore() {
     // owner and stays selectable on its own.
     const delegateActor: StoredActor = {
       signerId: '',
-      actorId: key.delegate(acct.address).actorId,
+      actorId: key.delegate(parent.address).actorId,
       authenticator: canonicalAuthenticators.delegate,
       kind: 'k1',
-      label: `${acct.label} (delegate)`,
-      identity: acct.address,
+      label: `${parent.label} (delegate)`,
+      identity: parent.address,
       scope: 0,
     };
     const subStoredActors = sortActors([delegateActor, ...(spare ? [toStoredActor(spare)] : [])]);
@@ -1918,7 +1994,7 @@ function useAccountEngineCore() {
       id: crypto.randomUUID(),
       label: sub.label,
       type: 'smart',
-      parentId: acct.id,
+      parentId: parent.id,
       saltField: '',
       salt: subSalt,
       address: subAddress,
@@ -1930,17 +2006,17 @@ function useAccountEngineCore() {
       subAccounts: [],
       createdAt: Date.now(),
     };
-    updateAccount(acct.id, (a) => ({ ...a, subAccounts: [...a.subAccounts, sub] }));
+    updateAccount(parent.id, (a) => ({ ...a, subAccounts: [...a.subAccounts, sub] }));
     setAccounts((prev) => [...prev, subRecord]);
     pushActivity({
       kind: 'subaccount',
       title: `Sub-account created · ${sub.label}`,
-      detail: `Delegates to ${short(acct.address)}`,
+      detail: `Delegates to ${short(parent.address)}`,
       changes: ['owner: this account', ...(spare ? [`owner: ${spare.label}`] : [])],
       account: subAddress,
     });
     autoFundNewAccount(subAddress);
-    return sub;
+    return { sub, account: subRecord };
   };
 
   return {
@@ -2004,6 +2080,7 @@ function useAccountEngineCore() {
     broadcast8130,
     signComposed,
     sendActiveCalls,
+    sendAccountCalls,
     sendActiveCallsBatches,
     applyLandedBundle,
     pendingBundleFor,

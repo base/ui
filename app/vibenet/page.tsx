@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { Card, LinkCard } from '../components/ui/Card';
 import { Text } from '../components/ui/Text';
 
 import { CopyableValue } from './components/CopyableValue';
-import { DEMOS, type DemoEntry } from './demos/catalogue';
+import { listedDemos, type DemoEntry } from './demos/catalogue';
 import type { ConfigResponse } from './library/api-types';
 import { vibenetApi } from './library/client';
 import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from './library/config';
@@ -42,7 +43,7 @@ export default function VibenetHomePage() {
     <div className="animate-in -mb-20 flex min-w-0 flex-1 flex-col gap-16 pb-4 text-foreground">
       <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:justify-between md:gap-8">
         <div className="flex max-w-xl flex-1 flex-col gap-6">
-          <img src="/vibenet-illo.svg" alt="" width={48} height={48} className="mt-8" />
+          <Image src="/vibenet-illo.svg" alt="" width={48} height={48} className="mt-8" />
           <Text variant="title2" tone="muted">
             <span className="text-foreground">Vibenet</span> is an ephemeral Base developer network for testing in-flight features.
           </Text>
@@ -72,7 +73,7 @@ export default function VibenetHomePage() {
       <section className="flex flex-col gap-6">
         <Text variant="headline">Demos</Text>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {DEMOS.map((demo) =>
+          {listedDemos().map((demo) =>
             demo.available ? (
               <LinkCard
                 key={demo.href}

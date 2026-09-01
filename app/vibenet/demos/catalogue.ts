@@ -17,7 +17,14 @@ export type DemoEntry = {
   summary: string;
   points: string[];
   available: boolean;
+  /** When false, the route stays live but is omitted from the Vibenet demos grid. */
+  listed?: boolean;
 };
+
+/** Demos shown on the Vibenet index. Unlisted entries stay reachable by URL. */
+export function listedDemos(): DemoEntry[] {
+  return DEMOS.filter((demo) => demo.listed !== false);
+}
 
 export const DEMOS: DemoEntry[] = [
   {
@@ -45,6 +52,20 @@ export const DEMOS: DemoEntry[] = [
       'Policies and Asset announcements',
     ],
     available: true,
+  },
+  {
+    href: '/vibenet/demos/validity',
+    title: 'Validity',
+    shortTitle: 'Validity',
+    summary:
+      'Attach conditions to a transaction so the sequencer includes it only while they hold. A simulated pool shows a swap waiting on price, then landing or expiring.',
+    points: [
+      'Add storage and block-number conditions to an ordinary swap',
+      'A simulated AMM makes those conditions visible on a moving mid',
+      'Stack several 8130 conditions at once, or replace the resting one',
+    ],
+    available: true,
+    listed: false,
   },
 ];
 

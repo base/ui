@@ -77,3 +77,10 @@ export function trackExplorerChainSelect(chain: string): void {
 export function trackExplorerActiveBlockJump(chain: string, jump: 'latest' | 'previous'): void {
   track('explorer_active_block_jump', { chain, jump });
 }
+
+export function trackValidityOrder(
+  side: string,
+  status: 'submitted' | 'filled' | 'expired' | 'replaced' | 'error',
+): void {
+  track('validity_order', { side, status });
+}

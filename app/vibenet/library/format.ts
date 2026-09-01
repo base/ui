@@ -8,8 +8,13 @@ export function isAddress(value: unknown): value is string {
   return typeof value === 'string' && ADDRESS_RE.test(value);
 }
 
-/** Abbreviate a hash/address as `0x1234…abcd`. */
-export function shortAddress(value: string, lead = 6, tail = 4): string {
+/** Abbreviate a hash/address as `0x1234…abcd`. Missing values render as an em dash. */
+export function shortAddress(
+  value: string | null | undefined,
+  lead = 6,
+  tail = 4,
+): string {
+  if (!value) return '—';
   if (value.length <= lead + tail + 1) return value;
   return `${value.slice(0, lead)}…${value.slice(-tail)}`;
 }

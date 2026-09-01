@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 
+import { Banner } from '../../../../components/ui/Banner';
 import { Card } from '../../../../components/ui/Card';
 import { Text } from '../../../../components/ui/Text';
 import { DetailList, DetailRow } from '../../../components/DetailList';
@@ -362,11 +363,13 @@ function TxBody({ tx }: TxBodyProps) {
   const blockNum = hexToInt(tx.blockNumber);
   const ts = timeFromHex(tx.timestamp, tx.blockTimestampMs);
   const typeInfo = txTypeLabel(tx.type, tx.typeHex ?? null);
-  const status = STATUS_STYLE[tx.status];
+  const status = STATUS_STYLE[tx.status] ?? STATUS_STYLE.pending;
+  const included = Boolean(tx.blockHash);
+  const logs = tx.logs ?? [];
   const memo = decodeMetadata(tx.metadata);
   const hasMetadata = Boolean(tx.metadata && tx.metadata !== '0x');
   const selector = tx.input && tx.input.length >= 10 ? tx.input.slice(0, 10) : null;
-  const b20Memo = tx.isAa ? null : decodeB20MemoCalldata(tx.input);
+  const b20Memo = tx.isAa ? null : decodeB20MemoCalldata(tx.input ?? '');
   const gasTokenFee = tx.isAa ? findGasTokenFee(tx.payer, tx.aa) : null;
   const gasTokenAddress = gasTokenFee?.token ?? null;
   const [gasTokenMeta, setGasTokenMeta] = useState<TokenMeta | null>(null);
@@ -386,7 +389,7 @@ function TxBody({ tx }: TxBodyProps) {
   const inputBytes = tx.input && tx.input !== '0x' ? (tx.input.length - 2) / 2 : 0;
   const callCount = (tx.aa?.calls ?? []).reduce((sum, phase) => sum + phase.length, 0);
   const phaseCount = tx.aa?.calls.length ?? 0;
-  const b20Events = tx.logs.map(decodeB20Event).filter((event) => event !== null);
+  const b20Events = logs.map(decodeB20Event).filter((event) => event !== null);
   const announcement = b20Events.find((event) => event.eventName === 'Announcement');
   const multiplierUpdate = b20Events.find((event) => event.eventName === 'UIMultiplierUpdated');
   const announcementClosed = b20Events.some((event) => event.eventName === 'EndAnnouncement');
@@ -435,18 +438,31 @@ function TxBody({ tx }: TxBodyProps) {
     nonceBody = Number.parseInt(tx.nonce, 16).toString();
   }
 
-  const selfPay = Boolean(tx.payer && tx.payer.toLowerCase() === tx.from.toLowerCase());
+  const selfPay = Boolean(
+    tx.payer && tx.from && tx.payer.toLowerCase() === tx.from.toLowerCase(),
+  );
 
   return (
     <>
+      {!included ? (
+        <Banner>
+          This transaction has been submitted but is not yet included in a block.
+          Conditional and validity transactions stay in the mempool until their
+          predicates hold or they expire.
+        </Banner>
+      ) : null}
       <Card className="bg-background p-6 dark:bg-white/5">
         <DetailList>
           <DetailRow label="Block">
-            <ExplorerLink
-              kind="block"
-              value={tx.blockHash}
-              label={blockNum !== null ? blockNum.toLocaleString() : tx.blockHash}
-            />
+            {tx.blockHash ? (
+              <ExplorerLink
+                kind="block"
+                value={tx.blockHash}
+                label={blockNum !== null ? blockNum.toLocaleString() : tx.blockHash}
+              />
+            ) : (
+              <em className={DIM}>Not yet included</em>
+            )}
           </DetailRow>
           {ts ? (
             <DetailRow label="Timestamp">
@@ -463,7 +479,11 @@ function TxBody({ tx }: TxBodyProps) {
             </DetailRow>
           ) : null}
           <DetailRow label="From">
-            <ExplorerLink kind="address" value={tx.from} label={tx.from} className="break-all" />
+            {tx.from ? (
+              <ExplorerLink kind="address" value={tx.from} label={tx.from} className="break-all" />
+            ) : (
+              <em className={DIM}>—</em>
+            )}
           </DetailRow>
           <DetailRow label="To">{toBody}</DetailRow>
           {tx.payer ? (
@@ -657,16 +677,16 @@ function TxBody({ tx }: TxBodyProps) {
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <Text variant="headline">Logs ({tx.logs.length})</Text>
-        {tx.logs.length === 0 ? (
+        <Text variant="headline">Logs ({logs.length})</Text>
+        {logs.length === 0 ? (
           <Card className="bg-background p-4 dark:bg-white/5">
             <Text variant="label.regular" tone="muted">
-              No logs emitted.
+              {included ? 'No logs emitted.' : 'Logs will appear once the transaction is included.'}
             </Text>
           </Card>
         ) : (
           <div className="flex flex-col gap-3">
-            {tx.logs.map((log) => (
+            {logs.map((log) => (
               <LogView key={log.logIndex} log={log} />
             ))}
           </div>
@@ -715,7 +735,7 @@ export default function ExplorerTxPage({ params }: PageProps) {
         <Text variant="title2">Transaction</Text>
         {tx ? (
           <code className="mt-1 block break-all font-mono text-[13px] text-bds-gray-60 dark:text-bds-gray-40">
-            {tx.hash}
+            {tx.hash ?? hash}
           </code>
         ) : null}
       </div>
