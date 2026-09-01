@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { annotatedValidity, reviewClauses } from './annotate';
 import { WAD } from './constants';
-import { blockExpiryPredicate, priceValidity } from './predicates';
+import { blockExpiryPredicate, priceValidity, storagePredicate } from './predicates';
 
 const PAIR = '0x1111111111111111111111111111111111111111';
 
@@ -40,6 +40,21 @@ describe('annotatedValidity', () => {
     expect(notes).toContain('Block-number expiry');
     expect(notes).toContain('L2 block 18422105');
     expect(notes.some((note) => note?.includes('at most'))).toBe(true);
+  });
+
+  it('uses neutral labels for a full-mask non-AMM storage slot', () => {
+    const predicate = storagePredicate(PAIR, 123n, (1n << 256n) - 1n, '=', 1n);
+    const notes = annotatedValidity([predicate]).map((row) => row.note).filter(Boolean);
+    expect(notes).toContain('Storage condition');
+    expect(notes).toContain('Contract whose storage is read');
+    expect(notes).toContain('Keep the selected bits');
+    expect(notes.some((note) => /reserve/i.test(note ?? ''))).toBe(false);
+    expect(reviewClauses([predicate])).toEqual([
+      {
+        title: 'Storage condition',
+        detail: 'Include only if the selected value is exactly — 1',
+      },
+    ]);
   });
 });
 

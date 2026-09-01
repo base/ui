@@ -47,13 +47,14 @@ describe('DEMOS', () => {
   it('lists Validity Transactions as a top-level group', () => {
     const validity = listedDemos().find((demo) => demo.href === '/vibenet/demos/validity');
     expect(validity?.title).toBe('Validity Transactions');
-    expect(validity?.children?.map((demo) => demo.title)).toEqual(['Conditional Swaps']);
+    expect(validity?.children?.map((demo) => demo.title)).toEqual(['Conditional Swaps', 'Race the Agent']);
   });
 });
 
 describe('demoForPath', () => {
   it('finds nested demos without flattening them onto the Vibenet grid', () => {
     expect(demoForPath('/vibenet/demos/validity/conditional-swaps')?.title).toBe('Conditional Swaps');
+    expect(demoForPath('/vibenet/demos/validity/race-the-agent')?.title).toBe('Race the Agent');
     expect(listedDemos().some((demo) => demo.title === 'Conditional Swaps')).toBe(false);
   });
 });
@@ -72,6 +73,16 @@ describe('demoBreadcrumb', () => {
         href: '/vibenet/demos/validity',
       },
       childLabel: 'Conditional Swaps',
+    });
+  });
+
+  it('resolves the second nested validity demo', () => {
+    expect(demoBreadcrumb('/vibenet/demos/validity/race-the-agent')).toEqual({
+      middle: {
+        label: 'Validity Transactions',
+        href: '/vibenet/demos/validity',
+      },
+      childLabel: 'Race the Agent',
     });
   });
 

@@ -84,3 +84,10 @@ export function trackValidityOrder(
 ): void {
   track('validity_order', { side, status });
 }
+
+export function trackValidityRace(
+  attempt: 'validity' | 'manual' | 'agent',
+  status: 'started' | 'submitted' | 'success' | 'reverted' | 'expired' | 'stopped' | 'error',
+): void {
+  track('validity_race', { attempt, status });
+}

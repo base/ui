@@ -67,6 +67,7 @@ import { vibenetApi } from '../../library/client';
 import { ACCOUNT_RPC_URL } from '../../library/config';
 import { type DemoChain, deploymentFromContracts, estimateTxGas, getDemoChain } from './library/chains';
 import { buildPhases, type CallRow, newCallRow, safeGasLimit, valueBearingCallCount } from './library/calls';
+import { aaReceiptSucceeded } from './library/receipt';
 import {
   type AppPolicy,
   type AppSessionKey,
@@ -803,10 +804,7 @@ function useAccountEngineCore() {
   const awaitInclusion = async (txHash: Hex, timeout = 30_000): Promise<Hex> => {
     try {
       const receipt = await waitForTransactionReceipt(makeRpcClient() as never, { hash: txHash, timeout });
-      if (receipt.status === '0x0') throw new Error(`Transaction reverted onchain (${txHash}).`);
-      const phases = receipt.eip8130?.phaseStatuses ?? [];
-      const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
-      if (failedPhase !== -1) throw new Error(`Phase ${failedPhase} reverted (tx ${txHash}).`);
+      if (!aaReceiptSucceeded(receipt)) throw new Error(`Transaction reverted onchain (${txHash}).`);
     } catch (err) {
       if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
       throw err;
