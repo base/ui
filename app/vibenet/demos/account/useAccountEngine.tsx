@@ -1172,16 +1172,14 @@ function useAccountEngineCore() {
     return signer;
   };
 
-  const sendAccountCalls = async ({
+  const signAccountCalls = async ({
     account,
     calls,
-    wait = true,
     seqOpt,
     metadata,
   }: {
     account: StoredAccount;
     calls: { to: Address; data: Hex; value?: string }[];
-    wait?: boolean;
     seqOpt?: {
       nonceSequence?: bigint;
       nonceKey?: bigint;
@@ -1191,10 +1189,10 @@ function useAccountEngineCore() {
       maxPriorityFeePerGas?: bigint;
     };
     metadata?: string;
-  }): Promise<{ hash: Hex; serialized: Hex; nextSeq: number }> => {
+  }): Promise<{ serialized: Hex; nextSeq: number }> => {
     if (!calls.length) throw new Error('No calls to send.');
     const signer = signerForAccount(account);
-    const { serialized, nextSeq } = await signComposed(
+    return signComposed(
       account,
       signer,
       calls.map((call) => newCallRow({ to: call.to, data: call.data, value: call.value ?? '0' })),
@@ -1205,6 +1203,16 @@ function useAccountEngineCore() {
       undefined,
       seqOpt,
     );
+  };
+
+  const sendAccountCalls = async ({
+    wait = true,
+    ...signArgs
+  }: Parameters<typeof signAccountCalls>[0] & {
+    wait?: boolean;
+  }): Promise<{ hash: Hex; serialized: Hex; nextSeq: number }> => {
+    const { account } = signArgs;
+    const { serialized, nextSeq } = await signAccountCalls(signArgs);
     if (wait) {
       const hash = await broadcast8130(serialized);
       applyLandedBundle(account, nextSeq, []);
@@ -2077,6 +2085,7 @@ function useAccountEngineCore() {
     // Signing engine (also used by each surface's own Transact flow)
     broadcast8130,
     signComposed,
+    signAccountCalls,
     sendActiveCalls,
     sendAccountCalls,
     sendActiveCallsBatches,
