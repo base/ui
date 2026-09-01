@@ -876,7 +876,7 @@ function RaceTheAgentDemoInner() {
             <RaceStep
               number="02"
               title="Pre-submit validity"
-              detail={`Send a nonce-isolated transaction while storage is 0. It can wait for up to ${RACE_VALIDITY_SECONDS} seconds.`}
+              detail={`Submit a validity transaction while the withdrawal is off. It waits in advance, then claims 1 $VIBE automatically if the withdrawal opens within ${RACE_VALIDITY_SECONDS} seconds.`}
               active={readyToSubmit}
               complete={validityAttemptCount > 0}
             >
@@ -887,7 +887,7 @@ function RaceTheAgentDemoInner() {
             <RaceStep
               number="03"
               title="Race it manually"
-              detail="Click at any time. Disabled-state attempts should revert naturally; enabled-state attempts still have to reach inclusion in time."
+              detail="Try to claim 1 $VIBE during the short open window. If the withdrawal is off, the transaction reverts; if it is on, your transaction still has to reach the chain before the agent turns it off again."
               active={readyToWithdraw}
               complete={manualAttemptCount > 0}
             >
