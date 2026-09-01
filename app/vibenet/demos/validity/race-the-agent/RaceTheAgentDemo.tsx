@@ -924,7 +924,7 @@ function RaceTheAgentDemoInner() {
           <AttemptCard
             label={manual.number ? `Manual attempt #${manual.number}` : 'Manual transaction'}
             headline="Starts on your click"
-            description="Send whenever you choose. The ordinary transaction succeeds only if withdraw() sees enabled onchain; clicking during disabled state makes the failed race visible as a revert."
+            description="Send it whenever you want. It claims 1 $VIBE only if withdrawals are on when your transaction executes onchain."
             attempt={manual}
             accent="green"
           />
