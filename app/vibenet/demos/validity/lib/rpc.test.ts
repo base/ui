@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { VIBENET_RPC_URL } from '../../../library/config';
 import { describeValidityError, sendValidityTransaction } from './rpc';
 
 describe('describeValidityError', () => {
@@ -7,7 +8,7 @@ describe('describeValidityError', () => {
     const dump = [
       'The method "base_sendRawTransactionValidity" does not exist / is not available.',
       '',
-      'URL: /api/vibenet/validity/rpc',
+      'URL: https://rpc.vibes.base.org',
       'Request body: {"method":"base_sendRawTransactionValidity","params":[{"tx":"0x02"}]}',
       'Details: Method not found',
     ].join('\n');
@@ -37,14 +38,14 @@ describe('sendValidityTransaction', () => {
     vi.unstubAllGlobals();
   });
 
-  it('posts base_sendRawTransactionValidity through the HTTP proxy', async () => {
+  it('posts base_sendRawTransactionValidity to the Vibenet RPC', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       json: async () => ({ result: '0xabc' }),
     });
     vi.stubGlobal('fetch', fetchMock);
     await expect(sendValidityTransaction('0x01', [])).resolves.toBe('0xabc');
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/vibenet/validity/rpc',
+      VIBENET_RPC_URL,
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining('base_sendRawTransactionValidity'),

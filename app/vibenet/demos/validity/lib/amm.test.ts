@@ -2,7 +2,8 @@ import { encodeAbiParameters, encodeEventTopics, parseAbi, zeroAddress } from 'v
 import { describe, expect, it } from 'vitest';
 
 import { amountInForExactOut, amountInForVibe, amountOut, amountOutAtLimit, encodeMint, reservesFromSyncLog } from './amm';
-import { SEED_USDV, SEED_VIBE, TRADE_VIBE, WAD } from './constants';
+import { SEED_USDV, SEED_VIBE, TRADE_VIBE, USDV_UNIT, WAD } from './constants';
+import { quoteWad } from './quote';
 
 describe('encodeMint', () => {
   it('mints VIBE through the open minter and USDV on the token', () => {
@@ -32,9 +33,9 @@ describe('amountOut', () => {
 describe('amountOutAtLimit', () => {
   it('sizes a resting buy on the limit curve, not submit-time spot', () => {
     const k = SEED_VIBE * SEED_USDV;
-    const spot = (SEED_USDV * WAD) / SEED_VIBE;
+    const spot = quoteWad(SEED_VIBE, SEED_USDV, true);
     const limit = (spot * 98n) / 100n;
-    const amountIn = 800n * WAD;
+    const amountIn = 800n * USDV_UNIT;
     const atSpot = amountOut(amountIn, SEED_USDV, SEED_VIBE);
     const atLimit = amountOutAtLimit(amountIn, 'buy', k, limit);
     expect(atLimit).toBeGreaterThan(atSpot);
@@ -47,7 +48,7 @@ describe('amountOutAtLimit', () => {
 describe('amountInForVibe', () => {
   it('sells a fixed VIBE size and buys enough USDV for that size at the limit', () => {
     const k = SEED_VIBE * SEED_USDV;
-    const spot = (SEED_USDV * WAD) / SEED_VIBE;
+    const spot = quoteWad(SEED_VIBE, SEED_USDV, true);
     expect(amountInForVibe(TRADE_VIBE, 'sell', k, spot)).toBe(TRADE_VIBE);
     const usdvIn = amountInForVibe(TRADE_VIBE, 'buy', k, spot);
     expect(usdvIn).toBeGreaterThan(0n);

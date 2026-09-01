@@ -43,43 +43,26 @@ const KIND_CLASS: Record<TokenKind, string> = {
 
 export function ValidityJson({
   predicates,
-  frozen,
   vibeToken0,
-  compact,
 }: {
   predicates: ValidityPredicate[];
-  frozen?: boolean;
   vibeToken0: boolean;
-  compact?: boolean;
 }) {
   const rows = annotatedValidity(predicates, vibeToken0);
-  const hasBlockBound = predicates.some((predicate) => predicate.type === 'block_number');
-  const footnote = frozen
-    ? hasBlockBound
-      ? 'Frozen at submit. The block bound does not walk with the live chain.'
-      : 'Frozen at submit.'
-    : 'The sequencer checks every clause before inclusion.';
   return (
-    <aside
-      className={cn(
-        'flex min-w-0 flex-col',
-        compact
-          ? ''
-          : 'min-h-[16rem] overflow-hidden rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/5',
-      )}
-    >
-      <div className={cn('flex items-baseline justify-between gap-3', !compact && 'px-5 pt-4')}>
+    <aside className="flex min-w-0 flex-col">
+      <div className="flex items-baseline justify-between gap-3">
         <Text as="h2" variant="title3">
           Predicates
         </Text>
         <Text variant="label.mono" tone="muted">
-          {frozen ? 'submitted tx' : 'draft'}
+          draft
         </Text>
       </div>
-      <Text variant="footnote" tone="muted" className={cn('pt-2', !compact && 'px-5')}>
-        {footnote}
+      <Text variant="footnote" tone="muted" className="pt-2">
+        The sequencer checks every clause before inclusion.
       </Text>
-      <div className={cn('mt-3 min-h-0 flex-1 overflow-auto', !compact && 'px-5 pb-5')}>
+      <div className="mt-3 min-h-0 flex-1 overflow-auto">
         <div
           className="grid grid-cols-1 gap-x-6 border-b border-bds-gray-10 pb-1 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] dark:border-white/10"
           aria-hidden

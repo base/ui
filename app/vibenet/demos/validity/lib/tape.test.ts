@@ -1,7 +1,7 @@
 import { encodeAbiParameters, encodeEventTopics, parseAbi, zeroAddress } from 'viem';
 import { describe, expect, it } from 'vitest';
 
-import { CANDLE_SAMPLE_MS, CANDLE_WINDOW_MS, WAD } from './constants';
+import { CANDLE_SAMPLE_MS, CANDLE_WINDOW_MS, USDV_UNIT, WAD } from './constants';
 import {
   mergeTape,
   needsLogBackfill,
@@ -86,7 +86,7 @@ describe('samplesFromSyncLogs', () => {
         topics: [topic],
         data: encodeAbiParameters(
           [{ type: 'uint112' }, { type: 'uint112' }],
-          [2_000_000n * WAD, 140_000n * WAD],
+          [2_000_000n * WAD, 140_000n * USDV_UNIT],
         ),
         blockNumber: '0x64',
       },

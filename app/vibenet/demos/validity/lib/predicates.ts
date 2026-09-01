@@ -36,11 +36,6 @@ export function sqrt(n: bigint): bigint {
   return x0;
 }
 
-export function priceWad(reserve0: bigint, reserve1: bigint): bigint {
-  if (reserve0 === 0n) return 0n;
-  return (reserve1 * WAD) / reserve0;
-}
-
 export function formatPrice(wad: bigint, digits = 4): string {
   const negative = wad < 0n;
   const abs = negative ? -wad : wad;
@@ -59,11 +54,6 @@ export function applyOffsetBps(spotWad: bigint, side: Side, offsetBps: number): 
   const bps = BigInt(offsetBps);
   if (side === 'buy') return (spotWad * (10_000n - bps)) / 10_000n || 1n;
   return (spotWad * (10_000n + bps)) / 10_000n;
-}
-
-export function formatCompactHex(value: bigint): string {
-  if (value < 0n) throw new Error('formatCompactHex: negative value');
-  return `0x${value.toString(16)}`;
 }
 
 export function compactHexString(hex: string): string {

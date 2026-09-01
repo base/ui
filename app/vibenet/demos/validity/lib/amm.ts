@@ -2,12 +2,10 @@ import {
   encodeFunctionData,
   parseAbi,
   parseEventLogs,
-  type Account,
   type Address,
   type Hex,
   type PublicClient,
   type TransactionReceipt,
-  type WalletClient,
 } from 'viem';
 
 const pairEvents = parseAbi([
@@ -15,10 +13,9 @@ const pairEvents = parseAbi([
   'event Sync(uint112 reserve0, uint112 reserve1)',
 ]);
 
-import { TRADER_USDV, TRADER_VIBE, WAD, erc20Abi, helperAbi, minterAbi, pairAbi } from './constants';
+import { QUOTE_SCALE, TRADER_USDV, TRADER_VIBE, erc20Abi, helperAbi, minterAbi, pairAbi } from './constants';
 import { sqrt } from './predicates';
 import { quoteFromPreSwapReserves } from './quote';
-import { ensureSingleton } from './singleton';
 import type { Deployment, Reserves, Side } from './types';
 
 export async function getReserves(publicClient: PublicClient, pair: Address): Promise<Reserves> {
@@ -47,9 +44,9 @@ export function reservesAtQuote(k: bigint, quoteWad: bigint): { vibe: bigint; us
   if (k === 0n || quoteWad <= 0n) {
     throw new Error('Need a live pool and a positive target price.');
   }
-  const vibe = sqrt((k * WAD) / quoteWad);
+  const vibe = sqrt((k * QUOTE_SCALE) / quoteWad);
   if (vibe === 0n) throw new Error('Degenerate reserve bound.');
-  const usdv = (vibe * quoteWad) / WAD || 1n;
+  const usdv = (vibe * quoteWad) / QUOTE_SCALE || 1n;
   return { vibe, usdv };
 }
 
@@ -156,16 +153,6 @@ export function fillQuoteFromSwapReceipt(
   vibeToken0: boolean,
 ): bigint | undefined {
   return fillQuoteFromPairLogs(receipt.logs, pair, vibeToken0);
-}
-
-/** First visitor publishes the CREATE2 singleton; later callers attach. */
-export async function deployAmm(args: {
-  wallet: WalletClient;
-  publicClient: PublicClient;
-  account: Account;
-  onProgress?: (label: string) => void;
-}): Promise<Deployment> {
-  return ensureSingleton(args);
 }
 
 export function encodeMint(

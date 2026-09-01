@@ -1,4 +1,4 @@
-import { parseEther, type Address, type Hex } from 'viem';
+import { parseEther, type Address } from 'viem';
 
 import { amountOut, encodeSwapLegs } from './amm';
 import {
@@ -91,8 +91,6 @@ export function planSwap(
   return { sellVibe, fraction: fractionForPriceMove(move) };
 }
 
-export type MakerSwapCalls = { to: Address; data: Hex }[];
-
 /**
  * One ~1% swap per second toward a shared USDV/VIBE target. Reserves, gas, and
  * inventory come from the demo sync so this loop does not add its own reads.
@@ -103,7 +101,7 @@ export function startBots(args: {
   reserves: () => Reserves | null;
   ethBalance: (index: number) => bigint | null;
   tokenBalance: (index: number, token: Address) => bigint | null;
-  sendSwap: (index: number, calls: MakerSwapCalls) => Promise<void>;
+  sendSwap: (index: number, calls: { to: Address; data: `0x${string}` }[]) => Promise<void>;
   enabled: () => boolean;
   onPrice?: (price: number) => void;
   onError?: (message: string) => void;

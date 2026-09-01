@@ -19,7 +19,6 @@ type Props = {
   expirySeconds: number;
   submitMode: SubmitMode;
   busy: boolean;
-  validitySupported: boolean;
   onSide: (side: Side) => void;
   onOffset: (bps: number) => void;
   onExpiry: (seconds: number) => void;
@@ -40,7 +39,6 @@ export function OrderTicket({
   expirySeconds,
   submitMode,
   busy,
-  validitySupported,
   onSide,
   onOffset,
   onExpiry,
@@ -186,13 +184,6 @@ export function OrderTicket({
           })}
         </div>
       </div>
-      {!validitySupported ? (
-        <Text variant="footnote" className="text-bds-orange-50">
-          This RPC does not expose base_sendRawTransactionValidity. The swap will
-          still be signed; submission will fail until you point at a node with the
-          flag enabled.
-        </Text>
-      ) : null}
       <Button onClick={onSubmit} disabled={busy || !canAfford} className="w-full">
         {busy
           ? 'Submitting…'

@@ -10,6 +10,21 @@ const configuredRpcUrl = process.env.NEXT_PUBLIC_VIBENET_RPC_URL;
 export const VIBENET_RPC_URL =
   configuredRpcUrl && configuredRpcUrl.length > 0 ? configuredRpcUrl : DEFAULT_RPC_URL;
 
+/** Map an HTTP JSON-RPC URL to the usual `/ws` WebSocket path. */
+export function wsUrlFromHttp(httpUrl: string): string | null {
+  try {
+    const url = new URL(httpUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (url.pathname === '/' || url.pathname === '') url.pathname = '/ws';
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export const VIBENET_WS_URL = wsUrlFromHttp(VIBENET_RPC_URL);
+
 // The block explorer now lives inside omni-ui (Vibenet section), so explorer
 // links are internal paths rather than a separate subdomain.
 export const VIBENET_EXPLORER_PATH = '/vibenet/explorer';

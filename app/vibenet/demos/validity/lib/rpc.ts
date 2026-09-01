@@ -10,9 +10,11 @@ import {
   type WalletClient,
 } from 'viem';
 
-import { CANDLES_PATH, RPC_PATH, STATUS_PATH } from './constants';
+import { VIBENET_RPC_URL, VIBENET_WS_URL } from '../../../library/config';
+import { VIBENET } from '../../account/library/chains';
+import { CANDLES_PATH } from './constants';
 import { parseTapeSamples, type TapeSample } from './tape';
-import type { ChainStatus, ValidityPredicate } from './types';
+import type { ValidityPredicate } from './types';
 
 export type RpcSend = (method: string, params: unknown[]) => Promise<unknown>;
 
@@ -22,9 +24,22 @@ const WRITE_METHODS = new Set([
   'base_sendRawTransactionValidity',
 ]);
 
-async function proxyRpc(method: string, params: unknown[]): Promise<unknown> {
-  const response = await fetch(RPC_PATH, {
+export const VIBENET_CHAIN: Chain = {
+  id: VIBENET.id,
+  name: VIBENET.name,
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [VIBENET_RPC_URL],
+      ...(VIBENET_WS_URL ? { webSocket: [VIBENET_WS_URL] } : {}),
+    },
+  },
+};
+
+async function rpcCall(method: string, params: unknown[]): Promise<unknown> {
+  const response = await fetch(VIBENET_RPC_URL, {
     method: 'POST',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
   });
@@ -41,28 +56,17 @@ function eip1193(getSend?: () => RpcSend | null) {
         const send = getSend?.();
         if (send) return send(method, args);
       }
-      return proxyRpc(method, args);
+      return rpcCall(method, args);
     },
   };
 }
 
-export function chainFromId(id: number): Chain {
-  const name =
-    id === 84538453 ? 'Vibenet' : id === 763360 ? 'Base Zeronet' : id === 1337 ? 'Local devnet' : `Chain ${id}`;
-  return {
-    id,
-    name,
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: { default: { http: [RPC_PATH] } },
-  };
+export function makePublicClient(getSend?: () => RpcSend | null): PublicClient {
+  return createPublicClient({ chain: VIBENET_CHAIN, transport: custom(eip1193(getSend)), cacheTime: 0 });
 }
 
-export function makePublicClient(chain: Chain, getSend?: () => RpcSend | null): PublicClient {
-  return createPublicClient({ chain, transport: custom(eip1193(getSend)), cacheTime: 0 });
-}
-
-export function makeWalletClient(chain: Chain, account: Account): WalletClient {
-  return createWalletClient({ chain, account, transport: custom(eip1193()) });
+export function makeWalletClient(account: Account): WalletClient {
+  return createWalletClient({ chain: VIBENET_CHAIN, account, transport: custom(eip1193()) });
 }
 
 export async function fetchTape(pair: Address, vibeToken0: boolean): Promise<TapeSample[]> {
@@ -85,14 +89,6 @@ export async function publishTape(pair: Address, samples: readonly TapeSample[])
   });
 }
 
-export async function fetchChainStatus(): Promise<ChainStatus> {
-  const response = await fetch(STATUS_PATH, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error(`Status ${response.status}`);
-  }
-  return (await response.json()) as ChainStatus;
-}
-
 export function describeValidityError(err: unknown): string {
   const record = err as {
     shortMessage?: string;
@@ -102,7 +98,7 @@ export function describeValidityError(err: unknown): string {
   };
   const message = err instanceof Error ? err.message : String(err);
   if (/does not exist|not available|Method not found/i.test(message)) {
-    return 'This node does not expose base_sendRawTransactionValidity. Vibenet must have --enable-experimental-validity-transactions.';
+    return 'This node does not expose base_sendRawTransactionValidity.';
   }
   const short = record.shortMessage?.trim();
   const generic = Boolean(short && /^Missing or invalid parameters/i.test(short));
@@ -127,7 +123,7 @@ export async function sendValidityTransaction(
   tx: Hex,
   validity: ValidityPredicate[],
 ): Promise<Hex> {
-  const result = await proxyRpc('base_sendRawTransactionValidity', [{ tx, validity }]);
+  const result = await rpcCall('base_sendRawTransactionValidity', [{ tx, validity }]);
   if (typeof result === 'string' && result.startsWith('0x')) return result as Hex;
   throw new Error('Validity submit returned no hash.');
 }

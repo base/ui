@@ -24,9 +24,9 @@ import {
   factoryAbi as b20FactoryAbi,
   featureId,
 } from '../../b20/lib/protocol';
+import { vibenetApi } from '../../../library/client';
 import {
   erc20Abi,
-  erc20Bytecode,
   factoryAbi,
   factoryBytecode,
   helperAbi,
@@ -37,7 +37,7 @@ import {
   SEED_USDV,
   SEED_VIBE,
 } from './constants';
-import { USDV_NAME, USDV_SYMBOL, VIBE_NAME, VIBE_SYMBOL } from './quote';
+import { VIBE_NAME, VIBE_SYMBOL } from './quote';
 import type { Deployment } from './types';
 
 /**
@@ -61,16 +61,14 @@ export function singletonSalt(label: string): Hex {
 export const SINGLETON_SALTS = {
   vibe: singletonSalt('vibe'),
   minter: singletonSalt('minter'),
-  usdv: singletonSalt('usdv'),
   factory: singletonSalt('factory'),
   helper: singletonSalt('helper'),
 } as const;
 
-export type PredictedSingleton = Pick<Deployment, 'tokenB' | 'factory' | 'helper' | 'minter'>;
+export type PredictedSingleton = Pick<Deployment, 'factory' | 'helper' | 'minter'>;
 
 export function singletonInitCodes(): {
   minter: Hex;
-  tokenB: Hex;
   factory: Hex;
   helper: Hex;
 } {
@@ -78,11 +76,6 @@ export function singletonInitCodes(): {
     minter: encodeDeployData({
       abi: minterAbi,
       bytecode: minterBytecode,
-    }),
-    tokenB: encodeDeployData({
-      abi: erc20Abi,
-      bytecode: erc20Bytecode,
-      args: [USDV_NAME, USDV_SYMBOL],
     }),
     factory: encodeDeployData({
       abi: factoryAbi,
@@ -105,12 +98,11 @@ function create2Address(salt: Hex, initCode: Hex): Address {
   });
 }
 
-/** CREATE2 addresses for USDV, the Uni factory, helper, and VIBE minter. VIBE is a B20. */
+/** CREATE2 addresses for the Uni factory, helper, and VIBE minter. USDV is the faucet token. */
 export function predictSingleton(): PredictedSingleton {
   const init = singletonInitCodes();
   return {
     minter: create2Address(SINGLETON_SALTS.minter, init.minter),
-    tokenB: create2Address(SINGLETON_SALTS.usdv, init.tokenB),
     factory: create2Address(SINGLETON_SALTS.factory, init.factory),
     helper: create2Address(SINGLETON_SALTS.helper, init.helper),
   };
@@ -191,21 +183,6 @@ async function readPair(
   return pair;
 }
 
-async function firstPair(client: PublicClient, factory: Address): Promise<Address | null> {
-  const length = (await client.readContract({
-    address: factory,
-    abi: factoryAbi,
-    functionName: 'allPairsLength',
-  })) as bigint;
-  if (length === 0n) return null;
-  return (await client.readContract({
-    address: factory,
-    abi: factoryAbi,
-    functionName: 'allPairs',
-    args: [0n],
-  })) as Address;
-}
-
 async function pairTokens(
   client: PublicClient,
   pair: Address,
@@ -220,32 +197,81 @@ async function pairTokens(
   return { token0, token1, reserve0: reserves[0], reserve1: reserves[1] };
 }
 
-/** Live shared pool, or null if this chain still needs the first deploy. */
-export async function probeSingleton(client: PublicClient): Promise<Deployment | null> {
-  const predicted = predictSingleton();
-  const [usdv, factory, helper, minter] = await Promise.all([
-    hasCode(client, predicted.tokenB),
-    hasCode(client, predicted.factory),
-    hasCode(client, predicted.helper),
-    hasCode(client, predicted.minter),
-  ]);
-  if (!usdv || !factory || !helper || !minter) return null;
-  const pair = await firstPair(client, predicted.factory);
-  if (!pair) return null;
-  const { token0, token1, reserve0, reserve1 } = await pairTokens(client, pair);
-  if (reserve0 === 0n || reserve1 === 0n) return null;
-  const usdvAddr = predicted.tokenB.toLowerCase();
-  const tokenA = token0.toLowerCase() === usdvAddr ? token1 : token0;
-  const isB20 = await client
+async function isB20Token(client: PublicClient, token: Address): Promise<boolean> {
+  return client
     .readContract({
       address: B20_FACTORY,
       abi: b20FactoryAbi,
       functionName: 'isB20',
-      args: [tokenA],
+      args: [token],
     })
     .catch(() => false);
-  if (!isB20) return null;
-  return { ...predicted, tokenA, token0, token1, pair };
+}
+
+async function listPairs(
+  client: PublicClient,
+  factory: Address,
+): Promise<{ pair: Address; token0: Address; token1: Address; reserve0: bigint; reserve1: bigint }[]> {
+  const length = (await client.readContract({
+    address: factory,
+    abi: factoryAbi,
+    functionName: 'allPairsLength',
+  })) as bigint;
+  const rows = [];
+  for (let i = 0n; i < length; i++) {
+    const pair = (await client.readContract({
+      address: factory,
+      abi: factoryAbi,
+      functionName: 'allPairs',
+      args: [i],
+    })) as Address;
+    rows.push({ pair, ...(await pairTokens(client, pair)) });
+  }
+  return rows;
+}
+
+async function resolveVibenetUsdv(): Promise<Address> {
+  const status = await vibenetApi.faucet.status();
+  const address = status.usdv_address;
+  if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    throw new Error('Vibenet faucet did not return a USDV address.');
+  }
+  return address as Address;
+}
+
+function otherToken(
+  token0: Address,
+  token1: Address,
+  known: Address,
+): Address | null {
+  const want = known.toLowerCase();
+  if (token0.toLowerCase() === want) return token1;
+  if (token1.toLowerCase() === want) return token0;
+  return null;
+}
+
+/** Live shared pool against faucet USDV, or null if this chain still needs the first deploy. */
+export async function probeSingleton(
+  client: PublicClient,
+  usdv?: Address,
+): Promise<Deployment | null> {
+  const tokenB = usdv ?? (await resolveVibenetUsdv());
+  const predicted = predictSingleton();
+  const [factory, helper, minter, usdvCode] = await Promise.all([
+    hasCode(client, predicted.factory),
+    hasCode(client, predicted.helper),
+    hasCode(client, predicted.minter),
+    hasCode(client, tokenB),
+  ]);
+  if (!factory || !helper || !minter || !usdvCode) return null;
+  const hit = (await listPairs(client, predicted.factory)).find((row) => {
+    if (row.reserve0 === 0n || row.reserve1 === 0n) return false;
+    return otherToken(row.token0, row.token1, tokenB) !== null;
+  });
+  if (!hit) return null;
+  const tokenA = otherToken(hit.token0, hit.token1, tokenB);
+  if (!tokenA || !(await isB20Token(client, tokenA))) return null;
+  return { ...predicted, tokenA, tokenB, token0: hit.token0, token1: hit.token1, pair: hit.pair };
 }
 
 export async function ensureCreate2Deployer(
@@ -357,7 +383,8 @@ export async function ensureSingleton(args: {
   onProgress?: (label: string) => void;
 }): Promise<Deployment> {
   const { wallet, publicClient, account, onProgress } = args;
-  const live = await probeSingleton(publicClient);
+  const tokenB = await resolveVibenetUsdv();
+  const live = await probeSingleton(publicClient, tokenB);
   if (live) return live;
 
   const note = (label: string) => onProgress?.(label);
@@ -365,16 +392,6 @@ export async function ensureSingleton(args: {
   const init = singletonInitCodes();
   const predicted = predictSingleton();
 
-  note('Deploying shared USDV');
-  const tokenB = await ensureCreate2Contract(
-    wallet,
-    publicClient,
-    account,
-    SINGLETON_SALTS.usdv,
-    init.tokenB,
-    'USDV',
-    2_000_000n,
-  );
   note('Deploying shared Uniswap V2 factory');
   const factory = await ensureCreate2Contract(
     wallet,
@@ -406,7 +423,6 @@ export async function ensureSingleton(args: {
     1_000_000n,
   );
   if (
-    tokenB.toLowerCase() !== predicted.tokenB.toLowerCase() ||
     factory.toLowerCase() !== predicted.factory.toLowerCase() ||
     helper.toLowerCase() !== predicted.helper.toLowerCase() ||
     minter.toLowerCase() !== predicted.minter.toLowerCase()
@@ -414,11 +430,41 @@ export async function ensureSingleton(args: {
     throw new Error('CREATE2 address did not match the predicted singleton.');
   }
 
-  let pair = await firstPair(publicClient, factory);
-  let tokenA: Address | null = null;
-  if (pair) {
-    const tokens = await pairTokens(publicClient, pair);
-    tokenA = tokens.token0.toLowerCase() === tokenB.toLowerCase() ? tokens.token1 : tokens.token0;
+  const existing = await listPairs(publicClient, factory);
+  const usdvPair = existing.find((row) => otherToken(row.token0, row.token1, tokenB));
+  let pair = usdvPair?.pair ?? null;
+  let tokenA = usdvPair ? otherToken(usdvPair.token0, usdvPair.token1, tokenB) : null;
+  if (!tokenA) {
+    for (const row of existing) {
+      for (const candidate of [row.token0, row.token1]) {
+        if (candidate.toLowerCase() === tokenB.toLowerCase()) continue;
+        if (await isB20Token(publicClient, candidate)) {
+          tokenA = candidate;
+          break;
+        }
+      }
+      if (tokenA) break;
+    }
+  }
+  if (pair && tokenA) {
+    // Official USDV pair already exists (maybe unseeded).
+  } else if (tokenA) {
+    note('Creating the shared pair');
+    await send(wallet, publicClient, account, {
+      to: factory,
+      data: encodeFunctionData({
+        abi: factoryAbi,
+        functionName: 'createPair',
+        args: [tokenA, tokenB],
+      }),
+      gas: 5_000_000n,
+    });
+    const pairDeadline = Date.now() + 60_000;
+    while (!pair && Date.now() < pairDeadline) {
+      pair = await readPair(publicClient, factory, tokenA, tokenB);
+      if (!pair) await sleep(400);
+    }
+    if (!pair) throw new Error('Factory returned no pair.');
   } else {
     const active = await publicClient.readContract({
       address: ACTIVATION_REGISTRY,

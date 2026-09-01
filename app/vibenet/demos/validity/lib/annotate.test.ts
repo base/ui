@@ -10,8 +10,9 @@ describe('annotatedValidity', () => {
   it('explains each storage field and decodes reserve bounds', () => {
     const k = 2_000_000n * WAD * (140_000n * WAD);
     const { predicates } = priceValidity(PAIR, k, (7n * WAD) / 100n, 'buy');
-    const rows = annotatedValidity(predicates, true);
-    const notes = rows.map((row) => row.note).filter(Boolean);
+    const notes = annotatedValidity(predicates, true)
+      .map((row) => row.note)
+      .filter(Boolean);
 
     expect(notes[0]).toMatch(/every clause/i);
     expect(notes).toContain('The simulated VIBE/USDV pair');
@@ -51,5 +52,21 @@ describe('reviewClauses', () => {
         detail: 'Include only while the head is at most — L2 block 18422105',
       },
     ]);
+  });
+
+  it('labels reserve floors and ceilings', () => {
+    const k = 2_000_000n * WAD * (140_000n * WAD);
+    const { predicates } = priceValidity(PAIR, k, (7n * WAD) / 100n, 'buy');
+    const titles = reviewClauses(predicates, true).map((clause) => clause.title);
+    expect(titles.some((title) => title.includes('Floor') && title.includes('VIBE'))).toBe(true);
+    expect(titles.some((title) => title.includes('Ceiling') && title.includes('USDV'))).toBe(true);
+  });
+
+  it('labels token0 as USDV when VIBE is token1', () => {
+    const k = 1_000n * WAD * (1_000n * WAD);
+    const { predicates } = priceValidity(PAIR, k, WAD, 'buy');
+    const titles = reviewClauses(predicates, false).map((clause) => clause.title);
+    expect(titles.some((title) => title.includes('USDV'))).toBe(true);
+    expect(titles.some((title) => title.includes('VIBE'))).toBe(true);
   });
 });

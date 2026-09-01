@@ -1,4 +1,4 @@
-import { LEGACY_STORAGE_KEYS, STORAGE_KEY } from './constants';
+import { STORAGE_KEY } from './constants';
 import type { Deployment, PlacedOrder, Rectangle, ValidityPredicate } from './types';
 
 export const MAX_STORED_ORDERS = 40;
@@ -153,21 +153,7 @@ export function loadState(): StoredState | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = parseStored(raw);
-      if (parsed) return parsed;
-    }
-    for (const key of LEGACY_STORAGE_KEYS) {
-      const legacy = window.localStorage.getItem(key);
-      if (!legacy) continue;
-      const migrated = parseStored(legacy);
-      if (!migrated) continue;
-      // Drop a cached private pool. The live pair is the CREATE2 singleton.
-      const next = dropDeployment(migrated);
-      saveState(next);
-      return next;
-    }
-    return null;
+    return raw ? parseStored(raw) : null;
   } catch {
     return null;
   }
@@ -181,42 +167,21 @@ function parseMakerIds(value: unknown): [string, string] | undefined {
 export function parseStored(raw: string): StoredState | null {
   const parsed = JSON.parse(raw, bnReviver) as Partial<StoredState> & { v?: number };
   if (typeof parsed.chainId !== 'number' || typeof parsed.genesisHash !== 'string') return null;
-  if (parsed.v === 2) {
-    return {
-      v: 2,
-      chainId: parsed.chainId,
-      genesisHash: parsed.genesisHash,
-      accountId: isId(parsed.accountId) ? parsed.accountId : undefined,
-      makerAccountIds: parseMakerIds(parsed.makerAccountIds),
-      deployment: parseDeployment(parsed.deployment),
-      orders: parseOrders(parsed.orders),
-    };
-  }
-  // v1 Validity-specific keys are not reused — keep chain identity only.
-  if (parsed.v === 1) {
-    return {
-      v: 2,
-      chainId: parsed.chainId,
-      genesisHash: parsed.genesisHash,
-    };
-  }
-  return null;
+  if (parsed.v !== 2) return null;
+  return {
+    v: 2,
+    chainId: parsed.chainId,
+    genesisHash: parsed.genesisHash,
+    accountId: isId(parsed.accountId) ? parsed.accountId : undefined,
+    makerAccountIds: parseMakerIds(parsed.makerAccountIds),
+    deployment: parseDeployment(parsed.deployment),
+    orders: parseOrders(parsed.orders),
+  };
 }
 
 export function saveState(state: StoredState): void {
   const orders = state.orders?.slice(0, MAX_STORED_ORDERS);
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, orders }, bnReplacer));
-}
-
-export function dropDeployment(state: StoredState): StoredState {
-  return {
-    v: 2,
-    chainId: state.chainId,
-    genesisHash: state.genesisHash,
-    accountId: state.accountId,
-    makerAccountIds: state.makerAccountIds,
-    orders: state.orders,
-  };
 }
 
 export function createState(chainId: number, genesisHash: string): StoredState {

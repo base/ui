@@ -27,7 +27,6 @@ import { ValidityJson } from './components/ValidityJson';
 import {
   amountInForVibe,
   amountOutAtLimit,
-  deployAmm,
   encodeHelperSwap,
   fillQuoteFromPairLogs,
   fillQuoteFromSwapReceipt,
@@ -37,7 +36,7 @@ import {
   reservesFromSyncLog,
   tokenBalance,
 } from './lib/amm';
-import { clampNoncelessExpiry, noncelessFields } from './lib/aa';
+import { clampNoncelessExpiry, noncelessFields } from '../../library/aa';
 import { startBots, allNeedGas, shouldFlagMakersDry } from './lib/bots';
 import {
   CANDLE_SAMPLE_MS,
@@ -45,7 +44,8 @@ import {
   MAX_NONCELESS_SECONDS,
   TRADE_VIBE,
 } from './lib/constants';
-import { faucetErrorMessage } from './lib/faucet';
+import { VibenetApiError } from '../../library/client';
+import { VIBENET_WS_URL } from '../../library/config';
 import { ensureMakers, rootAccount } from './lib/makers';
 import {
   ageRestoredOrders,
@@ -66,26 +66,26 @@ import {
   quoteWad,
   swapOuts,
   tokenInFor,
+  USDV_DECIMALS,
   USDV_SYMBOL,
   vibeIsToken0,
   VIBE_SYMBOL,
 } from './lib/quote';
 import {
-  chainFromId,
   describeValidityError,
-  fetchChainStatus,
   fetchTape,
   makePublicClient,
   makeWalletClient,
   publishTape,
   sendValidityTransaction,
+  VIBENET_CHAIN,
   type RpcSend,
 } from './lib/rpc';
 import { connectJsonRpcStream, headNumber, type StreamHead, type StreamLog } from './lib/stream';
-import { probeSingleton } from './lib/singleton';
+import { ensureSingleton, probeSingleton } from './lib/singleton';
 import { mergeTape } from './lib/tape';
 import { createState, loadState, saveState, type StoredState } from './lib/store';
-import type { ChainStatus, PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/types';
+import type { PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/types';
 
 /** HTTP fallback when the read host has no `/ws`. Submit is always HTTP.
  *  The socket carries heads, pair logs, and remaining reads (balances, receipts). */
@@ -114,7 +114,7 @@ function ValidityDemoInner() {
   const engine = useAccountEngine();
   const acct = engine.acct;
 
-  const [status, setStatus] = useState<ChainStatus | null>(null);
+  const [genesisHash, setGenesisHash] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [state, setState] = useState<StoredState | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -257,24 +257,23 @@ function ValidityDemoInner() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchChainStatus()
-      .then(async (next) => {
+    const client = makePublicClient(() => rpcSendRef.current);
+    publicRef.current = client;
+    void (async () => {
+      try {
+        const genesis = await client.getBlock({ blockNumber: 0n });
+        const hash = genesis.hash;
+        if (!hash) throw new Error('RPC did not return a genesis hash.');
         if (cancelled) return;
-        setStatus(next);
-        if (!next.chainId || !next.genesisHash) {
-          setStatusError('RPC did not return a chain id / genesis hash.');
-          return;
-        }
+        setGenesisHash(hash);
         const existing = loadState();
         const sameChain = Boolean(
-          existing && existing.chainId === next.chainId && existing.genesisHash === next.genesisHash,
+          existing && existing.chainId === VIBENET_CHAIN.id && existing.genesisHash === hash,
         );
-        const base = sameChain && existing ? existing : createState(next.chainId, next.genesisHash);
+        const base = sameChain && existing ? existing : createState(VIBENET_CHAIN.id, hash);
         const restored = sameChain ? ageRestoredOrders(existing?.orders ?? []) : [];
         ordersRef.current = restored;
         setOrders(restored);
-        const client = makePublicClient(chainFromId(next.chainId), () => rpcSendRef.current);
-        publicRef.current = client;
         try {
           const live = await probeSingleton(client);
           if (cancelled) return;
@@ -282,22 +281,18 @@ function ValidityDemoInner() {
         } catch {
           if (!cancelled) persist({ ...base, orders: restored });
         }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setStatusError(err instanceof Error ? err.message : 'Could not reach the validity RPC proxy.');
-      })
-      .finally(() => {
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setStatusError(err instanceof Error ? err.message : 'Could not reach the Vibenet RPC.');
+        }
+      } finally {
         if (!cancelled) setHydrated(true);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
   }, [persist]);
-
-  useEffect(() => {
-    if (!status?.chainId) return;
-    publicRef.current = makePublicClient(chainFromId(status.chainId), () => rpcSendRef.current);
-  }, [status?.chainId]);
 
   const patchOrders = useCallback((patch: (order: PlacedOrder) => PlacedOrder) => {
     let changed = false;
@@ -405,7 +400,7 @@ function ValidityDemoInner() {
   );
 
   useEffect(() => {
-    if (!hydrated || !acct || !status?.chainId) return;
+    if (!hydrated || !acct || !genesisHash) return;
     const client = publicRef.current;
     if (!client) return;
     let cancelled = false;
@@ -587,8 +582,8 @@ function ValidityDemoInner() {
       }, BALANCE_MS);
     };
 
-    if (status.wsUrl) {
-      void startStream(status.wsUrl).catch(() => {
+    if (VIBENET_WS_URL) {
+      void startStream(VIBENET_WS_URL).catch(() => {
         rpcSendRef.current = null;
         stream?.close();
         if (!cancelled) startPoll();
@@ -605,7 +600,7 @@ function ValidityDemoInner() {
       stream?.close();
       setStreamLive(false);
     };
-  }, [acct, applyReceipts, expireOrders, hydrated, markOrderLanded, pushSample, status?.chainId, status?.wsUrl, state?.deployment?.pair]);
+  }, [acct, applyReceipts, expireOrders, genesisHash, hydrated, markOrderLanded, pushSample, state?.deployment?.pair]);
 
   const vibeToken0 = Boolean(state?.deployment && vibeIsToken0(state.deployment));
   const k = reserves ? reserves.reserve0 * reserves.reserve1 : 0n;
@@ -632,14 +627,14 @@ function ValidityDemoInner() {
 
   const reviewPredicates = useMemo(() => {
     if (!draft) return [];
-    if (blockNumber === null || !status?.blockNumberPredicate) return draft.predicates;
+    if (blockNumber === null) return draft.predicates;
     const seconds =
       submitMode === 'concurrent'
         ? clampNoncelessExpiry(expirySeconds)
         : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
     const maxBlock = maxBlockForExpiry(blockNumber, seconds);
     return [...draft.predicates, blockExpiryPredicate(maxBlock)];
-  }, [blockNumber, draft, expirySeconds, status?.blockNumberPredicate, submitMode]);
+  }, [blockNumber, draft, expirySeconds, submitMode]);
 
   const chartLevels = useMemo((): PriceLevel[] => {
     const levels: PriceLevel[] = [];
@@ -689,7 +684,13 @@ function ValidityDemoInner() {
       setProgress('Requesting ETH from the faucet');
       await engine.requestFaucet();
     } catch (err) {
-      setError(faucetErrorMessage(err));
+      setError(
+        err instanceof VibenetApiError && err.status === 429
+          ? 'Faucet rate limited — wait a minute and try again.'
+          : err instanceof Error
+            ? err.message
+            : 'Faucet request failed.',
+      );
     } finally {
       setBusy(false);
       setProgress(null);
@@ -697,7 +698,7 @@ function ValidityDemoInner() {
   }, [engine]);
 
   const deploy = async () => {
-    if (!acct || !parent || !status?.chainId) return;
+    if (!acct || !parent || !genesisHash) return;
     const publicClient = publicRef.current;
     if (!publicClient) return;
     const k1 = engine.ownerSigners.find((signer) => signer.kind === 'k1' && signer.privateKey);
@@ -715,7 +716,7 @@ function ValidityDemoInner() {
         engine.doCreateSubAccount,
       );
       persist({
-        ...(state ?? createState(status.chainId, status.genesisHash ?? '')),
+        ...(state ?? createState(VIBENET_CHAIN.id, genesisHash)),
         accountId: parent.id,
         makerAccountIds: [makerA.id, makerB.id],
       });
@@ -730,9 +731,8 @@ function ValidityDemoInner() {
         });
       }
 
-      const chain = chainFromId(status.chainId);
-      const wallet = makeWalletClient(chain, eoa);
-      const deployment = await deployAmm({
+      const wallet = makeWalletClient(eoa);
+      const deployment = await ensureSingleton({
         wallet,
         publicClient,
         account: eoa,
@@ -758,10 +758,10 @@ function ValidityDemoInner() {
       setMakerError(null);
       lastMakerPriceAtRef.current = 0;
       persist({
-        ...(state ?? createState(status.chainId, status.genesisHash ?? '')),
+        ...(state ?? createState(VIBENET_CHAIN.id, genesisHash)),
         v: 2,
-        chainId: status.chainId,
-        genesisHash: status.genesisHash ?? '',
+        chainId: VIBENET_CHAIN.id,
+        genesisHash,
         accountId: parent.id,
         makerAccountIds: [makerA.id, makerB.id],
         deployment,
@@ -786,7 +786,7 @@ function ValidityDemoInner() {
   const inventoryKeyRef = useRef('');
 
   useEffect(() => {
-    if (!hydrated || !engine.hydrated || !status?.chainId || !acct || !parent || !state?.deployment) return;
+    if (!hydrated || !engine.hydrated || !genesisHash || !acct || !parent || !state?.deployment) return;
     if (makers.length === 2) return;
     const [makerA, makerB] = ensureMakers(
       parent,
@@ -809,7 +809,7 @@ function ValidityDemoInner() {
     parent,
     persist,
     state,
-    status?.chainId,
+    genesisHash,
   ]);
 
   useEffect(() => {
@@ -852,7 +852,7 @@ function ValidityDemoInner() {
   }, [acct, busy, ethBalance, hydrated, makerKey, makers, state?.deployment]);
 
   useEffect(() => {
-    if (!hydrated || !status?.chainId || !state?.deployment || makersRef.current.length !== 2) return;
+    if (!hydrated || !genesisHash || !state?.deployment || makersRef.current.length !== 2) return;
     makerNonceRef.current = [];
     makerDeployedRef.current = [];
     makerEthRef.current = makersRef.current.map(() => null);
@@ -929,7 +929,7 @@ function ValidityDemoInner() {
       },
     });
     return stop;
-  }, [hydrated, makerKey, state?.deployment, status?.chainId]);
+  }, [genesisHash, hydrated, makerKey, state?.deployment]);
 
   const placeOrder = async (): Promise<Hex | undefined> => {
     if (!draft || !acct || !state?.deployment || !reserves || !engine.activeSigner) return;
@@ -947,7 +947,7 @@ function ValidityDemoInner() {
         throw new Error(
           side === 'sell'
             ? `Need ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL} to sell.`
-            : `Need ${formatTokenAmount(amountIn)} ${USDV_SYMBOL} to buy ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL}.`,
+            : `Need ${formatTokenAmount(amountIn, USDV_DECIMALS)} ${USDV_SYMBOL} to buy ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL}.`,
         );
       }
       const outExact = amountOutAtLimit(amountIn, side, k, draft.priceWad);
@@ -972,10 +972,7 @@ function ValidityDemoInner() {
           : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
       const block = blockNumber ?? (await publicClient.getBlockNumber({ cacheTime: 0 }));
       const maxBlock = maxBlockForExpiry(block, seconds);
-      const validity = [...draft.predicates];
-      if (status?.blockNumberPredicate) {
-        validity.push(blockExpiryPredicate(maxBlock));
-      }
+      const validity = [...draft.predicates, blockExpiryPredicate(maxBlock)];
       const fromHead = headFeesRef.current;
       const estimated =
         fromHead ??
@@ -1056,7 +1053,7 @@ function ValidityDemoInner() {
         size: TRADE_VIBE,
         expirySeconds: seconds,
         submitMode,
-        maxBlock: status?.blockNumberPredicate ? maxBlock : undefined,
+        maxBlock,
         submittedAt: Date.now(),
         txHash: hash,
         nonce,
@@ -1136,7 +1133,7 @@ function ValidityDemoInner() {
       <DemoHeader
         eyebrow="Validity · experimental"
         title="Send now. Land later."
-        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone shares one VIBE/USDV pool — VIBE is a B20 — so you can watch a swap wait for a price condition, then land or expire."
+        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone shares one VIBE/USDV pool — VIBE is a B20, USDV is the faucet stablecoin — so you can watch a swap wait for a price condition, then land or expire."
       />
 
       {makersDry ? (
@@ -1156,7 +1153,7 @@ function ValidityDemoInner() {
           <Text variant="title3">Shared pool</Text>
           <Text variant="label.regular" tone="muted">
             Your Vibenet account signs the swaps. The first visitor publishes a
-            network-wide VIBE/USDV pair — VIBE is a B20 asset — and everyone
+            network-wide pair of VIBE (a B20) and the faucet USDV. Everyone
             else attaches to the same factory. Makers mint a starter bag and
             buy or sell against that pool.
           </Text>
@@ -1210,7 +1207,7 @@ function ValidityDemoInner() {
             <Text variant="footnote" tone="muted" className="mt-2">
               Each {side === 'buy' ? 'buy' : 'sell'} is {tradeLabel} {VIBE_SYMBOL}
               {side === 'buy' && draft
-                ? ` · ~${formatTokenAmount(amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad))} ${USDV_SYMBOL}`
+                ? ` · ~${formatTokenAmount(amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad), USDV_DECIMALS)} ${USDV_SYMBOL}`
                 : null}
             </Text>
           </div>
@@ -1224,7 +1221,6 @@ function ValidityDemoInner() {
                   expirySeconds={expirySeconds}
                   submitMode={submitMode}
                   busy={busy}
-                  validitySupported={Boolean(status?.validitySupported)}
                   canAfford={canAffordTrade}
                   onSide={setSide}
                   onOffset={setOffsetBps}
@@ -1309,7 +1305,7 @@ function ValidityDemoInner() {
                   <ChevronIcon className="duration-150 group-open:rotate-180" />
                 </summary>
                 <div className="border-t border-bds-gray-10 px-3 py-3 dark:border-white/10">
-                  <ValidityJson predicates={reviewPredicates} vibeToken0={vibeToken0} compact />
+                  <ValidityJson predicates={reviewPredicates} vibeToken0={vibeToken0} />
                 </div>
               </details>
             </div>

@@ -13,15 +13,6 @@ export type StoragePredicate = {
   };
 };
 
-export type BalancePredicate = {
-  type: 'balance';
-  params: {
-    address: Address;
-    op: ValidityOperator;
-    value: Hex;
-  };
-};
-
 export type BlockNumberPredicate = {
   type: 'block_number';
   params: {
@@ -30,19 +21,7 @@ export type BlockNumberPredicate = {
   };
 };
 
-export type FlashblockIndexPredicate = {
-  type: 'flashblock_index';
-  params: {
-    op: ValidityOperator;
-    value: Hex;
-  };
-};
-
-export type ValidityPredicate =
-  | StoragePredicate
-  | BalancePredicate
-  | BlockNumberPredicate
-  | FlashblockIndexPredicate;
+export type ValidityPredicate = StoragePredicate | BlockNumberPredicate;
 
 export type Side = 'buy' | 'sell';
 
@@ -98,14 +77,3 @@ export type PlacedOrder = {
   fillPriceWad?: bigint;
 };
 
-export type ChainStatus = {
-  chainId: number | null;
-  genesisHash: string | null;
-  readHost: string;
-  submitHost: string;
-  /** Browser WebSocket JSON-RPC, when the read host exposes `/ws`. */
-  wsUrl: string | null;
-  validitySupported: boolean;
-  blockNumberPredicate: boolean;
-  validityError: string | null;
-};

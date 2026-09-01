@@ -11,7 +11,7 @@ type ExplorerLinkProps = {
   kind: 'tx' | 'address' | 'block';
   value: string | null | undefined;
   /** Override the displayed text (defaults to a shortened hash/address). */
-  label?: string | null;
+  label?: string;
   className?: string;
 };
 

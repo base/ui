@@ -8,6 +8,7 @@ import {
   type Address,
 } from 'viem';
 
+import { VIBENET_RPC_URL } from '../../../../vibenet/library/config';
 import { pairAbi } from '../../../../vibenet/demos/validity/lib/constants';
 import { quoteWad } from '../../../../vibenet/demos/validity/lib/quote';
 import {
@@ -21,7 +22,6 @@ import {
   type RpcLog,
   type TapeSample,
 } from '../../../../vibenet/demos/validity/lib/tape';
-import { forwardJsonRpc } from '../forward';
 
 const SYNC_TOPIC = encodeEventTopics({
   abi: parseAbi(['event Sync(uint112 reserve0, uint112 reserve1)']),
@@ -31,7 +31,13 @@ const SYNC_TOPIC = encodeEventTopics({
 type JsonRpcResponse = { result?: unknown; error?: { message?: string } };
 
 async function rpc<T>(method: string, params: unknown[]): Promise<T | null> {
-  const body = (await forwardJsonRpc({ jsonrpc: '2.0', id: 1, method, params })) as JsonRpcResponse;
+  const response = await fetch(VIBENET_RPC_URL, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const body = ((await response.json().catch(() => null)) ?? {}) as JsonRpcResponse;
   if (body.error?.message || body.result === undefined || body.result === null) return null;
   return body.result as T;
 }

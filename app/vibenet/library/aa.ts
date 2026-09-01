@@ -1,6 +1,9 @@
 import { nonceKeyMax } from '@aa';
 
-import { MAX_NONCELESS_SECONDS } from './constants';
+/**
+ * EIP-8130 nonce-free (`nonceKeyMax`) txs are capped at a 20s `validBefore`.
+ */
+export const MAX_NONCELESS_SECONDS = 20;
 
 export function clampNoncelessExpiry(seconds: number): number {
   return Math.min(Math.max(1, seconds), MAX_NONCELESS_SECONDS);

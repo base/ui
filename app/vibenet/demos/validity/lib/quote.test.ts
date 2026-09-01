@@ -22,10 +22,16 @@ describe('quote', () => {
   });
 
   it('quotes USDV per VIBE regardless of Uni v2 sort', () => {
-    const vibe = 2_000_000n;
-    const usdv = 140_000n;
-    expect(quoteWad(vibe, usdv, true)).toBe((usdv * WAD) / vibe);
-    expect(quoteWad(usdv, vibe, false)).toBe((usdv * WAD) / vibe);
+    const vibe = 2_000_000n * WAD;
+    const usdv = 140_000n * 10n ** 6n;
+    const expected = (7n * WAD) / 100n;
+    expect(quoteWad(vibe, usdv, true)).toBe(expected);
+    expect(quoteWad(usdv, vibe, false)).toBe(expected);
+  });
+
+  it('formats faucet USDV at 6 decimals', () => {
+    expect(formatTokenAmount(1_000_000_000n, 6)).toBe('1,000');
+    expect(formatTokenAmount(6_960_000n, 6)).toBe('6.96');
   });
 
   it('round-trips quote ↔ AMM price when VIBE is token1', () => {
@@ -43,10 +49,10 @@ describe('quote', () => {
   });
 
   it('reconstructs the pre-swap mid from Sync + Swap amounts', () => {
-    const pre0 = 1_000n;
-    const pre1 = 70n;
-    const amount0Out = 10n;
-    const amount1In = 8n;
+    const pre0 = 1_000n * WAD;
+    const pre1 = 70n * 10n ** 6n;
+    const amount0Out = 10n * WAD;
+    const amount1In = 8n * 10n ** 6n;
     const quote = quoteFromPreSwapReserves({
       vibeToken0: true,
       postReserve0: pre0 - amount0Out,
@@ -56,7 +62,7 @@ describe('quote', () => {
       amount0Out,
       amount1Out: 0n,
     });
-    expect(quote).toBe((pre1 * WAD) / pre0);
+    expect(quote).toBe(quoteWad(pre0, pre1, true));
   });
 
   it('clamps a buy to the condition so impact cannot plot above the line', () => {

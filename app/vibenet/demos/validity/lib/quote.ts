@@ -1,20 +1,20 @@
 import type { Address } from 'viem';
 
-import { WAD } from './constants';
-import { priceWad } from './predicates';
+import { QUOTE_SCALE, USDV_DECIMALS, VIBE_DECIMALS, WAD } from './constants';
 import type { Deployment, Side } from './types';
 
 export const VIBE_NAME = 'VIBE';
 export const VIBE_SYMBOL = 'VIBE';
-export const USDV_NAME = 'Vibe USD';
 export const USDV_SYMBOL = 'USDV';
+export { USDV_DECIMALS };
 
 /** Whole tokens with grouping; two decimals only when there is dust. */
-export function formatTokenAmount(wad: bigint): string {
-  const negative = wad < 0n;
-  const abs = negative ? -wad : wad;
-  const whole = abs / WAD;
-  const frac = ((abs % WAD) * 100n) / WAD;
+export function formatTokenAmount(amount: bigint, decimals: number = VIBE_DECIMALS): string {
+  const unit = 10n ** BigInt(decimals);
+  const negative = amount < 0n;
+  const abs = negative ? -amount : amount;
+  const whole = abs / unit;
+  const frac = ((abs % unit) * 100n) / unit;
   const grouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const body = frac === 0n ? grouped : `${grouped}.${frac.toString().padStart(2, '0')}`;
   return negative ? `-${body}` : body;
@@ -24,19 +24,24 @@ export function vibeIsToken0(deployment: Pick<Deployment, 'token0' | 'tokenA'>):
   return deployment.token0.toLowerCase() === deployment.tokenA.toLowerCase();
 }
 
-/** USDV per VIBE. tokenA is always VIBE, tokenB is always USDV. */
+/** USDV-per-VIBE wad. VIBE is 18 decimals; faucet USDV is 6. */
 export function quoteWad(
   reserve0: bigint,
   reserve1: bigint,
   vibeToken0: boolean,
 ): bigint {
-  return vibeToken0 ? priceWad(reserve0, reserve1) : priceWad(reserve1, reserve0);
+  const vibe = vibeToken0 ? reserve0 : reserve1;
+  const usdv = vibeToken0 ? reserve1 : reserve0;
+  if (vibe === 0n) return 0n;
+  return (usdv * QUOTE_SCALE) / vibe;
 }
 
+/** Human USDV/VIBE wad → Uni v2 `reserve1/reserve0` wad. */
 export function ammPriceFromQuote(quote: bigint, vibeToken0: boolean): bigint {
-  if (vibeToken0) return quote;
-  if (quote === 0n) return 0n;
-  return (WAD * WAD) / quote;
+  const raw = (quote * WAD) / QUOTE_SCALE;
+  if (vibeToken0) return raw;
+  if (raw === 0n) return 0n;
+  return (WAD * WAD) / raw;
 }
 
 export function ammSide(side: Side, vibeToken0: boolean): Side {

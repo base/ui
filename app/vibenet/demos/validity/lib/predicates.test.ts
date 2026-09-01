@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { PAIR_RESERVES_SLOT, RESERVE0_MASK, RESERVE1_MASK, RESERVE_BITS, WAD } from './constants';
+import { RESERVE0_MASK, RESERVE1_MASK, RESERVE_BITS, WAD } from './constants';
 import {
   applyOffsetBps,
-  formatCompactHex,
   formatPrice,
   prettyValidity,
   priceValidity,
-  priceWad,
   rectangleForTarget,
   sqrt,
   toWord,
@@ -27,12 +25,6 @@ describe('predicates', () => {
   it('formats wad prices', () => {
     expect(formatPrice(WAD)).toBe('1.0000');
     expect(formatPrice(99n * 10n ** 16n)).toBe('0.9900');
-  });
-
-  it('formats compact hex without leading zeros', () => {
-    expect(formatCompactHex(0n)).toBe('0x0');
-    expect(formatCompactHex(PAIR_RESERVES_SLOT)).toBe('0x8');
-    expect(formatCompactHex(255n)).toBe('0xff');
   });
 
   it('offsets spot in basis points for buy and sell', () => {
@@ -94,7 +86,4 @@ describe('predicates', () => {
     expect(pretty).not.toContain('0x00000000');
   });
 
-  it('spot price is reserve1/reserve0 in wad', () => {
-    expect(priceWad(100n, 99n)).toBe((99n * WAD) / 100n);
-  });
 });

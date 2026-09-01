@@ -1,6 +1,6 @@
-import { PAIR_RESERVES_SLOT, RESERVE0_MASK, RESERVE1_MASK, RESERVE_BITS, WAD } from './constants';
+import { PAIR_RESERVES_SLOT, RESERVE0_MASK, RESERVE1_MASK, RESERVE_BITS, USDV_DECIMALS, VIBE_DECIMALS } from './constants';
 import { prettyValidity } from './predicates';
-import { USDV_SYMBOL, VIBE_SYMBOL } from './quote';
+import { formatTokenAmount, USDV_SYMBOL, VIBE_SYMBOL } from './quote';
 import type { StoragePredicate, ValidityOperator, ValidityPredicate } from './types';
 
 export type AnnotatedJsonLine = {
@@ -23,14 +23,9 @@ function decodeReserve(value: bigint, mask: bigint): bigint {
   return mask === RESERVE1_MASK ? value >> RESERVE_BITS : value;
 }
 
-function formatAmount(wad: bigint): string {
-  const negative = wad < 0n;
-  const abs = negative ? -wad : wad;
-  const whole = abs / WAD;
-  const frac = ((abs % WAD) * 100n) / WAD;
-  const grouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const body = frac === 0n ? grouped : `${grouped}.${frac.toString().padStart(2, '0')}`;
-  return negative ? `-${body}` : body;
+function formatReserve(amount: bigint, symbol: string): string {
+  const decimals = symbol === USDV_SYMBOL ? USDV_DECIMALS : VIBE_DECIMALS;
+  return `${formatTokenAmount(amount, decimals)} ${symbol}`;
 }
 
 function comparePhrase(op: ValidityOperator): string {
@@ -65,7 +60,8 @@ function storageNotes(predicate: StoragePredicate, vibeToken0: boolean): Record<
   const reserve = reserveFromMask(mask);
   const symbol = reserve === null ? 'reserve' : tokenForReserve(reserve, vibeToken0);
   const half = reserve === 0 ? 'low 112 bits' : reserve === 1 ? 'high 112 bits' : 'selected bits';
-  const amount = reserve === null ? value.toString() : formatAmount(decodeReserve(value, mask));
+  const amount =
+    reserve === null ? value.toString() : formatReserve(decodeReserve(value, mask), symbol);
   return {
     type: `${boundWord(predicate.params.op)} on the ${symbol} reserve`,
     address: 'The simulated VIBE/USDV pair',
@@ -75,32 +71,17 @@ function storageNotes(predicate: StoragePredicate, vibeToken0: boolean): Record<
         : `Storage slot ${slot.toString()}`,
     mask: `Keep the ${half} — ${symbol}`,
     op: `Include only if that reserve is ${comparePhrase(predicate.params.op)}`,
-    value: `${amount} ${symbol}`,
+    value: amount,
   };
 }
 
 function notesFor(predicate: ValidityPredicate, vibeToken0: boolean): Record<string, string> {
   if (predicate.type === 'storage') return storageNotes(predicate, vibeToken0);
-  if (predicate.type === 'block_number') {
-    const block = BigInt(predicate.params.value);
-    return {
-      type: 'Block-number expiry',
-      op: `Include only while the head is ${comparePhrase(predicate.params.op)}`,
-      value: `L2 block ${block.toString()}`,
-    };
-  }
-  if (predicate.type === 'balance') {
-    return {
-      type: 'Balance check',
-      address: 'Account whose ETH balance is read',
-      op: `Include only if the balance is ${comparePhrase(predicate.params.op)}`,
-      value: `${formatAmount(BigInt(predicate.params.value))} ETH`,
-    };
-  }
+  const block = BigInt(predicate.params.value);
   return {
-    type: 'Flashblock-index bound',
-    op: `Include only if the flashblock index is ${comparePhrase(predicate.params.op)}`,
-    value: BigInt(predicate.params.value).toString(),
+    type: 'Block-number expiry',
+    op: `Include only while the head is ${comparePhrase(predicate.params.op)}`,
+    value: `L2 block ${block.toString()}`,
   };
 }
 
