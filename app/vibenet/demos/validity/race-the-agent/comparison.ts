@@ -133,6 +133,7 @@ export function scheduledAgentPredicates(
     ],
     close: [
       blockNumberPredicate('>=', openBlock + 1n),
+      blockNumberPredicate('<=', openBlock + 1n),
       conditionalWithdrawalEnabledPredicate(withdrawal),
     ],
   };

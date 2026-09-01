@@ -97,6 +97,7 @@ describe('race lifecycle predicates', () => {
     ]);
     expect(predicates.close).toEqual([
       blockNumberPredicate('>=', 111n),
+      blockNumberPredicate('<=', 111n),
       conditionalWithdrawalEnabledPredicate(WITHDRAWAL),
     ]);
   });
