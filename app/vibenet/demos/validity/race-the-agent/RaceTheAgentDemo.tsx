@@ -809,12 +809,12 @@ function RaceTheAgentDemoInner() {
           </Text>
         </Card>
 
-        <Card className="overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
+        <Card className="flex flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
           <div className="border-b border-bds-gray-10 p-5 sm:p-6 dark:border-white/10">
             <Text variant="caption" tone="muted">Guided race</Text>
             <Text as="h2" variant="title2" className="mt-2">Submit first. React second.</Text>
           </div>
-          <div className="grid gap-px bg-bds-gray-10 dark:bg-white/10 lg:grid-cols-3">
+          <div className="grid flex-1 auto-rows-fr gap-px bg-bds-gray-10 dark:bg-white/10 lg:grid-cols-3">
             <RaceStep
               number="01"
               title="Automatic condition agent"
@@ -1082,7 +1082,7 @@ function RaceStep({
   return (
     <div
       className={cn(
-        'flex min-h-56 flex-col bg-background p-5 sm:p-6 dark:bg-[#090b12]',
+        'flex h-full min-h-56 flex-col bg-background p-5 sm:p-6 dark:bg-[#090b12]',
         active && 'bg-bds-blue-0 dark:bg-[#0c1222]',
       )}
     >
