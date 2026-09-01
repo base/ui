@@ -345,11 +345,15 @@ function RaceTheAgentDemoInner() {
           ? await probeConditionalWithdrawal(client, deployment.tokenA)
           : null;
 
-        const activeBalance = await client.getBalance({ address: acct.address });
+        let activeBalance = await client.getBalance({ address: acct.address });
+        if (activeBalance < ACTIVE_ACCOUNT_FUNDING_FLOOR) {
+          if (isCurrent()) setProgress('Waiting for account funding');
+          activeBalance = await waitForBalance(client, acct.address, ACTIVE_ACCOUNT_FUNDING_FLOOR, 4_000);
+        }
         if (activeBalance < ACTIVE_ACCOUNT_FUNDING_FLOOR) {
           if (isCurrent()) setProgress('Funding the active account');
           await currentEngine.requestFaucet();
-          const fundedBalance = await waitForBalance(client, acct.address, ACTIVE_ACCOUNT_FUNDING_FLOOR);
+          const fundedBalance = await waitForBalance(client, acct.address, ACTIVE_ACCOUNT_FUNDING_FLOOR, 8_000);
           if (fundedBalance < ACTIVE_ACCOUNT_FUNDING_FLOOR) {
             throw new Error('The active account needs at least 0.2 ETH of setup and gas headroom. Top it up and retry.');
           }
@@ -420,7 +424,16 @@ function RaceTheAgentDemoInner() {
         if (!conditionAgent) throw new Error('Could not create the condition agent subaccount.');
         setAgent(conditionAgent);
 
-        const agentBalance = await client.getBalance({ address: conditionAgent.address });
+        let agentBalance = await client.getBalance({ address: conditionAgent.address });
+        if (agentBalance < AGENT_GAS_FLOOR) {
+          setProgress('Waiting for condition agent funding');
+          agentBalance = await waitForBalance(client, conditionAgent.address, AGENT_GAS_FLOOR, 4_000);
+        }
+        if (agentBalance < AGENT_GAS_FLOOR) {
+          setProgress('Funding the condition agent');
+          latestEngine.autoFundNewAccount(conditionAgent.address);
+          agentBalance = await waitForBalance(client, conditionAgent.address, AGENT_GAS_FLOOR, 8_000);
+        }
         setProgress('Disabling condition');
         const disable = encodeSetConditionalWithdrawalEnabled(contract, false);
         const setupCalls: { to: Address; data: Hex; value?: string }[] = [
@@ -557,6 +570,13 @@ function RaceTheAgentDemoInner() {
     const active = () => generationRef.current === generation;
 
     const sendEnabled = async (enabled: boolean): Promise<bigint> => {
+      const agentBalance = await client.getBalance({ address: agent.address });
+      if (agentBalance < AGENT_GAS_FLOOR) {
+        setAgentPhase('Retrying');
+        engineRef.current.autoFundNewAccount(agent.address);
+        const funded = await waitForBalance(client, agent.address, AGENT_GAS_FLOOR, 8_000);
+        if (funded < AGENT_GAS_FLOOR) throw new Error('Condition agent needs ETH for gas.');
+      }
       let nonce = agentNonceRef.current;
       if (nonce === null) {
         nonce = BigInt(await client.getTransactionCount({ address: agent.address }));
@@ -935,8 +955,9 @@ async function waitForBalance(
   client: PublicClient,
   address: Address,
   minimum: bigint,
+  timeoutMs = 5_000,
 ): Promise<bigint> {
-  const deadline = Date.now() + 5_000;
+  const deadline = Date.now() + timeoutMs;
   let balance = 0n;
   while (Date.now() < deadline) {
     balance = await client.getBalance({ address });
