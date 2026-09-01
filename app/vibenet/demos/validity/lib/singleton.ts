@@ -89,7 +89,7 @@ export function singletonInitCodes(): {
   };
 }
 
-function create2Address(salt: Hex, initCode: Hex): Address {
+export function create2Address(salt: Hex, initCode: Hex): Address {
   return getContractAddress({
     bytecode: initCode,
     from: CREATE2_DEPLOYER,
@@ -298,7 +298,7 @@ export async function ensureCreate2Deployer(
   await waitForBytecode(publicClient, CREATE2_DEPLOYER, 'CREATE2 deployer');
 }
 
-async function ensureCreate2Contract(
+export async function ensureCreate2Contract(
   wallet: WalletClient,
   publicClient: PublicClient,
   account: Account,
