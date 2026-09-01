@@ -2,7 +2,6 @@ import {
   encodeFunctionData,
   parseAbi,
   parseEventLogs,
-  zeroAddress,
   type Account,
   type Address,
   type Hex,
@@ -11,121 +10,16 @@ import {
   type WalletClient,
 } from 'viem';
 
-const factoryEvents = parseAbi([
-  'event PairCreated(address indexed token0, address indexed token1, address pair, uint256 allPairsLength)',
-]);
-
 const pairEvents = parseAbi([
   'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
   'event Sync(uint112 reserve0, uint112 reserve1)',
 ]);
 
-import {
-  SEED_USDV,
-  SEED_VIBE,
-  TRADER_USDV,
-  TRADER_VIBE,
-  WAD,
-  erc20Abi,
-  erc20Bytecode,
-  factoryAbi,
-  factoryBytecode,
-  helperAbi,
-  helperBytecode,
-  pairAbi,
-} from './constants';
+import { TRADER_USDV, TRADER_VIBE, WAD, erc20Abi, helperAbi, minterAbi, pairAbi } from './constants';
 import { sqrt } from './predicates';
-import { quoteFromPreSwapReserves, USDV_NAME, USDV_SYMBOL, VIBE_NAME, VIBE_SYMBOL } from './quote';
+import { quoteFromPreSwapReserves } from './quote';
+import { ensureSingleton } from './singleton';
 import type { Deployment, Reserves, Side } from './types';
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-async function wait(
-  publicClient: PublicClient,
-  hash: Hex,
-): Promise<TransactionReceipt> {
-  const receipt = await publicClient.waitForTransactionReceipt({
-    hash,
-    timeout: 120_000,
-    pollingInterval: 1_000,
-  });
-  if (receipt.status === 'reverted') {
-    throw new Error(`Transaction reverted (${hash})`);
-  }
-  return receipt;
-}
-
-/** Zeronet query RPC is load-balanced; a receipt can land before bytecode is visible. */
-async function waitForBytecode(
-  publicClient: PublicClient,
-  address: Address,
-  label: string,
-): Promise<void> {
-  const deadline = Date.now() + 60_000;
-  while (Date.now() < deadline) {
-    const code = await publicClient.getCode({ address }).catch(() => undefined);
-    if (code && code !== '0x') return;
-    await sleep(400);
-  }
-  throw new Error(`${label} bytecode not visible on the read RPC yet (${address}).`);
-}
-
-function pairFromCreateReceipt(receipt: TransactionReceipt): Address | null {
-  const logs = parseEventLogs({
-    abi: factoryEvents,
-    eventName: 'PairCreated',
-    logs: receipt.logs,
-  });
-  return logs[0]?.args.pair ?? null;
-}
-
-async function readPair(
-  publicClient: PublicClient,
-  factory: Address,
-  tokenA: Address,
-  tokenB: Address,
-): Promise<Address> {
-  const deadline = Date.now() + 60_000;
-  let lastError: unknown;
-  while (Date.now() < deadline) {
-    try {
-      const pair = (await publicClient.readContract({
-        address: factory,
-        abi: factoryAbi,
-        functionName: 'getPair',
-        args: [tokenA, tokenB],
-      })) as Address;
-      if (pair && pair !== zeroAddress) return pair;
-    } catch (err) {
-      lastError = err;
-    }
-    await sleep(400);
-  }
-  if (lastError instanceof Error) throw lastError;
-  throw new Error('Factory returned no pair.');
-}
-
-async function send(
-  wallet: WalletClient,
-  publicClient: PublicClient,
-  account: Account,
-  request: {
-    to?: Address;
-    data: Hex;
-    gas?: bigint;
-  },
-): Promise<TransactionReceipt> {
-  const hash = await wallet.sendTransaction({
-    account,
-    chain: wallet.chain,
-    ...request,
-  });
-  return wait(publicClient, hash);
-}
 
 export async function getReserves(publicClient: PublicClient, pair: Address): Promise<Reserves> {
   const result = (await publicClient.readContract({
@@ -171,6 +65,25 @@ export function amountOutAtLimit(
 ): bigint {
   const { vibe, usdv } = reservesAtQuote(k, targetQuoteWad);
   return side === 'buy' ? amountOut(amountIn, usdv, vibe) : amountOut(amountIn, vibe, usdv);
+}
+
+/** Smallest `amountIn` that yields at least `wantOut` on a 0% curve. */
+export function amountInForExactOut(wantOut: bigint, reserveIn: bigint, reserveOut: bigint): bigint {
+  if (wantOut === 0n || reserveIn === 0n || reserveOut === 0n || wantOut >= reserveOut) return 0n;
+  const den = reserveOut - wantOut;
+  return (wantOut * reserveIn + den - 1n) / den;
+}
+
+/** Input so the swap is `vibeSize` VIBE at the limit curve. Sell spends VIBE; buy spends USDV. */
+export function amountInForVibe(
+  vibeSize: bigint,
+  side: Side,
+  k: bigint,
+  targetQuoteWad: bigint,
+): bigint {
+  if (side === 'sell') return vibeSize;
+  const { vibe, usdv } = reservesAtQuote(k, targetQuoteWad);
+  return amountInForExactOut(vibeSize, usdv, vibe);
 }
 
 export function reservesFromSyncLog(log: {
@@ -245,151 +158,62 @@ export function fillQuoteFromSwapReceipt(
   return fillQuoteFromPairLogs(receipt.logs, pair, vibeToken0);
 }
 
+/** First visitor publishes the CREATE2 singleton; later callers attach. */
 export async function deployAmm(args: {
   wallet: WalletClient;
   publicClient: PublicClient;
   account: Account;
-  traders: Address[];
   onProgress?: (label: string) => void;
 }): Promise<Deployment> {
-  const { wallet, publicClient, account, traders, onProgress } = args;
-  const note = (label: string) => onProgress?.(label);
+  return ensureSingleton(args);
+}
 
-  note('Deploying VIBE');
-  const tokenAHash = await wallet.deployContract({
-    abi: erc20Abi,
-    bytecode: erc20Bytecode,
-    args: [VIBE_NAME, VIBE_SYMBOL],
-    account,
-    chain: wallet.chain,
-  });
-  const tokenAReceipt = await wait(publicClient, tokenAHash);
-  const tokenA = tokenAReceipt.contractAddress;
-  if (!tokenA) throw new Error('VIBE deploy returned no address.');
-  await waitForBytecode(publicClient, tokenA, 'VIBE');
-
-  note('Deploying USDV');
-  const tokenBHash = await wallet.deployContract({
-    abi: erc20Abi,
-    bytecode: erc20Bytecode,
-    args: [USDV_NAME, USDV_SYMBOL],
-    account,
-    chain: wallet.chain,
-  });
-  const tokenBReceipt = await wait(publicClient, tokenBHash);
-  const tokenB = tokenBReceipt.contractAddress;
-  if (!tokenB) throw new Error('USDV deploy returned no address.');
-  await waitForBytecode(publicClient, tokenB, 'USDV');
-
-  note('Deploying Uniswap V2 factory');
-  const factoryHash = await wallet.deployContract({
-    abi: factoryAbi,
-    bytecode: factoryBytecode,
-    args: [account.address],
-    account,
-    chain: wallet.chain,
-  });
-  const factoryReceipt = await wait(publicClient, factoryHash);
-  const factory = factoryReceipt.contractAddress;
-  if (!factory) throw new Error('Factory deploy returned no address.');
-  await waitForBytecode(publicClient, factory, 'Factory');
-
-  note('Creating the pair');
-  const createReceipt = await send(wallet, publicClient, account, {
-    to: factory,
-    data: encodeFunctionData({
-      abi: factoryAbi,
-      functionName: 'createPair',
-      args: [tokenA, tokenB],
-    }),
-    gas: 5_000_000n,
-  });
-  const pair =
-    pairFromCreateReceipt(createReceipt) ?? (await readPair(publicClient, factory, tokenA, tokenB));
-  await waitForBytecode(publicClient, pair, 'Pair');
-
-  const token0 = (await publicClient.readContract({
-    address: pair,
-    abi: pairAbi,
-    functionName: 'token0',
-  })) as Address;
-  const token1 = (await publicClient.readContract({
-    address: pair,
-    abi: pairAbi,
-    functionName: 'token1',
-  })) as Address;
-
-  note('Seeding VIBE/USDV (~$0.07)');
-  const mintTo = (token: Address, to: Address, amount: bigint) =>
-    send(wallet, publicClient, account, {
-      to: token,
+export function encodeMint(
+  token: Address,
+  to: Address,
+  amount: bigint,
+  minter?: Address,
+): { to: Address; data: Hex } {
+  if (minter) {
+    return {
+      to: minter,
       data: encodeFunctionData({
-        abi: erc20Abi,
+        abi: minterAbi,
         functionName: 'mint',
-        args: [to, amount],
+        args: [token, to, amount],
       }),
-    });
-
-  await mintTo(tokenA, account.address, SEED_VIBE);
-  await mintTo(tokenB, account.address, SEED_USDV);
-  await send(wallet, publicClient, account, {
-    to: tokenA,
+    };
+  }
+  return {
+    to: token,
     data: encodeFunctionData({
       abi: erc20Abi,
-      functionName: 'transfer',
-      args: [pair, SEED_VIBE],
-    }),
-  });
-  await send(wallet, publicClient, account, {
-    to: tokenB,
-    data: encodeFunctionData({
-      abi: erc20Abi,
-      functionName: 'transfer',
-      args: [pair, SEED_USDV],
-    }),
-  });
-  await send(wallet, publicClient, account, {
-    to: pair,
-    data: encodeFunctionData({
-      abi: pairAbi,
       functionName: 'mint',
-      args: [account.address],
+      args: [to, amount],
     }),
-    gas: 500_000n,
-  });
+  };
+}
 
-  note('Deploying swap helper');
-  const helperHash = await wallet.deployContract({
-    abi: helperAbi,
-    bytecode: helperBytecode,
-    account,
-    chain: wallet.chain,
-  });
-  const helperReceipt = await wait(publicClient, helperHash);
-  const helper = helperReceipt.contractAddress;
-  if (!helper) throw new Error('Swap helper deploy returned no address.');
-  await waitForBytecode(publicClient, helper, 'Swap helper');
-
-  note('Minting trader inventory');
-  for (const recipient of traders) {
-    await mintTo(tokenA, recipient, TRADER_VIBE);
-    await mintTo(tokenB, recipient, TRADER_USDV);
+/** USDV for anyone who can buy. VIBE only for makers — traders start at 0. */
+export async function inventoryMints(
+  publicClient: PublicClient,
+  deployment: Deployment,
+  recipients: readonly { to: Address; mintVibe?: boolean }[],
+): Promise<{ to: Address; data: Hex }[]> {
+  const calls: { to: Address; data: Hex }[] = [];
+  const floorVibe = TRADER_VIBE / 2n;
+  const floorUsdv = TRADER_USDV / 2n;
+  for (const { to, mintVibe } of recipients) {
+    const [vibe, usdv] = await Promise.all([
+      tokenBalance(publicClient, deployment.tokenA, to),
+      tokenBalance(publicClient, deployment.tokenB, to),
+    ]);
+    if (mintVibe && vibe < floorVibe) {
+      calls.push(encodeMint(deployment.tokenA, to, TRADER_VIBE, deployment.minter));
+    }
+    if (usdv < floorUsdv) calls.push(encodeMint(deployment.tokenB, to, TRADER_USDV));
   }
-
-  note('Approving the helper');
-  const max = 2n ** 256n - 1n;
-  for (const token of [token0, token1] as const) {
-    await send(wallet, publicClient, account, {
-      to: token,
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [helper, max],
-      }),
-    });
-  }
-
-  return { tokenA, tokenB, token0, token1, factory, pair, helper };
+  return calls;
 }
 
 export function encodeApprove(token: Address, spender: Address): { to: Address; data: Hex } {
@@ -460,4 +284,23 @@ export async function tokenBalance(
     functionName: 'balanceOf',
     args: [owner],
   })) as bigint;
+}
+
+export async function helperApproveCalls(
+  publicClient: PublicClient,
+  deployment: Deployment,
+  owner: Address,
+): Promise<{ to: Address; data: Hex }[]> {
+  const calls: { to: Address; data: Hex }[] = [];
+  const min = 2n ** 255n;
+  for (const token of [deployment.token0, deployment.token1] as const) {
+    const allowance = (await publicClient.readContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: 'allowance',
+      args: [owner, deployment.helper],
+    })) as bigint;
+    if (allowance < min) calls.push(encodeApprove(token, deployment.helper));
+  }
+  return calls;
 }

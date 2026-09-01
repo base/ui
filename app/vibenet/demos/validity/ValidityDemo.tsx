@@ -7,10 +7,10 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { trackValidityOrder } from '../../../analytics/events';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
-import { cn } from '../../../components/ui/cn';
 import { Text } from '../../../components/ui/Text';
 import { CopyableValue } from '../../components/CopyableValue';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
+import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { DemoHeader } from '../_components/DemoHeader';
 import { newCallRow } from '../account/library/calls';
 import type { StoredAccount } from '../account/library/model';
@@ -25,22 +25,30 @@ import { OrderTicket } from './components/OrderTicket';
 import { PriceCandles, type FillMark, type PriceLevel, type PriceSample } from './components/PriceCandles';
 import { ValidityJson } from './components/ValidityJson';
 import {
+  amountInForVibe,
   amountOutAtLimit,
   deployAmm,
-  encodeApprove,
   encodeHelperSwap,
   fillQuoteFromPairLogs,
   fillQuoteFromSwapReceipt,
   getReserves,
+  helperApproveCalls,
+  inventoryMints,
   reservesFromSyncLog,
   tokenBalance,
 } from './lib/amm';
 import { clampNoncelessExpiry, noncelessFields } from './lib/aa';
 import { startBots, allNeedGas, shouldFlagMakersDry } from './lib/bots';
-import { CANDLE_SAMPLE_MS, CANDLE_WINDOW_MS, MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS } from './lib/constants';
+import {
+  CANDLE_SAMPLE_MS,
+  MAX_EXPIRY_SECONDS,
+  MAX_NONCELESS_SECONDS,
+  TRADE_VIBE,
+} from './lib/constants';
 import { faucetErrorMessage } from './lib/faucet';
 import { ensureMakers, rootAccount } from './lib/makers';
 import {
+  ageRestoredOrders,
   maxBlockForExpiry,
   occupyingOrder,
   orderBlockExpired,
@@ -54,31 +62,37 @@ import {
   ammPriceFromQuote,
   ammSide,
   clampToCondition,
+  formatTokenAmount,
   quoteWad,
   swapOuts,
   tokenInFor,
+  USDV_SYMBOL,
   vibeIsToken0,
+  VIBE_SYMBOL,
 } from './lib/quote';
 import {
   chainFromId,
   describeValidityError,
   fetchChainStatus,
+  fetchTape,
   makePublicClient,
   makeWalletClient,
+  publishTape,
   sendValidityTransaction,
   type RpcSend,
 } from './lib/rpc';
 import { connectJsonRpcStream, headNumber, type StreamHead, type StreamLog } from './lib/stream';
-import { createState, dropDeployment, loadState, saveState, type StoredState } from './lib/store';
+import { probeSingleton } from './lib/singleton';
+import { mergeTape } from './lib/tape';
+import { createState, loadState, saveState, type StoredState } from './lib/store';
 import type { ChainStatus, PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/types';
 
 /** HTTP fallback when the read host has no `/ws`. Submit is always HTTP.
  *  The socket carries heads, pair logs, and remaining reads (balances, receipts). */
 const SYNC_MS = 1_000;
 const BALANCE_MS = 5_000;
-const DEFAULT_SIZE_FRACTION = 50n; // 1/50 of inventory
-const OWNER_DEPLOY_GAS = parseEther('0.05');
-const OWNER_DEPLOY_SEND = '0.06';
+const OWNER_DEPLOY_GAS = parseEther('0.08');
+const OWNER_DEPLOY_SEND = '0.1';
 
 function wadToNumber(wad: bigint): number {
   return Number(wad) / 1e18;
@@ -105,11 +119,12 @@ function ValidityDemoInner() {
   const [state, setState] = useState<StoredState | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [ethBalance, setEthBalance] = useState<bigint | null>(null);
+  const [vibeBalance, setVibeBalance] = useState<bigint | null>(null);
+  const [usdvBalance, setUsdvBalance] = useState<bigint | null>(null);
   const [reserves, setReserves] = useState<Reserves | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [botsOn, setBotsOn] = useState(true);
   const [txOpen, setTxOpen] = useState(false);
   const [txStep, setTxStep] = useState<TxStep>('review');
   const [txHash, setTxHash] = useState<Hex | null>(null);
@@ -132,12 +147,11 @@ function ValidityDemoInner() {
   const makerDeployedRef = useRef<boolean[]>([]);
   const engineRef = useRef(engine);
   engineRef.current = engine;
-  const botsEnabledRef = useRef(true);
-  botsEnabledRef.current = botsOn;
   const lastMakerPriceAtRef = useRef(0);
   const makersRef = useRef<StoredAccount[]>([]);
   const makerEthRef = useRef<(bigint | null)[]>([]);
   const makerTokenRef = useRef<Record<string, bigint>>({});
+  const refreshBalancesRef = useRef<() => void>(() => {});
 
   const ordersRef = useRef<PlacedOrder[]>([]);
   ordersRef.current = orders;
@@ -149,17 +163,23 @@ function ValidityDemoInner() {
   stateRef.current = state;
 
   const persist = useCallback((next: StoredState) => {
-    saveState(next);
-    setState(next);
+    const stored = { ...next, orders: next.orders ?? ordersRef.current };
+    saveState(stored);
+    setState(stored);
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const current = stateRef.current;
+    if (!current) return;
+    const stored = { ...current, orders };
+    saveState(stored);
+    stateRef.current = stored;
+  }, [hydrated, orders]);
 
   const pushSample = useCallback((price: number) => {
     if (!Number.isFinite(price) || price <= 0) return;
-    setSamples((prev) => {
-      const next = [...prev, { t: Date.now(), price }];
-      const keep = Math.ceil(CANDLE_WINDOW_MS / CANDLE_SAMPLE_MS) + 8;
-      return next.length > keep ? next.slice(-keep) : next;
-    });
+    setSamples((prev) => mergeTape(prev, [{ t: Date.now(), price }]));
   }, []);
 
   useEffect(() => {
@@ -183,6 +203,42 @@ function ValidityDemoInner() {
     };
   }, [pushSample]);
 
+  const pair = state?.deployment?.pair;
+  const tapeVibeToken0 = Boolean(state?.deployment && vibeIsToken0(state.deployment));
+
+  useEffect(() => {
+    if (!hydrated || !pair) return;
+    let cancelled = false;
+    void fetchTape(pair, tapeVibeToken0)
+      .then((remote) => {
+        if (cancelled || remote.length === 0) return;
+        setSamples((prev) => mergeTape(remote, prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, pair, tapeVibeToken0]);
+
+  useEffect(() => {
+    if (!hydrated || !pair) return;
+    const flush = () => {
+      void publishTape(pair, samplesRef.current).catch(() => {});
+    };
+    const id = window.setInterval(flush, 2_000);
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, [hydrated, pair]);
+
   const parent = useMemo(
     () => (acct ? rootAccount(acct, engine.accounts) : null),
     [acct, engine.accounts],
@@ -199,17 +255,10 @@ function ValidityDemoInner() {
   }, [engine.accounts, parent, state?.makerAccountIds]);
   makersRef.current = makers;
 
-  const poolForThisAccount = Boolean(
-    state?.deployment &&
-      (!state.accountId ||
-        parent?.id === state.accountId ||
-        (acct && state.makerAccountIds?.includes(acct.id))),
-  );
-
   useEffect(() => {
     let cancelled = false;
     fetchChainStatus()
-      .then((next) => {
+      .then(async (next) => {
         if (cancelled) return;
         setStatus(next);
         if (!next.chainId || !next.genesisHash) {
@@ -217,13 +266,22 @@ function ValidityDemoInner() {
           return;
         }
         const existing = loadState();
-        if (existing && existing.chainId === next.chainId && existing.genesisHash === next.genesisHash) {
-          setState(existing);
-        } else {
-          const created = createState(next.chainId, next.genesisHash);
-          persist(created);
+        const sameChain = Boolean(
+          existing && existing.chainId === next.chainId && existing.genesisHash === next.genesisHash,
+        );
+        const base = sameChain && existing ? existing : createState(next.chainId, next.genesisHash);
+        const restored = sameChain ? ageRestoredOrders(existing?.orders ?? []) : [];
+        ordersRef.current = restored;
+        setOrders(restored);
+        const client = makePublicClient(chainFromId(next.chainId), () => rpcSendRef.current);
+        publicRef.current = client;
+        try {
+          const live = await probeSingleton(client);
+          if (cancelled) return;
+          persist({ ...base, orders: restored, deployment: live ?? undefined });
+        } catch {
+          if (!cancelled) persist({ ...base, orders: restored });
         }
-        publicRef.current = makePublicClient(chainFromId(next.chainId), () => rpcSendRef.current);
       })
       .catch((err: unknown) => {
         if (!cancelled) setStatusError(err instanceof Error ? err.message : 'Could not reach the validity RPC proxy.');
@@ -296,8 +354,10 @@ function ValidityDemoInner() {
             }
           : item,
       );
-      if (filled) trackValidityOrder(order.side, 'filled');
-      else if (wasPending) trackValidityOrder(order.side, 'error');
+      if (filled) {
+        trackValidityOrder(order.side, 'filled');
+        refreshBalancesRef.current();
+      } else if (wasPending) trackValidityOrder(order.side, 'error');
     },
     [patchOrders],
   );
@@ -385,6 +445,10 @@ function ValidityDemoInner() {
       if (includeReserves) {
         jobs.push(deployment ? getReserves(client, deployment.pair).catch(() => null) : Promise.resolve(null));
       }
+      if (deployment) {
+        jobs.push(tokenBalance(client, deployment.tokenA, acct.address).catch(() => null));
+        jobs.push(tokenBalance(client, deployment.tokenB, acct.address).catch(() => null));
+      }
       for (const maker of makerList) {
         jobs.push(client.getBalance({ address: maker.address }).catch(() => null));
         if (deployment) {
@@ -395,17 +459,25 @@ function ValidityDemoInner() {
       const [eth, ...rest] = await Promise.all(jobs);
       if (cancelled) return;
       if (typeof eth === 'bigint') setEthBalance(eth);
+      let offset = 0;
       if (includeReserves) {
-        const latestReserves = rest[0];
-        const makerParts = rest.slice(1);
+        const latestReserves = rest[offset];
+        offset += 1;
         if (latestReserves && deployment) {
-          const latest = latestReserves as Reserves;
-          setReserves(latest);
+          setReserves(latestReserves as Reserves);
         }
-        applyMakerParts(deployment, makerParts);
-        return;
       }
-      applyMakerParts(deployment, rest);
+      if (deployment) {
+        const vibe = rest[offset];
+        const usdv = rest[offset + 1];
+        offset += 2;
+        if (typeof vibe === 'bigint') setVibeBalance(vibe);
+        if (typeof usdv === 'bigint') setUsdvBalance(usdv);
+      }
+      applyMakerParts(deployment, rest.slice(offset));
+    };
+    refreshBalancesRef.current = () => {
+      void pullBalances(false).catch(() => {});
     };
 
     const pollTick = async () => {
@@ -660,23 +732,27 @@ function ValidityDemoInner() {
 
       const chain = chainFromId(status.chainId);
       const wallet = makeWalletClient(chain, eoa);
-      const traders = [acct.address, makerA.address, makerB.address];
       const deployment = await deployAmm({
         wallet,
         publicClient,
         account: eoa,
-        traders,
         onProgress: setProgress,
       });
 
-      setProgress('Approving the swap helper');
-      await engine.sendActiveCalls({
-        calls: [
-          encodeApprove(deployment.token0, deployment.helper),
-          encodeApprove(deployment.token1, deployment.helper),
-        ],
-        metadata: 'Validity helper approve',
-      });
+      setProgress('Minting inventory and approving the helper');
+      const starter = await inventoryMints(publicClient, deployment, [
+        { to: acct.address },
+        { to: makerA.address, mintVibe: true },
+        { to: makerB.address, mintVibe: true },
+      ]);
+      const approves = await helperApproveCalls(publicClient, deployment, acct.address);
+      if (starter.length + approves.length > 0) {
+        await engine.sendActiveCalls({
+          calls: [...starter, ...approves],
+          metadata: 'Validity inventory',
+        });
+      }
+      inventoryKeyRef.current = `${deployment.pair}:${acct.id}:${makerA.id},${makerB.id}`;
 
       setMakersDry(false);
       setMakerError(null);
@@ -692,7 +768,7 @@ function ValidityDemoInner() {
       });
       engine.pushActivity({
         kind: 'transact',
-        title: 'Validity pool deployed',
+        title: 'Validity shared pool ready',
         detail: `Pair ${deployment.pair}`,
         account: acct.address,
         network: engine.chain.name,
@@ -707,6 +783,73 @@ function ValidityDemoInner() {
   };
 
   const makerKey = makers.map((maker) => maker.id).join(',');
+  const inventoryKeyRef = useRef('');
+
+  useEffect(() => {
+    if (!hydrated || !engine.hydrated || !status?.chainId || !acct || !parent || !state?.deployment) return;
+    if (makers.length === 2) return;
+    const [makerA, makerB] = ensureMakers(
+      parent,
+      engine.accounts,
+      state.makerAccountIds,
+      engine.doCreateSubAccount,
+    );
+    persist({
+      ...state,
+      accountId: parent.id,
+      makerAccountIds: [makerA.id, makerB.id],
+    });
+  }, [
+    acct,
+    engine.accounts,
+    engine.doCreateSubAccount,
+    engine.hydrated,
+    hydrated,
+    makers.length,
+    parent,
+    persist,
+    state,
+    status?.chainId,
+  ]);
+
+  useEffect(() => {
+    if (!hydrated || !state?.deployment || !acct || makers.length !== 2 || busy) return;
+    if (!ethBalance || ethBalance === 0n) return;
+    const client = publicRef.current;
+    if (!client) return;
+    const key = `${state.deployment.pair}:${acct.id}:${makerKey}`;
+    if (inventoryKeyRef.current === key) return;
+    const deployment = state.deployment;
+    const recipients = [
+      { to: acct.address },
+      ...makers.map((maker) => ({ to: maker.address, mintVibe: true as const })),
+    ];
+    let cancelled = false;
+    void (async () => {
+      try {
+        const starter = await inventoryMints(client, deployment, recipients);
+        const approves = await helperApproveCalls(client, deployment, acct.address);
+        if (cancelled) return;
+        if (starter.length + approves.length === 0) {
+          inventoryKeyRef.current = key;
+          return;
+        }
+        setProgress('Minting USDV inventory');
+        await engineRef.current.sendActiveCalls({
+          calls: [...starter, ...approves],
+          metadata: 'Validity inventory',
+        });
+        if (!cancelled) inventoryKeyRef.current = key;
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not mint inventory');
+      } finally {
+        if (!cancelled) setProgress(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [acct, busy, ethBalance, hydrated, makerKey, makers, state?.deployment]);
 
   useEffect(() => {
     if (!hydrated || !status?.chainId || !state?.deployment || makersRef.current.length !== 2) return;
@@ -764,7 +907,7 @@ function ValidityDemoInner() {
           throw err;
         }
       },
-      enabled: () => botsEnabledRef.current,
+      enabled: () => true,
       onPrice: () => {
         lastMakerPriceAtRef.current = Date.now();
         setMakerError(null);
@@ -797,9 +940,16 @@ function ValidityDemoInner() {
     const side: Side = draft.side;
     const tokenIn = tokenInFor(state.deployment, side === 'sell');
     try {
+      const amountIn = amountInForVibe(TRADE_VIBE, side, k, draft.priceWad);
+      if (amountIn === 0n) throw new Error('Swap size is too small.');
       const inventory = await tokenBalance(publicClient, tokenIn, acct.address);
-      const amountIn = inventory / DEFAULT_SIZE_FRACTION;
-      if (amountIn === 0n) throw new Error('Not enough token inventory to swap.');
+      if (inventory < amountIn) {
+        throw new Error(
+          side === 'sell'
+            ? `Need ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL} to sell.`
+            : `Need ${formatTokenAmount(amountIn)} ${USDV_SYMBOL} to buy ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL}.`,
+        );
+      }
       const outExact = amountOutAtLimit(amountIn, side, k, draft.priceWad);
       const out = outExact > 1n ? outExact - 1n : outExact;
       if (out === 0n) throw new Error('Swap size is too small.');
@@ -903,7 +1053,7 @@ function ValidityDemoInner() {
         id: newId(),
         side,
         targetPriceWad: draft.priceWad,
-        size: amountIn,
+        size: TRADE_VIBE,
         expirySeconds: seconds,
         submitMode,
         maxBlock: status?.blockNumberPredicate ? maxBlock : undefined,
@@ -961,24 +1111,17 @@ function ValidityDemoInner() {
     }
   };
 
-  const resetDemo = () => {
-    if (!state) return;
-    setOrders([]);
-    setSamples([]);
-    setReserves(null);
-    setMakerError(null);
-    setMakersDry(false);
-    setHoveredOrderId(null);
-    setError(null);
-    setProgress(null);
-    setBotsOn(true);
-    lastMakerPriceAtRef.current = 0;
-    persist(dropDeployment(state));
-  };
-
   const address = acct?.address;
   const funded = (ethBalance ?? 0n) > 0n;
-  const deployed = Boolean(poolForThisAccount);
+  const deployed = Boolean(state?.deployment);
+  const tradeLabel = formatTokenAmount(TRADE_VIBE);
+  const canAffordTrade = (() => {
+    if (!draft) return false;
+    if (side === 'sell') return (vibeBalance ?? 0n) >= TRADE_VIBE;
+    if (k === 0n) return false;
+    const need = amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad);
+    return need > 0n && (usdvBalance ?? 0n) >= need;
+  })();
 
   return (
     <AccountDemoShell
@@ -993,39 +1136,16 @@ function ValidityDemoInner() {
       <DemoHeader
         eyebrow="Validity · experimental"
         title="Send now. Land later."
-        description="A transaction can carry predicates the sequencer checks before inclusion. This page deploys a simulated VIBE/USDV pool so you can watch a swap wait for a price condition, then land or expire."
+        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone shares one VIBE/USDV pool — VIBE is a B20 — so you can watch a swap wait for a price condition, then land or expire."
       />
 
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[12px] text-bds-gray-60">
-          <span>{status?.readHost ?? 'no rpc'}</span>
-          <span>{streamLive ? '200ms heads' : '200ms blocks'}</span>
-          <span>validity {status?.validitySupported ? 'on' : 'unavailable'}</span>
-          {status?.blockNumberPredicate ? <span>block bounds on</span> : <span>client-side expiry only</span>}
-          <span>simulation {botsOn ? (makersDry ? 'out of ETH' : 'live') : 'paused'}</span>
-          {makerError && !makersDry ? <span className="text-bds-orange-50">simulation {makerError}</span> : null}
-          {deployed || makersDry ? (
-            <Button
-              size="sm"
-              variant={makersDry ? 'primary' : 'outline'}
-              disabled={busy || !state}
-              onClick={resetDemo}
-              className={cn(
-                'ml-auto',
-                makersDry &&
-                  'border-transparent bg-bds-orange-50 text-black ring-2 ring-bds-orange-50/80 ring-offset-2 ring-offset-background hover:bg-bds-orange-40 dark:text-black dark:hover:bg-bds-orange-50',
-              )}
-            >
-              {makersDry ? 'Reset demo' : 'Reset'}
-            </Button>
-          ) : null}
-        </div>
-        {makersDry ? (
-          <Text variant="footnote" className="text-bds-orange-50">
-            Simulated flow ran out of ETH. Reset drops this pool so you can top up and deploy again.
-          </Text>
-        ) : null}
-      </div>
+      {makersDry ? (
+        <Text variant="footnote" className="text-bds-orange-50">
+          Simulated flow ran out of ETH. Top up the account so the makers can keep walking the mid.
+        </Text>
+      ) : makerError ? (
+        <Text variant="footnote" className="text-bds-orange-50">{makerError}</Text>
+      ) : null}
 
       {statusError ? (
         <Card className="bg-background p-4 text-bds-orange-50 dark:bg-white/5">{statusError}</Card>
@@ -1033,11 +1153,12 @@ function ValidityDemoInner() {
 
       {!deployed ? (
         <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
-          <Text variant="title3">Simulated pool</Text>
+          <Text variant="title3">Shared pool</Text>
           <Text variant="label.regular" tone="muted">
-            Your Vibenet account signs the swaps — several 8130 conditions can rest
-            at once, or one sequenced replacement. Deploy creates two maker
-            subaccounts that move the simulated mid.
+            Your Vibenet account signs the swaps. The first visitor publishes a
+            network-wide VIBE/USDV pair — VIBE is a B20 asset — and everyone
+            else attaches to the same factory. Makers mint a starter bag and
+            buy or sell against that pool.
           </Text>
           {address ? (
             <div className="flex items-center justify-between gap-3">
@@ -1060,7 +1181,7 @@ function ValidityDemoInner() {
               {engine.faucetBusy ? 'Topping up…' : 'Top up'}
             </Button>
             <Button variant="secondary" onClick={() => void deploy()} disabled={busy || !funded}>
-              Deploy pool
+              Deploy shared pool
             </Button>
           </div>
         </Card>
@@ -1068,18 +1189,30 @@ function ValidityDemoInner() {
         <div className="flex flex-col gap-10">
           <div className="flex min-w-0 flex-col gap-3">
               <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Text variant="footnote" tone="muted">
-                Spot {spot === 0n ? '—' : `$${formatPrice(spot)}`} USDV · simulated flow moves the mid
+            <Text variant="footnote" tone="muted">
+              Spot {spot === 0n ? '—' : `$${formatPrice(spot)}`} USDV · simulated flow moves the mid
+            </Text>
+          </div>
+          <div className="rounded-2xl border border-bds-gray-10 bg-background px-5 py-4 dark:border-white/10 dark:bg-white/5">
+            <Text variant="caption" tone="muted">
+              Your {VIBE_SYMBOL}
+            </Text>
+            <div className="mt-1 flex items-baseline gap-2">
+              <Text as="div" variant="stats" className="tabular-nums tracking-tight">
+                {vibeBalance === null ? (
+                  '…'
+                ) : (
+                  <AnimatedAmount text={formatTokenAmount(vibeBalance)} decimals={0} group />
+                )}
               </Text>
-              <button
-                type="button"
-                className="text-[12px] text-base-blue"
-                onClick={() => setBotsOn((value) => !value)}
-              >
-                {botsOn ? 'Pause simulation' : 'Resume simulation'}
-              </button>
+              <Text variant="title3">{VIBE_SYMBOL}</Text>
             </div>
+            <Text variant="footnote" tone="muted" className="mt-2">
+              Each {side === 'buy' ? 'buy' : 'sell'} is {tradeLabel} {VIBE_SYMBOL}
+              {side === 'buy' && draft
+                ? ` · ~${formatTokenAmount(amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad))} ${USDV_SYMBOL}`
+                : null}
+            </Text>
           </div>
           <div className="grid gap-6 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)] lg:items-start">
             <div className="flex flex-col gap-4">
@@ -1092,6 +1225,7 @@ function ValidityDemoInner() {
                   submitMode={submitMode}
                   busy={busy}
                   validitySupported={Boolean(status?.validitySupported)}
+                  canAfford={canAffordTrade}
                   onSide={setSide}
                   onOffset={setOffsetBps}
                   onExpiry={setExpirySeconds}
@@ -1116,6 +1250,7 @@ function ValidityDemoInner() {
                   </Text>
                 </Card>
               )}
+              {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
               {error && !txOpen ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
             </div>
             <div className="min-h-0 lg:sticky lg:top-4">
@@ -1152,8 +1287,8 @@ function ValidityDemoInner() {
             <div className="flex flex-col gap-4">
               <div>
                 <Text variant="title3">
-                  {draft.side === 'buy' ? 'Buy' : 'Sell'} VIBE if mid {draft.side === 'buy' ? '≤' : '≥'} $
-                  {formatPrice(draft.priceWad)}
+                  {draft.side === 'buy' ? 'Buy' : 'Sell'} {tradeLabel} {VIBE_SYMBOL} if mid{' '}
+                  {draft.side === 'buy' ? '≤' : '≥'} ${formatPrice(draft.priceWad)}
                 </Text>
                 <Text variant="footnote" tone="muted" className="mt-1">
                   {submitMode === 'concurrent' ? '8130 concurrent' : 'Replace resting nonce'} · expires in{' '}
@@ -1179,7 +1314,7 @@ function ValidityDemoInner() {
               </details>
             </div>
           }
-          confirmLabel={`Submit if ${draft.side === 'buy' ? '≤' : '≥'} $${formatPrice(draft.priceWad)}`}
+          confirmLabel={`${draft.side === 'buy' ? 'Buy' : 'Sell'} ${tradeLabel} if ${draft.side === 'buy' ? '≤' : '≥'} $${formatPrice(draft.priceWad)}`}
           onConfirm={() => {
             void (async () => {
               setTxStep('submitted');
@@ -1212,7 +1347,7 @@ function ValidityDemoInner() {
           explorerTxPath={(hash) => `${VIBENET_EXPLORER_PATH}/tx/${hash}`}
           renderSuccess={() => (
             <div className="flex flex-col items-center gap-1">
-              <Text variant="title3">Condition submitted</Text>
+              <Text variant="title3">Transaction submitted</Text>
               <Text variant="label.regular" tone="muted">
                 The sequencer will include this swap only while the predicates hold.
               </Text>

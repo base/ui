@@ -3,13 +3,15 @@ import {
   createWalletClient,
   custom,
   type Account,
+  type Address,
   type Chain,
   type Hex,
   type PublicClient,
   type WalletClient,
 } from 'viem';
 
-import { RPC_PATH, STATUS_PATH } from './constants';
+import { CANDLES_PATH, RPC_PATH, STATUS_PATH } from './constants';
+import { parseTapeSamples, type TapeSample } from './tape';
 import type { ChainStatus, ValidityPredicate } from './types';
 
 export type RpcSend = (method: string, params: unknown[]) => Promise<unknown>;
@@ -61,6 +63,26 @@ export function makePublicClient(chain: Chain, getSend?: () => RpcSend | null): 
 
 export function makeWalletClient(chain: Chain, account: Account): WalletClient {
   return createWalletClient({ chain, account, transport: custom(eip1193()) });
+}
+
+export async function fetchTape(pair: Address, vibeToken0: boolean): Promise<TapeSample[]> {
+  const response = await fetch(
+    `${CANDLES_PATH}?pair=${pair}&vibeToken0=${vibeToken0 ? '1' : '0'}`,
+    { cache: 'no-store' },
+  );
+  if (!response.ok) return [];
+  const body = (await response.json().catch(() => null)) as { samples?: unknown } | null;
+  return parseTapeSamples(body?.samples);
+}
+
+export async function publishTape(pair: Address, samples: readonly TapeSample[]): Promise<void> {
+  if (samples.length === 0) return;
+  await fetch(CANDLES_PATH, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pair, samples }),
+    keepalive: true,
+  });
 }
 
 export async function fetchChainStatus(): Promise<ChainStatus> {

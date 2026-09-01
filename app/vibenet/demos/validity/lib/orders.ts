@@ -39,6 +39,13 @@ export function occupyingOrder(
 }
 
 /** UI replacement only. Expired stays expired even if we bump fees over its pooled nonce. */
+/** Wall-clock expire restored pending rows without analytics. */
+export function ageRestoredOrders(orders: PlacedOrder[], now = Date.now()): PlacedOrder[] {
+  return orders.map((order) =>
+    orderWallClockExpired(order, now) ? { ...order, status: 'expired' } : order,
+  );
+}
+
 export function restingOrderToReplace(
   orders: Pick<PlacedOrder, 'id' | 'nonce' | 'status' | 'side' | 'maxFeePerGas' | 'maxPriorityFeePerGas'>[],
   nonce: number,

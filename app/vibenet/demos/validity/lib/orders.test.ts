@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { occupyingOrder, maxBlockForExpiry, orderBlockExpired, orderWallClockExpired, restingOrderToReplace } from './orders';
+import { ageRestoredOrders, occupyingOrder, maxBlockForExpiry, orderBlockExpired, orderWallClockExpired, restingOrderToReplace } from './orders';
 
 describe('orderWallClockExpired', () => {
   it('expires a resting order after the window plus grace', () => {
@@ -12,6 +12,21 @@ describe('orderWallClockExpired', () => {
   it('does not expire fills', () => {
     const order = { status: 'filled' as const, submittedAt: 1_000, expirySeconds: 5 };
     expect(orderWallClockExpired(order, 1_000 + 60_000)).toBe(false);
+  });
+});
+
+describe('ageRestoredOrders', () => {
+  it('expires pending rows that already timed out, and leaves fills', () => {
+    const pending = {
+      status: 'pending' as const,
+      submittedAt: 1_000,
+      expirySeconds: 5,
+      id: 'p',
+    };
+    const filled = { ...pending, id: 'f', status: 'filled' as const };
+    const [aged, kept] = ageRestoredOrders([pending, filled] as never, 1_000 + 5_000 + 401);
+    expect(aged.status).toBe('expired');
+    expect(kept.status).toBe('filled');
   });
 });
 

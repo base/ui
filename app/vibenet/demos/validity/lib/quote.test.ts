@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { WAD } from './constants';
-import { ammPriceFromQuote, ammSide, clampToCondition, quoteFromPreSwapReserves, quoteWad, swapOuts, vibeIsToken0 } from './quote';
+import { ammPriceFromQuote, ammSide, clampToCondition, formatTokenAmount, quoteFromPreSwapReserves, quoteWad, swapOuts, vibeIsToken0 } from './quote';
 
 const deployment = {
   tokenA: '0x000000000000000000000000000000000000000a' as const,
@@ -10,6 +10,12 @@ const deployment = {
 };
 
 describe('quote', () => {
+  it('groups whole tokens and keeps two dust decimals', () => {
+    expect(formatTokenAmount(400_000n * WAD)).toBe('400,000');
+    expect(formatTokenAmount(100n * WAD)).toBe('100');
+    expect(formatTokenAmount(WAD / 2n)).toBe('0.50');
+  });
+
   it('treats tokenA as VIBE', () => {
     expect(vibeIsToken0(deployment)).toBe(true);
     expect(vibeIsToken0({ ...deployment, token0: deployment.token1 })).toBe(false);

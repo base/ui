@@ -70,6 +70,8 @@ export type Deployment = {
   factory: Address;
   pair: Address;
   helper: Address;
+  /** CREATE2 relay that holds VIBE's B20 MINT_ROLE. */
+  minter: Address;
 };
 
 export type OrderStatus = 'pending' | 'filled' | 'expired' | 'replaced' | 'error';

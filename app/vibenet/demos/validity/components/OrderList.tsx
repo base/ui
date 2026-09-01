@@ -8,6 +8,7 @@ import { CheckIcon } from '../../../../components/ui/icons';
 import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { formatPrice } from '../lib/predicates';
+import { formatTokenAmount, VIBE_SYMBOL } from '../lib/quote';
 import type { PlacedOrder } from '../lib/types';
 
 const STATUS_LABEL: Record<PlacedOrder['status'], string> = {
@@ -112,7 +113,8 @@ export function OrderList({ orders, highlightedOrderId, onHighlight }: Props) {
                 variant="label.mono"
                 className={order.side === 'buy' ? 'text-bds-green-70' : 'text-bds-red-70'}
               >
-                {order.side} VIBE ${formatPrice(order.targetPriceWad)}
+                {order.side} {order.size > 0n ? `${formatTokenAmount(order.size)} ` : ''}
+                {VIBE_SYMBOL} ${formatPrice(order.targetPriceWad)}
               </Text>
               <span
                 className={cn(

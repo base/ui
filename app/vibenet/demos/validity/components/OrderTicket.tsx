@@ -2,9 +2,12 @@
 
 import { Button } from '../../../../components/ui/Button';
 import { Text } from '../../../../components/ui/Text';
-import { MAX_NONCELESS_SECONDS } from '../lib/constants';
+import { MAX_NONCELESS_SECONDS, TRADE_VIBE } from '../lib/constants';
 import { applyOffsetBps, formatPrice } from '../lib/predicates';
+import { formatTokenAmount, VIBE_SYMBOL } from '../lib/quote';
 import type { Side, SubmitMode } from '../lib/types';
+
+const TRADE_LABEL = formatTokenAmount(TRADE_VIBE);
 
 const EXPIRIES = [5, 15, 60] as const;
 const OFFSETS = [0, 50, 100, 200, 500] as const;
@@ -22,6 +25,7 @@ type Props = {
   onExpiry: (seconds: number) => void;
   onSubmitMode: (mode: SubmitMode) => void;
   onSubmit: () => void;
+  canAfford: boolean;
 };
 
 function formatBps(bps: number): string {
@@ -42,6 +46,7 @@ export function OrderTicket({
   onExpiry,
   onSubmitMode,
   onSubmit,
+  canAfford,
 }: Props) {
   const target = applyOffsetBps(spotWad, side, offsetBps);
   const signed = offsetBps === 0 ? '±0%' : side === 'buy' ? `−${formatBps(offsetBps)}` : `+${formatBps(offsetBps)}`;
@@ -64,7 +69,7 @@ export function OrderTicket({
               : 'rounded-xl border border-bds-gray-10 px-3 py-2 text-[13px] dark:border-white/10'
           }
         >
-          Buy VIBE
+          Buy {TRADE_LABEL} {VIBE_SYMBOL}
         </button>
         <button
           type="button"
@@ -75,7 +80,7 @@ export function OrderTicket({
               : 'rounded-xl border border-bds-gray-10 px-3 py-2 text-[13px] dark:border-white/10'
           }
         >
-          Sell VIBE
+          Sell {TRADE_LABEL} {VIBE_SYMBOL}
         </button>
       </div>
       <div className="flex flex-col gap-2">
@@ -188,8 +193,14 @@ export function OrderTicket({
           flag enabled.
         </Text>
       ) : null}
-      <Button onClick={onSubmit} disabled={busy} className="w-full">
-        {busy ? 'Submitting…' : `Submit if ${side === 'buy' ? '≤' : '≥'} $${formatPrice(target)}`}
+      <Button onClick={onSubmit} disabled={busy || !canAfford} className="w-full">
+        {busy
+          ? 'Submitting…'
+          : !canAfford
+            ? side === 'buy'
+              ? `Need USDV to buy ${TRADE_LABEL}`
+              : `Need ${TRADE_LABEL} ${VIBE_SYMBOL} to sell`
+            : `${side === 'buy' ? 'Buy' : 'Sell'} ${TRADE_LABEL} if ${side === 'buy' ? '≤' : '≥'} $${formatPrice(target)}`}
       </Button>
     </div>
   );

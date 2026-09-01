@@ -9,6 +9,17 @@ export const VIBE_SYMBOL = 'VIBE';
 export const USDV_NAME = 'Vibe USD';
 export const USDV_SYMBOL = 'USDV';
 
+/** Whole tokens with grouping; two decimals only when there is dust. */
+export function formatTokenAmount(wad: bigint): string {
+  const negative = wad < 0n;
+  const abs = negative ? -wad : wad;
+  const whole = abs / WAD;
+  const frac = ((abs % WAD) * 100n) / WAD;
+  const grouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const body = frac === 0n ? grouped : `${grouped}.${frac.toString().padStart(2, '0')}`;
+  return negative ? `-${body}` : body;
+}
+
 export function vibeIsToken0(deployment: Pick<Deployment, 'token0' | 'tokenA'>): boolean {
   return deployment.token0.toLowerCase() === deployment.tokenA.toLowerCase();
 }

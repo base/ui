@@ -4,6 +4,7 @@ import erc20Artifact from './artifacts/MintableERC20.json';
 import helperArtifact from './artifacts/SwapHelper.json';
 import factoryArtifact from './artifacts/UniswapV2Factory.json';
 import pairArtifact from './artifacts/UniswapV2Pair.json';
+import minterArtifact from './artifacts/ValidityOpenMinter.json';
 
 function with0x(value: string): Hex {
   return (value.startsWith('0x') ? value : `0x${value}`) as Hex;
@@ -20,13 +21,22 @@ export const pairAbi = pairArtifact.abi as Abi;
 export const helperAbi = helperArtifact.abi as Abi;
 export const helperBytecode = with0x(helperArtifact.bytecode);
 
+export const minterAbi = minterArtifact.abi as Abi;
+export const minterBytecode = with0x(minterArtifact.bytecode);
+
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 
 export const RPC_PATH = '/api/vibenet/validity/rpc';
 export const STATUS_PATH = '/api/vibenet/validity/status';
+export const CANDLES_PATH = '/api/vibenet/validity/candles';
 
-export const STORAGE_KEY = 'vibenet.validity.v4';
-export const LEGACY_STORAGE_KEYS = ['vibenet.validity.v3', 'vibenet.validity.v2', 'vibenet.validity.v1'] as const;
+export const STORAGE_KEY = 'vibenet.validity.v5';
+export const LEGACY_STORAGE_KEYS = [
+  'vibenet.validity.v4',
+  'vibenet.validity.v3',
+  'vibenet.validity.v2',
+  'vibenet.validity.v1',
+] as const;
 
 export const WAD = 10n ** 18n;
 /** ~$0.07 USDV per VIBE so the tape has room to move, not a 1:1 peg. */
@@ -34,6 +44,8 @@ export const SEED_VIBE = 2_000_000n * WAD;
 export const SEED_USDV = 140_000n * WAD;
 export const TRADER_VIBE = 400_000n * WAD;
 export const TRADER_USDV = 40_000n * WAD;
+/** Fixed ticket size. 100 VIBE is ~$7 at the $0.07 mid — readable, not a pool-mover. */
+export const TRADE_VIBE = 100n * WAD;
 export const PAIR_RESERVES_SLOT = 8n;
 export const RESERVE_BITS = 112n;
 export const RESERVE0_MASK = (1n << RESERVE_BITS) - 1n;
