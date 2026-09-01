@@ -18,7 +18,7 @@ import {
   shouldRestartConditionAgent,
   type Attempt,
 } from './comparison';
-import { noncelessFields } from '../lib/aa';
+import { noncelessFields } from '../../../library/aa';
 import { CANDLE_SAMPLE_MS } from '../lib/constants';
 
 function success(block: bigint): Attempt {
