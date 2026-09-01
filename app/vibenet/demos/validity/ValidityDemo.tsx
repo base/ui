@@ -879,8 +879,8 @@ function ValidityDemoInner() {
         <div className="flex min-w-0 flex-1 flex-col gap-6 pb-16 text-foreground">
       <DemoHeader
         compact
-        eyebrow="Validity · experimental"
-        title="Send now. Land later."
+        eyebrow="Validity Transactions · experimental"
+        title="Conditional Swaps"
         description="Place conditional swaps against a shared constant-product AMM. Each order carries predicates the sequencer checks before inclusion — it lands while they hold, or expires."
       />
 

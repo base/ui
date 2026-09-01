@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Validity · Vibenet',
+  title: 'Validity Transactions · Vibenet',
   description:
-    'Attach conditions to a transaction. A simulated pool shows how a swap waits, lands, or expires.',
+    'Explore Vibenet demos built with transactions that execute only while their onchain validity conditions hold.',
 };
 
-export default function ValidityDemoLayout({ children }: { children: ReactNode }) {
+export default function ValidityTransactionsLayout({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
