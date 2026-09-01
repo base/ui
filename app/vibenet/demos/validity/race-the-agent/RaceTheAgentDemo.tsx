@@ -665,10 +665,9 @@ function RaceTheAgentDemoInner() {
             seqOpt,
             metadata: `${AGENT_LABEL} close`,
           });
-          await Promise.all([
-            sendValidityTransaction(signedOpen.serialized, validity.open),
-            sendValidityTransaction(signedClose.serialized, validity.close),
-          ]);
+          const closeSubmission = sendValidityTransaction(signedClose.serialized, validity.close);
+          const openSubmission = sendValidityTransaction(signedOpen.serialized, validity.open);
+          await Promise.all([closeSubmission, openSubmission]);
           setAgentError(null);
           setAgentPhase('Opening');
           await waitForScheduledClose(
@@ -865,7 +864,7 @@ function RaceTheAgentDemoInner() {
             <RaceStep
               number="01"
               title="Automatic condition agent"
-              detail="Always running after setup. It pre-submits an exact-block open and a guarded close for the following Vibenet block, then schedules the next pair."
+              detail="Always running after setup. It pre-submits an exact-block open and an exact next-block close guarded by the enabled state, then schedules the next pair."
               active={prepared && !agentRunning}
               complete={agentRunning}
             >
