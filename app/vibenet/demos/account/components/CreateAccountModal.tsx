@@ -1,6 +1,6 @@
 'use client';
 
-// The account-creation modal. "Account Type" is the top-level choice:
+// The account-creation drawer. "Account Type" is the top-level choice:
 //   Default  — one-click EOA off your first unused key (mints one if none)
 //   Passkey  — one-click smart account owned by your first unused passkey
 //   Advanced — hand-pick smart/EOA + initial keys + salt
@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
 import { Text } from '../../../../components/ui/Text';
-import { Modal } from '../../../../components/ui/Modal';
+import { Drawer } from '../../../../components/ui/Drawer';
 import { KIND_LABEL, short, signerIdentity, type CreateMode, type WalletSigner } from '../shared';
 import { CheckIcon, KindBadge, TrashIcon } from '../../_shared/primitives';
 import { actorPairs, normalizeSalt, randomHex32, sortActors, toStoredActor } from '../library/derive';
@@ -55,7 +55,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
   const [modalIds, setModalIds] = useState<string[]>([]);
   const [modalEoaId, setModalEoaId] = useState<string | null>(null);
 
-  // Reset to the one-click default each time the modal opens.
+  // Reset to the one-click default each time the drawer opens.
   useEffect(() => {
     if (!open) return;
     setCreateMode('default');
@@ -218,7 +218,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
   };
 
   return (
-    <Modal
+    <Drawer
       open={open}
       onClose={onClose}
       title="Create Account"
@@ -383,7 +383,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
           </div>
         </>
       ) : null}
-    </Modal>
+    </Drawer>
   );
 }
 
