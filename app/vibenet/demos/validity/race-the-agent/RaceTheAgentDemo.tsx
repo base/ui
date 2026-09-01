@@ -917,7 +917,7 @@ function RaceTheAgentDemoInner() {
           <AttemptCard
             label={validity.number ? `Validity attempt #${validity.number}` : 'Validity transaction'}
             headline="Already waiting"
-            description={`Submitted while disabled with nonceKeyMax, sequence 0, a ${RACE_VALIDITY_SECONDS}-second expiry, and storage == 1 as its eligibility condition.`}
+            description={`Submitted while withdrawals are closed. The transaction has nonceKeyMax, sequence 0, a ${RACE_VALIDITY_SECONDS}-second expiry, and storage == 1 as its eligibility condition.`}
             attempt={validity}
             accent="blue"
           />
