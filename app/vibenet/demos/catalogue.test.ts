@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEMOS, demoLabel, listedDemos } from './catalogue';
+import { DEMOS, demoBreadcrumb, demoForPath, demoLabel, listedDemos } from './catalogue';
 
 describe('demoLabel', () => {
-  it('prefers shortTitle for the validity demo', () => {
-    expect(demoLabel('validity')).toBe('Validity');
+  it('uses the group title for the validity demo', () => {
+    expect(demoLabel('validity')).toBe('Validity Transactions');
   });
 
   it('prefers shortTitle over title when both are set', () => {
@@ -31,19 +31,54 @@ describe('demoLabel', () => {
 });
 
 describe('DEMOS', () => {
+  const allDemos = DEMOS.flatMap((demo) => [demo, ...(demo.children ?? [])]);
+
   it('gives every entry a /vibenet/demos/ href, so demoLabel can resolve it', () => {
-    for (const demo of DEMOS) {
+    for (const demo of allDemos) {
       expect(demo.href.startsWith('/vibenet/demos/')).toBe(true);
     }
   });
 
   it('has no duplicate hrefs', () => {
-    const hrefs = DEMOS.map((d) => d.href);
+    const hrefs = allDemos.map((demo) => demo.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it('keeps Validity off the Vibenet demos grid while the route still resolves', () => {
-    expect(listedDemos().some((demo) => demo.href === '/vibenet/demos/validity')).toBe(false);
-    expect(demoLabel('validity')).toBe('Validity');
+  it('lists Validity Transactions as a top-level group', () => {
+    const validity = listedDemos().find((demo) => demo.href === '/vibenet/demos/validity');
+    expect(validity?.title).toBe('Validity Transactions');
+    expect(validity?.children?.map((demo) => demo.title)).toEqual(['Limit Orders']);
+  });
+});
+
+describe('demoForPath', () => {
+  it('finds nested demos without flattening them onto the Vibenet grid', () => {
+    expect(demoForPath('/vibenet/demos/validity/limit-orders')?.title).toBe('Limit Orders');
+    expect(listedDemos().some((demo) => demo.title === 'Limit Orders')).toBe(false);
+  });
+});
+
+describe('demoBreadcrumb', () => {
+  it('resolves a top-level group breadcrumb', () => {
+    expect(demoBreadcrumb('/vibenet/demos/validity')).toEqual({
+      childLabel: 'Validity Transactions',
+    });
+  });
+
+  it('resolves a nested demo breadcrumb through its group', () => {
+    expect(demoBreadcrumb('/vibenet/demos/validity/limit-orders')).toEqual({
+      middle: {
+        label: 'Validity Transactions',
+        href: '/vibenet/demos/validity',
+      },
+      childLabel: 'Limit Orders',
+    });
+  });
+
+  it('falls back to readable labels for unregistered nested routes', () => {
+    expect(demoBreadcrumb('/vibenet/demos/trading/stop-loss')).toEqual({
+      middle: { label: 'Trading', href: '/vibenet/demos/trading' },
+      childLabel: 'Stop Loss',
+    });
   });
 });

@@ -1131,9 +1131,9 @@ function ValidityDemoInner() {
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-10 pb-16 text-foreground">
       <DemoHeader
-        eyebrow="Validity · experimental"
-        title="Send now. Land later."
-        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone shares one VIBE/USDV pool — VIBE is a B20, USDV is the faucet stablecoin — so you can watch a swap wait for a price condition, then land or expire."
+        eyebrow="Validity Transactions · experimental"
+        title="Limit Orders"
+        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone trades against one shared singleton VIBE/USDV pool — VIBE is a B20 and USDV is the faucet stablecoin — while page-scoped background traders move the mid so limit orders can land or expire."
       />
 
       {makersDry ? (
@@ -1150,12 +1150,11 @@ function ValidityDemoInner() {
 
       {!deployed ? (
         <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
-          <Text variant="title3">Shared pool</Text>
+          <Text variant="title3">Shared singleton pool</Text>
           <Text variant="label.regular" tone="muted">
-            Your Vibenet account signs the swaps. The first visitor publishes a
-            network-wide pair of VIBE (a B20) and the faucet USDV. Everyone
-            else attaches to the same factory. Makers mint a starter bag and
-            buy or sell against that pool.
+            Your Vibenet account signs the swaps. The first visitor publishes the
+            network-wide singleton pair of VIBE (a B20) and the faucet USDV.
+            Everyone else attaches to that same shared factory and pool.
           </Text>
           {address ? (
             <div className="flex items-center justify-between gap-3">
@@ -1187,7 +1186,7 @@ function ValidityDemoInner() {
           <div className="flex min-w-0 flex-col gap-3">
               <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
             <Text variant="footnote" tone="muted">
-              Spot {spot === 0n ? '—' : `$${formatPrice(spot)}`} USDV · simulated flow moves the mid
+              Spot {spot === 0n ? '—' : `$${formatPrice(spot)}`} USDV · page-scoped traders move the shared mid
             </Text>
           </div>
           <div className="rounded-2xl border border-bds-gray-10 bg-background px-5 py-4 dark:border-white/10 dark:bg-white/5">
