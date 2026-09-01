@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 // BDS palette. The CSS variables (--bds-<family>-<step>) are defined in
 // globals.css, so Tailwind color utilities resolve straight onto them. This
@@ -75,7 +76,13 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // iOS/WebKit only. Same @supports gate Base UI uses for iOS 26 backdrop
+    // positioning (`-webkit-touch-callout` is implemented on iOS Safari/Chrome).
+    plugin(({ addVariant }) => {
+      addVariant('ios', '@supports (-webkit-touch-callout: none)');
+    }),
+  ],
 };
 
 export default config;

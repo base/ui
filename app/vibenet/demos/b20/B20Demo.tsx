@@ -8,7 +8,6 @@ import type { Address, Hex } from 'viem';
 import { trackB20Action, trackB20ModuleSelect } from '../../../analytics/events';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
-import { Modal } from '../../../components/ui/Modal';
 import { Text } from '../../../components/ui/Text';
 import { FeatureCard } from '../../components/FeatureCard';
 import { walletErrorMessage } from '../../library/wallet';
@@ -173,11 +172,11 @@ function B20DemoInner() {
   // A policy assignment chosen from the Policies list, pending confirmation in
   // the transaction popup.
   const [pendingAssign, setPendingAssign] = useState<PendingAssignment | null>(null);
-  // The scope whose "+ Policy" opened the Create Policy dialog. When set, the
+  // The scope whose "+ Policy" opened the Create Policy drawer. When set, the
   // newly created policy is auto-assigned to this scope once creation lands.
   const [pendingCreateScope, setPendingCreateScope] = useState<{ scope: string; label: string } | null>(null);
   // True while CreatePolicy runs its own preflight reads / broadcast, before the
-  // parent-level `busy` is set. Blocks closing the modal so an aborted dialog
+  // parent-level `busy` is set. Blocks closing the drawer so an aborted dialog
   // can't still sign and broadcast a policy transaction.
   const [policyPreflight, setPolicyPreflight] = useState(false);
 
@@ -632,46 +631,38 @@ function B20DemoInner() {
         onFirstPayment={startFirstPayment}
       />
 
-      {/* Create Policy modal */}
-      <Modal
-        open={openModal === 'createPolicy'}
+      <CreatePolicy
+        open={Boolean(token) && openModal === 'createPolicy'}
         onClose={() => {
           if (policyPreflight) return;
           setPendingCreateScope(null);
           closeModal();
         }}
-        title="Create Policy"
-        className="max-w-3xl"
-      >
-        {token ? (
-          <CreatePolicy
-            wallet={wallet}
-            recentPolicies={recentPolicies}
-            addressBook={addressBook}
-            onSend={send}
-            onPolicyCreated={(policy) => {
-              if (wallet) setRecentPolicies(writeRecentPolicy(wallet, policy));
-            }}
-            onComplete={(policy) => {
-              setOpenModal(null);
-              // Created from a scope's "+ Policy" — carry straight into
-              // assigning the new policy to that scope.
-              const target = pendingCreateScope;
-              setPendingCreateScope(null);
-              if (target) {
-                setPendingAssign({
-                  scope: target.scope,
-                  scopeLabel: target.label,
-                  policyId: policy.id,
-                  policyLabel: policy.label || `Policy ${policy.id.toString()}`,
-                });
-              }
-            }}
-            onBusyChange={setPolicyPreflight}
-            busy={busy}
-          />
-        ) : null}
-      </Modal>
+        wallet={wallet}
+        recentPolicies={recentPolicies}
+        addressBook={addressBook}
+        onSend={send}
+        onPolicyCreated={(policy) => {
+          if (wallet) setRecentPolicies(writeRecentPolicy(wallet, policy));
+        }}
+        onComplete={(policy) => {
+          setOpenModal(null);
+          // Created from a scope's "+ Policy" — carry straight into
+          // assigning the new policy to that scope.
+          const target = pendingCreateScope;
+          setPendingCreateScope(null);
+          if (target) {
+            setPendingAssign({
+              scope: target.scope,
+              scopeLabel: target.label,
+              policyId: policy.id,
+              policyLabel: policy.label || `Policy ${policy.id.toString()}`,
+            });
+          }
+        }}
+        onBusyChange={setPolicyPreflight}
+        busy={busy}
+      />
 
       {/* Assign-policy confirmation (owns the shared transaction dialog) */}
       <AssignPolicyModal

@@ -17,7 +17,7 @@ const READ_RETRY_MS = [0, 2_500, 6_000];
 // Inline policy assignment: one row per token feature (scope), each with a
 // dropdown of the account's named policies. Selecting one hands the choice up to
 // the transaction popup flow (it does not assign in place); "+ Policy" opens the
-// Create Policy dialog for that scope, then assigns the new policy to it.
+// Create Policy drawer for that scope, then assigns the new policy to it.
 export function PolicyList({
   token,
   adminStatus,

@@ -46,7 +46,7 @@ export function AccountDemoShell({
 }: AccountDemoShellProps) {
   const engine = useAccountEngine();
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  // The switcher and the empty-state gate both open the create-account modal.
+  // The switcher and the empty-state gate both open the create-account drawer.
   const [createOpen, setCreateOpen] = useState(false);
   const onCreate = () => setCreateOpen(true);
   useEffect(() => {

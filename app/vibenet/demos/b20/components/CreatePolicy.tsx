@@ -5,6 +5,7 @@ import { encodeFunctionData, type Address, type Hex } from 'viem';
 
 import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
+import { Drawer } from '../../../../components/ui/Drawer';
 import { Select } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { walletErrorMessage } from '../../../library/wallet';
@@ -30,6 +31,8 @@ import { ErrorNote, Field, Input } from './primitives';
 const compositeKinds: CompositePolicyKind[] = ['union', 'intersect'];
 
 export function CreatePolicy({
+  open,
+  onClose,
   wallet,
   recentPolicies,
   addressBook,
@@ -39,13 +42,15 @@ export function CreatePolicy({
   onBusyChange,
   busy,
 }: {
+  open: boolean;
+  onClose: () => void;
   wallet: Address | null;
   recentPolicies: RecentPolicy[];
   addressBook: AddressBookEntry[];
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
   onPolicyCreated: (policy: CreatedPolicy) => void;
   onComplete: (policy: CreatedPolicy) => void;
-  /** Reports the local preflight/broadcast state so the modal can block close. */
+  /** Reports the local preflight/broadcast state so the parent can block close. */
   onBusyChange?: (busy: boolean) => void;
   busy: string | null;
 }) {
@@ -135,9 +140,31 @@ export function CreatePolicy({
   };
   const pending = !!busy || finalizing;
   const compositeReady = children.length >= 2 && children.every(Boolean);
+  const canCreate = Boolean(wallet && label.trim() && (mode !== 'composite' || compositeReady));
 
   return (
-    <div className="flex flex-col">
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title="Create Policy"
+      footer={
+        <>
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => void submit()}
+            disabled={!canCreate || pending}
+            className="disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending ? 'Creating…' : 'Create Policy'}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col">
       <div>
         <Field label="Policy name" hint="Saved in this browser so you can recognize the policy later.">
           <Input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="KYC allowlist" />
@@ -245,11 +272,7 @@ export function CreatePolicy({
         </>
       )}
       <ErrorNote message={error} />
-      <div className="mt-5 flex justify-end">
-        <Button size="sm" onClick={() => void submit()} disabled={pending || !wallet || !label.trim() || (mode === 'composite' && !compositeReady)}>
-          {pending ? 'Creating…' : 'Create'}
-        </Button>
       </div>
-    </div>
+    </Drawer>
   );
 }
