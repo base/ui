@@ -33,20 +33,17 @@ import {
   probeConditionalWithdrawal,
   readConditionalWithdrawalState,
 } from '../lib/conditionalWithdrawal';
-import { deployAmm } from '../lib/amm';
-import { noncelessFields } from '../lib/aa';
+import { noncelessFields } from '../../../library/aa';
 import { CANDLE_SAMPLE_MS } from '../lib/constants';
 import { rootAccount } from '../lib/makers';
 import {
-  chainFromId,
   describeValidityError,
-  fetchChainStatus,
   makePublicClient,
   makeWalletClient,
   sendValidityTransaction,
+  VIBENET_CHAIN,
 } from '../lib/rpc';
-import { probeSingleton } from '../lib/singleton';
-import type { ChainStatus } from '../lib/types';
+import { ensureSingleton, probeSingleton } from '../lib/singleton';
 import {
   agentDisableSubmitBlock,
   attemptHistoryRows,
@@ -96,7 +93,7 @@ function RaceTheAgentDemoInner() {
     () => (acct ? rootAccount(acct, engine.accounts) : null),
     [acct, engine.accounts],
   );
-  const [status, setStatus] = useState<ChainStatus | null>(null);
+  const [genesisHash, setGenesisHash] = useState<Hex | null>(null);
   const [client, setClient] = useState<PublicClient | null>(null);
   const [withdrawal, setWithdrawal] = useState<Address | null>(null);
   const [vibe, setVibe] = useState<Address | null>(null);
@@ -201,27 +198,27 @@ function RaceTheAgentDemoInner() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchChainStatus()
-      .then(async (next) => {
-        if (cancelled) return;
-        setStatus(next);
-        if (!next.chainId) throw new Error('Validity RPC did not return a chain id.');
-        const nextClient = makePublicClient(chainFromId(next.chainId));
-        setClient(nextClient);
-        const deployment = await probeSingleton(nextClient).catch(() => null);
-        if (cancelled || !deployment) return;
-        setVibe(deployment.tokenA);
-        const live = await probeConditionalWithdrawal(nextClient, deployment.tokenA).catch(() => null);
-        if (cancelled || !live) return;
-        setWithdrawal(live);
-        const [state, block] = await Promise.all([
-          readConditionalWithdrawalState(nextClient, deployment.tokenA),
-          nextClient.getBlockNumber({ cacheTime: 0 }),
-        ]);
-        if (cancelled) return;
-        setContractBalance(state.balance);
-        applyObservation({ enabled: state.enabled, block, at: Date.now() });
-      })
+    const nextClient = makePublicClient();
+    void (async () => {
+      const genesis = await nextClient.getBlock({ blockNumber: 0n });
+      if (!genesis.hash) throw new Error('RPC did not return a genesis hash.');
+      if (cancelled) return;
+      setGenesisHash(genesis.hash);
+      setClient(nextClient);
+      const deployment = await probeSingleton(nextClient).catch(() => null);
+      if (cancelled || !deployment) return;
+      setVibe(deployment.tokenA);
+      const live = await probeConditionalWithdrawal(nextClient, deployment.tokenA).catch(() => null);
+      if (cancelled || !live) return;
+      setWithdrawal(live);
+      const [state, block] = await Promise.all([
+        readConditionalWithdrawalState(nextClient, deployment.tokenA),
+        nextClient.getBlockNumber({ cacheTime: 0 }),
+      ]);
+      if (cancelled) return;
+      setContractBalance(state.balance);
+      applyObservation({ enabled: state.enabled, block, at: Date.now() });
+    })()
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not reach Vibenet.');
       });
@@ -322,9 +319,8 @@ function RaceTheAgentDemoInner() {
   }, [client, manual.hash, manual.status, settleFromReceipt]);
 
   useEffect(() => {
-    if (!engine.hydrated || !acct || !parent || !status?.chainId || !status.genesisHash || !client) return;
-    const chainId = status.chainId;
-    const setupKey = `${chainId}:${status.genesisHash}:${acct.id}:${parent.id}`;
+    if (!engine.hydrated || !acct || !parent || !genesisHash || !client) return;
+    const setupKey = `${VIBENET_CHAIN.id}:${genesisHash}:${acct.id}:${parent.id}`;
     if (setupReadyKeyRef.current === setupKey || setupInFlightKeyRef.current === setupKey) return;
     if (setupFailedKeyRef.current === setupKey) return;
 
@@ -369,13 +365,13 @@ function RaceTheAgentDemoInner() {
           });
         }
 
-        const wallet = makeWalletClient(chainFromId(chainId), owner);
+        const wallet = makeWalletClient(owner);
         const reportProgress = (label: string) => {
           if (isCurrent()) setProgress(label);
         };
         if (!deployment) {
           reportProgress('Deploying shared VIBE contracts');
-          deployment = await deployAmm({ wallet, publicClient: client, account: owner, onProgress: reportProgress });
+          deployment = await ensureSingleton({ wallet, publicClient: client, account: owner, onProgress: reportProgress });
         }
         if (!isCurrent()) return;
         setVibe(deployment.tokenA);
@@ -457,7 +453,7 @@ function RaceTheAgentDemoInner() {
         }
       }
     })();
-  }, [acct, applyObservation, client, engine.hydrated, parent, setupRetry, status]);
+  }, [acct, applyObservation, client, engine.hydrated, genesisHash, parent, setupRetry]);
 
   const retrySetup = () => {
     setupFailedKeyRef.current = null;
@@ -476,10 +472,6 @@ function RaceTheAgentDemoInner() {
       !prepared ||
       !canSubmitValidity(validity.status)
     ) return;
-    if (!status?.validitySupported) {
-      setError(status?.validityError ?? 'This RPC does not support base_sendRawTransactionValidity. Use a Vibenet node with experimental validity transactions enabled.');
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -709,7 +701,7 @@ function RaceTheAgentDemoInner() {
 
   const result = comparisonResult(validity, manual);
   const resetAllowed = canResetRace(validity, validBefore);
-  const readyToSubmit = prepared && status?.validitySupported === true && observed?.enabled === false && canSubmitValidity(validity.status);
+  const readyToSubmit = prepared && observed?.enabled === false && canSubmitValidity(validity.status);
   const readyToWithdraw = canSubmitManual({
     status: manual.status,
     prepared,
@@ -743,15 +735,6 @@ function RaceTheAgentDemoInner() {
           </Button>
         ) : undefined}
       />
-
-      {!status?.validitySupported && status ? (
-        <Card className="border-amber-300 bg-amber-50 p-4 dark:border-amber-700/60 dark:bg-amber-950/30">
-          <Text variant="headline" className="text-amber-900 dark:text-amber-200">Validity submission is unavailable on this RPC.</Text>
-          <Text variant="label.regular" className="mt-1 text-amber-800 dark:text-amber-300">
-            {status.validityError ?? 'Connect the proxy to a Vibenet node started with experimental validity transactions enabled, then reload.'}
-          </Text>
-        </Card>
-      ) : null}
 
       <Card className="flex flex-wrap items-center justify-between gap-4 bg-background px-4 py-3 dark:bg-white/[.04]">
         <div className="flex min-w-0 items-center gap-3">
