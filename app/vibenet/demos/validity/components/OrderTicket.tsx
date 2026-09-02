@@ -2,6 +2,7 @@
 
 import { Button } from '../../../../components/ui/Button';
 import { Text } from '../../../../components/ui/Text';
+import { AnimatedAmount } from '../../_components/AnimatedAmount';
 import { MAX_NONCELESS_SECONDS, TRADE_VIBE } from '../lib/constants';
 import { applyOffsetBps, formatPrice } from '../lib/predicates';
 import { formatTokenAmount, VIBE_SYMBOL } from '../lib/quote';
@@ -19,6 +20,8 @@ type Props = {
   expirySeconds: number;
   submitMode: SubmitMode;
   busy: boolean;
+  vibeBalance: bigint | null;
+  costHint: string | null;
   onSide: (side: Side) => void;
   onOffset: (bps: number) => void;
   onExpiry: (seconds: number) => void;
@@ -39,6 +42,8 @@ export function OrderTicket({
   expirySeconds,
   submitMode,
   busy,
+  vibeBalance,
+  costHint,
   onSide,
   onOffset,
   onExpiry,
@@ -56,6 +61,25 @@ export function OrderTicket({
         <Text variant="label.mono" className="tabular-nums text-bds-gray-60">
           mid ${formatPrice(spotWad)}
         </Text>
+      </div>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <Text variant="caption" tone="muted">
+            Your {VIBE_SYMBOL}
+          </Text>
+          <Text variant="label.mono" className="tabular-nums">
+            {vibeBalance === null ? (
+              '…'
+            ) : (
+              <AnimatedAmount text={formatTokenAmount(vibeBalance)} decimals={0} group />
+            )}
+          </Text>
+        </div>
+        {costHint ? (
+          <Text variant="footnote" tone="muted">
+            {costHint}
+          </Text>
+        ) : null}
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button
