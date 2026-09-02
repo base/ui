@@ -878,9 +878,10 @@ function ValidityDemoInner() {
       ) : (
         <div className="flex min-w-0 flex-1 flex-col gap-6 pb-16 text-foreground">
       <DemoHeader
+        compact
         eyebrow="Validity · experimental"
         title="Send now. Land later."
-        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone shares one VIBE/USDV pool — VIBE is a B20, USDV is the faucet stablecoin — so you can watch a swap wait for a price condition, then land or expire."
+        description="Place conditional swaps against a shared constant-product AMM. Each order carries predicates the sequencer checks before inclusion — it lands while they hold, or expires."
       />
 
       {statusError ? (
