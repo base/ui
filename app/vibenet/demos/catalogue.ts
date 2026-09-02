@@ -67,6 +67,7 @@ export const DEMOS: DemoEntry[] = [
       'Build intent-like flows from ordinary account transactions',
     ],
     available: true,
+    listed: false,
     children: [
       {
         href: '/vibenet/demos/validity/conditional-swaps',
