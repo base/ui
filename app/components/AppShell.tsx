@@ -563,41 +563,19 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
       </div>
 
       <div style={styles.sidebarFooter} className="sidebar-gutter">
-        <a href="https://status.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
-            </svg>
+        <a href="https://docs.base.org/base-chain/specs/upgrades/overview" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6.7C3 4.65 4.65 3 6.7 3h10.6C19.35 3 21 4.65 21 6.7v10.6c0 2.05-1.65 3.7-3.7 3.7H6.7C4.65 21 3 19.35 3 17.3V6.7Z" />
+                <path d="M12.2 16.5V7.9M16.9 12.6 12.2 7.9 7.6 12.6" />
+              </svg>
+            </span>
+            <span className={TEXT_TRIM}>Upgrades</span>
           </span>
-          <Text as="span" variant="label.medium" tone="inherit">Status</Text>
         </a>
-        <a href="https://base.org/discord" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 -28.5 256 256" fill="currentColor">
-              <path d="M216.856 16.597C200.285 8.843 182.566 3.208 164.042 0c-2.275 4.113-4.933 9.645-6.766 14.046-19.692-2.961-39.203-2.961-58.533 0-1.832-4.401-4.55-9.933-6.846-14.046C73.353 3.208 55.613 8.864 39.042 16.638 5.618 67.147-3.443 116.401 1.087 164.956c22.169 16.555 43.653 26.612 64.775 33.193 5.215-7.177 9.866-14.807 13.873-22.848-7.631-2.9-14.94-6.478-21.846-10.632 1.832-1.357 3.624-2.776 5.356-4.237 42.122 19.702 87.89 19.702 129.51 0 1.751 1.46 3.543 2.88 5.355 4.237-6.926 4.174-14.255 7.753-21.886 10.653 4.006 8.02 8.638 15.67 13.873 22.848 21.142-6.58 42.646-16.637 64.815-33.213 5.316-56.288-9.08-105.09-38.056-148.36ZM85.474 135.095c-12.645 0-23.015-11.805-23.015-26.18s10.149-26.2 23.015-26.2c12.867 0 23.236 11.804 23.015 26.2.02 14.375-10.148 26.18-23.015 26.18Zm85.051 0c-12.645 0-23.014-11.805-23.014-26.18s10.148-26.2 23.014-26.2c12.867 0 23.236 11.804 23.015 26.2 0 14.375-10.148 26.18-23.015 26.18Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Support</Text>
-        </a>
-        <a href="https://docs.base.org" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Docs</Text>
-        </a>
-        <a href="https://docs.base.org/base-chain/specs/upgrades/overview" target="_blank" rel="noreferrer" style={styles.footerLink}>
-          <span style={styles.footerIcon}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 6.7C3 4.65 4.65 3 6.7 3h10.6C19.35 3 21 4.65 21 6.7v10.6c0 2.05-1.65 3.7-3.7 3.7H6.7C4.65 21 3 19.35 3 17.3V6.7Z" />
-              <path d="M12.2 16.5V7.9M16.9 12.6 12.2 7.9 7.6 12.6" />
-            </svg>
-          </span>
-          <Text as="span" variant="label.medium" tone="inherit">Upgrades</Text>
-        </a>
-        <div style={styles.footerLastRow}>
-          <a href="https://blog.base.org" target="_blank" rel="noreferrer" style={{ ...styles.footerLink, flex: 1 }}>
+        <a href="https://status.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
             <span style={styles.footerIcon}>
               <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2.25 12h4.5l2.25-6 4.5 12 2.25-6h6.75" />
