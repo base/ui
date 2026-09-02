@@ -188,12 +188,16 @@ export function OrderTicket({
               if (wad !== null) onPriceOverride(wad);
             }}
             onBlur={() => setPriceText(null)}
-            className="w-full min-w-0 bg-transparent tabular-nums outline-none"
+            className={`w-fit min-w-0 max-w-full cursor-text border-b border-dashed bg-transparent tabular-nums outline-none transition-colors focus:border-solid ${
+              side === 'buy'
+                ? 'border-bds-green-70/40 hover:border-bds-green-70 focus:border-bds-green-70'
+                : 'border-bds-red-70/40 hover:border-bds-red-70 focus:border-bds-red-70'
+            }`}
+            size={Math.max((priceText ?? formatPrice(target)).length, 4)}
           />
         </div>
         <Text variant="footnote" className="mt-1 tabular-nums text-bds-gray-60">
-          mid {signed}
-          {overrideActive ? ' · custom price' : ''}
+          mid {signed} · {overrideActive ? 'custom price' : 'type to set a price'}
         </Text>
       </div>
       <div className="flex flex-col gap-2">
