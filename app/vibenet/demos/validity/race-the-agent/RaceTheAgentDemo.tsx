@@ -836,7 +836,7 @@ function RaceTheAgentDemoInner() {
             <Text variant="caption" tone="muted">Guided race</Text>
             <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
           </div>
-          <div className="grid flex-1 auto-rows-fr gap-px bg-bds-gray-10 dark:bg-white/10">
+          <div className="grid min-h-0 flex-1 grid-rows-3 gap-px bg-bds-gray-10 dark:bg-white/10">
             <RaceStep
               number="01"
               title="Automatic condition agent"
@@ -900,7 +900,7 @@ function RaceTheAgentDemoInner() {
         <div className="border-t border-bds-gray-10 px-5 py-5 sm:px-6 dark:border-white/10">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <Text variant="label.regular" tone="muted" className="max-w-2xl">
-              Solidity stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
+              The contract stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
               in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
             </Text>
             {withdrawal ? (
@@ -1147,7 +1147,7 @@ function RaceStep({
   return (
     <div
       className={cn(
-        'flex h-full min-h-32 flex-col bg-background p-4 sm:p-5 dark:bg-[#090b12]',
+        'flex h-full min-h-0 flex-col bg-background p-4 dark:bg-[#090b12]',
         active && 'bg-bds-blue-0 dark:bg-[#0c1222]',
       )}
     >
@@ -1155,9 +1155,9 @@ function RaceStep({
         <Text variant="caption" className={active ? 'text-base-blue' : 'text-bds-gray-40 dark:text-white/35'}>{number}</Text>
         <span className={cn('h-2 w-2 rounded-full', complete ? 'bg-bds-green-50' : active ? 'bg-base-blue' : 'bg-bds-gray-20 dark:bg-white/15')} />
       </div>
-      <Text variant="headline" className="mt-5">{title}</Text>
-      <Text variant="label.regular" tone="muted" className="mt-2">{detail}</Text>
-      <div className="mt-auto pt-5">{children}</div>
+      <Text variant="headline" className="mt-3">{title}</Text>
+      <Text variant="label.regular" tone="muted" className="mt-1">{detail}</Text>
+      <div className="mt-auto pt-3">{children}</div>
     </div>
   );
 }
@@ -1169,7 +1169,7 @@ function StatusPill({ status }: { status: Attempt['status'] }) {
     <span className={cn(
       'rounded-full px-3 py-1.5 text-[12px] capitalize',
       positive
-        ? 'bg-bds-green-10 text-bds-green-80 dark:bg-bds-green-80/30 dark:text-bds-green-30'
+        ? 'bg-bds-green-10 text-bds-green-80 dark:bg-bds-green-80/30 dark:text-[#b8f7d1]'
         : negative
           ? 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300'
           : 'bg-bds-gray-10 text-bds-gray-70 dark:bg-white/10 dark:text-white/60',
