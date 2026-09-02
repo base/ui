@@ -111,9 +111,51 @@ function networkDotColor() {
   return 'bg-bds-gray-20';
 }
 
+type TimelineRow =
+  | { kind: 'month'; label: string }
+  | { kind: 'entry'; entry: TimelineEntry }
+  | { kind: 'today' };
+
+// Flatten the month groups into a single row stream and splice in a "Today"
+// marker at the future/past boundary. Entries are sorted newest-first, so the
+// first entry whose date is in the past marks where today falls: everything
+// above it is upcoming, everything below has already happened.
+function buildTimelineRows(months: MonthGroup[], nowMs: number): TimelineRow[] {
+  const rows: TimelineRow[] = [];
+  for (const month of months) {
+    rows.push({ kind: 'month', label: month.label });
+    for (const entry of month.entries) rows.push({ kind: 'entry', entry });
+  }
+
+  let at = rows.findIndex(
+    (r) => r.kind === 'entry' && r.entry.date.getTime() <= nowMs,
+  );
+  if (at === -1) {
+    // Every dated upgrade is still upcoming — today sits below them all.
+    rows.push({ kind: 'today' });
+  } else {
+    // Lift above a preceding month header so the divider never splits a header
+    // from the entries it introduces.
+    if (rows[at - 1]?.kind === 'month') at -= 1;
+    rows.splice(at, 0, { kind: 'today' });
+  }
+  return rows;
+}
+
+// Top spacing for a flattened row, mirroring the original month/entry rhythm
+// (mt-12 between months, gap-10 between entries, a header's own mb-8 spacing
+// the first entry beneath it).
+function rowGapClass(prev: TimelineRow | undefined, row: TimelineRow): string {
+  if (!prev) return '';
+  if (row.kind === 'month') return 'mt-12';
+  if (row.kind === 'entry' && prev.kind === 'month') return '';
+  return 'mt-10';
+}
+
 function TimelineView({ nowMs }: { nowMs: number }) {
   const entries = useMemo(() => buildTimelineEntries(nowMs), [nowMs]);
   const months = useMemo(() => groupByMonth(entries), [entries]);
+  const rows = useMemo(() => buildTimelineRows(months, nowMs), [months, nowMs]);
 
   const planningUpgrades = upgrades
     .filter((u) => !u.lifecycle.sepolia.timestamp && !u.lifecycle.mainnet.timestamp)
@@ -175,63 +217,86 @@ function TimelineView({ nowMs }: { nowMs: number }) {
           </div>
         )}
 
-        {months.map((month, mi) => (
-          <div key={month.label} className={mi > 0 ? 'mt-12' : ''}>
-            <SlideInUp index={entryIndex} offset={6} duration={0.3}>
-              <Text variant="headline" tone="muted" className="mb-8 pl-[111px]">
-                {month.label}
-              </Text>
+        {rows.map((row, ri) => {
+          const gap = rowGapClass(rows[ri - 1], row);
+
+          if (row.kind === 'today') {
+            return (
+              <SlideInUp
+                key="today-marker"
+                index={entryIndex}
+                className={`relative flex items-center gap-3 ${gap}`}
+              >
+                <div className="w-[80px] shrink-0 text-right">
+                  <Text variant="label.regular" className="text-[13px] font-medium text-bds-red-50">
+                    Today
+                  </Text>
+                </div>
+                <div className="relative z-10 flex shrink-0 items-center justify-center">
+                  <span className="h-[7px] w-[7px] rounded-full bg-bds-red-50" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="h-px w-full bg-bds-red-50" />
+                </div>
+              </SlideInUp>
+            );
+          }
+
+          if (row.kind === 'month') {
+            return (
+              <SlideInUp key={`month-${row.label}-${ri}`} index={entryIndex} offset={6} duration={0.3} className={gap}>
+                <Text variant="headline" tone="muted" className="mb-8 pl-[111px]">
+                  {row.label}
+                </Text>
+              </SlideInUp>
+            );
+          }
+
+          const entry = row.entry;
+          const i = entryIndex++;
+          return (
+            <SlideInUp
+              key={`${entry.upgradeId}-${entry.network}`}
+              index={i}
+              className={`relative flex items-start gap-3 ${gap}`}
+            >
+              <div className="w-[80px] shrink-0 pt-0.5 text-right">
+                <Text variant="label.regular" tone="muted" className="text-[13px]">
+                  {entry.dateLabel}
+                </Text>
+              </div>
+
+              <div className="relative z-10 flex shrink-0 items-start justify-center pt-[7px]">
+                <span className={`h-[7px] w-[7px] rounded-full ${networkDotColor()}`} />
+              </div>
+
+              <Link
+                href={`/upgrades/upgrade/${entry.upgradeId}`}
+                className="group min-w-0 flex-1 text-left no-underline"
+              >
+                <Text variant="headline" className="text-foreground transition-colors group-hover:text-base-blue">
+                  {entry.upgradeName}
+                </Text>
+                <Text variant="body" tone="muted" className="mt-2 line-clamp-2 text-[14px]">
+                  {entry.upgradeSummary}
+                </Text>
+                <div className="mt-3 flex items-center gap-2">
+                  <StatusPill variant={entry.state}>
+                    {LIFECYCLE_LABELS[entry.state]}
+                  </StatusPill>
+                  <span className="text-bds-gray-30">·</span>
+                  <Text variant="footnote" tone="muted">
+                    {NETWORK_LABELS[entry.network]}
+                  </Text>
+                  <span className="text-bds-gray-30">·</span>
+                  <Text variant="footnote" tone="muted">
+                    {entry.changeCount} changes
+                  </Text>
+                </div>
+              </Link>
             </SlideInUp>
-
-            <div className="flex flex-col gap-10">
-              {month.entries.map((entry) => {
-                const i = entryIndex++;
-                return (
-                  <SlideInUp
-                    key={`${entry.upgradeId}-${entry.network}`}
-                    index={i}
-                    className="relative flex items-start gap-3"
-                  >
-                    <div className="w-[80px] shrink-0 pt-0.5 text-right">
-                      <Text variant="label.regular" tone="muted" className="text-[13px]">
-                        {entry.dateLabel}
-                      </Text>
-                    </div>
-
-                    <div className="relative z-10 flex shrink-0 items-start justify-center pt-[7px]">
-                      <span className={`h-[7px] w-[7px] rounded-full ${networkDotColor()}`} />
-                    </div>
-
-                    <Link
-                      href={`/upgrades/upgrade/${entry.upgradeId}`}
-                      className="group min-w-0 flex-1 text-left no-underline"
-                    >
-                      <Text variant="headline" className="text-foreground transition-colors group-hover:text-base-blue">
-                        {entry.upgradeName}
-                      </Text>
-                      <Text variant="body" tone="muted" className="mt-2 line-clamp-2 text-[14px]">
-                        {entry.upgradeSummary}
-                      </Text>
-                      <div className="mt-3 flex items-center gap-2">
-                        <StatusPill variant={entry.state}>
-                          {LIFECYCLE_LABELS[entry.state]}
-                        </StatusPill>
-                        <span className="text-bds-gray-30">·</span>
-                        <Text variant="footnote" tone="muted">
-                          {NETWORK_LABELS[entry.network]}
-                        </Text>
-                        <span className="text-bds-gray-30">·</span>
-                        <Text variant="footnote" tone="muted">
-                          {entry.changeCount} changes
-                        </Text>
-                      </div>
-                    </Link>
-                  </SlideInUp>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
   );
 }
