@@ -20,7 +20,7 @@ Freshness: /snapshots and /vibenet/explorer change daily. /vibenet/faucet change
 - [Accounts · Vibenet](https://chain.base.org/vibenet/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
 - [Tokens · Vibenet](https://chain.base.org/vibenet/demos/b20): Explore, configure, and issue Base-native B20 tokens on Vibenet.
 - [Validity Transactions · Vibenet](https://chain.base.org/vibenet/demos/validity): Explore Vibenet demos built with transactions that execute only while their onchain validity conditions hold.
-- [Limit Orders · Validity Transactions](https://chain.base.org/vibenet/demos/validity/limit-orders): Place a validity-backed swap on Vibenet that waits for a target price, then fills or expires as the market moves.
+- [Conditional Swaps · Validity Transactions](https://chain.base.org/vibenet/demos/validity/conditional-swaps): Place a validity-backed swap on Vibenet that waits for a target price, then fills or expires as the market moves.
 - [Explorer · Vibenet](https://chain.base.org/vibenet/explorer): Browse blocks, transactions, and addresses on the Vibenet devnet.
 - [Faucet · Vibenet](https://chain.base.org/vibenet/faucet): Request testnet tokens on Vibenet to fund accounts and try in-flight Base features.
 
