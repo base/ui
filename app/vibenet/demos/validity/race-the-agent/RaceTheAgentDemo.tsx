@@ -784,8 +784,8 @@ function RaceTheAgentDemoInner() {
         description="The same permissionless withdrawal pays exactly 1 VIBE. One transaction waits in advance for storage to equal 1; the other can be fired at any time and succeeds or reverts against the state it reaches onchain."
       />
 
-      <section className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <Card className="flex flex-col bg-background p-5 sm:p-6 dark:bg-white/[.04]">
+      <section className="grid min-w-0 gap-4 xl:h-[calc(100dvh-19rem)] xl:min-h-[38rem] xl:max-h-[46rem] xl:grid-cols-2">
+        <Card className="flex min-h-0 flex-col overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <div className="min-w-0">
             <Text variant="caption" tone="muted">Shared onchain switch</Text>
             <Text as="h2" variant="title2" className="mt-2">Withdrawal condition</Text>
@@ -818,14 +818,14 @@ function RaceTheAgentDemoInner() {
             <Text variant="label.regular" tone="muted" className="mt-2">
               Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
             </Text>
-            <div className="mt-4 grid min-h-72 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
+            <div className="mt-4 grid h-72 flex-none grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden xl:h-auto xl:min-h-0 xl:flex-1">
               <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
               <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
             </div>
           </div>
         </Card>
 
-        <Card className="flex flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
+        <Card className="flex min-h-0 flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
           <div className="border-b border-bds-gray-10 p-5 sm:p-6 dark:border-white/10">
             <Text variant="caption" tone="muted">Guided race</Text>
             <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
