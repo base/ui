@@ -22064,10 +22064,7 @@ var key = {
     };
   },
   trustedExecutor(caller) {
-    return {
-      actorId: actorIdFromAddress(caller),
-      authenticator: trustedExecutorAuthenticator
-    };
+    return key.k1(caller);
   },
   externalPull(caller) {
     return {
@@ -24281,12 +24278,12 @@ async function fulfillGrantPermissions(client, parameters) {
   });
   let managerChange;
   if (!assumeManagerRegistered) {
-    const managerActor = key.trustedExecutor(session.manager);
+    const managerActor = key.k1(session.manager);
     const { authenticator } = await getActorConfig(client, {
       account,
       actorId: managerActor.actorId
     });
-    const registered = authenticator.toLowerCase() === trustedExecutorAuthenticator.toLowerCase();
+    const registered = authenticator.toLowerCase() === ecrecoverAuthenticator.toLowerCase();
     if (!registered)
       managerChange = authorizeActor(managerActor, {
         scope: actorScope.operator
