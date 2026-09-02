@@ -1,5 +1,5 @@
 import { ValidityDemo } from '../ValidityDemo';
 
-export default function LimitOrdersPage() {
+export default function ConditionalSwapsPage() {
   return <ValidityDemo />;
 }
