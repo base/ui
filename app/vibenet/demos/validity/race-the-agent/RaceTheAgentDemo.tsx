@@ -809,7 +809,7 @@ function RaceTheAgentDemoInner() {
     <AccountDemoShell
       gateTitle="Create an account to race the agent"
       gateDescription="Both comparison attempts use your active EIP-8130 account."
-      className="gap-10 pb-28"
+      className="gap-6 pb-24"
     >
       <DemoHeader
         eyebrow="Validity Transactions · live comparison"
@@ -828,27 +828,7 @@ function RaceTheAgentDemoInner() {
         ) : undefined}
       />
 
-      <Card className="flex flex-wrap items-center justify-between gap-4 bg-background px-4 py-3 dark:bg-white/[.04]">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className={cn(
-            'h-2.5 w-2.5 shrink-0 rounded-full',
-            prepared ? 'bg-bds-green-50' : setupError ? 'bg-red-500' : 'animate-pulse bg-base-blue',
-          )} />
-          <div className="min-w-0">
-            <Text variant="label" className="truncate">
-              {prepared ? 'Race setup ready' : setupError ? 'Automatic setup needs attention' : setupRunning ? 'Preparing race automatically' : 'Waiting to start setup'}
-            </Text>
-            <Text variant="footnote" tone="muted" className="mt-0.5">
-              {setupError ?? progress ?? (prepared
-                ? agentRunning ? `Condition agent: ${agentPhase}` : 'Singleton funded; restarting condition agent.'
-                : 'Waiting for account and chain state.')}
-            </Text>
-          </div>
-        </div>
-        {setupError ? <Button variant="outline" size="sm" onClick={retrySetup}>Retry setup</Button> : null}
-      </Card>
-
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.78fr)_minmax(420px,1.22fr)]">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(220px,.72fr)_minmax(0,1.45fr)_minmax(260px,.9fr)]">
         <Card className="flex flex-col bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <div className="flex min-w-0 items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -890,7 +870,7 @@ function RaceTheAgentDemoInner() {
         <Card className="flex flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
           <div className="border-b border-bds-gray-10 p-5 sm:p-6 dark:border-white/10">
             <Text variant="caption" tone="muted">Guided race</Text>
-            <Text as="h2" variant="title2" className="mt-2">Submit first. React second.</Text>
+            <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
           </div>
           <div className="grid flex-1 auto-rows-fr gap-px bg-bds-gray-10 dark:bg-white/10 lg:grid-cols-3">
             <RaceStep
@@ -900,23 +880,19 @@ function RaceTheAgentDemoInner() {
               active={prepared && !agentRunning}
               complete={agentRunning}
             >
-              <Text variant="footnote" tone="muted">
-                {agentRunning ? agentPhase : setupRunning ? 'Starting after setup' : 'Waiting for setup'}
-              </Text>
+              {setupError ? (
+                <div className="flex flex-col items-start gap-2">
+                  <Text variant="footnote" className="text-red-600 dark:text-red-300">{setupError}</Text>
+                  <Button variant="outline" size="sm" onClick={retrySetup}>Retry setup</Button>
+                </div>
+              ) : (
+                <Text variant="footnote" tone="muted">
+                  {progress ?? (agentRunning ? agentPhase : setupRunning ? 'Starting after setup' : 'Waiting for setup')}
+                </Text>
+              )}
             </RaceStep>
             <RaceStep
               number="02"
-              title="Pre-submit validity"
-              detail={`Submit a validity transaction while the withdrawal is off. It waits in advance, then claims 1 $VIBE automatically if the withdrawal opens within ${RACE_VALIDITY_SECONDS} seconds.`}
-              active={readyToSubmit}
-              complete={validityAttemptCount > 0}
-            >
-              <Button onClick={submitValidity} disabled={!readyToSubmit || busy}>
-                Submit validity
-              </Button>
-            </RaceStep>
-            <RaceStep
-              number="03"
               title="Race it manually"
               detail="Try to claim 1 $VIBE during the short open window. If the withdrawal is off, the transaction reverts; if it is on, your transaction still has to reach the chain before the agent turns it off again."
               active={readyToWithdraw}
@@ -924,6 +900,17 @@ function RaceTheAgentDemoInner() {
             >
               <Button onClick={withdrawNow} disabled={!readyToWithdraw}>
                 Withdraw now
+              </Button>
+            </RaceStep>
+            <RaceStep
+              number="03"
+              title="Pre-submit validity"
+              detail={`Submit a validity transaction while the withdrawal is off. It waits in advance, then claims 1 $VIBE automatically if the withdrawal opens within ${RACE_VALIDITY_SECONDS} seconds.`}
+              active={readyToSubmit}
+              complete={validityAttemptCount > 0}
+            >
+              <Button onClick={submitValidity} disabled={!readyToSubmit || busy}>
+                Submit validity
               </Button>
             </RaceStep>
           </div>
@@ -934,36 +921,23 @@ function RaceTheAgentDemoInner() {
             </div>
           ) : null}
         </Card>
-      </section>
 
-      <section>
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
+        <Card className="flex min-w-0 flex-col bg-background p-5 dark:bg-white/[.04] sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
             <Text variant="caption" tone="muted">Comparison</Text>
-            <Text as="h2" variant="title2" className="mt-2">Same call, different timing model</Text>
+              <Text as="h2" variant="title2" className="mt-2">Same call, different timing.</Text>
+            </div>
+            <ResultPill result={result} validity={validity} manual={manual} />
           </div>
-          <ResultPill result={result} validity={validity} manual={manual} />
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <AttemptCard
-            label={validity.number ? `Validity attempt #${validity.number}` : 'Validity transaction'}
-            headline="Already waiting"
-            description={`Submitted while withdrawals are closed. The transaction has nonceKeyMax, sequence 0, a ${RACE_VALIDITY_SECONDS}-second expiry, and storage == 1 as its eligibility condition.`}
-            attempt={validity}
-            accent="blue"
-          />
-          <AttemptCard
-            label={manual.number ? `Manual attempt #${manual.number}` : 'Manual transaction'}
-            headline="Starts on your click"
-            description="Send it whenever you want. It claims 1 $VIBE only if withdrawals are on when your transaction executes onchain."
-            attempt={manual}
-            accent="green"
-          />
-        </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
-          <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
-        </div>
+          <Text variant="label.regular" tone="muted" className="mt-3">
+            Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
+          </Text>
+          <div className="mt-4 grid flex-1 gap-3">
+            <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
+            <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
+          </div>
+        </Card>
       </section>
 
       <details className="group rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/[.04]">
@@ -975,10 +949,22 @@ function RaceTheAgentDemoInner() {
           <ChevronIcon className="shrink-0 duration-150 group-open:rotate-180" />
         </summary>
         <div className="border-t border-bds-gray-10 px-5 py-5 sm:px-6 dark:border-white/10">
-          <Text variant="label.regular" tone="muted" className="max-w-2xl">
-            Solidity stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
-            in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
-          </Text>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <Text variant="label.regular" tone="muted" className="max-w-2xl">
+              Solidity stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
+              in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
+            </Text>
+            {withdrawal ? (
+              <div className="min-w-0">
+                <Text variant="caption" tone="muted">Singleton contract</Text>
+                <CopyableValue
+                  value={withdrawal}
+                  display={`${withdrawal.slice(0, 10)}…${withdrawal.slice(-8)}`}
+                  className="mt-1"
+                />
+              </div>
+            ) : null}
+          </div>
           <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
             <CodeSnippet label="ConditionalWithdrawal.sol" code={CONTRACT_SNIPPET} language="solidity" />
             <CodeSnippet label="Withdrawal validity predicate" code={predicateSnippet} language="json" />
@@ -986,7 +972,7 @@ function RaceTheAgentDemoInner() {
         </div>
       </details>
 
-      <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)]">
+      <section className="min-w-0">
         <Card className="min-w-0 overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <Text variant="caption" tone="muted">Observed chain state</Text>
           <div ref={observationsScrollRef} className="mt-5 max-w-full overflow-x-auto overscroll-x-contain">
@@ -1012,19 +998,6 @@ function RaceTheAgentDemoInner() {
               ))}
             </div>
           </div>
-        </Card>
-        <Card className="bg-bds-blue-0 p-5 sm:p-6 dark:bg-white/[.04]">
-          <Text variant="caption" tone="muted">What the result means</Text>
-          <Text variant="headline" className="mt-3">Blocks beat stopwatches.</Text>
-          <Text variant="label.regular" tone="muted" className="mt-3">
-            The timestamps show when this browser sampled state or received a receipt. They are useful context, not authoritative sequencing. The lower included block landed first; the same block is a tie at this resolution.
-          </Text>
-          {withdrawal ? (
-            <div className="mt-5 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-              <Text variant="caption" tone="muted">Global singleton</Text>
-              <CopyableValue value={withdrawal} display={`${withdrawal.slice(0, 10)}…${withdrawal.slice(-8)}`} className="mt-2" />
-            </div>
-          ) : null}
         </Card>
       </section>
     </AccountDemoShell>
@@ -1117,12 +1090,12 @@ function ConditionPill({ enabled }: { enabled: boolean | null }) {
 
 function AttemptHistoryCard({ title, attempts }: { title: string; attempts: Attempt[] }) {
   return (
-    <Card className="flex min-h-40 flex-col bg-background p-4 dark:bg-white/[.04]">
+    <Card className="flex min-h-32 max-h-48 flex-col bg-background p-4 dark:bg-white/[.04]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Text variant="caption" tone="muted">{title}</Text>
         <Text variant="footnote" tone="muted">{attempts.length} total</Text>
       </div>
-      <div className="mt-3 flex flex-1 flex-col divide-y divide-bds-gray-10 dark:divide-white/10">
+      <div className="mt-3 flex flex-1 flex-col overflow-y-auto overscroll-y-contain pr-1 divide-y divide-bds-gray-10 dark:divide-white/10">
         {attempts.length === 0 ? (
           <Text variant="label.regular" tone="muted" className="my-auto py-4">No previous attempts yet.</Text>
         ) : attempts.map((attempt, index) => (
@@ -1243,47 +1216,6 @@ function RaceStep({
       <Text variant="label.regular" tone="muted" className="mt-2">{detail}</Text>
       <div className="mt-auto pt-5">{children}</div>
     </div>
-  );
-}
-
-function AttemptCard({
-  label,
-  headline,
-  description,
-  attempt,
-  accent,
-}: {
-  label: string;
-  headline: string;
-  description: string;
-  attempt: Attempt;
-  accent: 'blue' | 'green';
-}) {
-  const explorer = attempt.hash ? `${VIBENET_EXPLORER_PATH}/tx/${attempt.hash}` : null;
-  return (
-    <Card className="relative overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
-      <span className={cn('absolute inset-x-0 top-0 h-1', accent === 'blue' ? 'bg-base-blue' : 'bg-bds-green-50')} />
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Text variant="caption" tone="muted">{label}</Text>
-          <Text as="h3" variant="title2" className="mt-2">{headline}</Text>
-        </div>
-        <StatusPill status={attempt.status} />
-      </div>
-      <Text variant="label.regular" tone="muted" className="mt-4 max-w-xl">{description}</Text>
-      <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-bds-gray-10 pt-5 dark:border-white/10">
-        <Metric label="Hash" value={shortHash(attempt.hash)} />
-        <Metric label="Observed submit block" value={attempt.submittedBlock === undefined ? '—' : `#${attempt.submittedBlock.toLocaleString()}`} />
-        <Metric label="Included block" value={attempt.includedBlock === undefined ? '—' : `#${attempt.includedBlock.toLocaleString()}`} />
-        <Metric label="Browser receipt time" value={attempt.includedAt ? formatTime(attempt.includedAt) : '—'} />
-      </div>
-      {attempt.error ? <Text variant="footnote" className="mt-4 text-red-600 dark:text-red-300">{attempt.error}</Text> : null}
-      {explorer ? (
-        <a href={explorer} className="mt-5 inline-flex text-[13px] text-base-blue hover:underline dark:text-bds-blue-30">
-          View transaction in explorer
-        </a>
-      ) : null}
-    </Card>
   );
 }
 
