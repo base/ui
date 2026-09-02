@@ -201,12 +201,16 @@ export function expiryLabel(expiry: number): string {
   return `expires ${new Date(expiry * 1000).toLocaleString()}`;
 }
 
+// Address-activity roles from vibenet's vibescan indexer
+// (`/api/vibenet/explorer/address/*`). Vibenet no longer ships explorer HTML —
+// this mapping is the UI for those API role integers.
 const ROLE_LABELS: Record<number, string> = {
   0: 'sender',
   1: 'recipient',
   2: 'creator',
   3: 'token-from',
   4: 'token-to',
+  5: 'payer',
 };
 
 export function roleLabel(role: number): string {

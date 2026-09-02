@@ -52,6 +52,10 @@ export type ActivityRow = {
   tx_index: number;
   log_index: number;
   tx_hash: string;
+  /**
+   * Vibescan address-activity role (vibenet APIs only — no explorer HTML there):
+   * 0 sender, 1 recipient, 2 creator, 3 token-from, 4 token-to, 5 payer.
+   */
   role: number;
   token: string | null;
 };

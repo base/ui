@@ -21,6 +21,7 @@ import {
   timeFromHex,
   txTypeLabel,
   weiToEth,
+  roleLabel,
 } from './explorer';
 
 // Function fragments used to build faithful calldata for the decoders under
@@ -207,6 +208,15 @@ describe('EIP-8130 scope bitmask', () => {
 
   it('falls back to hex for scopes with no known bits', () => {
     expect(scopeChips(16)).toEqual(['0x10']);
+  });
+});
+
+describe('address-activity role labels', () => {
+  it('maps vibescan indexer roles including EIP-8130 payer', () => {
+    expect(roleLabel(0)).toBe('sender');
+    expect(roleLabel(4)).toBe('token-to');
+    expect(roleLabel(5)).toBe('payer');
+    expect(roleLabel(99)).toBe('99');
   });
 });
 
