@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '../../../../components/ui/Button';
+import { Slider } from '../../../../components/ui/Slider';
 import { Text } from '../../../../components/ui/Text';
 import { AnimatedAmount } from '../../_components/AnimatedAmount';
 import { MAX_NONCELESS_SECONDS, TRADE_VIBE } from '../lib/constants';
@@ -11,7 +12,9 @@ import type { Side, SubmitMode } from '../lib/types';
 const TRADE_LABEL = formatTokenAmount(TRADE_VIBE);
 
 const EXPIRIES = [5, 15, 60] as const;
-const OFFSETS = [0, 50, 100, 200, 500] as const;
+const OFFSET_MAX_BPS = 500;
+const OFFSET_STEP_BPS = 10;
+const OFFSET_MARKS = [0, 100, 200, 300, 400, 500] as const;
 
 type Props = {
   spotWad: bigint;
@@ -106,25 +109,26 @@ export function OrderTicket({
         </button>
       </div>
       <div className="flex flex-col gap-2">
-        <Text variant="caption" tone="muted">
-          {offsetBps === 0 ? 'At mid' : side === 'buy' ? 'Below mid' : 'Above mid'}
-        </Text>
-        <div className="flex flex-wrap gap-2">
-          {OFFSETS.map((bps) => (
-            <button
-              key={bps}
-              type="button"
-              onClick={() => onOffset(bps)}
-              className={
-                bps === offsetBps
-                  ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
-                  : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
-              }
-            >
-              {bps === 0 ? '±0%' : `${side === 'buy' ? '−' : '+'}${formatBps(bps)}`}
-            </button>
-          ))}
+        <div className="flex items-baseline justify-between gap-3">
+          <Text variant="caption" tone="muted">
+            {offsetBps === 0 ? 'At mid' : side === 'buy' ? 'Below mid' : 'Above mid'}
+          </Text>
+          <Text variant="label.mono" className="tabular-nums text-bds-gray-60">
+            {signed}
+          </Text>
         </div>
+        <Slider
+          value={offsetBps}
+          min={0}
+          max={OFFSET_MAX_BPS}
+          step={OFFSET_STEP_BPS}
+          onChange={onOffset}
+          marks={OFFSET_MARKS.map((bps) => ({
+            value: bps,
+            label: bps === 0 ? '0%' : formatBps(bps),
+          }))}
+          aria-label="Offset from mid"
+        />
       </div>
       <div
         className={
