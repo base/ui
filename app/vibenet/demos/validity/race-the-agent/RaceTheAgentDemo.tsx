@@ -824,7 +824,7 @@ function RaceTheAgentDemoInner() {
             <Text variant="label.regular" tone="muted" className="mt-2">
               Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
             </Text>
-            <div className="mt-4 grid h-72 flex-none grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+            <div className="mt-4 grid min-h-72 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden">
               <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
               <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
             </div>
