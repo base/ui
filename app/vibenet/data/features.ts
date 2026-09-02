@@ -10,7 +10,8 @@ export const FEATURES: VibenetFeature[] = [
       'Built into the protocol. No bundler, no entrypoint. Powerful UX primitives in accounts that work on Base.',
     status: 'live',
     availability: 'Coming soon in ',
-    availabilityHref: {label: 'Learn more', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt', external: true},
+    availabilityLabel: 'Base Cobalt',
+    availabilityHref: {label: 'Base Cobalt', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/overview', external: true},
     highlights: [
       { title: 'Authorize How You Want', detail: 'Support for secp256k1, P-256, and WebAuthn passkeys.' },
       { title: 'Portable Everywhere', detail: 'Same account and address on any EVM chain.' },

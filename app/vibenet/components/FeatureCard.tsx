@@ -76,8 +76,12 @@ export function FeatureCard({ feature }: FeatureCardProps) {
           <Text variant="footnote" tone="muted" className="mt-5">
             {feature.availability}
             {feature.availabilityHref ? (
-              <Link href={feature.availabilityHref} className="text-foreground hover:text-base-blue dark:text-white">
-                {feature.availabilityLabel ?? 'Base Cobalt'}
+              <Link
+                href={feature.availabilityHref.href}
+                className="text-foreground hover:text-base-blue dark:text-white"
+                {...(feature.availabilityHref.external ? { target: '_blank', rel: 'noopener' } : {})}
+              >
+                {feature.availabilityLabel ?? 'a future upgrade'}
               </Link>
             ) : feature.availabilityLabel ? (
               <span className="text-foreground">{feature.availabilityLabel}</span>
