@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent, FormEvent, MouseEvent, ReactNode } from 'react';
+import type { FormEvent, MouseEvent, ReactNode } from 'react';
 
 import Link from 'next/link';
 
 import { trackFaucetRequest } from '../../analytics/events';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Spinner } from '../../components/ui/Spinner';
 import { cn } from '../../components/ui/cn';
@@ -117,8 +118,8 @@ export default function FaucetPage() {
     [runDrip],
   );
 
-  const handleAddressChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    setAddress(event.target.value);
+  const handleAddressChange = useCallback((value: string) => {
+    setAddress(value);
   }, []);
 
   const validAddress = isAddress(address);
@@ -225,19 +226,15 @@ export default function FaucetPage() {
           </Text>
         </div>
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-          <label htmlFor="faucet-address" className="flex flex-col gap-2 text-[14px]">
-            <input
-              id="faucet-address"
-              type="text"
-              aria-label="Recipient address"
-              value={address}
-              onChange={handleAddressChange}
-              placeholder="0x…"
-              spellCheck={false}
-              autoComplete="off"
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] font-normal text-foreground outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/40"
-            />
-          </label>
+          <Input
+            id="faucet-address"
+            aria-label="Recipient address"
+            value={address}
+            onValueChange={handleAddressChange}
+            placeholder="0x…"
+            spellCheck={false}
+            autoComplete="off"
+          />
           <div className="flex flex-wrap gap-3">
             {FAUCET_TOKENS.map((token) => {
               const enabled = status ? token.isEnabled(status) : token.id === 'eth';
