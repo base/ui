@@ -876,7 +876,7 @@ function ValidityDemoInner() {
       {!hydrated || !engine.hydrated ? (
         <div className="py-20" />
       ) : (
-        <div className="flex min-w-0 flex-1 flex-col gap-10 pb-16 text-foreground">
+        <div className="flex min-w-0 flex-1 flex-col gap-6 pb-16 text-foreground">
       <DemoHeader
         eyebrow="Validity · experimental"
         title="Send now. Land later."
@@ -920,15 +920,10 @@ function ValidityDemoInner() {
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-10">
-          <div className="flex min-w-0 flex-col gap-3">
-              <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
-            <Text variant="footnote" tone="muted">
-              Spot {spot === 0n ? '—' : `$${formatPrice(spot)}`} USDV · simulated flow moves the mid
-            </Text>
-          </div>
-          <div className="grid gap-6 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)] lg:items-start">
-            <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+            <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
+            <div className="flex min-w-0 flex-col gap-4">
               {draft ? (
                 <OrderTicket
                   spotWad={spot}
@@ -967,15 +962,12 @@ function ValidityDemoInner() {
               {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
               {error && !txOpen ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
             </div>
-            <div className="min-h-0 lg:sticky lg:top-4">
-              <OrderList
-                orders={orders}
-                highlightedOrderId={hoveredOrderId}
-                onHighlight={setHoveredOrderId}
-              />
-            </div>
           </div>
-
+          <OrderList
+            orders={orders}
+            highlightedOrderId={hoveredOrderId}
+            onHighlight={setHoveredOrderId}
+          />
         </div>
       )}
         </div>
