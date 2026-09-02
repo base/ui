@@ -27,7 +27,7 @@ Machine-readable entry point for agents working with Base Chain network state.
 | /upgrades/changelog | per release | re-fetch before stating an activation status |
 | /vibenet/faucet | monthly | stable within a session |
 | /api/snapshots | daily | re-fetch every session; never cache across sessions |
-| /, /vibenet, /vibenet/demos/account, /vibenet/demos/b20, /vibenet/demos/validity, /vibenet/demos/validity/conditional-swaps | infrequent | stable within a session |
+| /, /vibenet, /vibenet/demos/account, /vibenet/demos/b20, /vibenet/demos/validity, /vibenet/demos/validity/conditional-swaps, /vibenet/demos/validity/race-the-agent | infrequent | stable within a session |
 
 ## Machine-readable endpoints
 
@@ -90,6 +90,7 @@ Discovered from the Next.js app directory.
 - [/vibenet/demos/b20](https://chain.base.org/vibenet/demos/b20) — Explore, configure, and issue Base-native B20 tokens on Vibenet.
 - [/vibenet/demos/validity](https://chain.base.org/vibenet/demos/validity) — Explore Vibenet demos built with transactions that execute only while their onchain validity conditions hold.
 - [/vibenet/demos/validity/conditional-swaps](https://chain.base.org/vibenet/demos/validity/conditional-swaps) — Place a validity-backed swap on Vibenet that waits for a target price, then fills or expires as the market moves.
+- [/vibenet/demos/validity/race-the-agent](https://chain.base.org/vibenet/demos/validity/race-the-agent) — Compare a manually timed VIBE withdrawal with a validity transaction that is already waiting for its onchain condition.
 - [/vibenet/explorer](https://chain.base.org/vibenet/explorer) — Browse blocks, transactions, and addresses on the Vibenet devnet.
 - [/vibenet/faucet](https://chain.base.org/vibenet/faucet) — Request testnet tokens on Vibenet to fund accounts and try in-flight Base features.
 
