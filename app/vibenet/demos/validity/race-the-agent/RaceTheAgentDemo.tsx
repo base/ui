@@ -20,6 +20,7 @@ import { VIBENET_EXPLORER_PATH, VIBENET_WS_URL } from '../../../library/config';
 import { CopyableValue } from '../../../components/CopyableValue';
 import { AccountDemoShell } from '../../_components/AccountDemoShell';
 import { DemoHeader } from '../../_components/DemoHeader';
+import { ChevronIcon } from '../../_shared/dropdown';
 import { newCallRow } from '../../account/library/calls';
 import type { StoredAccount } from '../../account/library/model';
 import { aaReceiptSucceeded, type AaReceiptLike } from '../../account/library/receipt';
@@ -959,18 +960,25 @@ function RaceTheAgentDemoInner() {
         </div>
       </section>
 
-      <section>
-        <Text variant="caption" tone="muted">Implementation</Text>
-        <Text as="h2" variant="title2" className="mt-2">One boolean, one predicate.</Text>
-        <Text variant="label.regular" tone="muted" className="mt-3 max-w-2xl">
-          Solidity stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
-          in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
-        </Text>
-        <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
-          <CodeSnippet label="ConditionalWithdrawal.sol" code={CONTRACT_SNIPPET} />
-          <CodeSnippet label="Withdrawal validity predicate" code={predicateSnippet} />
+      <details className="group rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/[.04]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none sm:px-6 [&::-webkit-details-marker]:hidden">
+          <div>
+            <Text variant="caption" tone="muted">Advanced details</Text>
+            <Text variant="headline" className="mt-1">Contract and validity predicate</Text>
+          </div>
+          <ChevronIcon className="shrink-0 duration-150 group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-bds-gray-10 px-5 py-5 sm:px-6 dark:border-white/10">
+          <Text variant="label.regular" tone="muted" className="max-w-2xl">
+            Solidity stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
+            in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
+          </Text>
+          <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
+            <CodeSnippet label="ConditionalWithdrawal.sol" code={CONTRACT_SNIPPET} language="solidity" />
+            <CodeSnippet label="Withdrawal validity predicate" code={predicateSnippet} language="json" />
+          </div>
         </div>
-      </section>
+      </details>
 
       <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)]">
         <Card className="min-w-0 overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
@@ -1134,12 +1142,57 @@ function AttemptHistoryCard({ title, attempts }: { title: string; attempts: Atte
   );
 }
 
-function CodeSnippet({ label, code }: { label: string; code: string }) {
+type CodeLanguage = 'json' | 'solidity';
+type CodeToken = { text: string; kind: 'comment' | 'key' | 'keyword' | 'literal' | 'number' | 'plain' | 'string' | 'type' };
+
+const CODE_TOKEN_CLASS: Record<CodeToken['kind'], string> = {
+  comment: 'text-bds-gray-50 dark:text-[#7f8c98]',
+  key: 'text-base-blue dark:text-[#7eb8ff]',
+  keyword: 'text-purple-700 dark:text-[#c792ea]',
+  literal: 'text-bds-orange-70 dark:text-[#ff9d76]',
+  number: 'text-bds-orange-70 dark:text-[#f5c542]',
+  plain: 'text-bds-gray-80 dark:text-[#d6deeb]',
+  string: 'text-bds-green-70 dark:text-[#7ee0a8]',
+  type: 'text-base-blue dark:text-[#82aaff]',
+};
+
+function tokenizeCode(source: string, language: CodeLanguage): CodeToken[] {
+  const pattern = language === 'json'
+    ? /("(?:\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?|[{}[\]:,])/g
+    : /(\/\/[^\n]*|"(?:\\.|[^"\\])*"|\b(?:contract|interface|function|external|public|immutable|constant|returns|return|require|bool|uint256|address)\b|\b(?:IERC20|ConditionalWithdrawal)\b|\b\d+(?:\s+ether)?\b)/g;
+  const tokens: CodeToken[] = [];
+  let last = 0;
+  for (const hit of source.matchAll(pattern)) {
+    const text = hit[0];
+    const index = hit.index ?? 0;
+    if (index > last) tokens.push({ text: source.slice(last, index), kind: 'plain' });
+    let kind: CodeToken['kind'] = 'plain';
+    if (language === 'json') {
+      if (text.startsWith('"')) kind = text.endsWith(':') ? 'key' : 'string';
+      else if (text === 'true' || text === 'false' || text === 'null') kind = 'literal';
+      else if (/^-?\d/.test(text)) kind = 'number';
+    } else if (text.startsWith('//')) kind = 'comment';
+    else if (text.startsWith('"')) kind = 'string';
+    else if (/^\d/.test(text)) kind = 'number';
+    else if (text === 'IERC20' || text === 'ConditionalWithdrawal') kind = 'type';
+    else kind = 'keyword';
+    tokens.push({ text, kind });
+    last = index + text.length;
+  }
+  if (last < source.length) tokens.push({ text: source.slice(last), kind: 'plain' });
+  return tokens;
+}
+
+function CodeSnippet({ label, code, language }: { label: string; code: string; language: CodeLanguage }) {
   return (
     <Card className="min-w-0 overflow-hidden bg-background p-4 dark:bg-white/[.04]">
       <Text variant="caption" tone="muted">{label}</Text>
-      <pre className="mt-3 min-h-80 overflow-auto rounded-xl bg-bds-gray-5 p-4 font-mono text-[11px] leading-5 text-foreground dark:bg-black dark:text-bds-gray-5">
-        <code>{code}</code>
+      <pre className="mt-3 min-h-80 overflow-auto rounded-xl bg-bds-gray-5 p-4 font-mono text-[11px] leading-5 dark:bg-[#0b0d12]">
+        <code>
+          {tokenizeCode(code, language).map((token, index) => (
+            <span key={`${index}-${token.text}`} className={CODE_TOKEN_CLASS[token.kind]}>{token.text}</span>
+          ))}
+        </code>
       </pre>
     </Card>
   );
