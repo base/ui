@@ -1,4 +1,4 @@
-import { decodeFunctionData, keccak256, toBytes } from 'viem';
+import { decodeFunctionData } from 'viem';
 import { describe, expect, it } from 'vitest';
 
 import artifact from './artifacts/ConditionalWithdrawal.json';
@@ -14,7 +14,6 @@ import {
   conditionalWithdrawalFundingAmount,
   encodeConditionalWithdrawalFunding,
   encodeConditionalWithdraw,
-  encodeFlipConditionalWithdrawal,
   encodeSetConditionalWithdrawalEnabled,
   predictConditionalWithdrawal,
 } from './conditionalWithdrawal';
@@ -39,21 +38,19 @@ describe('conditional withdrawal contract', () => {
     expect(CONDITIONAL_WITHDRAWAL_SALT).toBe(
       '0x75dea569b8cc7d9ea45d7d95a5d6bed33e1e378a31715724342462f8226adc8b',
     );
-    expect(predictConditionalWithdrawal(VIBE)).toBe('0x7AE1BFB6116D154a0a27961a5d19C544D02015a9');
+    expect(predictConditionalWithdrawal(VIBE)).toBe('0xC655E339224d57B087A02Df7827A4068ae69aba1');
     expect(predictConditionalWithdrawal(OTHER_VIBE)).not.toBe(predictConditionalWithdrawal(VIBE));
   });
 
-  it('pins the stable storage word and exact enabled=true EIP-8130 predicate', () => {
-    expect(CONDITIONAL_WITHDRAWAL_ENABLED_SLOT).toBe(
-      keccak256(toBytes('vibenet.validity.conditional-withdrawal.enabled.v1')),
-    );
-    expect(CONDITIONAL_WITHDRAWAL_ENABLED_MASK).toBe((1n << 256n) - 1n);
+  it('reads bool public enabled from slot 0 in the EIP-8130 predicate', () => {
+    expect(CONDITIONAL_WITHDRAWAL_ENABLED_SLOT).toBe(0n);
+    expect(CONDITIONAL_WITHDRAWAL_ENABLED_MASK).toBe(0xffn);
     expect(conditionalWithdrawalEnabledPredicate(WITHDRAWAL)).toEqual({
       type: 'storage',
       params: {
         address: WITHDRAWAL,
-        slot: CONDITIONAL_WITHDRAWAL_ENABLED_SLOT,
-        mask: toWord((1n << 256n) - 1n),
+        slot: toWord(0n),
+        mask: toWord(0xffn),
         op: '=',
         value: toWord(1n),
       },
@@ -61,6 +58,14 @@ describe('conditional withdrawal contract', () => {
   });
 
   it('encodes condition and fixed-withdrawal calls exactly', () => {
+    const functionNames = artifact.abi
+      .filter((item) => item.type === 'function')
+      .map((item) => item.name);
+    expect(functionNames).not.toContain('ENABLED_SLOT');
+    expect(functionNames).not.toContain('flip');
+    expect(functionNames).toContain('enabled');
+    expect(functionNames).toContain('setEnabled');
+    expect(functionNames).toContain('withdraw');
     expect(encodeSetConditionalWithdrawalEnabled(WITHDRAWAL, true)).toEqual({
       to: WITHDRAWAL,
       data: `0x328d8f72${'0'.repeat(63)}1`,
@@ -68,10 +73,6 @@ describe('conditional withdrawal contract', () => {
     expect(encodeSetConditionalWithdrawalEnabled(WITHDRAWAL, false).data).toBe(
       `0x328d8f72${'0'.repeat(64)}`,
     );
-    expect(encodeFlipConditionalWithdrawal(WITHDRAWAL)).toEqual({
-      to: WITHDRAWAL,
-      data: '0xcde4efa9',
-    });
     expect(encodeConditionalWithdraw(WITHDRAWAL)).toEqual({
       to: WITHDRAWAL,
       data: '0x3ccfd60b',

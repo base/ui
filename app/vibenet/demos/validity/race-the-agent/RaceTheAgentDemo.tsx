@@ -77,6 +77,28 @@ type Observation = { enabled: boolean; block: bigint; at: number };
 type AgentPhase = 'Waiting' | 'Scheduling' | 'Opening' | 'Closing' | 'Retrying';
 
 const EMPTY_ATTEMPT: Attempt = { status: 'idle' };
+const CONTRACT_SNIPPET = `interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+contract ConditionalWithdrawal {
+    uint256 public constant WITHDRAWAL_AMOUNT = 1 ether;
+    IERC20 public immutable VIBE;
+    bool public enabled;
+
+    constructor(IERC20 vibe) {
+        VIBE = vibe;
+    }
+
+    function setEnabled(bool value) external {
+        enabled = value;
+    }
+
+    function withdraw() external {
+        require(enabled, "withdrawal disabled");
+        require(VIBE.transfer(msg.sender, WITHDRAWAL_AMOUNT), "transfer failed");
+    }
+}`;
 
 export function RaceTheAgentDemo() {
   return (
@@ -772,6 +794,9 @@ function RaceTheAgentDemoInner() {
   });
   const validityAttempts = attemptHistoryRows(validity, validityHistory);
   const manualAttempts = attemptHistoryRows(manual, manualHistory);
+  const predicateSnippet = withdrawal
+    ? JSON.stringify(conditionalWithdrawalEnabledPredicate(withdrawal), null, 2)
+    : 'Resolving the conditional withdrawal address…';
 
   return (
     <AccountDemoShell
@@ -934,6 +959,19 @@ function RaceTheAgentDemoInner() {
         </div>
       </section>
 
+      <section>
+        <Text variant="caption" tone="muted">Implementation</Text>
+        <Text as="h2" variant="title2" className="mt-2">One boolean, one predicate.</Text>
+        <Text variant="label.regular" tone="muted" className="mt-3 max-w-2xl">
+          Solidity stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
+          in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
+        </Text>
+        <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
+          <CodeSnippet label="ConditionalWithdrawal.sol" code={CONTRACT_SNIPPET} />
+          <CodeSnippet label="Withdrawal validity predicate" code={predicateSnippet} />
+        </div>
+      </section>
+
       <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)]">
         <Card className="min-w-0 overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <Text variant="caption" tone="muted">Observed chain state</Text>
@@ -1092,6 +1130,17 @@ function AttemptHistoryCard({ title, attempts }: { title: string; attempts: Atte
           </div>
         ))}
       </div>
+    </Card>
+  );
+}
+
+function CodeSnippet({ label, code }: { label: string; code: string }) {
+  return (
+    <Card className="min-w-0 overflow-hidden bg-background p-4 dark:bg-white/[.04]">
+      <Text variant="caption" tone="muted">{label}</Text>
+      <pre className="mt-3 min-h-80 overflow-auto rounded-xl bg-bds-gray-5 p-4 font-mono text-[11px] leading-5 text-foreground dark:bg-black dark:text-bds-gray-5">
+        <code>{code}</code>
+      </pre>
     </Card>
   );
 }
