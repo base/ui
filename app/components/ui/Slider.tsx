@@ -7,6 +7,11 @@ type SliderMark = {
   label: string;
 };
 
+// Matches the h-4/w-4 thumb below. The thumb's center travels from
+// THUMB_PX/2 to width - THUMB_PX/2, so marks must follow that geometry
+// instead of the raw track percentage or they drift near the ends.
+const THUMB_PX = 16;
+
 type SliderProps = {
   value: number;
   min: number;
@@ -62,8 +67,8 @@ export function Slider({
                 disabled={disabled}
                 onClick={() => onChange(mark.value)}
                 style={{
-                  left: `${pct}%`,
-                  transform: pct === 0 ? 'none' : pct === 100 ? 'translateX(-100%)' : 'translateX(-50%)',
+                  left: `calc(${pct}% + ${((50 - pct) / 100) * THUMB_PX}px)`,
+                  transform: 'translateX(-50%)',
                 }}
                 className={cn(
                   'absolute top-0 font-mono text-[10px] leading-4 transition-colors disabled:cursor-not-allowed disabled:opacity-40',
