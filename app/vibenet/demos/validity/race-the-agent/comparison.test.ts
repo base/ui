@@ -6,7 +6,6 @@ import {
   attemptHistoryRows,
   canSubmitManual,
   canSubmitValidity,
-  comparisonResult,
   isAttemptTerminal,
   preserveCompletedAttempt,
   randomAgentDwellMs,
@@ -22,27 +21,6 @@ import { conditionalWithdrawalEnabledPredicate } from '../lib/conditionalWithdra
 import { blockNumberPredicate } from '../lib/predicates';
 
 const WITHDRAWAL = '0x1111111111111111111111111111111111111111';
-
-function success(block: bigint): Attempt {
-  return { status: 'success', includedBlock: block };
-}
-
-describe('comparisonResult', () => {
-  it('uses inclusion block ordering instead of browser timestamps', () => {
-    expect(comparisonResult(success(10n), { ...success(11n), includedAt: 1 })).toBe('validity-first');
-    expect(comparisonResult({ ...success(12n), includedAt: 1 }, success(11n))).toBe('manual-first');
-    expect(comparisonResult(success(12n), success(12n))).toBe('same-block');
-  });
-
-  it('describes one-sided and unfinished outcomes', () => {
-    expect(comparisonResult(success(10n), { status: 'reverted' })).toBe('validity-only');
-    expect(comparisonResult({ status: 'expired' }, success(10n))).toBe('manual-only');
-    expect(comparisonResult(success(10n), { status: 'idle' })).toBe('none');
-    expect(comparisonResult({ status: 'pending' }, { status: 'idle' })).toBe('none');
-    expect(comparisonResult({ status: 'expired' }, { status: 'idle' })).toBe('neither-succeeded');
-    expect(comparisonResult({ status: 'reverted' }, { status: 'error' })).toBe('neither-succeeded');
-  });
-});
 
 describe('isAttemptTerminal', () => {
   it('only stops on final receipt or expiry states', () => {

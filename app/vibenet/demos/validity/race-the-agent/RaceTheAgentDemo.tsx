@@ -49,7 +49,6 @@ import {
   attemptHistoryRows,
   canSubmitManual,
   canSubmitValidity,
-  comparisonResult,
   isAttemptTerminal,
   preserveCompletedAttempt,
   randomAgentDwellMs,
@@ -764,7 +763,6 @@ function RaceTheAgentDemoInner() {
     }
   };
 
-  const result = comparisonResult(validity, manual);
   const readyToSubmit = prepared && observed?.enabled === false && canSubmitValidity(validity.status);
   const readyToWithdraw = canSubmitManual({
     status: manual.status,
@@ -794,12 +792,9 @@ function RaceTheAgentDemoInner() {
 
       <section className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Card className="flex flex-col bg-background p-5 sm:p-6 dark:bg-white/[.04]">
-          <div className="flex min-w-0 items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <Text variant="caption" tone="muted">Shared onchain switch</Text>
-              <Text as="h2" variant="title2" className="mt-2">Withdrawal condition</Text>
-            </div>
-            <ConditionPill enabled={observed?.enabled ?? null} />
+          <div className="min-w-0">
+            <Text variant="caption" tone="muted">Shared onchain switch</Text>
+            <Text as="h2" variant="title2" className="mt-2">Withdrawal condition</Text>
           </div>
 
           <div className="mt-5 grid items-center gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
@@ -821,18 +816,15 @@ function RaceTheAgentDemoInner() {
             </div>
           </div>
 
-          <div className="mt-5 border-t border-bds-gray-10 pt-5 dark:border-white/10">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <Text variant="caption" tone="muted">Comparison</Text>
-                <Text variant="headline" className="mt-1">Same call, different timing.</Text>
-              </div>
-              <ResultPill result={result} validity={validity} manual={manual} />
+          <div className="mt-5 flex min-h-0 flex-1 flex-col border-t border-bds-gray-10 pt-5 dark:border-white/10">
+            <div>
+              <Text variant="caption" tone="muted">Comparison</Text>
+              <Text variant="headline" className="mt-1">Same call, different timing.</Text>
             </div>
             <Text variant="label.regular" tone="muted" className="mt-2">
               Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
             </Text>
-            <div className="mt-4 grid gap-3">
+            <div className="mt-4 grid min-h-64 flex-1 grid-rows-2 gap-3">
               <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
               <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
             </div>
@@ -1039,29 +1031,14 @@ function formatCompactVibe(value: bigint): string {
   return Number(whole).toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 }
 
-function ConditionPill({ enabled }: { enabled: boolean | null }) {
-  return (
-    <span className={cn(
-      'shrink-0 whitespace-nowrap rounded-full px-2.5 py-1.5 font-mono text-[11px] sm:px-3 sm:text-[12px]',
-      enabled === null
-        ? 'bg-bds-gray-10 text-bds-gray-60 dark:bg-white/10'
-        : enabled
-          ? 'bg-bds-green-10 text-bds-green-80 dark:bg-bds-green-80/30 dark:text-bds-green-30'
-          : 'bg-bds-gray-10 text-bds-gray-70 dark:bg-white/10 dark:text-white/60',
-    )}>
-      {enabled === null ? 'unobserved' : enabled ? 'enabled · 1' : 'disabled · 0'}
-    </span>
-  );
-}
-
 function AttemptHistoryCard({ title, attempts }: { title: string; attempts: Attempt[] }) {
   return (
-    <Card className="flex min-h-32 max-h-48 flex-col bg-background p-4 dark:bg-white/[.04]">
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden bg-background p-4 dark:bg-white/[.04]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Text variant="caption" tone="muted">{title}</Text>
         <Text variant="footnote" tone="muted">{attempts.length} total</Text>
       </div>
-      <div className="mt-3 flex flex-1 flex-col overflow-y-auto overscroll-y-contain pr-1 divide-y divide-bds-gray-10 dark:divide-white/10">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain pr-1 divide-y divide-bds-gray-10 dark:divide-white/10">
         {attempts.length === 0 ? (
           <Text variant="label.regular" tone="muted" className="my-auto py-4">No previous attempts yet.</Text>
         ) : attempts.map((attempt, index) => (
@@ -1200,16 +1177,4 @@ function StatusPill({ status }: { status: Attempt['status'] }) {
       {status}
     </span>
   );
-}
-
-function ResultPill({ result, validity, manual }: { result: ReturnType<typeof comparisonResult>; validity: Attempt; manual: Attempt }) {
-  let label = 'Race in progress';
-  if (result === 'validity-first') label = 'Validity landed first';
-  if (result === 'manual-first') label = 'Manual landed first';
-  if (result === 'same-block') label = 'Same inclusion block';
-  if (result === 'validity-only') label = 'Only validity succeeded';
-  if (result === 'manual-only') label = 'Only manual succeeded';
-  if (result === 'neither-succeeded') label = 'Neither transaction succeeded';
-  if (result === 'none' && validity.status === 'idle' && manual.status === 'idle') label = 'Not started';
-  return <span className="rounded-full bg-bds-gray-10 px-3 py-1.5 text-[12px] text-bds-gray-70 dark:bg-white/10 dark:text-white/70">{label}</span>;
 }
