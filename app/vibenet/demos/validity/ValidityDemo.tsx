@@ -45,6 +45,7 @@ import { VIBENET_WS_URL } from '../../library/config';
 import {
   ageRestoredOrders,
   maxBlockForExpiry,
+  minBlockForDelay,
   occupyingOrder,
   orderBlockExpired,
   orderWallClockExpired,
@@ -52,7 +53,13 @@ import {
 } from './lib/orders';
 import { bumpReplacementFees, feesFromHead, isReplacementUnderpriced, padFees } from './lib/fees';
 import { reviewClauses } from './lib/annotate';
-import { applyOffsetBps, blockExpiryPredicate, formatPrice, priceValidity } from './lib/predicates';
+import {
+  applyOffsetBps,
+  blockDelayPredicate,
+  blockExpiryPredicate,
+  formatPrice,
+  priceValidity,
+} from './lib/predicates';
 import {
   ammPriceFromQuote,
   ammSide,
@@ -124,6 +131,7 @@ function ValidityDemoInner() {
   const [offsetBps, setOffsetBps] = useState(100);
   const [priceOverrideWad, setPriceOverrideWad] = useState<bigint | null>(null);
   const [expirySeconds, setExpirySeconds] = useState(15);
+  const [delaySeconds, setDelaySeconds] = useState(0);
   const [submitMode, setSubmitMode] = useState<SubmitMode>('concurrent');
   const [orders, setOrders] = useState<PlacedOrder[]>([]);
   const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
@@ -577,8 +585,11 @@ function ValidityDemoInner() {
         ? clampNoncelessExpiry(expirySeconds)
         : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
     const maxBlock = maxBlockForExpiry(blockNumber, seconds);
-    return [...draft.predicates, blockExpiryPredicate(maxBlock)];
-  }, [blockNumber, draft, expirySeconds, submitMode]);
+    const predicates = [...draft.predicates, blockExpiryPredicate(maxBlock)];
+    const delay = Math.min(delaySeconds, Math.max(0, seconds - 1));
+    if (delay > 0) predicates.push(blockDelayPredicate(minBlockForDelay(blockNumber, delay)));
+    return predicates;
+  }, [blockNumber, delaySeconds, draft, expirySeconds, submitMode]);
 
   const chartLevels = useMemo((): PriceLevel[] => {
     const levels: PriceLevel[] = [];
@@ -723,7 +734,10 @@ function ValidityDemoInner() {
           : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
       const block = blockNumber ?? (await publicClient.getBlockNumber({ cacheTime: 0 }));
       const maxBlock = maxBlockForExpiry(block, seconds);
+      const delay = Math.min(delaySeconds, Math.max(0, seconds - 1));
+      const minBlock = delay > 0 ? minBlockForDelay(block, delay) : undefined;
       const validity = [...draft.predicates, blockExpiryPredicate(maxBlock)];
+      if (minBlock !== undefined) validity.push(blockDelayPredicate(minBlock));
       const fromHead = headFeesRef.current;
       const estimated =
         fromHead ??
@@ -803,8 +817,10 @@ function ValidityDemoInner() {
         targetPriceWad: draft.priceWad,
         size: TRADE_VIBE,
         expirySeconds: seconds,
+        delaySeconds: delay > 0 ? delay : undefined,
         submitMode,
         maxBlock,
+        minBlock,
         submittedAt: Date.now(),
         txHash: hash,
         nonce,
@@ -939,6 +955,7 @@ function ValidityDemoInner() {
                   side={side}
                   offsetBps={offsetBps}
                   expirySeconds={expirySeconds}
+                  delaySeconds={delaySeconds}
                   submitMode={submitMode}
                   busy={busy}
                   vibeBalance={vibeBalance}
@@ -954,11 +971,16 @@ function ValidityDemoInner() {
                     setPriceOverrideWad(null);
                   }}
                   onPriceOverride={setPriceOverrideWad}
-                  onExpiry={setExpirySeconds}
+                  onExpiry={(seconds) => {
+                    setExpirySeconds(seconds);
+                    if (delaySeconds >= seconds) setDelaySeconds(0);
+                  }}
+                  onDelay={setDelaySeconds}
                   onSubmitMode={(mode) => {
                     setSubmitMode(mode);
                     if (mode === 'concurrent' && expirySeconds > MAX_NONCELESS_SECONDS) {
                       setExpirySeconds(15);
+                      if (delaySeconds >= 15) setDelaySeconds(0);
                     }
                   }}
                   onSubmit={() => {
@@ -1015,7 +1037,7 @@ function ValidityDemoInner() {
                 </Text>
                 <Text variant="footnote" tone="muted" className="mt-1">
                   {submitMode === 'concurrent' ? '8130 concurrent' : 'Replace resting nonce'} · expires in{' '}
-                  {expirySeconds}s
+                  {expirySeconds}s{delaySeconds > 0 ? ` · starts in ~${delaySeconds}s` : ''}
                 </Text>
               </div>
               <ul className="flex flex-col gap-2">

@@ -190,3 +190,11 @@ export function blockExpiryPredicate(maxBlock: bigint): ValidityPredicate {
     params: { op: '<=', value: toWord(maxBlock) },
   };
 }
+
+/** Not-before bound: the sequencer holds the tx until this block. */
+export function blockDelayPredicate(minBlock: bigint): ValidityPredicate {
+  return {
+    type: 'block_number',
+    params: { op: '>=', value: toWord(minBlock) },
+  };
+}

@@ -14,6 +14,7 @@ import type { Side, SubmitMode } from '../lib/types';
 const TRADE_LABEL = formatTokenAmount(TRADE_VIBE);
 
 const EXPIRIES = [5, 15, 60] as const;
+const DELAYS = [0, 5, 15] as const;
 const OFFSET_MAX_BPS = 500;
 const OFFSET_STEP_BPS = 10;
 const OFFSET_MARKS = [0, 100, 200, 300, 400, 500] as const;
@@ -23,6 +24,7 @@ type Props = {
   side: Side;
   offsetBps: number;
   expirySeconds: number;
+  delaySeconds: number;
   submitMode: SubmitMode;
   busy: boolean;
   vibeBalance: bigint | null;
@@ -33,6 +35,7 @@ type Props = {
   onOffset: (bps: number) => void;
   onPriceOverride: (wad: bigint | null) => void;
   onExpiry: (seconds: number) => void;
+  onDelay: (seconds: number) => void;
   onSubmitMode: (mode: SubmitMode) => void;
   onSubmit: () => void;
   canAfford: boolean;
@@ -48,6 +51,7 @@ export function OrderTicket({
   side,
   offsetBps,
   expirySeconds,
+  delaySeconds,
   submitMode,
   busy,
   vibeBalance,
@@ -56,6 +60,7 @@ export function OrderTicket({
   onSide,
   onOffset,
   onExpiry,
+  onDelay,
   onSubmitMode,
   onSubmit,
   onPriceOverride,
@@ -234,32 +239,62 @@ export function OrderTicket({
             : `8130 nonceless — stack several at once. Envelope max ${MAX_NONCELESS_SECONDS}s.`}
         </Text>
       </div>
-      <div className="flex flex-col gap-2">
-        <Text variant="caption" tone="muted">
-          Expiry
-        </Text>
-        <div className="flex gap-2">
-          {EXPIRIES.map((seconds) => {
-            const blocked = submitMode === 'concurrent' && seconds > MAX_NONCELESS_SECONDS;
-            return (
-              <button
-                key={seconds}
-                type="button"
-                disabled={blocked}
-                title={blocked ? `8130 nonceless max is ${MAX_NONCELESS_SECONDS}s` : undefined}
-                onClick={() => onExpiry(seconds)}
-                className={
-                  blocked
-                    ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
-                    : seconds === expirySeconds
-                      ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
-                      : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
-                }
-              >
-                {seconds}s
-              </button>
-            );
-          })}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-2">
+          <Text variant="caption" tone="muted">
+            Expiry
+          </Text>
+          <div className="flex flex-wrap gap-2">
+            {EXPIRIES.map((seconds) => {
+              const blocked = submitMode === 'concurrent' && seconds > MAX_NONCELESS_SECONDS;
+              return (
+                <button
+                  key={seconds}
+                  type="button"
+                  disabled={blocked}
+                  title={blocked ? `8130 nonceless max is ${MAX_NONCELESS_SECONDS}s` : undefined}
+                  onClick={() => onExpiry(seconds)}
+                  className={
+                    blocked
+                      ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
+                      : seconds === expirySeconds
+                        ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
+                        : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
+                  }
+                >
+                  {seconds}s
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Text variant="caption" tone="muted">
+            Delay
+          </Text>
+          <div className="flex flex-wrap gap-2">
+            {DELAYS.map((seconds) => {
+              const blocked = seconds > 0 && seconds >= expirySeconds;
+              return (
+                <button
+                  key={seconds}
+                  type="button"
+                  disabled={blocked}
+                  title={blocked ? 'Delay must be shorter than expiry' : undefined}
+                  onClick={() => onDelay(seconds)}
+                  className={
+                    blocked
+                      ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
+                      : seconds === delaySeconds
+                        ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
+                        : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
+                  }
+                >
+                  {seconds === 0 ? 'Off' : `${seconds}s`}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
       <Button onClick={onSubmit} disabled={busy || !canAfford} className="w-full">

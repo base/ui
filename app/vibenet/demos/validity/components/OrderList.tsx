@@ -129,6 +129,9 @@ export function OrderList({ orders, highlightedOrderId, onHighlight }: Props) {
             <Text variant="footnote" tone="muted" className="tabular-nums">
               {formatClock(order.submittedAt)}
               {order.submitMode === 'concurrent' ? ' · 8130' : order.submitMode === 'replace' ? ' · replace' : null}
+              {order.status === 'pending' && order.delaySeconds
+                ? ` · starts ${formatClock(order.submittedAt + order.delaySeconds * 1000)}`
+                : null}
               {order.filledAt ? ` → ${formatClock(order.filledAt)}` : null}
               {filled && order.fillPriceWad !== undefined
                 ? ` · ${formatPrice(order.fillPriceWad)}`
