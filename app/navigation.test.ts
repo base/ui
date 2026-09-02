@@ -95,6 +95,6 @@ describe('titleForPath', () => {
 
   it('uses catalogue labels for grouped and nested demos', () => {
     expect(titleForPath('/vibenet/demos/validity')).toBe('Validity Transactions');
-    expect(titleForPath('/vibenet/demos/validity/limit-orders')).toBe('Limit Orders');
+    expect(titleForPath('/vibenet/demos/validity/conditional-swaps')).toBe('Conditional Swaps');
   });
 });

@@ -69,8 +69,8 @@ export const DEMOS: DemoEntry[] = [
     available: true,
     children: [
       {
-        href: '/vibenet/demos/validity/limit-orders',
-        title: 'Limit Orders',
+        href: '/vibenet/demos/validity/conditional-swaps',
+        title: 'Conditional Swaps',
         summary:
           'Place a swap that waits for a target price, then lands or expires as a shared simulated market moves through its validity window.',
         points: [

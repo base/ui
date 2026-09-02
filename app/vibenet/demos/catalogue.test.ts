@@ -47,14 +47,14 @@ describe('DEMOS', () => {
   it('lists Validity Transactions as a top-level group', () => {
     const validity = listedDemos().find((demo) => demo.href === '/vibenet/demos/validity');
     expect(validity?.title).toBe('Validity Transactions');
-    expect(validity?.children?.map((demo) => demo.title)).toEqual(['Limit Orders']);
+    expect(validity?.children?.map((demo) => demo.title)).toEqual(['Conditional Swaps']);
   });
 });
 
 describe('demoForPath', () => {
   it('finds nested demos without flattening them onto the Vibenet grid', () => {
-    expect(demoForPath('/vibenet/demos/validity/limit-orders')?.title).toBe('Limit Orders');
-    expect(listedDemos().some((demo) => demo.title === 'Limit Orders')).toBe(false);
+    expect(demoForPath('/vibenet/demos/validity/conditional-swaps')?.title).toBe('Conditional Swaps');
+    expect(listedDemos().some((demo) => demo.title === 'Conditional Swaps')).toBe(false);
   });
 });
 
@@ -66,12 +66,12 @@ describe('demoBreadcrumb', () => {
   });
 
   it('resolves a nested demo breadcrumb through its group', () => {
-    expect(demoBreadcrumb('/vibenet/demos/validity/limit-orders')).toEqual({
+    expect(demoBreadcrumb('/vibenet/demos/validity/conditional-swaps')).toEqual({
       middle: {
         label: 'Validity Transactions',
         href: '/vibenet/demos/validity',
       },
-      childLabel: 'Limit Orders',
+      childLabel: 'Conditional Swaps',
     });
   });
 

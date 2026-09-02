@@ -1132,8 +1132,8 @@ function ValidityDemoInner() {
         <div className="flex min-w-0 flex-1 flex-col gap-10 pb-16 text-foreground">
       <DemoHeader
         eyebrow="Validity Transactions · experimental"
-        title="Limit Orders"
-        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone trades against one shared singleton VIBE/USDV pool — VIBE is a B20 and USDV is the faucet stablecoin — while page-scoped background traders move the mid so limit orders can land or expire."
+        title="Conditional Swaps"
+        description="A transaction can carry predicates the sequencer checks before inclusion. Everyone trades against one shared singleton VIBE/USDV pool — VIBE is a B20 and USDV is the faucet stablecoin — while page-scoped background traders move the mid so conditional swaps can land or expire."
       />
 
       {makersDry ? (
