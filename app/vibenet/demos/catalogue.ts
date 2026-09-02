@@ -70,18 +70,6 @@ export const DEMOS: DemoEntry[] = [
     listed: false,
     children: [
       {
-        href: '/vibenet/demos/validity/conditional-swaps',
-        title: 'Conditional Swaps',
-        summary:
-          'Place a swap that waits for a target price, then lands or expires as a shared simulated market moves through its validity window.',
-        points: [
-          'Set a buy or sell price against a live VIBE/USDV pool',
-          'Inspect the EIP-8130 predicates attached to the swap',
-          'Watch pending orders fill, expire, or get replaced',
-        ],
-        available: true,
-      },
-      {
         href: '/vibenet/demos/validity/race-the-agent',
         title: 'Race the Agent',
         summary:
@@ -90,6 +78,18 @@ export const DEMOS: DemoEntry[] = [
           'Compare the same permissionless withdrawal call two ways',
           'Watch a dedicated agent subaccount flip shared chain state',
           'Judge the result by inclusion blocks, not browser timing',
+        ],
+        available: true,
+      },
+      {
+        href: '/vibenet/demos/validity/conditional-swaps',
+        title: 'Conditional Swaps',
+        summary:
+          'Place a swap that waits for a target price, then lands or expires as a shared simulated market moves through its validity window.',
+        points: [
+          'Set a buy or sell price against a live VIBE/USDV pool',
+          'Inspect the EIP-8130 predicates attached to the swap',
+          'Watch pending orders fill, expire, or get replaced',
         ],
         available: true,
       },
