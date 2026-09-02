@@ -14,8 +14,13 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
-import { Text } from '../../../../components/ui/Text';
 import { Drawer } from '../../../../components/ui/Drawer';
+import { Field } from '../../../../components/ui/Field';
+import { Input } from '../../../../components/ui/Input';
+import { InputGroup } from '../../../../components/ui/InputGroup';
+import { Radio } from '../../../../components/ui/Radio';
+import { RadioGroup } from '../../../../components/ui/RadioGroup';
+import { Text } from '../../../../components/ui/Text';
 import { KIND_LABEL, short, signerIdentity, type CreateMode, type WalletSigner } from '../shared';
 import { CheckIcon, KindBadge, TrashIcon } from '../../_shared/primitives';
 import { actorPairs, normalizeSalt, randomHex32, sortActors, toStoredActor } from '../library/derive';
@@ -27,10 +32,15 @@ type CreateAccountModalProps = {
   onClose: () => void;
 };
 
-const MODES: ReadonlyArray<readonly [CreateMode, string, string]> = [
-  ['default', 'Default', 'Simplest account setup'],
-  ['passkey', 'Passkey', 'Smart account · passkey'],
-  ['advanced', 'Advanced', 'Pick type, keys & salt'],
+const MODES: ReadonlyArray<{ value: CreateMode; title: string; description: string }> = [
+  { value: 'default', title: 'Default', description: 'Simplest account setup' },
+  { value: 'passkey', title: 'Passkey', description: 'Smart account · passkey' },
+  { value: 'advanced', title: 'Advanced', description: 'Pick type, keys & salt' },
+];
+
+const ACCOUNT_MODELS = [
+  { value: 'smart' as const, title: 'Smart Account', description: 'Counterfactual · keys + salt → address' },
+  { value: 'eoa' as const, title: 'EOA', description: 'Your EOA · delegates to DefaultAccount' },
 ];
 
 export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
@@ -239,76 +249,54 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
         </>
       }
     >
-      <label className="flex flex-col gap-2 text-[14px] font-normal">
-        Name
-        <input
+      <Field.Root>
+        <Field.Label>Name</Field.Label>
+        <Input
           value={modalLabel}
           placeholder={suggestedName}
-          onChange={(e) => setModalLabel(e.target.value)}
+          onValueChange={setModalLabel}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
               submit();
             }
           }}
-          className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] font-normal outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40"
         />
-      </label>
+      </Field.Root>
 
-      <div className="flex flex-col gap-2 text-[14px] font-normal">
-        Account type
-        <div role="radiogroup" aria-label="Account type" className="grid grid-cols-3 gap-2">
-          {MODES.map(([mode, title, hint]) => (
-            <button
-              key={mode}
-              type="button"
-              role="radio"
-              aria-checked={createMode === mode}
-              onClick={() => setCreateMode(mode)}
-              className={cn(
-                'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
-                createMode === mode
-                  ? 'border-foreground'
-                  : 'border-bds-gray-10 hover:border-foreground dark:border-white/10 dark:hover:border-white',
-              )}
-            >
-              <span className="text-[14px] font-normal">{title}</span>
-              <span className="text-[12px] font-normal text-bds-gray-60 dark:text-bds-gray-40">{hint}</span>
-            </button>
+      <Field.Root>
+        <Field.Label>Account type</Field.Label>
+        <RadioGroup value={createMode} onValueChange={setCreateMode} className="grid-cols-3">
+          {MODES.map((option) => (
+            <Radio.Root key={option.value} value={option.value}>
+              <Text as="span" variant="label.regular">
+                {option.title}
+              </Text>
+              <Text as="span" variant="footnote" tone="muted">
+                {option.description}
+              </Text>
+            </Radio.Root>
           ))}
-        </div>
-      </div>
+        </RadioGroup>
+      </Field.Root>
 
       {createMode === 'advanced' ? (
         <>
-          <div className="flex flex-col gap-2 text-[14px] font-normal">
-            Account model
-            <div role="radiogroup" aria-label="Account model" className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  ['smart', 'Smart Account', 'Counterfactual · keys + salt → address'],
-                  ['eoa', 'EOA', 'Your EOA · delegates to DefaultAccount'],
-                ] as const
-              ).map(([type, title, hint]) => (
-                <button
-                  key={type}
-                  type="button"
-                  role="radio"
-                  aria-checked={modalType === type}
-                  onClick={() => setModalType(type)}
-                  className={cn(
-                    'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
-                    modalType === type
-                      ? 'border-foreground'
-                      : 'border-bds-gray-10 hover:border-foreground dark:border-white/10 dark:hover:border-white',
-                  )}
-                >
-                  <span className="text-[14px] font-normal">{title}</span>
-                  <span className="text-[12px] font-normal text-bds-gray-60 dark:text-bds-gray-40">{hint}</span>
-                </button>
+          <Field.Root>
+            <Field.Label>Account model</Field.Label>
+            <RadioGroup value={modalType} onValueChange={setModalType} className="grid-cols-2">
+              {ACCOUNT_MODELS.map((option) => (
+                <Radio.Root key={option.value} value={option.value}>
+                  <Text as="span" variant="label.regular">
+                    {option.title}
+                  </Text>
+                  <Text as="span" variant="footnote" tone="muted">
+                    {option.description}
+                  </Text>
+                </Radio.Root>
               ))}
-            </div>
-          </div>
+            </RadioGroup>
+          </Field.Root>
 
           {modalType === 'smart' ? (
             <>
@@ -329,26 +317,25 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
                   if (s) setModalIds((prev) => [...prev, s.id]);
                 }}
               />
-              <label className="flex flex-col gap-2 text-[14px] font-normal">
-                Salt
-                <div className="flex items-center gap-2 rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-bds-blue-40">
-                  <input
+              <Field.Root>
+                <Field.Label>Salt</Field.Label>
+                <InputGroup.Root>
+                  <InputGroup.Control
                     value={modalSalt}
                     spellCheck={false}
-                    onChange={(e) => setModalSalt(e.target.value)}
+                    onValueChange={setModalSalt}
                     placeholder="0x… (32 bytes) or any phrase"
-                    className="min-w-0 flex-1 bg-transparent px-3.5 py-2.5 text-[13px] font-normal outline-none placeholder:text-bds-gray-40"
                   />
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => setModalSalt(randomHex32())}
-                    className="mr-1.5 shrink-0"
+                    className="me-1.5 shrink-0"
                   >
                     Randomize
                   </Button>
-                </div>
-              </label>
+                </InputGroup.Root>
+              </Field.Root>
             </>
           ) : (
             <KeyPicker
@@ -437,10 +424,11 @@ function KeyPicker({
                   type="button"
                   onClick={() => onToggle(s)}
                   className={cn(
-                    'flex flex-1 items-center gap-2 rounded-lg border px-2 py-2.5 text-left transition-colors',
-                    on
-                      ? 'border-foreground'
-                      : 'border-bds-gray-10 hover:border-foreground dark:border-white/10 dark:hover:border-white',
+                    'flex flex-1 items-center gap-2 rounded-xl px-2 py-2.5 text-left outline-none',
+                    'ring-1 ring-inset ring-bds-gray-10',
+                    'transition-[box-shadow] duration-150 ease motion-reduce:transition-none',
+                    on ? 'ring-2 ring-bds-gray-100' : 'hover:ring-bds-gray-20',
+                    'focus-visible:ring-2 focus-visible:ring-brand-blue',
                   )}
                 >
                   <Text as="span" variant="label" className="truncate">
@@ -458,14 +446,20 @@ function KeyPicker({
                     onClick={() => onDelete?.(s.id)}
                     aria-label={`Delete key ${s.label}`}
                     title="Delete unused key"
-                    className="flex w-8 shrink-0 items-center justify-center rounded-lg border border-bds-gray-10 text-bds-gray-50 transition-colors hover:border-bds-red-40 hover:text-bds-red-60 dark:border-white/10"
+                    className={cn(
+                      'flex w-8 shrink-0 items-center justify-center rounded-xl text-bds-gray-50 outline-none',
+                      'ring-1 ring-inset ring-bds-gray-10',
+                      'transition-[box-shadow,color] duration-150 ease motion-reduce:transition-none',
+                      'hover:text-bds-red-60 hover:ring-bds-red-40',
+                      'focus-visible:ring-2 focus-visible:ring-bds-gray-100',
+                    )}
                   >
                     <TrashIcon size={15} />
                   </button>
                 ) : inUse ? (
                   <span
                     title="Bound to an account — can't be deleted"
-                    className="flex shrink-0 items-center rounded-lg border border-bds-gray-10 px-2 text-[11px] text-bds-gray-50 dark:border-white/10 dark:text-bds-gray-40"
+                    className="flex shrink-0 items-center rounded-xl px-2 text-[11px] text-bds-gray-50 ring-1 ring-inset ring-bds-gray-10"
                   >
                     in use
                   </span>
