@@ -29,6 +29,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local PR screenshots (uploaded as release assets, never committed)
+/screenshots/
+
 # playwright
 /test-results/
 /playwright-report/

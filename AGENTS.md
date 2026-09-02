@@ -178,7 +178,7 @@ The matrix logic is covered by `deploy.config.test.mjs`.
   reviewable.
 - **Visual changes need screenshots.** If the diff touches `app/**` (pages or
   components), `app/globals.css`, or `tailwind.config.ts`, run `/screenshot` to
-  capture the affected routes and upload them as draft GitHub release assets,
+  capture the affected routes and upload them as GitHub release assets,
   then include a **Screenshots** section in the PR body with the embedded
   images. Skip for backend-only changes (`app/api/**`, `app/analytics/**`) or
   when no visual file changed.

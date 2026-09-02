@@ -58,23 +58,27 @@ Take screenshots of pages affected by the current PR's changes using `agent-brow
 5. **Review screenshots**: Read each screenshot file to visually inspect the
    pages. Describe what you see and confirm the visual changes look correct.
 
-6. **Upload screenshots** to GitHub as draft release assets so they can be
-   embedded in the PR (use the PR number):
+6. **Upload screenshots** to GitHub as prerelease assets so they can be
+   embedded in the PR (use the PR number). This must be a published prerelease,
+   not a draft: this repo is public and PR images are fetched anonymously by
+   GitHub's Camo proxy, which 404s on draft-release assets.
    ```bash
-   gh release create screenshots-pr-<N> --draft --title "PR #<N> Screenshots" --notes "Screenshots for PR review" screenshots/*.png
+   gh release create screenshots-pr-<N> --prerelease --latest=false --title "PR #<N> Screenshots" --notes "Screenshots for PR review" screenshots/*.png
    gh release view screenshots-pr-<N> --json assets --jq '.assets[] | "\(.name): \(.url)"'
    ```
 
 7. **Report results**: Return the image markdown for each screenshot so it can
-   be added to the PR body's **Screenshots** section, using the URLs from step 6.
+   be added to the PR body's **Screenshots** section (the PR template,
+   `.github/PULL_REQUEST_TEMPLATE.md`, has a slot for it), using the URLs from
+   step 6.
 
 ## Notes
 
 - Screenshots are saved locally (gitignored) — do NOT commit them to the repo.
-  They're uploaded via draft GitHub releases instead.
+  They're uploaded via GitHub prereleases instead.
 - Use `agent-browser set viewport 1280 800` before capturing for consistent
   dimensions.
 - If the dev server is already running, skip starting a new one — but check
   whether it needs to be the `:internal` variant for the routes you need.
-- After a PR is merged (or closed), clean up its draft release:
-  `gh release delete screenshots-pr-<N> --yes`.
+- After a PR is merged (or closed), clean up its release and tag:
+  `gh release delete screenshots-pr-<N> --cleanup-tag --yes`.
