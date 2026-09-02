@@ -13,6 +13,7 @@ import { ActiveBlockButton } from '../components/ActiveBlockButton';
 import { explorerApi } from '../library/client';
 import { formatInteger } from '../library/explorer-format';
 import { explorerHref } from '../library/links';
+import { nextShadowCursor } from '../library/shadow-pagination';
 import type { BlocksResponse, ShadowBlockSummary } from '../library/types';
 import { useExplorerChain } from '../library/useExplorerChain';
 import { useShadowDelta } from '../library/useShadowDelta';
@@ -76,13 +77,13 @@ function BlocksContent() {
     setShadowCandidates({});
 
     explorerApi
-      .recentShadowBlocks(chain, { limit: PAGE_LIMIT }, controller.signal)
+      .recentShadowBlocks(chain, { limit: PAGE_LIMIT, before: cursor }, controller.signal)
       .then(async (shadows) => {
         if (cancelled) return;
         if (shadows.length === 0) {
           setData({
             blocks: [],
-            page: { cursor: null, limit: PAGE_LIMIT, latestBlockNumber: 0, nextCursor: null, hasMore: false },
+            page: { cursor: cursor ?? null, limit: PAGE_LIMIT, latestBlockNumber: 0, nextCursor: null, hasMore: false },
           });
           return;
         }
@@ -101,15 +102,17 @@ function BlocksContent() {
             .map((shadow) => [shadow.canonicalHash!.toLowerCase(), [shadow]]),
         );
 
+        const nextCursor = nextShadowCursor(shadows, PAGE_LIMIT);
+
         setShadowCandidates(candidates);
         setData({
           blocks: orderedBlocks,
           page: {
-            cursor: null,
+            cursor: cursor ?? null,
             limit: PAGE_LIMIT,
             latestBlockNumber: orderedBlocks[0]?.number ?? 0,
-            nextCursor: null,
-            hasMore: false,
+            nextCursor,
+            hasMore: nextCursor !== null,
           },
         });
       })
@@ -125,7 +128,7 @@ function BlocksContent() {
       cancelled = true;
       controller.abort();
     };
-  }, [chain, showShadowDelta]);
+  }, [chain, cursor, showShadowDelta]);
 
   return (
     <div className="animate-in flex flex-col gap-6">
