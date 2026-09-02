@@ -792,7 +792,7 @@ function RaceTheAgentDemoInner() {
         description="The same permissionless withdrawal pays exactly 1 VIBE. One transaction waits in advance for storage to equal 1; the other can be fired at any time and succeeds or reverts against the state it reaches onchain."
       />
 
-      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(220px,.72fr)_minmax(0,1.45fr)_minmax(260px,.9fr)]">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Card className="flex flex-col bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <div className="flex min-w-0 items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -802,9 +802,9 @@ function RaceTheAgentDemoInner() {
             <ConditionPill enabled={observed?.enabled ?? null} />
           </div>
 
-          <div className="mt-8 flex items-center justify-center py-5">
+          <div className="mt-5 grid items-center gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
             <div className={cn(
-              'relative flex h-40 w-40 items-center justify-center rounded-full border transition-colors duration-300',
+              'relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border transition-colors duration-300 sm:mx-0',
               observed?.enabled
                 ? 'border-bds-green-40 bg-bds-green-10 dark:border-bds-green-60 dark:bg-bds-green-80/20'
                 : 'border-bds-gray-15 bg-bds-gray-5 dark:border-white/10 dark:bg-white/5',
@@ -815,11 +815,27 @@ function RaceTheAgentDemoInner() {
                 <Text variant="stats" className="mt-1 font-mono">{observed ? (observed.enabled ? '1' : '0') : '—'}</Text>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Metric label="Observed block" value={observed ? `#${observed.block.toLocaleString()}` : '—'} />
+              <Metric label="Observed at" value={observed ? formatTime(observed.at) : '—'} />
+            </div>
           </div>
 
-          <div className="mt-auto grid grid-cols-2 gap-3 border-t border-bds-gray-10 pt-5 dark:border-white/10">
-            <Metric label="Observed block" value={observed ? `#${observed.block.toLocaleString()}` : '—'} />
-            <Metric label="Observed at" value={observed ? formatTime(observed.at) : '—'} />
+          <div className="mt-5 border-t border-bds-gray-10 pt-5 dark:border-white/10">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <Text variant="caption" tone="muted">Comparison</Text>
+                <Text variant="headline" className="mt-1">Same call, different timing.</Text>
+              </div>
+              <ResultPill result={result} validity={validity} manual={manual} />
+            </div>
+            <Text variant="label.regular" tone="muted" className="mt-2">
+              Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
+            </Text>
+            <div className="mt-4 grid gap-3">
+              <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
+              <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
+            </div>
           </div>
         </Card>
 
@@ -878,25 +894,10 @@ function RaceTheAgentDemoInner() {
           ) : null}
         </Card>
 
-        <Card className="flex min-w-0 flex-col bg-background p-5 dark:bg-white/[.04] sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-            <Text variant="caption" tone="muted">Comparison</Text>
-              <Text as="h2" variant="title2" className="mt-2">Same call, different timing.</Text>
-            </div>
-            <ResultPill result={result} validity={validity} manual={manual} />
-          </div>
-          <Text variant="label.regular" tone="muted" className="mt-3">
-            Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
-          </Text>
-          <div className="mt-4 grid flex-1 gap-3">
-            <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
-            <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
-          </div>
-        </Card>
       </section>
 
-      <details className="group rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/[.04]">
+      <div className="flex flex-col gap-6">
+      <details className="group order-2 rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/[.04]">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none sm:px-6 [&::-webkit-details-marker]:hidden">
           <div>
             <Text variant="caption" tone="muted">Advanced details</Text>
@@ -936,7 +937,7 @@ function RaceTheAgentDemoInner() {
         </div>
       </details>
 
-      <section className="min-w-0">
+      <section className="order-1 min-w-0">
         <Card className="min-w-0 overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <Text variant="caption" tone="muted">Observed chain state</Text>
           <div ref={observationsScrollRef} className="mt-5 max-w-full overflow-x-auto overscroll-x-contain">
@@ -964,6 +965,7 @@ function RaceTheAgentDemoInner() {
           </div>
         </Card>
       </section>
+      </div>
     </AccountDemoShell>
   );
 }
