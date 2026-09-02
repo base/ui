@@ -4,7 +4,6 @@ import {
   AGENT_DISABLED_DWELL_MAX_MS,
   AGENT_DISABLED_DWELL_MIN_MS,
   attemptHistoryRows,
-  canResetRace,
   canSubmitManual,
   canSubmitValidity,
   comparisonResult,
@@ -61,13 +60,6 @@ describe('race lifecycle predicates', () => {
     const fields = noncelessFields(RACE_VALIDITY_SECONDS, now);
     expect(RACE_VALIDITY_SECONDS).toBe(15);
     expect(fields.validBefore).toBe(BigInt(now + 15_000));
-  });
-
-  it('blocks reset only while a submitted validity transaction can still land', () => {
-    expect(canResetRace({ status: 'pending' }, 20_000, 10_000)).toBe(false);
-    expect(canResetRace({ status: 'pending' }, null, 20_001)).toBe(false);
-    expect(canResetRace({ status: 'pending' }, 20_000, 20_001)).toBe(true);
-    expect(canResetRace({ status: 'expired' }, 20_000, 10_000)).toBe(true);
   });
 
   it('runs the condition agent only when automatic setup resources are ready', () => {

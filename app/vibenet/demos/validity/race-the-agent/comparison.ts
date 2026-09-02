@@ -54,11 +54,6 @@ export function isAttemptTerminal(status: AttemptStatus): boolean {
   return status === 'success' || status === 'reverted' || status === 'expired' || status === 'error';
 }
 
-export function canResetRace(validity: Attempt, validBefore: number | null, now = Date.now()): boolean {
-  if (validity.status !== 'pending') return true;
-  return validBefore !== null && now > validBefore;
-}
-
 export function canSubmitAttempt(status: AttemptStatus): boolean {
   return status !== 'pending' && status !== 'submitting';
 }

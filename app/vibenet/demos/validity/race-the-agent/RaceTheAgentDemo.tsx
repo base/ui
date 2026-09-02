@@ -48,7 +48,6 @@ import { ensureSingleton, probeSingleton } from '../lib/singleton';
 import { connectJsonRpcStream, headNumber, type StreamHead } from '../lib/stream';
 import {
   attemptHistoryRows,
-  canResetRace,
   canSubmitManual,
   canSubmitValidity,
   comparisonResult,
@@ -128,7 +127,6 @@ function RaceTheAgentDemoInner() {
   const [agentPhase, setAgentPhase] = useState<AgentPhase>('Waiting');
   const [agentRestartToken, setAgentRestartToken] = useState(0);
   const [agentError, setAgentError] = useState<string | null>(null);
-  const [streamLive, setStreamLive] = useState(false);
   const [prepared, setPrepared] = useState(false);
   const [setupRunning, setSetupRunning] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
@@ -146,7 +144,6 @@ function RaceTheAgentDemoInner() {
 
   const generationRef = useRef(0);
   const observedRef = useRef<Observation | null>(null);
-  const validityRef = useRef(validity);
   const accountKeyRef = useRef<string | null>(null);
   const setupInFlightKeyRef = useRef<string | null>(null);
   const setupReadyKeyRef = useRef<string | null>(null);
@@ -156,7 +153,6 @@ function RaceTheAgentDemoInner() {
   const rpcSendRef = useRef<RpcSend | null>(null);
   const engineRef = useRef(engine);
   engineRef.current = engine;
-  validityRef.current = validity;
   observedRef.current = observed;
 
   useEffect(() => {
@@ -268,7 +264,6 @@ function RaceTheAgentDemoInner() {
     const startPoll = () => {
       if (pollId !== undefined) return;
       rpcSendRef.current = null;
-      setStreamLive(false);
       void syncState();
       pollId = window.setInterval(() => void syncState(), STATE_FALLBACK_POLL_MS);
     };
@@ -289,7 +284,6 @@ function RaceTheAgentDemoInner() {
         stream.close();
         return;
       }
-      setStreamLive(true);
       void syncState();
     };
 
@@ -308,7 +302,6 @@ function RaceTheAgentDemoInner() {
       rpcSendRef.current = null;
       if (pollId !== undefined) window.clearInterval(pollId);
       stream?.close();
-      setStreamLive(false);
     };
   }, [applyObservation, client, vibe, withdrawal]);
 
@@ -765,25 +758,7 @@ function RaceTheAgentDemoInner() {
     }
   };
 
-  const reset = () => {
-    if (!canResetRace(validityRef.current, validBefore)) {
-      setError(`This validity transaction is still pending and can land until its ${RACE_VALIDITY_SECONDS}-second expiry. Keep watching the receipt and chain state.`);
-      return;
-    }
-    setValidity(EMPTY_ATTEMPT);
-    setValidityHistory([]);
-    setValidityAttemptCount(0);
-    setManual(EMPTY_ATTEMPT);
-    setManualHistory([]);
-    setManualAttemptCount(0);
-    setValidBefore(null);
-    setError(null);
-    setAgentError(null);
-    setObservations(observedRef.current ? [observedRef.current] : []);
-  };
-
   const result = comparisonResult(validity, manual);
-  const resetAllowed = canResetRace(validity, validBefore);
   const readyToSubmit = prepared && observed?.enabled === false && canSubmitValidity(validity.status);
   const readyToWithdraw = canSubmitManual({
     status: manual.status,
@@ -809,17 +784,6 @@ function RaceTheAgentDemoInner() {
         eyebrow="Validity Transactions · live comparison"
         title="Race the Agent"
         description="The same permissionless withdrawal pays exactly 1 VIBE. One transaction waits in advance for storage to equal 1; the other can be fired at any time and succeeds or reverts against the state it reaches onchain."
-        actions={validity.status !== 'idle' || manual.status !== 'idle' ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={reset}
-            disabled={!resetAllowed}
-            title={resetAllowed ? undefined : 'The pending validity transaction can still land until expiry.'}
-          >
-            Reset race
-          </Button>
-        ) : undefined}
       />
 
       <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(220px,.72fr)_minmax(0,1.45fr)_minmax(260px,.9fr)]">
@@ -850,15 +814,7 @@ function RaceTheAgentDemoInner() {
           <div className="mt-auto grid grid-cols-2 gap-3 border-t border-bds-gray-10 pt-5 dark:border-white/10">
             <Metric label="Observed block" value={observed ? `#${observed.block.toLocaleString()}` : '—'} />
             <Metric label="Observed at" value={observed ? formatTime(observed.at) : '—'} />
-            <Metric label="Contract balance" value={contractBalance === null ? '—' : `${formatCompactVibe(contractBalance)} VIBE`} />
-            <Metric label="Agent" value={agentRunning ? agentPhase : agent ? 'Restarting' : 'Not prepared'} />
           </div>
-          <Text variant="footnote" tone="muted" className="mt-4">
-            {streamLive
-              ? 'WebSocket observations follow each Vibenet head at roughly 200ms cadence.'
-              : 'WebSocket unavailable; state observations are polling every second.'}{' '}
-            Inclusion blocks below remain the primary ordering evidence.
-          </Text>
         </Card>
 
         <Card className="flex flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
@@ -866,7 +822,7 @@ function RaceTheAgentDemoInner() {
             <Text variant="caption" tone="muted">Guided race</Text>
             <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
           </div>
-          <div className="grid flex-1 auto-rows-fr gap-px bg-bds-gray-10 dark:bg-white/10 lg:grid-cols-3">
+          <div className="grid flex-1 auto-rows-fr gap-px bg-bds-gray-10 dark:bg-white/10">
             <RaceStep
               number="01"
               title="Automatic condition agent"
@@ -949,13 +905,21 @@ function RaceTheAgentDemoInner() {
               in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
             </Text>
             {withdrawal ? (
-              <div className="min-w-0">
-                <Text variant="caption" tone="muted">Singleton contract</Text>
-                <CopyableValue
-                  value={withdrawal}
-                  display={`${withdrawal.slice(0, 10)}…${withdrawal.slice(-8)}`}
-                  className="mt-1"
-                />
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                <div>
+                  <Text variant="caption" tone="muted">Singleton contract</Text>
+                  <CopyableValue
+                    value={withdrawal}
+                    display={`${withdrawal.slice(0, 10)}…${withdrawal.slice(-8)}`}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Text variant="caption" tone="muted">Contract balance</Text>
+                  <Text variant="label.mono" className="mt-1">
+                    {contractBalance === null ? '—' : `${formatCompactVibe(contractBalance)} VIBE`}
+                  </Text>
+                </div>
               </div>
             ) : null}
           </div>
@@ -1198,7 +1162,7 @@ function RaceStep({
   return (
     <div
       className={cn(
-        'flex h-full min-h-56 flex-col bg-background p-5 sm:p-6 dark:bg-[#090b12]',
+        'flex h-full min-h-32 flex-col bg-background p-4 sm:p-5 dark:bg-[#090b12]',
         active && 'bg-bds-blue-0 dark:bg-[#0c1222]',
       )}
     >
