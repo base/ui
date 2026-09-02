@@ -3,18 +3,20 @@
 // primitives (`authorizeActor` scope/expiry/policy, `key.delegate`) into
 // shapes the UI can render.
 
-import type { AaAccountChangeConfig, Address, Hex } from "@aa";
+import { actorScope, type AaAccountChangeConfig, type Address, type Hex } from "@aa";
 
 // ---------------------------------------------------------------------------
-// Scopes — mirror viem's `actorScope` bitmask.
+// Scopes — sourced directly from viem's `actorScope` bitmask so the values can
+// never drift from the protocol (the bits were reshuffled upstream). The UI's
+// `sender` is viem's `operator` (ungated initiation); "Send" is its label.
 // ---------------------------------------------------------------------------
 
 export const SCOPE = {
-  sender: 0x01,
-  policy: 0x02,
-  nonce: 0x04,
-  selfPayer: 0x08,
-  sponsorPayer: 0x10,
+  sender: actorScope.operator,
+  policy: actorScope.policy,
+  nonce: actorScope.nonce,
+  selfPayer: actorScope.selfPayer,
+  sponsorPayer: actorScope.sponsorPayer,
 } as const;
 
 const SCOPE_LABEL: Array<[number, string]> = [
