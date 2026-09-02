@@ -44,10 +44,11 @@ describe('DEMOS', () => {
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
-  it('lists Validity Transactions as a top-level group', () => {
-    const validity = listedDemos().find((demo) => demo.href === '/vibenet/demos/validity');
+  it('keeps Validity Transactions reachable but hidden from the top-level grid', () => {
+    const validity = DEMOS.find((demo) => demo.href === '/vibenet/demos/validity');
     expect(validity?.title).toBe('Validity Transactions');
     expect(validity?.children?.map((demo) => demo.title)).toEqual(['Conditional Swaps', 'Race the Agent']);
+    expect(listedDemos()).not.toContain(validity);
   });
 });
 
