@@ -7,9 +7,6 @@ export type StoredState = {
   v: 2;
   chainId: number;
   genesisHash: string;
-  /** Shared account that deployed this pool (makers are its subaccounts). */
-  accountId?: string;
-  makerAccountIds?: [string, string];
   deployment?: Deployment;
   orders?: PlacedOrder[];
 };
@@ -159,11 +156,6 @@ export function loadState(): StoredState | null {
   }
 }
 
-function parseMakerIds(value: unknown): [string, string] | undefined {
-  if (!Array.isArray(value) || !isId(value[0]) || !isId(value[1])) return undefined;
-  return [value[0], value[1]];
-}
-
 export function parseStored(raw: string): StoredState | null {
   const parsed = JSON.parse(raw, bnReviver) as Partial<StoredState> & { v?: number };
   if (typeof parsed.chainId !== 'number' || typeof parsed.genesisHash !== 'string') return null;
@@ -172,8 +164,6 @@ export function parseStored(raw: string): StoredState | null {
     v: 2,
     chainId: parsed.chainId,
     genesisHash: parsed.genesisHash,
-    accountId: isId(parsed.accountId) ? parsed.accountId : undefined,
-    makerAccountIds: parseMakerIds(parsed.makerAccountIds),
     deployment: parseDeployment(parsed.deployment),
     orders: parseOrders(parsed.orders),
   };

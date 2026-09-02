@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatEther, parseEther, type Hex, type PublicClient } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { formatEther, type Hex, type PublicClient } from 'viem';
 
 import { trackValidityOrder } from '../../../analytics/events';
 import { Button } from '../../../components/ui/Button';
@@ -13,7 +12,6 @@ import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { DemoHeader } from '../_components/DemoHeader';
 import { newCallRow } from '../account/library/calls';
-import type { StoredAccount } from '../account/library/model';
 import { ActivityLog } from '../account/components/ActivityLog';
 import { AccountEngineProvider, useAccountEngine } from '../account/useAccountEngine';
 import { VIBENET_EXPLORER_PATH } from '../../library/config';
@@ -37,7 +35,6 @@ import {
   tokenBalance,
 } from './lib/amm';
 import { clampNoncelessExpiry, noncelessFields } from '../../library/aa';
-import { startBots, allNeedGas, shouldFlagMakersDry } from './lib/bots';
 import {
   CANDLE_SAMPLE_MS,
   MAX_EXPIRY_SECONDS,
@@ -46,7 +43,6 @@ import {
 } from './lib/constants';
 import { VibenetApiError } from '../../library/client';
 import { VIBENET_WS_URL } from '../../library/config';
-import { ensureMakers, rootAccount } from './lib/makers';
 import {
   ageRestoredOrders,
   maxBlockForExpiry,
@@ -75,14 +71,13 @@ import {
   describeValidityError,
   fetchTape,
   makePublicClient,
-  makeWalletClient,
   publishTape,
   sendValidityTransaction,
   VIBENET_CHAIN,
   type RpcSend,
 } from './lib/rpc';
 import { connectJsonRpcStream, headNumber, type StreamHead, type StreamLog } from './lib/stream';
-import { ensureSingleton, probeSingleton } from './lib/singleton';
+import { probeSingleton } from './lib/singleton';
 import { mergeTape } from './lib/tape';
 import { createState, loadState, saveState, type StoredState } from './lib/store';
 import type { PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/types';
@@ -91,8 +86,6 @@ import type { PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/t
  *  The socket carries heads, pair logs, and remaining reads (balances, receipts). */
 const SYNC_MS = 1_000;
 const BALANCE_MS = 5_000;
-const OWNER_DEPLOY_GAS = parseEther('0.08');
-const OWNER_DEPLOY_SEND = '0.1';
 
 function wadToNumber(wad: bigint): number {
   return Number(wad) / 1e18;
@@ -135,22 +128,14 @@ function ValidityDemoInner() {
   const [orders, setOrders] = useState<PlacedOrder[]>([]);
   const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
   const [samples, setSamples] = useState<PriceSample[]>([]);
-  const [makerError, setMakerError] = useState<string | null>(null);
-  const [makersDry, setMakersDry] = useState(false);
   const [blockNumber, setBlockNumber] = useState<bigint | null>(null);
   const [streamLive, setStreamLive] = useState(false);
 
   const publicRef = useRef<PublicClient | null>(null);
   const rpcSendRef = useRef<RpcSend | null>(null);
   const headFeesRef = useRef<ReturnType<typeof feesFromHead>>(null);
-  const makerNonceRef = useRef<(bigint | null)[]>([]);
-  const makerDeployedRef = useRef<boolean[]>([]);
   const engineRef = useRef(engine);
   engineRef.current = engine;
-  const lastMakerPriceAtRef = useRef(0);
-  const makersRef = useRef<StoredAccount[]>([]);
-  const makerEthRef = useRef<(bigint | null)[]>([]);
-  const makerTokenRef = useRef<Record<string, bigint>>({});
   const refreshBalancesRef = useRef<() => void>(() => {});
 
   const ordersRef = useRef<PlacedOrder[]>([]);
@@ -238,22 +223,6 @@ function ValidityDemoInner() {
       flush();
     };
   }, [hydrated, pair]);
-
-  const parent = useMemo(
-    () => (acct ? rootAccount(acct, engine.accounts) : null),
-    [acct, engine.accounts],
-  );
-
-  const makers = useMemo(() => {
-    if (!parent) return [] as StoredAccount[];
-    const ids = state?.makerAccountIds;
-    const resolved = (ids ?? [])
-      .map((id) => engine.accounts.find((item) => item.id === id))
-      .filter((item): item is StoredAccount => Boolean(item));
-    if (resolved.length === 2) return resolved;
-    return engine.accounts.filter((item) => item.parentId === parent.id && item.label.startsWith('Validity maker'));
-  }, [engine.accounts, parent, state?.makerAccountIds]);
-  makersRef.current = makers;
 
   useEffect(() => {
     let cancelled = false;
@@ -410,32 +379,8 @@ function ValidityDemoInner() {
     let stream: ReturnType<typeof connectJsonRpcStream> | undefined;
     const logsByTx = new Map<string, StreamLog[]>();
 
-    const applyMakerParts = (deployment: StoredState['deployment'], makerParts: unknown[]) => {
-      const makerList = makersRef.current;
-      const stride = deployment ? 3 : 1;
-      makerEthRef.current = makerList.map((_, index) => {
-        const value = makerParts[index * stride];
-        return typeof value === 'bigint' ? value : null;
-      });
-      const tokens: Record<string, bigint> = {};
-      if (deployment) {
-        makerList.forEach((maker, index) => {
-          const vibe = makerParts[index * stride + 1];
-          const usdv = makerParts[index * stride + 2];
-          if (typeof vibe === 'bigint') tokens[`${maker.address}:${deployment.tokenA}`] = vibe;
-          if (typeof usdv === 'bigint') tokens[`${maker.address}:${deployment.tokenB}`] = usdv;
-        });
-      }
-      makerTokenRef.current = tokens;
-      const known = makerEthRef.current.filter((value): value is bigint => value !== null);
-      if (known.length === makerList.length && makerList.length > 0 && !allNeedGas(known)) {
-        setMakersDry(false);
-      }
-    };
-
     const pullBalances = async (includeReserves: boolean) => {
       const deployment = stateRef.current?.deployment;
-      const makerList = makersRef.current;
       const jobs: Promise<unknown>[] = [client.getBalance({ address: acct.address })];
       if (includeReserves) {
         jobs.push(deployment ? getReserves(client, deployment.pair).catch(() => null) : Promise.resolve(null));
@@ -443,13 +388,6 @@ function ValidityDemoInner() {
       if (deployment) {
         jobs.push(tokenBalance(client, deployment.tokenA, acct.address).catch(() => null));
         jobs.push(tokenBalance(client, deployment.tokenB, acct.address).catch(() => null));
-      }
-      for (const maker of makerList) {
-        jobs.push(client.getBalance({ address: maker.address }).catch(() => null));
-        if (deployment) {
-          jobs.push(tokenBalance(client, deployment.tokenA, maker.address).catch(() => null));
-          jobs.push(tokenBalance(client, deployment.tokenB, maker.address).catch(() => null));
-        }
       }
       const [eth, ...rest] = await Promise.all(jobs);
       if (cancelled) return;
@@ -469,7 +407,6 @@ function ValidityDemoInner() {
         if (typeof vibe === 'bigint') setVibeBalance(vibe);
         if (typeof usdv === 'bigint') setUsdvBalance(usdv);
       }
-      applyMakerParts(deployment, rest.slice(offset));
     };
     refreshBalancesRef.current = () => {
       void pullBalances(false).catch(() => {});
@@ -697,137 +634,24 @@ function ValidityDemoInner() {
     }
   }, [engine]);
 
-  const deploy = async () => {
-    if (!acct || !parent || !genesisHash) return;
-    const publicClient = publicRef.current;
-    if (!publicClient) return;
-    const k1 = engine.ownerSigners.find((signer) => signer.kind === 'k1' && signer.privateKey);
-    if (!k1?.privateKey) {
-      setError('Pool deploy needs a K1 owner key on this account. Add one in Accounts.');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const [makerA, makerB] = ensureMakers(
-        parent,
-        engine.accounts,
-        state?.makerAccountIds,
-        engine.doCreateSubAccount,
-      );
-      persist({
-        ...(state ?? createState(VIBENET_CHAIN.id, genesisHash)),
-        accountId: parent.id,
-        makerAccountIds: [makerA.id, makerB.id],
-      });
-
-      const eoa = privateKeyToAccount(k1.privateKey);
-      const eoaBal = await publicClient.getBalance({ address: eoa.address });
-      if (eoaBal < OWNER_DEPLOY_GAS) {
-        setProgress('Sending ETH to the owner key for contract creates');
-        await engine.sendActiveCalls({
-          calls: [{ to: eoa.address, data: '0x', value: OWNER_DEPLOY_SEND }],
-          metadata: 'Validity deploy gas',
-        });
-      }
-
-      const wallet = makeWalletClient(eoa);
-      const deployment = await ensureSingleton({
-        wallet,
-        publicClient,
-        account: eoa,
-        onProgress: setProgress,
-      });
-
-      setProgress('Minting inventory and approving the helper');
-      const starter = await inventoryMints(publicClient, deployment, [
-        { to: acct.address },
-        { to: makerA.address, mintVibe: true },
-        { to: makerB.address, mintVibe: true },
-      ]);
-      const approves = await helperApproveCalls(publicClient, deployment, acct.address);
-      if (starter.length + approves.length > 0) {
-        await engine.sendActiveCalls({
-          calls: [...starter, ...approves],
-          metadata: 'Validity inventory',
-        });
-      }
-      inventoryKeyRef.current = `${deployment.pair}:${acct.id}:${makerA.id},${makerB.id}`;
-
-      setMakersDry(false);
-      setMakerError(null);
-      lastMakerPriceAtRef.current = 0;
-      persist({
-        ...(state ?? createState(VIBENET_CHAIN.id, genesisHash)),
-        v: 2,
-        chainId: VIBENET_CHAIN.id,
-        genesisHash,
-        accountId: parent.id,
-        makerAccountIds: [makerA.id, makerB.id],
-        deployment,
-      });
-      engine.pushActivity({
-        kind: 'transact',
-        title: 'Validity shared pool ready',
-        detail: `Pair ${deployment.pair}`,
-        account: acct.address,
-        network: engine.chain.name,
-        mode: engine.chain.mode,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Deploy failed');
-    } finally {
-      setBusy(false);
-      setProgress(null);
-    }
-  };
-
-  const makerKey = makers.map((maker) => maker.id).join(',');
   const inventoryKeyRef = useRef('');
 
+  // Mint USDV inventory + approve the helper for the user's own account so
+  // their conditional orders can fill. The pool itself and the maker flow are
+  // now run centrally by the vibenet actor system, so there is no client-side
+  // maker creation, funding, or swap loop here anymore.
   useEffect(() => {
-    if (!hydrated || !engine.hydrated || !genesisHash || !acct || !parent || !state?.deployment) return;
-    if (makers.length === 2) return;
-    const [makerA, makerB] = ensureMakers(
-      parent,
-      engine.accounts,
-      state.makerAccountIds,
-      engine.doCreateSubAccount,
-    );
-    persist({
-      ...state,
-      accountId: parent.id,
-      makerAccountIds: [makerA.id, makerB.id],
-    });
-  }, [
-    acct,
-    engine.accounts,
-    engine.doCreateSubAccount,
-    engine.hydrated,
-    hydrated,
-    makers.length,
-    parent,
-    persist,
-    state,
-    genesisHash,
-  ]);
-
-  useEffect(() => {
-    if (!hydrated || !state?.deployment || !acct || makers.length !== 2 || busy) return;
+    if (!hydrated || !state?.deployment || !acct || busy) return;
     if (!ethBalance || ethBalance === 0n) return;
     const client = publicRef.current;
     if (!client) return;
-    const key = `${state.deployment.pair}:${acct.id}:${makerKey}`;
+    const key = `${state.deployment.pair}:${acct.id}`;
     if (inventoryKeyRef.current === key) return;
     const deployment = state.deployment;
-    const recipients = [
-      { to: acct.address },
-      ...makers.map((maker) => ({ to: maker.address, mintVibe: true as const })),
-    ];
     let cancelled = false;
     void (async () => {
       try {
-        const starter = await inventoryMints(client, deployment, recipients);
+        const starter = await inventoryMints(client, deployment, [{ to: acct.address }]);
         const approves = await helperApproveCalls(client, deployment, acct.address);
         if (cancelled) return;
         if (starter.length + approves.length === 0) {
@@ -849,87 +673,7 @@ function ValidityDemoInner() {
     return () => {
       cancelled = true;
     };
-  }, [acct, busy, ethBalance, hydrated, makerKey, makers, state?.deployment]);
-
-  useEffect(() => {
-    if (!hydrated || !genesisHash || !state?.deployment || makersRef.current.length !== 2) return;
-    makerNonceRef.current = [];
-    makerDeployedRef.current = [];
-    makerEthRef.current = makersRef.current.map(() => null);
-    setMakersDry(false);
-    const deployment = state.deployment;
-    const stop = startBots({
-      addresses: makersRef.current.map((maker) => maker.address),
-      deployment,
-      reserves: () => reservesRef.current,
-      ethBalance: (index) => makerEthRef.current[index] ?? null,
-      tokenBalance: (index, token) => {
-        const maker = makersRef.current[index];
-        if (!maker) return null;
-        return makerTokenRef.current[`${maker.address}:${token}`] ?? null;
-      },
-      sendSwap: async (index, calls) => {
-        const maker = makersRef.current[index];
-        if (!maker) throw new Error('maker missing');
-        const client = publicRef.current;
-        let nonce = makerNonceRef.current[index] ?? null;
-        if (nonce === null && client) {
-          nonce = BigInt(await client.getTransactionCount({ address: maker.address }));
-        }
-        const nonceSequence = nonce ?? 0n;
-        const rows = calls.map((call) => ({ ...call, value: '0' as const }));
-        const send = (deployed: boolean) =>
-          engineRef.current.sendAccountCalls({
-            account: maker,
-            calls: rows,
-            // First swap carries `create` and must land before we pin nonces.
-            wait: !deployed,
-            seqOpt: {
-              nonceSequence,
-              ...(deployed ? { assumeDeployed: true } : {}),
-            },
-          });
-        try {
-          const deployed = makerDeployedRef.current[index] === true;
-          try {
-            await send(deployed);
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            if (!deployed || !/actor is not bound/i.test(message)) throw err;
-            // Replica still missing the create, or we guessed deployed too early.
-            makerDeployedRef.current[index] = false;
-            await send(false);
-          }
-          makerDeployedRef.current[index] = true;
-          makerNonceRef.current[index] = nonceSequence + 1n;
-        } catch (err) {
-          makerNonceRef.current[index] = null;
-          throw err;
-        }
-      },
-      enabled: () => true,
-      onPrice: () => {
-        lastMakerPriceAtRef.current = Date.now();
-        setMakerError(null);
-        setMakersDry(false);
-      },
-      onError: setMakerError,
-      onGasLow: () => {
-        for (const maker of makersRef.current) engineRef.current.autoFundNewAccount(maker.address);
-        if (
-          shouldFlagMakersDry(
-            makerEthRef.current,
-            makersRef.current.length,
-            lastMakerPriceAtRef.current,
-          )
-        ) {
-          setMakersDry(true);
-          setMakerError('need ETH');
-        }
-      },
-    });
-    return stop;
-  }, [genesisHash, hydrated, makerKey, state?.deployment]);
+  }, [acct, busy, ethBalance, hydrated, state?.deployment]);
 
   const placeOrder = async (): Promise<Hex | undefined> => {
     if (!draft || !acct || !state?.deployment || !reserves || !engine.activeSigner) return;
@@ -1109,7 +853,6 @@ function ValidityDemoInner() {
   };
 
   const address = acct?.address;
-  const funded = (ethBalance ?? 0n) > 0n;
   const deployed = Boolean(state?.deployment);
   const tradeLabel = formatTokenAmount(TRADE_VIBE);
   const canAffordTrade = (() => {
@@ -1136,14 +879,6 @@ function ValidityDemoInner() {
         description="A transaction can carry predicates the sequencer checks before inclusion. Everyone shares one VIBE/USDV pool — VIBE is a B20, USDV is the faucet stablecoin — so you can watch a swap wait for a price condition, then land or expire."
       />
 
-      {makersDry ? (
-        <Text variant="footnote" className="text-bds-orange-50">
-          Simulated flow ran out of ETH. Top up the account so the makers can keep walking the mid.
-        </Text>
-      ) : makerError ? (
-        <Text variant="footnote" className="text-bds-orange-50">{makerError}</Text>
-      ) : null}
-
       {statusError ? (
         <Card className="bg-background p-4 text-bds-orange-50 dark:bg-white/5">{statusError}</Card>
       ) : null}
@@ -1152,10 +887,11 @@ function ValidityDemoInner() {
         <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
           <Text variant="title3">Shared pool</Text>
           <Text variant="label.regular" tone="muted">
-            Your Vibenet account signs the swaps. The first visitor publishes a
-            network-wide pair of VIBE (a B20) and the faucet USDV. Everyone
-            else attaches to the same factory. Makers mint a starter bag and
-            buy or sell against that pool.
+            The shared VIBE/USDV pool (VIBE is a B20, USDV is the faucet
+            stablecoin) runs on Vibenet infrastructure — a central actor system
+            keeps a live market moving. It’s coming online; this page will fill
+            in automatically. Meanwhile, top up your account so you’re ready to
+            place a conditional order.
           </Text>
           {address ? (
             <div className="flex items-center justify-between gap-3">
@@ -1176,9 +912,6 @@ function ValidityDemoInner() {
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void fund()} disabled={busy || !address || engine.faucetBusy !== null}>
               {engine.faucetBusy ? 'Topping up…' : 'Top up'}
-            </Button>
-            <Button variant="secondary" onClick={() => void deploy()} disabled={busy || !funded}>
-              Deploy shared pool
             </Button>
           </div>
         </Card>
