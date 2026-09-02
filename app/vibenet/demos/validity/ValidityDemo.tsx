@@ -549,7 +549,14 @@ function ValidityDemoInner() {
     try {
       const price = priceOverrideWad ?? applyOffsetBps(spot, side, offsetBps);
       const ammPrice = ammPriceFromQuote(price, vibeToken0);
-      const built = priceValidity(state.deployment.pair, k, ammPrice, ammSide(side, vibeToken0));
+      const ammSpot = ammPriceFromQuote(spot, vibeToken0);
+      const built = priceValidity(
+        state.deployment.pair,
+        k,
+        ammPrice,
+        ammSide(side, vibeToken0),
+        ammSpot,
+      );
       return {
         priceWad: price,
         side,
