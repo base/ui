@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CANDLE_BUCKET_MS } from '../lib/constants';
-import { isUpCandle, toCandles, type PriceSample } from './PriceCandles';
+import { domainBounds, isUpCandle, toCandles, type PriceSample } from './PriceCandles';
 
 const BUCKET = CANDLE_BUCKET_MS;
 
@@ -71,5 +71,32 @@ describe('isUpCandle', () => {
     expect(isUpCandle(flat, prev)).toBe(true);
     const lower = { t: 4_000, o: 0.078, h: 0.078, l: 0.078, c: 0.078 };
     expect(isUpCandle(lower, flat)).toBe(false);
+  });
+});
+
+describe('domainBounds', () => {
+  const candle = (t: number) => ({ t, o: 0.07, h: 0.072, l: 0.069, c: 0.07 });
+  const tape = [candle(0), candle(5_000), candle(10_000)];
+
+  it('ignores a far fill target unless the order is hovered', () => {
+    const fill = { id: 'a', t: 6_000, price: 0.07, target: 1, side: 'buy' as const };
+    const resting = domainBounds(tape, [], [fill], 0);
+    expect(resting?.hi).toBeLessThan(0.1);
+    const hovered = domainBounds(tape, [], [{ ...fill, highlighted: true }], 0);
+    expect(hovered?.hi).toBe(1);
+  });
+
+  it('ignores fills that scrolled out of the window', () => {
+    const fill = { id: 'a', t: 1_000, price: 1, target: 1, side: 'buy' as const, highlighted: true };
+    expect(domainBounds(tape, [], [fill], 5_000)?.hi).toBeLessThan(0.1);
+  });
+
+  it('shows near levels but zooms to far ones only on hover', () => {
+    const near = { id: 'n', price: 0.075, side: 'sell' as const, kind: 'resting' as const };
+    const far = { id: 'f', price: 1, side: 'sell' as const, kind: 'resting' as const };
+    const bounds = domainBounds(tape, [near, far], [], 0);
+    expect(bounds?.hi).toBe(0.075);
+    const hovered = domainBounds(tape, [near, { ...far, highlighted: true }], [], 0);
+    expect(hovered?.hi).toBe(1);
   });
 });

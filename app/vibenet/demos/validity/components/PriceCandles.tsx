@@ -82,6 +82,49 @@ export function isUpCandle(candle: Candle, prev?: Candle): boolean {
   return candle.c >= prev.c;
 }
 
+/** Levels/fills beyond this fraction of the last price only zoom the chart while hovered. */
+const NEAR_BAND = 0.15;
+
+/**
+ * Price bounds for the y-domain. The tape always fits; order levels and fill
+ * targets far from the mid expand the view only while their order is hovered,
+ * so one outlier order doesn't keep the whole chart zoomed out.
+ */
+export function domainBounds(
+  candles: Candle[],
+  levels: PriceLevel[],
+  fills: FillMark[],
+  windowStart: number,
+): { lo: number; hi: number } | null {
+  if (candles.length === 0) return null;
+  let lo = candles[0].l;
+  let hi = candles[0].h;
+  for (const candle of candles) {
+    lo = Math.min(lo, candle.l);
+    hi = Math.max(hi, candle.h);
+  }
+  const last = candles[candles.length - 1].c;
+  const nearLo = Math.min(lo, last * (1 - NEAR_BAND));
+  const nearHi = Math.max(hi, last * (1 + NEAR_BAND));
+  for (const level of levels) {
+    if (level.highlighted || (level.price >= nearLo && level.price <= nearHi)) {
+      lo = Math.min(lo, level.price);
+      hi = Math.max(hi, level.price);
+    }
+  }
+  for (const fill of fills) {
+    if (fill.t < windowStart) continue;
+    if (fill.highlighted) {
+      lo = Math.min(lo, fill.price, fill.target);
+      hi = Math.max(hi, fill.price, fill.target);
+    } else if (fill.price >= nearLo && fill.price <= nearHi) {
+      lo = Math.min(lo, fill.price);
+      hi = Math.max(hi, fill.price);
+    }
+  }
+  return { lo, hi };
+}
+
 function formatAxisPrice(price: number): string {
   if (price >= 1) return `$${price.toFixed(2)}`;
   if (price >= 0.1) return `$${price.toFixed(3)}`;
@@ -148,20 +191,11 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
 
   const layout = useMemo(() => {
     if (candles.length === 0 || innerW <= 0 || innerH <= 0) return null;
-    let lo = candles[0].l;
-    let hi = candles[0].h;
-    for (const candle of candles) {
-      lo = Math.min(lo, candle.l);
-      hi = Math.max(hi, candle.h);
-    }
-    for (const level of visibleLevels) {
-      lo = Math.min(lo, level.price);
-      hi = Math.max(hi, level.price);
-    }
-    for (const fill of visibleFills) {
-      lo = Math.min(lo, fill.price, fill.target);
-      hi = Math.max(hi, fill.price, fill.target);
-    }
+    const t1 = candles[candles.length - 1].t + BUCKET_MS;
+    const t0 = t1 - WINDOW_MS;
+    const bounds = domainBounds(candles, visibleLevels, visibleFills, t0);
+    if (!bounds) return null;
+    let { lo, hi } = bounds;
     const last = candles[candles.length - 1].c;
     const minSpan = Math.max(last * 0.06, 0.002);
     if (hi - lo < minSpan) {
@@ -172,8 +206,6 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
     const pad = (hi - lo) * 0.08;
     const yMin = Math.max(lo - pad, 0);
     const yMax = hi + pad;
-    const t1 = candles[candles.length - 1].t + BUCKET_MS;
-    const t0 = t1 - WINDOW_MS;
     const x = scaleLinear().domain([t0, t1]).range([0, innerW]);
     const y = scaleLinear().domain([yMin, yMax]).range([innerH, 0]);
     const yTicks = y.ticks(6);
