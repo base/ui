@@ -214,34 +214,6 @@ export function encodeApprove(token: Address, spender: Address): { to: Address; 
   };
 }
 
-export function encodeSwapLegs(args: {
-  tokenIn: Address;
-  pair: Address;
-  recipient: Address;
-  amountIn: bigint;
-  amount0Out: bigint;
-  amount1Out: bigint;
-}): { to: Address; data: Hex }[] {
-  return [
-    {
-      to: args.tokenIn,
-      data: encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [args.pair, args.amountIn],
-      }),
-    },
-    {
-      to: args.pair,
-      data: encodeFunctionData({
-        abi: pairAbi,
-        functionName: 'swap',
-        args: [args.amount0Out, args.amount1Out, args.recipient, '0x'],
-      }),
-    },
-  ];
-}
-
 export function encodeHelperSwap(args: {
   helper: Address;
   tokenIn: Address;
