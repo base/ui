@@ -65,6 +65,7 @@ import { toast } from 'sonner';
 
 import { vibenetApi } from '../../library/client';
 import { ACCOUNT_RPC_URL } from '../../library/config';
+import { type Inclusion, inclusionFromBlock } from '../_shared/inclusion';
 import { type DemoChain, deploymentFromContracts, estimateTxGas, getDemoChain } from './library/chains';
 import { buildPhases, type CallRow, newCallRow, safeGasLimit, valueBearingCallCount } from './library/calls';
 import {
@@ -95,6 +96,22 @@ import {
 } from './shared';
 import { actorPairs, randomHex32, sortActors, toStoredActor } from './library/derive';
 import { useAccounts } from './useAccounts';
+
+// Resolve as soon as eth_getTransactionReceipt returns non-null, polling at the
+// chain's 200 ms block cadence. Gives up quietly at `budget` — the caller's
+// full waiter takes over from there.
+async function pollReceiptExists(
+  client: { request: (args: { method: 'eth_getTransactionReceipt'; params: [Hex] }) => Promise<unknown> },
+  hash: Hex,
+  budget: number,
+): Promise<void> {
+  const deadline = Date.now() + budget;
+  while (Date.now() < deadline) {
+    const receipt = await client.request({ method: 'eth_getTransactionReceipt', params: [hash] }).catch(() => null);
+    if (receipt) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
 
 const fundAccount = (address: Address) =>
   Promise.all([
@@ -608,8 +625,13 @@ function useAccountEngineCore() {
   }, [sessionPolicyKey, chain.shortName]);
 
   // --- helpers -----------------------------------------------------------
+  // Entries that name a tx hash pick up its inclusion timing automatically, so
+  // every surface's activity row can say which 200 ms block the tx landed in.
   const pushActivity = (e: Omit<Persisted['activity'][number], 'id' | 'ts'>) =>
-    setActivity((prev) => [{ id: crypto.randomUUID(), ts: Date.now(), ...e }, ...prev]);
+    setActivity((prev) => [
+      { id: crypto.randomUUID(), ts: Date.now(), ...inclusionFor(e.txHash), ...e },
+      ...prev,
+    ]);
 
   const updateAccount = useCallback(
     (id: string, patch: Partial<StoredAccount> | ((a: StoredAccount) => StoredAccount)) =>
@@ -797,12 +819,33 @@ function useAccountEngineCore() {
       ? account.delegate(a.delegate ?? chain.deployment.accounts.default)
       : (account as ReturnType<typeof toAccount>).create();
 
+  // Inclusion timing per broadcast hash: which block (and which 200 ms slot)
+  // each transaction landed in, and how long that took from broadcast. Written
+  // by awaitInclusion, read by pushActivity and by the surfaces' result views.
+  // A ref, not state — it is looked up right after the await, never rendered
+  // from directly.
+  const inclusions = useRef(new Map<Hex, Inclusion>());
+  const submittedAt = useRef(new Map<Hex, number>());
+  const inclusionFor = (txHash: Hex | undefined): Inclusion | undefined =>
+    txHash ? inclusions.current.get(txHash) : undefined;
+
   // Wait for a broadcast tx to be included and check that it — and every 8130
   // phase in it — succeeded. Throws TxPendingError if it is still not included
   // when the timeout runs out, a plain Error if anything reverted.
+  //
+  // Vibenet produces a block every 200 ms (Denim), so the receipt is polled at
+  // a matching cadence — the default 4 s interval would hide the whole point.
   const awaitInclusion = async (txHash: Hex, timeout = 30_000): Promise<Hex> => {
+    const client = makeRpcClient();
+    let receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>;
     try {
-      const receipt = await waitForTransactionReceipt(makeRpcClient() as never, { hash: txHash, timeout });
+      // The vendored waiter spends a second round trip per loop on
+      // eth_getTransactionByHash (expiry detection), which turns a 300 ms
+      // inclusion into ~1.4 s of spinner. Watch for the receipt directly first;
+      // the waiter then returns on its first poll, keeping its expiry and
+      // phase-status semantics for the slow path.
+      await pollReceiptExists(client, txHash, Math.min(timeout, 3_000));
+      receipt = await waitForTransactionReceipt(client as never, { hash: txHash, timeout, pollingInterval: 150 });
       if (receipt.status === '0x0') throw new Error(`Transaction reverted onchain (${txHash}).`);
       const phases = receipt.eip8130?.phaseStatuses ?? [];
       const failedPhase = phases.findIndex((s: Hex) => s === '0x0');
@@ -811,6 +854,15 @@ function useAccountEngineCore() {
       if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
       throw err;
     }
+    const observedAt = Date.now();
+    // One extra read for the block's Denim `timestampMs`; the receipt only
+    // carries the block hash. Timing is decoration, so a failed read is dropped.
+    const block = (await client
+      .request({ method: 'eth_getBlockByHash', params: [receipt.blockHash as Hex, false] })
+      .catch(() => null)) as { number?: Hex; timestampMs?: Hex } | null;
+    const inclusion = inclusionFromBlock(block, submittedAt.current.get(txHash) ?? observedAt, observedAt);
+    if (inclusion) inclusions.current.set(txHash, inclusion);
+    submittedAt.current.delete(txHash);
     return txHash;
   };
 
@@ -819,10 +871,12 @@ function useAccountEngineCore() {
   const broadcast8130 = async (signedTx: Hex, onStatus?: (s: 'submitting' | 'confirming') => void): Promise<Hex> => {
     const client = makeRpcClient();
     onStatus?.('submitting');
+    const sentAt = Date.now();
     const txHash = (await client.request({
       method: 'eth_sendRawTransaction',
       params: [signedTx],
     })) as Hex;
+    submittedAt.current.set(txHash, sentAt);
     onStatus?.('confirming');
     return awaitInclusion(txHash);
   };
@@ -1116,7 +1170,7 @@ function useAccountEngineCore() {
     tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
     /** Optional top-level signed app data attached to the transaction. */
     metadata?: string;
-  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token' }> => {
+  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token'; inclusion?: Inclusion }> => {
     if (!acct) throw new Error('Select an account before you continue.');
     if (!calls.length) throw new Error('No calls to send.');
     const signer =
@@ -1151,7 +1205,7 @@ function useAccountEngineCore() {
     );
     const hash = await broadcast8130(serialized);
     applyLandedBundle(acct, nextSeq, bundle);
-    return { hash, serialized, mode: tokenGas ? 'token' : 'self' };
+    return { hash, serialized, mode: tokenGas ? 'token' : 'self', inclusion: inclusionFor(hash) };
   };
 
   // Sign + broadcast from a specific stored account (not necessarily the active
@@ -2078,6 +2132,7 @@ function useAccountEngineCore() {
 
     // Signing engine (also used by each surface's own Transact flow)
     broadcast8130,
+    inclusionFor,
     signComposed,
     sendActiveCalls,
     sendAccountCalls,

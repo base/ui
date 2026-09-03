@@ -38,6 +38,8 @@ import { vibenetApi } from '../../../library/client';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { AccountSwitcher } from '../../_shared/AccountSwitcher';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
+import type { Inclusion } from '../../_shared/inclusion';
+import { InclusionBadge } from '../../_shared/InclusionBadge';
 import { Badge, CheckIcon, KindBadge } from '../../_shared/primitives';
 import { ViewTransactionButton } from '../../_shared/ViewTransactionButton';
 import { DEMO_CHAINS, estimateTxGas, PAYER_URL } from '../library/chains';
@@ -92,6 +94,7 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
     pendingScope,
     keyChangeCount,
     broadcast8130,
+    inclusionFor,
     signComposed,
     applyLandedBundle,
     pendingBundleFor,
@@ -131,14 +134,7 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
   const [txStep, setTxStep] = useState<'build' | 'review' | 'submitted'>(
     applyTarget || preset ? 'review' : 'build',
   );
-  const [result, setResult] = useState<{
-    serialized?: Hex;
-    txHash?: Hex;
-    by: string;
-    kind: SignerKind;
-    gasNote?: string;
-    pending?: boolean;
-  } | null>(null);
+  const [result, setResult] = useState<SubmittedResult>(null);
 
   const signableSigners = useMemo(
     () => [...postChangeOwnerSigners, ...sessionSigners],
@@ -193,7 +189,7 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
     gasNote?: string,
     extraChanges: string[] = [],
   ) => {
-    setResult({ serialized, txHash, by: by.label, kind: by.kind, pending, gasNote });
+    setResult({ serialized, txHash, by: by.label, kind: by.kind, pending, gasNote, inclusion: inclusionFor(txHash) });
     pushActivity({
       kind: a.deployed && !pending ? 'transact' : 'create',
       txHash,
@@ -540,7 +536,7 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
   // same presentational shape even though their execution paths differ.
   const applyResult =
     applyTarget && configTx && txSigner
-      ? { txHash: configTx.hash, by: txSigner.label, kind: txSigner.kind }
+      ? { txHash: configTx.hash, by: txSigner.label, kind: txSigner.kind, inclusion: inclusionFor(configTx.hash) }
       : null;
   const submittedResult = applyTarget ? applyResult : result;
 
@@ -1378,6 +1374,8 @@ type SubmittedResult = {
   kind: SignerKind;
   gasNote?: string;
   pending?: boolean;
+  /** Which 200 ms block it landed in, and how fast; absent while pending. */
+  inclusion?: Inclusion;
 } | null;
 
 // Third stage: shown once "Send" is pressed. Renders the in-flight status, then
@@ -1442,6 +1440,7 @@ function SubmittedBody({
           Broadcast but not yet included — check the explorer for status.
         </Text>
       ) : null}
+      {result.inclusion ? <InclusionBadge inclusion={result.inclusion} /> : null}
       {result.gasNote ? <Text variant="label.regular" tone="muted">{result.gasNote}</Text> : null}
       {result.txHash ? (
         <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">{short(result.txHash)}</span>
