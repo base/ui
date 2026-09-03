@@ -54,6 +54,33 @@ export function AnimatedArrowIcon({
   );
 }
 
+export function ChevronIcon({
+  size = 16,
+  strokeWidth = 1.5,
+  className,
+}: {
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M7.5 4L13.5 10L7.5 16" />
+    </svg>
+  );
+}
+
 export function CloseIcon({ size = 12, className }: { size?: number; className?: string }) {
   return (
     <svg
