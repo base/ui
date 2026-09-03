@@ -80,10 +80,9 @@ export function ValidityJson({
         <button
           type="button"
           onClick={handleCopy}
-          aria-label="Copy predicate JSON"
-          className="group inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[12px] text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/5"
+          aria-label={copied ? 'Copied predicate JSON' : 'Copy predicate JSON'}
+          className="group inline-flex items-center rounded-md p-1.5 text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/5"
         >
-          {copied ? 'copied' : 'copy json'}
           <MorphIcon
             icon={copied ? CHECK_MORPH_ICON : COPY_SQUARES_MORPH_ICON}
             size={16}

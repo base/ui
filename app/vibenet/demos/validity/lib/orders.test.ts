@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ageRestoredOrders, occupyingOrder, maxBlockForExpiry, orderBlockExpired, orderWallClockExpired, restingOrderToReplace } from './orders';
+import { ageRestoredOrders, occupyingOrder, maxBlockForExpiry, minBlockForDelay, orderBlockExpired, orderWallClockExpired, restingOrderToReplace } from './orders';
 
 describe('orderWallClockExpired', () => {
   it('expires a resting order after the window plus grace', () => {
@@ -12,6 +12,12 @@ describe('orderWallClockExpired', () => {
   it('does not expire fills', () => {
     const order = { status: 'filled' as const, submittedAt: 1_000, expirySeconds: 5 };
     expect(orderWallClockExpired(order, 1_000 + 60_000)).toBe(false);
+  });
+
+  it('adds delaySeconds to the window before expiring', () => {
+    const order = { status: 'pending' as const, submittedAt: 1_000, expirySeconds: 5, delaySeconds: 10 };
+    expect(orderWallClockExpired(order, 1_000 + 15_000 + 400)).toBe(false);
+    expect(orderWallClockExpired(order, 1_000 + 15_000 + 401)).toBe(true);
   });
 });
 
@@ -42,6 +48,17 @@ describe('maxBlockForExpiry', () => {
   it('uses 200ms Denim blocks, not 2s pre-Denim heads', () => {
     expect(maxBlockForExpiry(1_000n, 60)).toBe(1_300n);
     expect(maxBlockForExpiry(1_000n, 5)).toBe(1_025n);
+  });
+});
+
+describe('minBlockForDelay', () => {
+  it('mirrors the expiry block math', () => {
+    expect(minBlockForDelay(1_000n, 5)).toBe(1_025n);
+    expect(minBlockForDelay(1_000n, 15)).toBe(1_075n);
+  });
+
+  it('is a no-op without a delay', () => {
+    expect(minBlockForDelay(1_000n, 0)).toBe(1_000n);
   });
 });
 

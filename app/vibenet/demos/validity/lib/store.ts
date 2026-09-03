@@ -118,8 +118,11 @@ function parseOrder(value: unknown): PlacedOrder | undefined {
     validity,
   };
   if (row.submitMode === 'replace' || row.submitMode === 'concurrent') order.submitMode = row.submitMode;
+  if (typeof row.delaySeconds === 'number') order.delaySeconds = row.delaySeconds;
   const maxBlock = asBigint(row.maxBlock);
   if (maxBlock !== undefined) order.maxBlock = maxBlock;
+  const minBlock = asBigint(row.minBlock);
+  if (minBlock !== undefined) order.minBlock = minBlock;
   if (typeof row.txHash === 'string' && /^0x[0-9a-fA-F]+$/.test(row.txHash)) {
     order.txHash = row.txHash as PlacedOrder['txHash'];
   }
