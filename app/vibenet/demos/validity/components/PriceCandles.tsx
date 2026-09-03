@@ -188,7 +188,7 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
   const up = change >= 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-[#0c1117]">
+    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-[#0c1117]">
       <div className="flex items-start justify-between gap-3 px-4 pt-3">
         <div className="flex items-center gap-2">
           <VibeMark />
@@ -207,7 +207,7 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
         </div>
       </div>
       {candles.length > 0 ? (
-        <div ref={setChartEl} className="relative h-[min(62vh,32rem)] min-h-[380px] w-full">
+        <div ref={setChartEl} className="relative min-h-[380px] w-full flex-1">
           {layout && size ? (
             <svg viewBox={`0 0 ${size.w} ${size.h}`} className="absolute inset-0 h-full w-full" role="img" aria-label="VIBE price in USDV">
               <g transform={`translate(${PAD.left},${PAD.top})`}>
