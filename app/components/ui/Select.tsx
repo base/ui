@@ -62,6 +62,7 @@ export function Select({
           'transition-[box-shadow] duration-150 ease-out motion-reduce:transition-none',
           'hover:ring-bds-gray-15',
           'focus:ring-black/40 data-[popup-open]:ring-black/40 dark:focus:ring-white/40 dark:data-[popup-open]:ring-white/40',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-blue',
           'data-[placeholder]:text-bds-gray-40 disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
