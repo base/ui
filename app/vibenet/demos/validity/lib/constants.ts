@@ -1,12 +1,9 @@
-import { parseAbi, type Abi, type Hex } from 'viem';
+import { parseAbi } from 'viem';
 
-import helperArtifact from './artifacts/SwapHelper.json';
-import factoryArtifact from './artifacts/UniswapV2Factory.json';
-import minterArtifact from './artifacts/ValidityOpenMinter.json';
-
-function with0x(value: string): Hex {
-  return (value.startsWith('0x') ? value : `0x${value}`) as Hex;
-}
+// Minimal ABI fragments — only the functions the client calls. The singleton
+// addresses are hardcoded (see singleton.ts), so we no longer import the
+// compiled artifacts (or their creation bytecode) here; the bytecode is
+// vendored in base/vibenet's setup bytecode manifests for deployment.
 
 export const erc20Abi = parseAbi([
   'function name() view returns (string)',
@@ -19,8 +16,10 @@ export const erc20Abi = parseAbi([
   'function mint(address,uint256)',
 ]);
 
-export const factoryAbi = factoryArtifact.abi as Abi;
-export const factoryBytecode = with0x(factoryArtifact.bytecode);
+export const factoryAbi = parseAbi([
+  'function allPairsLength() view returns (uint256)',
+  'function allPairs(uint256) view returns (address)',
+]);
 
 export const pairAbi = parseAbi([
   'function token0() view returns (address)',
@@ -30,15 +29,22 @@ export const pairAbi = parseAbi([
   'function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes data)',
 ]);
 
-export const helperAbi = helperArtifact.abi as Abi;
-export const helperBytecode = with0x(helperArtifact.bytecode);
+// SwapHelper: 0-fee, computes the variable leg on-chain. exact-in for sells
+// (spend amountIn, receive >= minOut); exact-out for buys (receive exactly
+// amountOut, spend <= maxIn). See singleton.ts.
+export const helperAbi = parseAbi([
+  'function swapExactIn(address tokenIn, address pair, uint256 amountIn, uint256 minOut) returns (uint256)',
+  'function swapExactOut(address tokenIn, address pair, uint256 amountOut, uint256 maxIn) returns (uint256)',
+]);
 
-export const minterAbi = minterArtifact.abi as Abi;
-export const minterBytecode = with0x(minterArtifact.bytecode);
+// ValidityOpenMinter: relay holding VIBE's B20 MINT_ROLE.
+export const minterAbi = parseAbi([
+  'function mint(address token, address to, uint256 amount)',
+]);
 
 export const CANDLES_PATH = '/api/vibenet/validity/candles';
 
-export const STORAGE_KEY = 'vibenet.validity.v6';
+export const STORAGE_KEY = 'vibenet.validity.v7';
 
 export const WAD = 10n ** 18n;
 export const USDV_DECIMALS = 6;
