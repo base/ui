@@ -5,7 +5,22 @@
 // slot is omitted and only latency + block remain.
 
 import { cn } from '../../../components/ui/cn';
+import { Text } from '../../../components/ui/Text';
 import { type Inclusion, latencyLabel, slotLabel } from './inclusion';
+
+/**
+ * The line under the badge in a transaction result: the claim, in words. Only
+ * for blocks that carry Denim's millisecond timestamp, so it never shows on a
+ * chain without 200 ms blocks.
+ */
+export function InclusionTagline({ inclusion }: { inclusion: Inclusion }) {
+  if (inclusion.blockTimestampMs === null) return null;
+  return (
+    <Text variant="label.regular" tone="muted">
+      Brought to you by 200 ms blocks on Base.
+    </Text>
+  );
+}
 
 const SEP = (
   <span className="text-bds-blue-30 dark:text-bds-blue-60" aria-hidden="true">

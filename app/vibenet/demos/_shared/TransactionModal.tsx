@@ -16,7 +16,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
 import type { Inclusion } from './inclusion';
-import { InclusionBadge } from './InclusionBadge';
+import { InclusionBadge, InclusionTagline } from './InclusionBadge';
 import { ViewTransactionButton } from './ViewTransactionButton';
 
 export type TxStep = 'build' | 'review' | 'submitted';
@@ -107,7 +107,12 @@ function DefaultSubmitted({
         ✓
       </span>
       {renderSuccess ? renderSuccess() : <Text variant="title3">Transaction submitted</Text>}
-      {result?.inclusion ? <InclusionBadge inclusion={result.inclusion} /> : null}
+      {result?.inclusion ? (
+        <div className="flex flex-col items-center gap-2">
+          <InclusionBadge inclusion={result.inclusion} />
+          <InclusionTagline inclusion={result.inclusion} />
+        </div>
+      ) : null}
     </div>
   );
 }
