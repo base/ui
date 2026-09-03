@@ -4,8 +4,8 @@
 // the spawner. Every new head (one per 200 ms under Denim) is spat out as a
 // block by the boss on the right edge. The player is a round Base-blue glutton:
 // hold ONE button — Space, X, or a finger anywhere on the picture — to inhale,
-// and the nearest block drags into its mouth and is swallowed, scoring its
-// weight. Heavy walls drag slower while the chain keeps coming. Any block
+// and the nearest block drags into its mouth and is swallowed — one eaten.
+// Heavy walls drag slower while the chain keeps coming. Any block
 // that reaches him uneaten costs a heart; fill the belly and he goes FULL —
 // briefly invulnerable, rolling the tops — then hungry again. A city at night.
 //

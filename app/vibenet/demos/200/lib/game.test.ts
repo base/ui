@@ -150,12 +150,12 @@ describe('weightFor / swallowing', () => {
     expect(weightFor(64)).toBe(2);
   });
 
-  it('inhaling drags the nearest block in and swallows it, scoring its weight', () => {
+  it('inhaling drags the nearest block in and swallows it, counting one eaten', () => {
     let g = setInhale(start(createGame()), true);
     g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60, weight: 2, number: 148_646, timestampMs: 1_788_419_137_200 })] };
     g = run(g, 0.2);
     expect(g.blocks).toHaveLength(0);
-    expect(g.score).toBe(2);
+    expect(g.score).toBe(1);
     expect(g.labels[0]?.text).toBe('148,646 · .200');
     expect(g.puffed).toBeGreaterThan(0);
   });
@@ -190,7 +190,7 @@ describe('weightFor / swallowing', () => {
     expect(g.hearts).toBe(MAX_HEARTS);
     expect(g.phase).toBe('running');
     expect(g.blocks).toHaveLength(0);
-    expect(g.score).toBeGreaterThanOrEqual(2);
+    expect(g.score).toBeGreaterThanOrEqual(1);
   });
 
   it('released inhale stops the pull', () => {
@@ -217,6 +217,14 @@ describe('fullness / stuffed', () => {
     expect(g.phase).toBe('running');
     // He stays on the road — blocks are never walked on in normal play.
     expect(g.player.y).toBe(GROUND_Y - PLAYER_H);
+  });
+
+  it('a heavy wall still counts as ONE eaten, not its weight', () => {
+    let g = setInhale(start(createGame()), true);
+    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 96, weight: 2 })] };
+    g = run(g, 0.4);
+    expect(g.blocks).toHaveLength(0);
+    expect(g.score).toBe(1);
   });
 
   it('each swallow fills the belly; heavier blocks fill it more', () => {
