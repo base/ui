@@ -74,7 +74,7 @@ export const DEMOS: DemoEntry[] = [
     title: 'Block Runner',
     shortTitle: 'Block Runner',
     summary: 'A pixel runner paced by vibenet’s 200 ms blocks. Swallow a block to read its number and slot.',
-    points: ['One block every 200 ms, straight off newHeads', 'Block height follows gas used', 'One button: hold to inhale'],
+    points: ['One block every 200 ms, straight off newHeads', 'Block height follows gas used', 'One button: tap to bite'],
     available: true,
     listed: false,
   },
