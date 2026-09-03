@@ -86,8 +86,8 @@ export function trackValidityOrder(
 }
 
 export function trackValidityRace(
-  attempt: 'validity' | 'manual' | 'agent',
-  status: 'started' | 'submitted' | 'success' | 'reverted' | 'expired' | 'stopped' | 'error',
+  attempt: 'validity' | 'manual',
+  status: 'submitted' | 'success' | 'reverted' | 'expired' | 'error',
 ): void {
   track('validity_race', { attempt, status });
 }
