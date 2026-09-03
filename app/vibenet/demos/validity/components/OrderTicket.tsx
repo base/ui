@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
+
 import { Button } from '../../../../components/ui/Button';
 import { Slider } from '../../../../components/ui/Slider';
 import { Text } from '../../../../components/ui/Text';
 import { AnimatedAmount } from '../../_components/AnimatedAmount';
 import { MAX_NONCELESS_SECONDS, TRADE_VIBE } from '../lib/constants';
-import { applyOffsetBps, formatPrice } from '../lib/predicates';
+import { applyOffsetBps, formatPrice, parsePriceWad } from '../lib/predicates';
 import { formatTokenAmount, VIBE_SYMBOL } from '../lib/quote';
 import type { Side, SubmitMode } from '../lib/types';
 
@@ -25,8 +27,11 @@ type Props = {
   busy: boolean;
   vibeBalance: bigint | null;
   costHint: string | null;
+  /** Manual target price; set from the price input, cleared when the slider moves. */
+  priceOverrideWad: bigint | null;
   onSide: (side: Side) => void;
   onOffset: (bps: number) => void;
+  onPriceOverride: (wad: bigint | null) => void;
   onExpiry: (seconds: number) => void;
   onSubmitMode: (mode: SubmitMode) => void;
   onSubmit: () => void;
@@ -47,15 +52,32 @@ export function OrderTicket({
   busy,
   vibeBalance,
   costHint,
+  priceOverrideWad,
   onSide,
   onOffset,
   onExpiry,
   onSubmitMode,
   onSubmit,
+  onPriceOverride,
   canAfford,
 }: Props) {
-  const target = applyOffsetBps(spotWad, side, offsetBps);
-  const signed = offsetBps === 0 ? '±0%' : side === 'buy' ? `−${formatBps(offsetBps)}` : `+${formatBps(offsetBps)}`;
+  const overrideActive = priceOverrideWad !== null;
+  const target = priceOverrideWad ?? applyOffsetBps(spotWad, side, offsetBps);
+  const effectiveBps =
+    spotWad > 0n ? Math.round((Number(target - spotWad) / Number(spotWad)) * 10_000) : 0;
+  const signed = overrideActive
+    ? effectiveBps === 0
+      ? '±0%'
+      : `${effectiveBps > 0 ? '+' : '−'}${formatBps(Math.abs(effectiveBps))}`
+    : offsetBps === 0
+      ? '±0%'
+      : side === 'buy'
+        ? `−${formatBps(offsetBps)}`
+        : `+${formatBps(offsetBps)}`;
+  // Raw text while the price input is being edited; null shows the computed target.
+  // Blur clears it, and anything that resets the override (slider, side flip)
+  // first steals focus from the input, so no sync with the override is needed.
+  const [priceText, setPriceText] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-bds-gray-10 bg-background p-5 dark:border-white/10 dark:bg-white/5">
@@ -111,24 +133,31 @@ export function OrderTicket({
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
           <Text variant="caption" tone="muted">
-            {offsetBps === 0 ? 'At mid' : side === 'buy' ? 'Below mid' : 'Above mid'}
+            {target === spotWad ? 'At mid' : target < spotWad ? 'Below mid' : 'Above mid'}
           </Text>
           <Text variant="label.mono" className="tabular-nums text-bds-gray-60">
             {signed}
           </Text>
         </div>
-        <Slider
-          value={offsetBps}
-          min={0}
-          max={OFFSET_MAX_BPS}
-          step={OFFSET_STEP_BPS}
-          onChange={onOffset}
-          marks={OFFSET_MARKS.map((bps) => ({
-            value: bps,
-            label: bps === 0 ? '0%' : formatBps(bps),
-          }))}
-          aria-label="Offset from mid"
-        />
+        <div className={overrideActive ? 'opacity-50 transition-opacity' : 'transition-opacity'}>
+          <Slider
+            value={offsetBps}
+            min={0}
+            max={OFFSET_MAX_BPS}
+            step={OFFSET_STEP_BPS}
+            onChange={onOffset}
+            marks={OFFSET_MARKS.map((bps) => ({
+              value: bps,
+              label: bps === 0 ? '0%' : formatBps(bps),
+            }))}
+            aria-label="Offset from mid"
+          />
+        </div>
+        {overrideActive ? (
+          <Text variant="footnote" tone="muted">
+            Custom price set — move the slider to clear it.
+          </Text>
+        ) : null}
       </div>
       <div
         className={
@@ -140,14 +169,35 @@ export function OrderTicket({
         <Text variant="footnote" tone="muted">
           Include when price is {side === 'buy' ? '≤' : '≥'}
         </Text>
-        <Text
-          variant="title3"
-          className={`mt-1 tabular-nums ${side === 'buy' ? 'text-bds-green-70' : 'text-bds-red-70'}`}
+        <div
+          className={`mt-1 flex items-baseline text-[18px] font-[500] leading-[26px] tracking-tight md:text-[20px] md:leading-[28px] ${
+            side === 'buy' ? 'text-bds-green-70' : 'text-bds-red-70'
+          }`}
         >
-          ${formatPrice(target)}
-        </Text>
+          <span>$</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            aria-label="Target price"
+            value={priceText ?? formatPrice(target)}
+            onFocus={() => setPriceText(formatPrice(target))}
+            onChange={(event) => {
+              const text = event.target.value;
+              setPriceText(text);
+              const wad = parsePriceWad(text);
+              if (wad !== null) onPriceOverride(wad);
+            }}
+            onBlur={() => setPriceText(null)}
+            className={`w-fit min-w-0 max-w-full cursor-text border-b border-dashed bg-transparent tabular-nums outline-none transition-colors focus:border-solid ${
+              side === 'buy'
+                ? 'border-bds-green-70/40 hover:border-bds-green-70 focus:border-bds-green-70'
+                : 'border-bds-red-70/40 hover:border-bds-red-70 focus:border-bds-red-70'
+            }`}
+            size={Math.max((priceText ?? formatPrice(target)).length, 4)}
+          />
+        </div>
         <Text variant="footnote" className="mt-1 tabular-nums text-bds-gray-60">
-          mid {signed}
+          mid {signed} · {overrideActive ? 'custom price' : 'type to set a price'}
         </Text>
       </div>
       <div className="flex flex-col gap-2">

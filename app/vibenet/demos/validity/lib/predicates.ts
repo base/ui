@@ -44,6 +44,16 @@ export function formatPrice(wad: bigint, digits = 4): string {
   return `${negative ? '-' : ''}${int.toString()}.${frac}`;
 }
 
+/** Parse a typed price like "1.0421", "$0.98", or "1,024.5" into wad. Null if not a positive price. */
+export function parsePriceWad(input: string): bigint | null {
+  const cleaned = input.trim().replace(/^\$/, '').replace(/,/g, '');
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(cleaned)) return null;
+  const [intPart = '0', fracPart = ''] = cleaned.split('.');
+  if (fracPart.length > 18) return null;
+  const wad = BigInt(intPart || '0') * WAD + BigInt(fracPart.padEnd(18, '0') || '0');
+  return wad > 0n ? wad : null;
+}
+
 /** Apply a basis-point offset to spot. Buy is below (`-bps`), sell is above (`+bps`). 0 is at mid. */
 export function applyOffsetBps(spotWad: bigint, side: Side, offsetBps: number): bigint {
   if (spotWad <= 0n) throw new Error('Need a live mid price.');
