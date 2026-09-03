@@ -580,7 +580,7 @@ function ValidityDemoInner() {
         : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
     const maxBlock = maxBlockForExpiry(blockNumber, seconds);
     const predicates = [...draft.predicates, blockExpiryPredicate(maxBlock)];
-    const delay = Math.min(delaySeconds, Math.max(0, seconds - 1));
+    const delay = Math.min(delaySeconds, seconds);
     if (delay > 0) predicates.push(blockDelayPredicate(minBlockForDelay(blockNumber, delay)));
     return predicates;
   }, [blockNumber, delaySeconds, draft, expirySeconds, submitMode]);
@@ -744,7 +744,7 @@ function ValidityDemoInner() {
           : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
       const block = blockNumber ?? (await publicClient.getBlockNumber({ cacheTime: 0 }));
       const maxBlock = maxBlockForExpiry(block, seconds);
-      const delay = Math.min(delaySeconds, Math.max(0, seconds - 1));
+      const delay = Math.min(delaySeconds, seconds);
       const minBlock = delay > 0 ? minBlockForDelay(block, delay) : undefined;
       const validity = [...draft.predicates, blockExpiryPredicate(maxBlock)];
       if (minBlock !== undefined) validity.push(blockDelayPredicate(minBlock));
@@ -983,14 +983,14 @@ function ValidityDemoInner() {
                   onPriceOverride={setPriceOverrideWad}
                   onExpiry={(seconds) => {
                     setExpirySeconds(seconds);
-                    if (delaySeconds >= seconds) setDelaySeconds(0);
+                    if (delaySeconds > seconds) setDelaySeconds(0);
                   }}
                   onDelay={setDelaySeconds}
                   onSubmitMode={(mode) => {
                     setSubmitMode(mode);
                     if (mode === 'concurrent' && expirySeconds > MAX_NONCELESS_SECONDS) {
                       setExpirySeconds(15);
-                      if (delaySeconds >= 15) setDelaySeconds(0);
+                      if (delaySeconds > 15) setDelaySeconds(0);
                     }
                   }}
                   onSubmit={() => {
