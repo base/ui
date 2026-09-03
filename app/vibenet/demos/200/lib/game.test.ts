@@ -5,25 +5,22 @@ import {
   blockLabel,
   BOSS_X,
   createGame,
-  DASH_MULTIPLIER,
-  fire,
+  INHALE_RANGE,
   GROUND_Y,
-  hitsFor,
-  jump,
   MAX_HEARTS,
   MOUTH_Y,
   PLAYER_H,
   PLAYER_X,
   restart,
   RESTART_GRACE,
-  setDash,
-  setFire,
+  PLAYER_W,
+  setInhale,
   slotOf,
   spawnBlock,
   speedFor,
   start,
   step,
-  STEP_UP,
+  weightFor,
   type Block,
   type Game,
   type Head,
@@ -44,8 +41,7 @@ const blk = (over: Partial<Block> & Pick<Block, 'x' | 'h'>): Block => ({
   vy: 0,
   landed: true,
   w: 48,
-  hp: 1,
-  maxHp: 1,
+  weight: 1,
   number: 1,
   timestampMs: null,
   ...over,
@@ -98,11 +94,10 @@ describe('blockSizeFor', () => {
 });
 
 describe('speedFor', () => {
-  it('ramps with score, caps, and the dash multiplies it', () => {
+  it('ramps with score and caps', () => {
     expect(speedFor(0)).toBe(560);
     expect(speedFor(10)).toBe(590);
     expect(speedFor(1_000)).toBe(720);
-    expect(speedFor(0, true)).toBe(560 * DASH_MULTIPLIER);
   });
 });
 
@@ -134,101 +129,184 @@ describe('spawnBlock', () => {
   });
 });
 
-describe('jump / fire / dash', () => {
-  it('a restart keeps held keys so a player mashing Space with X down comes back firing', () => {
-    let g = setFire(start(createGame()), true);
-    g = setDash(g, true);
+describe('inhale', () => {
+  it('a restart keeps held keys so a mashing player comes back inhaling', () => {
+    let g = setInhale(start(createGame()), true);
     g = start(g);
-    expect(g.fireHeld).toBe(true);
-    expect(g.dash.held).toBe(true);
+    expect(g.inhaling).toBe(true);
     expect(g.score).toBe(0);
   });
 
   it('start the run from the ready screen', () => {
-    expect(jump(createGame()).phase).toBe('running');
-    expect(fire(createGame()).phase).toBe('running');
-    expect(setDash(createGame(), true).phase).toBe('running');
+    expect(setInhale(createGame(), true).phase).toBe('running');
   });
 
-  it('jump only works from the ground and emits a jump event', () => {
-    const g = jump(start(createGame()));
-    expect(g.player.vy).toBeLessThan(0);
-    expect(g.events).toContain('jump');
-    const again = jump({ ...g, events: [] });
-    expect(again.events).toHaveLength(0);
+});
+
+describe('weightFor / swallowing', () => {
+  it('wider blocks are heavier', () => {
+    expect(weightFor(32)).toBe(1);
+    expect(weightFor(48)).toBe(2);
+    expect(weightFor(64)).toBe(2);
   });
 
-  it('fire respects the cooldown', () => {
-    const g = fire(start(createGame()));
-    expect(g.bullets).toHaveLength(1);
-    expect(fire(g).bullets).toHaveLength(1);
-    const cooled = run(g, 0.2);
-    expect(fire(cooled).fireCooldown).toBeGreaterThan(0);
+  it('inhaling drags the nearest block in and swallows it, scoring its weight', () => {
+    let g = setInhale(start(createGame()), true);
+    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60, weight: 2, number: 148_646, timestampMs: 1_788_419_137_200 })] };
+    g = run(g, 0.2);
+    expect(g.blocks).toHaveLength(0);
+    expect(g.score).toBe(2);
+    expect(g.labels[0]?.text).toBe('148,646 · .200');
+    expect(g.puffed).toBeGreaterThan(0);
   });
 
-  it('held fire keeps shooting at the cooldown rate', () => {
-    let g = setFire(start(createGame()), true);
-    expect(g.bullets).toHaveLength(1);
-    g = run(g, 0.5);
-    // Bullets leave the screen quickly, so count shoot events instead.
-    let shots = 0;
-    let h = setFire(start(createGame()), true);
-    for (let t = 0; t < 1; t += 1 / 120) {
-      h = step(h, 1 / 120, zeroRng);
-      shots += h.events.filter((e) => e === 'shoot').length;
-    }
-    expect(shots).toBeGreaterThanOrEqual(5);
-    expect(shots).toBeLessThanOrEqual(7);
-    expect(setFire(h, false).fireHeld).toBe(false);
+  it('a heavy wall drags in slower than a light block', () => {
+    const timeToEat = (weight: number) => {
+      let g = setInhale(start(createGame()), true);
+      g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 250, h: 60, weight })] };
+      let t = 0;
+      while (g.blocks.length > 0 && t < 2) {
+        g = step(g, 1 / 120, zeroRng);
+        t += 1 / 120;
+      }
+      return t;
+    };
+    expect(timeToEat(2)).toBeGreaterThan(timeToEat(1));
   });
 
-  it('dash drains energy while held, regenerates when released, and moves further', () => {
-    const idle = run(start(createGame()), 1);
-    const dashed = run(setDash(start(createGame()), true), 1);
-    expect(dashed.distance).toBeGreaterThan(idle.distance * 1.5);
-    expect(dashed.dash.energy).toBeLessThan(1);
-    expect(dashed.dash.active).toBe(true);
-    expect(dashed.afterimages.length).toBeGreaterThan(0);
-    const rested = run(setDash(dashed, false), 1);
-    expect(rested.dash.energy).toBeGreaterThan(dashed.dash.energy);
-    expect(rested.dash.active).toBe(false);
+  it('blocks beyond inhale range are left alone', () => {
+    let g = setInhale(start(createGame()), true);
+    const farX = PLAYER_X + PLAYER_W + INHALE_RANGE + 100;
+    g = { ...g, blocks: [blk({ id: 9, x: farX, h: 60 })] };
+    g = step(g, 1 / 120, zeroRng);
+    // It only scrolled; suction did not add pull.
+    expect(g.blocks[0].x).toBeGreaterThan(farX - speedFor(0) / 60 - 1);
   });
 
-  it('dash runs dry, stays off until the meter refills a bit, then works again', () => {
-    const dry = run(setDash(start(createGame()), true), 2.5);
-    expect(dry.dash.active).toBe(false);
-    expect(dry.dash.spent).toBe(true);
-    expect(dry.dash.energy).toBeLessThan(0.35);
-    // Still holding: no flicker while it refills.
-    const refilling = run(dry, 0.5);
-    expect(refilling.dash.active).toBe(false);
-    // Past the restart threshold it kicks back in.
-    const back = run(refilling, 0.5);
-    expect(back.dash.active).toBe(true);
-    expect(back.dash.spent).toBe(false);
+  it('contact while inhaling is a meal, not a crash', () => {
+    let g = setInhale(start(createGame()), true);
+    g = { ...g, blocks: [blk({ x: PLAYER_X + 80, h: 96, weight: 2 })] };
+    g = run(g, 0.3);
+    expect(g.hearts).toBe(MAX_HEARTS);
+    expect(g.phase).toBe('running');
+    expect(g.blocks).toHaveLength(0);
+    expect(g.score).toBeGreaterThanOrEqual(2);
+  });
+
+  it('released inhale stops the pull', () => {
+    let g = setInhale(start(createGame()), true);
+    g = setInhale(g, false);
+    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60 })] };
+    g = step(g, 1 / 120, zeroRng);
+    expect(g.blocks).toHaveLength(1);
+    expect(g.inhaling).toBe(false);
   });
 });
 
-describe('hitsFor', () => {
-  it('wider blocks take more shots', () => {
-    expect(hitsFor(32)).toBe(1);
-    expect(hitsFor(48)).toBe(2);
-    expect(hitsFor(64)).toBe(3);
+describe('fullness / stuffed', () => {
+  it('every block is a collision unless eaten: the first touch costs one heart', () => {
+    let g = start(createGame());
+    g = { ...g, blocks: [blk({ x: PLAYER_X + 80, h: 30 })] };
+    let hurt = false;
+    for (let t = 0; t < 0.4; t += 1 / 120) {
+      g = step(g, 1 / 120, zeroRng);
+      if (g.events.includes('hurt')) hurt = true;
+    }
+    expect(hurt).toBe(true);
+    expect(g.hearts).toBe(MAX_HEARTS - 1);
+    expect(g.phase).toBe('running');
+    // He stays on the road — blocks are never walked on in normal play.
+    expect(g.player.y).toBe(GROUND_Y - PLAYER_H);
   });
 
-  it('a two-hit block chips on the first shot and bursts on the second', () => {
+  it('each swallow fills the belly; heavier blocks fill it more', () => {
+    const eat = (weight: number) => {
+      let g = setInhale(start(createGame()), true);
+      g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60, weight })] };
+      g = run(g, 0.3);
+      return g.fullness;
+    };
+    expect(eat(1)).toBeGreaterThan(0);
+    expect(eat(2)).toBeGreaterThan(eat(1));
+  });
+
+  it('eating to the max enters FULL mode: no more eating, and a power fanfare', () => {
+    let g = setInhale(start(createGame()), true);
+    g = { ...g, fullness: 0.95 };
+    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60, weight: 2 })] };
+    let announced = false;
+    for (let t = 0; t < 0.4; t += 1 / 120) {
+      g = step(g, 1 / 120, zeroRng);
+      if (g.events.includes('stuffed')) announced = true;
+    }
+    expect(g.stuffed).toBe(true);
+    expect(announced).toBe(true);
+    expect(g.fullTime).toBeGreaterThan(2);
+    // A new block is not eaten while FULL — it just rolls under him.
+    g = { ...g, blocks: [blk({ id: 10, x: PLAYER_X + 260, h: 60, weight: 1 })] };
+    const before = g.score;
+    g = run(g, 0.15);
+    expect(g.score).toBe(before);
+  });
+
+  it('while FULL he rolls over even the tallest wall unharmed', () => {
+    let g = { ...start(createGame()), fullness: 1, stuffed: true, fullTime: 4 };
+    g = { ...g, blocks: [blk({ x: PLAYER_X + 60, h: 96, weight: 2 })] };
+    g = run(g, 0.25);
+    expect(g.hearts).toBe(MAX_HEARTS);
+    expect(g.phase).toBe('running');
+    // He is standing on top of it.
+    expect(g.player.y).toBeLessThan(GROUND_Y - PLAYER_H - 40);
+  });
+
+  it('FULL mode times out, he shrinks back to empty, and is hungry again', () => {
+    let g = { ...setInhale(start(createGame()), true), fullness: 1, stuffed: true, fullTime: 0.2 };
+    g = run(g, 1);
+    expect(g.fullness).toBe(0);
+    expect(g.stuffed).toBe(false);
+    // Hungry again: a block within range gets eaten.
+    g = { ...g, blocks: [blk({ id: 11, x: PLAYER_X + 200, h: 60, weight: 1 })] };
+    g = run(g, 0.3);
+    expect(g.score).toBeGreaterThan(0);
+  });
+
+  it('outside FULL mode, fullness does not drain on its own', () => {
+    let g = { ...start(createGame()), fullness: 0.5 };
+    g = run(g, 2);
+    expect(g.fullness).toBe(0.5);
+  });
+});
+
+describe('blocks are never road', () => {
+  it('a wall cannot be climbed — it hits him', () => {
     let g = start(createGame());
-    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 300, h: 60, hp: 2, maxHp: 2 })] };
-    g = fire(g);
-    g = run(g, 0.3);
-    expect(g.blocks).toHaveLength(1);
-    expect(g.blocks[0].hp).toBe(1);
-    expect(g.score).toBe(0);
-    expect(g.particles.some((p) => p.kind === 'spark')).toBe(true);
-    g = fire(g);
-    g = run(g, 0.3);
-    expect(g.blocks).toHaveLength(0);
-    expect(g.score).toBe(1);
+    g = { ...g, blocks: [blk({ id: 2, x: PLAYER_X + 70, h: 96, weight: 2 })] };
+    let hurt = false;
+    for (let t = 0; t < 0.4; t += 1 / 120) {
+      g = step(g, 1 / 120, zeroRng);
+      if (g.events.includes('hurt')) hurt = true;
+    }
+    expect(hurt).toBe(true);
+  });
+
+  it('after FULL ends he keeps his footing over walls until he reaches the road', () => {
+    let g = { ...start(createGame()), fullness: 0.01, stuffed: true, fullTime: 0 };
+    g = { ...g, player: { y: GROUND_Y - 96 - PLAYER_H, vy: 0, grounded: true }, blocks: [blk({ x: PLAYER_X - 10, h: 96, weight: 2 })] };
+    g = run(g, 0.2);
+    expect(g.hearts).toBe(MAX_HEARTS);
+    expect(g.descending || g.player.y + PLAYER_H >= GROUND_Y - 1).toBe(true);
+    // Once the wall passes he lands on the road and is a normal runner again.
+    g = { ...g, blocks: [] };
+    g = run(g, 0.6);
+    expect(g.descending).toBe(false);
+    expect(g.player.y).toBe(GROUND_Y - PLAYER_H);
+  });
+});
+
+describe('run dust', () => {
+  it('kicks up dust at the feet while running on the ground', () => {
+    const g = run(start(createGame()), 0.4);
+    expect(g.particles.some((p) => p.kind === 'dust')).toBe(true);
   });
 });
 
@@ -245,32 +323,14 @@ describe('restart', () => {
 });
 
 describe('step', () => {
-  it('a jump comes back down, lands, and kicks up dust', () => {
-    let g = jump(start(createGame()));
+  it('an airborne runner falls back to the rail and lands', () => {
+    let g = start(createGame());
+    g = { ...g, player: { y: GROUND_Y - PLAYER_H - 60, vy: 0, grounded: false } };
     g = run(g, 1);
     expect(g.player.grounded).toBe(true);
     expect(g.player.y).toBe(GROUND_Y - PLAYER_H);
-    expect(g.particles.some((p) => p.kind === 'dust') || g.time > 0.6).toBe(true);
   });
 
-  it('a bullet destroys a block, scores, shakes, and reveals its label', () => {
-    let g = start(createGame());
-    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 300, h: 60, number: 148_646, timestampMs: 1_788_419_137_200 })] };
-    g = fire(g);
-    g = run(g, 0.5);
-    expect(g.blocks).toHaveLength(0);
-    expect(g.score).toBe(1);
-    expect(g.labels[0]?.text).toBe('148,646 · .200');
-    expect(g.particles.some((p) => p.kind === 'shard')).toBe(true);
-  });
-
-  it('a hit while dashing scores double', () => {
-    let g = setDash(start(createGame()), true);
-    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 300, h: 60 })] };
-    g = fire(g);
-    g = run(g, 0.5);
-    expect(g.score).toBe(2);
-  });
 
   it('running into a block side costs a heart, crumbles the block, and grants a moment of invulnerability', () => {
     let g = start(createGame());
@@ -304,35 +364,14 @@ describe('step', () => {
     expect(g.phase).toBe('dead');
   });
 
-  it('a small step is climbed instead of crashed into', () => {
-    let g = start(createGame());
-    g = { ...g, blocks: [blk({ x: PLAYER_X + 80, h: STEP_UP - 2 })] };
-    g = run(g, 0.12);
-    expect(g.hearts).toBe(MAX_HEARTS);
-    expect(g.phase).toBe('running');
-    expect(g.player.y).toBeLessThan(GROUND_Y - PLAYER_H);
-    expect(g.player.grounded).toBe(true);
-  });
 
-  it('bursting blocks earns a heart back', () => {
-    let g = { ...start(createGame()), hearts: 1, heartProgress: 11 };
-    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 300, h: 60 })] };
-    g = fire(g);
+  it('swallowing blocks earns a heart back', () => {
+    let g = setInhale({ ...start(createGame()), hearts: 1, heartProgress: 11 }, true);
+    g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60 })] };
     g = run(g, 0.5);
     expect(g.hearts).toBe(2);
   });
 
-  it('landing on top of a block is safe and supports the player', () => {
-    let g = start(createGame());
-    const platform = blk({ x: PLAYER_X - 24, h: 60 });
-    g = { ...g, blocks: [platform], player: { y: GROUND_Y - 60 - PLAYER_H - 20, vy: 0, grounded: false } };
-    for (let t = 0; t < 0.4; t += 1 / 120) {
-      g = step({ ...g, blocks: [{ ...platform }] }, 1 / 120, zeroRng);
-    }
-    expect(g.phase).toBe('running');
-    expect(g.player.grounded).toBe(true);
-    expect(g.player.y).toBe(GROUND_Y - 60 - PLAYER_H);
-  });
 
   it('does nothing but decay effects when not running', () => {
     const g = step({ ...createGame(), labels: [{ x: 0, y: 0, text: 'x', age: 0 }], shake: 5 }, 2, zeroRng);

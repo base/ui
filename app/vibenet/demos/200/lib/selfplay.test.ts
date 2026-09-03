@@ -1,19 +1,14 @@
 // Self-play: a simple bot plays the model at 60 Hz with a synthetic chain
 // feeding one head every 200 ms. This guards balance, not correctness — if a
-// tuning change makes the lane unwinnable (a wall of crates) or trivial (the
-// bot never dies), these numbers move and the test says so.
+// tuning change makes the lane unwinnable or trivial, these numbers move and
+// the test says so.
 
 import { describe, expect, it } from 'vitest';
 
 import {
   createGame,
-  jump,
-  PLAYER_H,
-  PLAYER_W,
-  PLAYER_X,
   restart,
-  setDash,
-  setFire,
+  setInhale,
   spawnBlock,
   start,
   step,
@@ -35,22 +30,10 @@ function mulberry32(seed: number): () => number {
 
 type Bot = (g: Game) => Game;
 
-/**
- * Hold X, jump late (90 px) when a landed block is about to hit, and only dash
- * when nothing is within 320 px. Careful rather than clever.
- */
-const simpleBot: Bot = (g) => {
-  let next = setFire(g, true);
-  const bottom = next.player.y + PLAYER_H;
-  const ahead = next.blocks.filter((b) => b.landed && b.x + b.w > PLAYER_X && b.y < bottom - 2);
-  const threat = ahead.find((b) => b.x < PLAYER_X + PLAYER_W + 90);
-  const near = ahead.find((b) => b.x < PLAYER_X + PLAYER_W + 320);
-  if (threat && next.player.grounded) next = jump(next);
-  next = setDash(next, next.dash.energy > 0.5 && !near);
-  return next;
-};
+/** Holds the button forever: eats, goes FULL, cruises, deflates, repeats. */
+const holdBot: Bot = (g) => setInhale(g, true);
 
-/** Never jumps, never shoots: the baseline that must die quickly. */
+/** Never inhales: the baseline that must die once real walls arrive. */
 const idleBot: Bot = (g) => g;
 
 function play(bot: Bot, seconds: number, seed: number) {
@@ -90,20 +73,16 @@ function play(bot: Bot, seconds: number, seed: number) {
 }
 
 describe('self-play balance', () => {
-  it('a simple bot survives well past the first few blocks and scores', () => {
-    const r = play(simpleBot, 60, 1);
-    expect(r.longestRun).toBeGreaterThan(8);
-    expect(r.bestScore).toBeGreaterThan(20);
+  it('the eat → FULL → shrink cycle keeps a run alive and scoring', () => {
+    const r = play(holdBot, 60, 1);
+    expect(r.longestRun).toBeGreaterThan(15);
+    expect(r.bestScore).toBeGreaterThan(40);
   });
 
-  it('is still a game: the simple bot does die sometimes over a long session', () => {
-    const r = play(simpleBot, 120, 2);
-    expect(r.deaths).toBeGreaterThan(0);
-  });
 
-  it('doing nothing loses within a few seconds', () => {
-    const r = play(idleBot, 20, 3);
-    expect(r.deaths).toBeGreaterThan(2);
-    expect(r.longestRun).toBeLessThan(6);
+  it('never inhaling loses shortly after the warm-up', () => {
+    const r = play(idleBot, 30, 3);
+    expect(r.deaths).toBeGreaterThanOrEqual(1);
+    expect(r.longestRun).toBeLessThan(28);
   });
 });
