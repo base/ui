@@ -61,8 +61,10 @@ export type PlacedOrder = {
   targetPriceWad: bigint;
   size: bigint;
   expirySeconds: number;
+  delaySeconds?: number;
   submitMode?: SubmitMode;
   maxBlock?: bigint;
+  minBlock?: bigint;
   submittedAt: number;
   txHash?: Hex;
   nonce?: number;

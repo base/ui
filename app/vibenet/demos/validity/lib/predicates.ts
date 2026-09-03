@@ -194,3 +194,8 @@ export function blockNumberPredicate(op: ValidityOperator, block: bigint): Valid
 export function blockExpiryPredicate(maxBlock: bigint): ValidityPredicate {
   return blockNumberPredicate('<=', maxBlock);
 }
+
+/** Not-before bound: the sequencer holds the tx until this block. */
+export function blockDelayPredicate(minBlock: bigint): ValidityPredicate {
+  return blockNumberPredicate('>=', minBlock);
+}

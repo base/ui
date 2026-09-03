@@ -25,6 +25,13 @@ export function maxBlockForExpiry(currentBlock: bigint, expirySeconds: number): 
   return currentBlock + BigInt(blocks);
 }
 
+/** Inclusive first L2 block a delayed validity tx may land in. */
+export function minBlockForDelay(currentBlock: bigint, delaySeconds: number): bigint {
+  if (delaySeconds <= 0) return currentBlock;
+  const blocks = Math.max(1, Math.ceil(delaySeconds / BLOCK_SECONDS));
+  return currentBlock + BigInt(blocks);
+}
+
 export function occupyingOrder(
   orders: Pick<PlacedOrder, 'id' | 'nonce' | 'status' | 'side' | 'maxFeePerGas' | 'maxPriorityFeePerGas'>[],
   nonce: number,
