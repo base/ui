@@ -7,6 +7,7 @@ import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
+import type { Inclusion } from '../../_shared/inclusion';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import { B20_HELP } from '../lib/glossary';
 import { READ_MEMO_PROMPT } from '../lib/prompts';
@@ -23,12 +24,15 @@ export function MemoModule({
   token,
   addressBook,
   onSend,
+  inclusionFor,
 }: {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
   addressBook: AddressBookEntry[];
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
+  /** Inclusion timing for a landed hash — which 200 ms block, how fast. */
+  inclusionFor?: (hash: Hex) => Inclusion | undefined;
 }) {
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
@@ -93,7 +97,7 @@ export function MemoModule({
       step={step}
       busy={finalizing}
       error={error ?? undefined}
-      result={txHash ? { txHash } : null}
+      result={txHash ? { txHash, inclusion: inclusionFor?.(txHash) } : null}
       titles={{ build: 'Send with Memo', submitted: 'Send with Memo' }}
       titleAction={<CopyPromptButton prompt={READ_MEMO_PROMPT} module="memos" />}
       canProceed={Boolean(token)}
