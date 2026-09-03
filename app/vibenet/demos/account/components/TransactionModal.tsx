@@ -39,7 +39,7 @@ import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { AccountSwitcher } from '../../_shared/AccountSwitcher';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
 import type { Inclusion } from '../../_shared/inclusion';
-import { InclusionBadge } from '../../_shared/InclusionBadge';
+import { InclusionBadge, InclusionTagline } from '../../_shared/InclusionBadge';
 import { Badge, CheckIcon, KindBadge } from '../../_shared/primitives';
 import { ViewTransactionButton } from '../../_shared/ViewTransactionButton';
 import { DEMO_CHAINS, estimateTxGas, PAYER_URL } from '../library/chains';
@@ -1440,7 +1440,12 @@ function SubmittedBody({
           Broadcast but not yet included — check the explorer for status.
         </Text>
       ) : null}
-      {result.inclusion ? <InclusionBadge inclusion={result.inclusion} /> : null}
+      {result.inclusion ? (
+        <div className="flex flex-col items-center gap-2">
+          <InclusionBadge inclusion={result.inclusion} />
+          <InclusionTagline inclusion={result.inclusion} />
+        </div>
+      ) : null}
       {result.gasNote ? <Text variant="label.regular" tone="muted">{result.gasNote}</Text> : null}
       {result.txHash ? (
         <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">{short(result.txHash)}</span>
