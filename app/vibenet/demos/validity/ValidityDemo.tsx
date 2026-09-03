@@ -578,10 +578,12 @@ function ValidityDemoInner() {
       submitMode === 'concurrent'
         ? clampNoncelessExpiry(expirySeconds)
         : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
-    const maxBlock = maxBlockForExpiry(blockNumber, seconds);
+    const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
+    const delay = Math.max(0, Math.min(delaySeconds, cap - seconds));
+    const delayBlock = delay > 0 ? minBlockForDelay(blockNumber, delay) : blockNumber;
+    const maxBlock = maxBlockForExpiry(delayBlock, seconds);
     const predicates = [...draft.predicates, blockExpiryPredicate(maxBlock)];
-    const delay = Math.min(delaySeconds, seconds);
-    if (delay > 0) predicates.push(blockDelayPredicate(minBlockForDelay(blockNumber, delay)));
+    if (delay > 0) predicates.push(blockDelayPredicate(delayBlock));
     return predicates;
   }, [blockNumber, delaySeconds, draft, expirySeconds, submitMode]);
 
@@ -743,9 +745,10 @@ function ValidityDemoInner() {
           ? clampNoncelessExpiry(expirySeconds)
           : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
       const block = blockNumber ?? (await publicClient.getBlockNumber({ cacheTime: 0 }));
-      const maxBlock = maxBlockForExpiry(block, seconds);
-      const delay = Math.min(delaySeconds, seconds);
+      const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
+      const delay = Math.max(0, Math.min(delaySeconds, cap - seconds));
       const minBlock = delay > 0 ? minBlockForDelay(block, delay) : undefined;
+      const maxBlock = maxBlockForExpiry(minBlock ?? block, seconds);
       const validity = [...draft.predicates, blockExpiryPredicate(maxBlock)];
       if (minBlock !== undefined) validity.push(blockDelayPredicate(minBlock));
       const fromHead = headFeesRef.current;
@@ -981,17 +984,14 @@ function ValidityDemoInner() {
                     setPriceOverrideWad(null);
                   }}
                   onPriceOverride={setPriceOverrideWad}
-                  onExpiry={(seconds) => {
-                    setExpirySeconds(seconds);
-                    if (delaySeconds > seconds) setDelaySeconds(0);
-                  }}
+                  onExpiry={setExpirySeconds}
                   onDelay={setDelaySeconds}
                   onSubmitMode={(mode) => {
                     setSubmitMode(mode);
-                    if (mode === 'concurrent' && expirySeconds > MAX_NONCELESS_SECONDS) {
-                      setExpirySeconds(15);
-                      if (delaySeconds > 15) setDelaySeconds(0);
-                    }
+                    if (mode !== 'concurrent') return;
+                    const nextExpiry = expirySeconds > MAX_NONCELESS_SECONDS ? 15 : expirySeconds;
+                    if (nextExpiry !== expirySeconds) setExpirySeconds(nextExpiry);
+                    if (delaySeconds + nextExpiry > MAX_NONCELESS_SECONDS) setDelaySeconds(0);
                   }}
                   onSubmit={() => {
                     setError(null);
@@ -1046,8 +1046,10 @@ function ValidityDemoInner() {
                   {draft.side === 'buy' ? '≤' : '≥'} ${formatPrice(draft.priceWad)}
                 </Text>
                 <Text variant="footnote" tone="muted" className="mt-1">
-                  {submitMode === 'concurrent' ? '8130 concurrent' : 'Sequential replace'} · expires in{' '}
-                  {expirySeconds}s{delaySeconds > 0 ? ` · starts in ~${delaySeconds}s` : ''}
+                  {submitMode === 'concurrent' ? '8130 concurrent' : 'Sequential replace'} ·{' '}
+                  {delaySeconds > 0
+                    ? `starts in ~${delaySeconds}s, expires ${expirySeconds}s after`
+                    : `expires in ${expirySeconds}s`}
                 </Text>
               </div>
               <ul className="flex flex-col gap-2">

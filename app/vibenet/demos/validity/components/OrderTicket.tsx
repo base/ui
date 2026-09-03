@@ -7,7 +7,7 @@ import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 import { Slider } from '../../../../components/ui/Slider';
 import { Text } from '../../../../components/ui/Text';
 import { AnimatedAmount } from '../../_components/AnimatedAmount';
-import { MAX_NONCELESS_SECONDS, TRADE_VIBE } from '../lib/constants';
+import { MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS, TRADE_VIBE } from '../lib/constants';
 import { applyOffsetBps, formatPrice, parsePriceWad } from '../lib/predicates';
 import { formatTokenAmount, VIBE_SYMBOL } from '../lib/quote';
 import type { Side, SubmitMode } from '../lib/types';
@@ -243,43 +243,10 @@ export function OrderTicket({
         <Text variant="footnote" tone="muted">
           {submitMode === 'replace'
             ? 'One transaction at a time via sequential nonces.'
-            : `Submit multiple nonceless transactions simultaneously. Max expiry ${MAX_NONCELESS_SECONDS}s.`}
+            : `Submit multiple nonceless transactions simultaneously. Delay + expiry ≤ ${MAX_NONCELESS_SECONDS}s.`}
         </Text>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-1.5">
-            <Text variant="caption" tone="muted">
-              Expiry
-            </Text>
-            <InfoTooltip label="About expiry">
-              Drops the swap from the mempool once this much time has passed.
-            </InfoTooltip>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {EXPIRIES.map((seconds) => {
-              const blocked = submitMode === 'concurrent' && seconds > MAX_NONCELESS_SECONDS;
-              return (
-                <button
-                  key={seconds}
-                  type="button"
-                  disabled={blocked}
-                  title={blocked ? `8130 nonceless max is ${MAX_NONCELESS_SECONDS}s` : undefined}
-                  onClick={() => onExpiry(seconds)}
-                  className={
-                    blocked
-                      ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
-                      : seconds === expirySeconds
-                        ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
-                        : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
-                  }
-                >
-                  {seconds}s
-                </button>
-              );
-            })}
-          </div>
-        </div>
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1.5">
             <Text variant="caption" tone="muted">
@@ -291,13 +258,14 @@ export function OrderTicket({
           </div>
           <div className="flex flex-wrap gap-2">
             {DELAYS.map((seconds) => {
-              const blocked = seconds > 0 && seconds > expirySeconds;
+              const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
+              const blocked = seconds > 0 && seconds + expirySeconds > cap;
               return (
                 <button
                   key={seconds}
                   type="button"
                   disabled={blocked}
-                  title={blocked ? 'Delay cannot exceed expiry' : undefined}
+                  title={blocked ? `Delay plus expiry cannot exceed ${cap}s` : undefined}
                   onClick={() => onDelay(seconds)}
                   className={
                     blocked
@@ -308,6 +276,40 @@ export function OrderTicket({
                   }
                 >
                   {seconds === 0 ? 'Off' : `${seconds}s`}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            <Text variant="caption" tone="muted">
+              Expiry
+            </Text>
+            <InfoTooltip label="About expiry">
+              Keeps the swap eligible for this long once it starts.
+            </InfoTooltip>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {EXPIRIES.map((seconds) => {
+              const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
+              const blocked = delaySeconds + seconds > cap;
+              return (
+                <button
+                  key={seconds}
+                  type="button"
+                  disabled={blocked}
+                  title={blocked ? `Delay plus expiry cannot exceed ${cap}s` : undefined}
+                  onClick={() => onExpiry(seconds)}
+                  className={
+                    blocked
+                      ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
+                      : seconds === expirySeconds
+                        ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
+                        : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
+                  }
+                >
+                  {seconds}s
                 </button>
               );
             })}
