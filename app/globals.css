@@ -656,6 +656,44 @@ button {
   animation: b20-confetti-pop 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* A light band sweeping across the inclusion badge once, then twice more,
+   spaced out — enough to draw the eye to the timing claim without looping
+   forever. The overlay is a gradient on an ::after so the badge's own
+   background token stays untouched. */
+@keyframes inclusion-shimmer {
+  0% { transform: translateX(-100%); }
+  18% { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
+}
+
+.inclusion-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.inclusion-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.7) 50%,
+    transparent 70%
+  );
+  animation: inclusion-shimmer 2.4s ease-out 0.3s 3;
+  pointer-events: none;
+}
+
+[data-theme='dark'] .inclusion-shimmer::after {
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(115, 162, 255, 0.35) 50%,
+    transparent 70%
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
   @keyframes fade-in {
     from { opacity: 0; }
@@ -667,6 +705,7 @@ button {
   .animate-in-delay-1,
   .animate-in-delay-2,
   .animate-in-delay-3 { animation-delay: 0ms; }
+  .inclusion-shimmer::after { animation: none; }
   .animate-spin { animation: spin 3s linear infinite; }
   /* Suppress continuous/infinite motion for reduced-motion users */
   .animate-gentle-ping { animation: none; opacity: 0.75; }
