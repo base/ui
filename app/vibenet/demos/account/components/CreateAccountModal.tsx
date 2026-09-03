@@ -266,9 +266,9 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
               aria-checked={createMode === mode}
               onClick={() => setCreateMode(mode)}
               className={cn(
-                'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
+                'flex flex-col gap-1 rounded-lg border p-3 text-left transition-[color,box-shadow] duration-150 ease-out',
                 createMode === mode
-                  ? 'border-foreground'
+                  ? 'border-transparent ring-2 ring-foreground'
                   : 'border-bds-gray-10 hover:border-foreground dark:border-white/10 dark:hover:border-white',
               )}
             >
@@ -297,9 +297,9 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
                   aria-checked={modalType === type}
                   onClick={() => setModalType(type)}
                   className={cn(
-                    'flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors',
+                    'flex flex-col gap-1 rounded-lg border p-3 text-left transition-[color,box-shadow] duration-150 ease-out',
                     modalType === type
-                      ? 'border-foreground'
+                      ? 'border-transparent ring-2 ring-foreground'
                       : 'border-bds-gray-10 hover:border-foreground dark:border-white/10 dark:hover:border-white',
                   )}
                 >

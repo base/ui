@@ -44,9 +44,9 @@ export function DemoGate({
     return (
       <div className="flex flex-1 items-center justify-center py-16">
         <Card className="flex max-w-md flex-col items-center gap-4 bg-background px-8 py-14 text-center dark:bg-white/5">
-          <Image src="/vibenet-illo.svg" alt="" width={44} height={44} />
-          <Text variant="title2">{title}</Text>
-          <Text variant="label.regular" tone="muted" className="max-w-sm">
+          <Image src="/account-illo.svg" alt="" width={44} height={44} />
+          <Text variant="headline" className="mt-2">{title}</Text>
+          <Text variant="body" tone="muted" className="-mt-2 max-w-sm">
             {description}
           </Text>
           <Button onClick={onCreate} disabled={creating} className="mt-2">

@@ -1,5 +1,4 @@
 import { Button } from './components/ui/Button';
-import { Card, LinkCard } from './components/ui/Card';
 import { Text } from './components/ui/Text';
 import { listedDemos } from './vibenet/demos/catalogue';
 import { DemoCard } from './vibenet/demos/DemoCard';
@@ -10,28 +9,6 @@ import { SnapshotDownloadBox } from './snapshots/SnapshotDownloadBox';
 // Prefetchable and revalidated like /snapshots, so the homepage paints complete
 // content (including the live snapshot stats) instead of a per-request render.
 export const revalidate = 300;
-
-type Surface = {
-  label: string;
-  href: string;
-  description: string;
-  enabled: boolean;
-};
-
-const SURFACES: Surface[] = [
-  {
-    label: 'Vibenet',
-    href: '/vibenet',
-    description: 'An ephemeral Base developer network for testing in-flight features.',
-    enabled: true,
-  },
-  {
-    label: 'Snapshots',
-    href: '/snapshots',
-    description: 'Download and configure Reth v2 snapshots to sync a Base node faster.',
-    enabled: true,
-  },
-];
 
 // Latest Mainnet archive snapshot for the homepage download box. Mirrors the
 // loadSnapshots fallback on /snapshots: sample data in dev when R2 is
@@ -61,24 +38,28 @@ export default async function Home() {
   const mainnetSnapshot = await loadMainnetSnapshot();
 
   return (
-    <div className="animate-in flex min-w-0 flex-1 flex-col gap-12 py-4 text-foreground">
+    <div className="animate-in mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col gap-16 pt-8 pb-4 text-foreground">
       <header className="flex max-w-2xl flex-col gap-3">
-        <Text variant="title2">Base&apos;s Building Ground</Text>
+        <Text variant="title2">Base Developer Console</Text>
         <Text variant="body" tone="muted">
           Explore in-flight features on Vibenet and sync a node from the latest snapshot.
         </Text>
       </header>
 
-      <section className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-1">
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <Text variant="headline">Featured Demos</Text>
-            <Text variant="label.regular" tone="muted">
-              Interactive walkthroughs running on Vibenet right now.
-            </Text>
+            <span className="inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--base-blue-p3)_10%,transparent)] px-2 py-0.5 text-[13px] font-[450] text-base-blue">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-base-blue opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-base-blue" />
+              </span>
+              Live on Vibenet
+            </span>
           </div>
           <Button href="/vibenet" variant="outline" size="sm" arrow>
-            All demos
+            All Demos
           </Button>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -89,56 +70,22 @@ export default async function Home() {
       </section>
 
       {mainnetSnapshot ? (
-        <section className="flex flex-col gap-6">
-          <div className="flex flex-col gap-1">
-            <Text variant="headline">Sync a Node Faster</Text>
-            <Text variant="label.regular" tone="muted">
-              Grab the latest Base Mainnet archive snapshot, or customize your own.
-            </Text>
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <Text variant="headline">Snapshots</Text>
+              <Text variant="label.regular" tone="muted">
+                Sync a node from the latest Base Mainnet archive snapshot, or customize your own.
+              </Text>
+            </div>
+            <Button href="/snapshots" variant="outline" size="sm" arrow>
+              Customize
+            </Button>
           </div>
           <SnapshotDownloadBox snapshot={mainnetSnapshot} />
         </section>
       ) : null}
 
-      <section className="flex flex-col gap-6">
-        <Text variant="headline">Explore</Text>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {SURFACES.map((surface) => (
-            <SurfaceCard key={surface.href} surface={surface} />
-          ))}
-        </div>
-      </section>
     </div>
-  );
-}
-
-function SurfaceCard({ surface }: { surface: Surface }) {
-  if (!surface.enabled) {
-    return (
-      <Card className="bg-background p-5 opacity-60 dark:bg-white/5">
-        <div className="flex items-center gap-2">
-          <Text variant="headline">{surface.label}</Text>
-          <span className="rounded-full border border-bds-gray-15 px-2.5 py-0.5 text-[13px] text-bds-gray-60">
-            Soon
-          </span>
-        </div>
-        <Text variant="label.regular" tone="muted" className="mt-1">
-          {surface.description}
-        </Text>
-      </Card>
-    );
-  }
-
-  return (
-    <LinkCard
-      href={surface.href}
-      interactive={false}
-      className="group bg-background p-5 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]"
-    >
-      <Text variant="headline">{surface.label}</Text>
-      <Text variant="label.regular" tone="muted" className="mt-1">
-        {surface.description}
-      </Text>
-    </LinkCard>
   );
 }
