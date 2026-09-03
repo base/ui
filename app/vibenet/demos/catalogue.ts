@@ -68,6 +68,16 @@ export const DEMOS: DemoEntry[] = [
     available: true,
     listed: false,
   },
+  {
+    // Secret route: /demos/200 (redirects here). Off the grid on purpose.
+    href: '/vibenet/demos/200',
+    title: 'Block Runner',
+    shortTitle: 'Block Runner',
+    summary: 'A pixel runner paced by vibenet’s 200 ms blocks. Shoot a block to read its number and slot.',
+    points: ['One block every 200 ms, straight off newHeads', 'Block height follows gas used', 'Space jumps, X shoots'],
+    available: true,
+    listed: false,
+  },
 ];
 
 /** `smart-wallet` -> `Smart Wallet`. Fallback for a route with no catalogue entry. */
