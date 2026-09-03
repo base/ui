@@ -1,8 +1,17 @@
 'use client';
 
+import { useCallback, useState } from 'react';
+import { MorphIcon } from 'morphicons/react';
+
+import {
+  CHECK_MORPH_ICON,
+  COPY_SQUARES_MORPH_ICON,
+  COPY_SQUARES_MORPH_STROKE_WIDTH,
+} from '../../../../components/ui/icons';
 import { cn } from '../../../../components/ui/cn';
 import { Text } from '../../../../components/ui/Text';
 import { annotatedValidity } from '../lib/annotate';
+import { prettyValidity } from '../lib/predicates';
 import type { ValidityPredicate } from '../lib/types';
 
 type TokenKind = 'key' | 'string' | 'number' | 'literal' | 'punct';
@@ -49,22 +58,49 @@ export function ValidityJson({
   vibeToken0: boolean;
 }) {
   const rows = annotatedValidity(predicates, vibeToken0);
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    async function run() {
+      try {
+        await navigator.clipboard.writeText(prettyValidity(predicates));
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {
+        // ignore clipboard failures
+      }
+    }
+    void run();
+  }, [predicates]);
   return (
     <aside className="flex min-w-0 flex-col">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <Text as="h2" variant="title3">
           Predicates
         </Text>
-        <Text variant="label.mono" tone="muted">
-          draft
-        </Text>
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label="Copy predicate JSON"
+          className="group inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[12px] text-bds-gray-50 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/5"
+        >
+          {copied ? 'copied' : 'copy json'}
+          <MorphIcon
+            icon={copied ? CHECK_MORPH_ICON : COPY_SQUARES_MORPH_ICON}
+            size={16}
+            strokeWidth={copied ? 2 : COPY_SQUARES_MORPH_STROKE_WIDTH}
+            className={cn(
+              'shrink-0 transition-colors',
+              copied ? 'text-bds-green-60' : 'text-bds-gray-50 group-hover:text-foreground',
+            )}
+          />
+        </button>
       </div>
       <Text variant="footnote" tone="muted" className="pt-2">
         The sequencer checks every clause before inclusion.
       </Text>
       <div className="mt-3 min-h-0 flex-1 overflow-auto">
         <div
-          className="grid grid-cols-1 gap-x-6 border-b border-bds-gray-10 pb-1 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] dark:border-white/10"
+          className="grid select-none grid-cols-1 gap-x-6 border-b border-bds-gray-10 pb-1 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] dark:border-white/10"
           aria-hidden
         >
           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-bds-gray-50">
@@ -87,7 +123,7 @@ export function ValidityJson({
                   </span>
                 ))}
               </pre>
-              <p className="min-h-5 min-w-0 text-[11px] leading-5 text-bds-gray-70 dark:text-bds-gray-80">
+              <p className="min-h-5 min-w-0 select-none text-[11px] leading-5 text-bds-gray-70 dark:text-bds-gray-80">
                 {row.note ?? ''}
               </p>
             </div>
