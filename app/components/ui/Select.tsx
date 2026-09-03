@@ -57,7 +57,13 @@ export function Select({
       <BaseSelect.Trigger
         aria-label={ariaLabel}
         className={cn(
-          'inline-flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-bds-gray-10 bg-background px-3.5 text-[14px] text-foreground outline-none transition-colors focus:border-foreground data-[placeholder]:text-bds-gray-40 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white',
+          'inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg bg-transparent px-3.5 text-[14px] text-foreground outline-none',
+          'ring-1 ring-inset ring-bds-gray-10',
+          'transition-[box-shadow] duration-150 ease-out motion-reduce:transition-none',
+          'hover:ring-bds-gray-15',
+          'focus:ring-black/40 data-[popup-open]:ring-black/40 dark:focus:ring-white/40 dark:data-[popup-open]:ring-white/40',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-blue',
+          'data-[placeholder]:text-bds-gray-40 disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
       >

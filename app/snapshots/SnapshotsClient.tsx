@@ -7,6 +7,8 @@ import { Card } from '../components/ui/Card';
 import { Checkbox } from '../components/ui/Checkbox';
 import { cn } from '../components/ui/cn';
 import { COPY_SQUARES_PATH_40 } from '../components/ui/icons';
+import { Radio } from '../components/ui/Radio';
+import { RadioGroup } from '../components/ui/RadioGroup';
 import { Tabs } from '../components/ui/Tabs';
 import { Text } from '../components/ui/Text';
 
@@ -271,11 +273,6 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
     setPreset(match ? match.name : null);
   }
 
-  function handlePresetClick(event: MouseEvent<HTMLButtonElement>) {
-    const value = event.currentTarget.dataset.preset as PresetName | undefined;
-    if (value) selectPreset(value);
-  }
-
   function handleComponentClick(event: MouseEvent<HTMLButtonElement>) {
     const value = event.currentTarget.dataset.name;
     if (value) toggleComponent(value);
@@ -332,36 +329,29 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                 Choose the Base network for your node.
               </Text>
             </div>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-              {snapshots.map((snap) => {
-                const selected = snap.network === activeNetwork;
-                return (
-                  <button
-                    key={snap.network}
-                    type="button"
-                    onClick={() => {
-                      trackSnapshotNetworkSelect(snap.network);
-                      setNetwork(snap.network);
-                    }}
-                    className={cn(
-                      'rounded-xl border border-bds-gray-10 px-4 py-3 text-left transition-[color,box-shadow] duration-150 ease-out',
-                      selected
-                        ? 'border-transparent ring-2 ring-foreground'
-                        : 'hover:border-bds-gray-15',
-                    )}
-                  >
-                    <Text as="span" variant="label.medium" className="block">
-                      {NETWORK_LABELS[snap.network] ?? snap.chainName}
-                    </Text>
-                    <Text as="span" variant="label.regular" tone="muted" className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <span>block {formatNumber(snap.block)}</span>
-                      <span className="text-bds-gray-40">·</span>
-                      <span>{formatDate(snap.date)}</span>
-                    </Text>
-                  </button>
-                );
-              })}
-            </div>
+            <RadioGroup
+              value={activeNetwork}
+              onValueChange={(next) => {
+                if (next == null) return;
+                trackSnapshotNetworkSelect(next);
+                setNetwork(next);
+              }}
+              aria-label="Select Network"
+              className="grid-cols-1 lg:grid-cols-3"
+            >
+              {snapshots.map((snap) => (
+                <Radio.Root key={snap.network} value={snap.network}>
+                  <Text as="span" variant="label.medium" className="block">
+                    {NETWORK_LABELS[snap.network] ?? snap.chainName}
+                  </Text>
+                  <Text as="span" variant="label.regular" tone="muted" className="flex flex-wrap items-center gap-1.5">
+                    <span>block {formatNumber(snap.block)}</span>
+                    <span className="text-bds-gray-40">·</span>
+                    <span>{formatDate(snap.date)}</span>
+                  </Text>
+                </Radio.Root>
+              ))}
+            </RadioGroup>
           </section>
 
           <section className="mt-10">
@@ -390,57 +380,53 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15, ease: 'easeOut' }}
-                  className="grid grid-cols-1 gap-3 lg:grid-cols-3"
                 >
-                  {PRESETS.map((p) => {
-                    const size = activeSnapshot.components
-                      .filter((c) => p.components.includes(c.name))
-                      .reduce((sum, c) => sum + c.size, 0);
-                    const selected = preset === p.name;
-                    const includedComponents = displayComponents.filter((c) => {
-                      if (c.name === 'state_history') return p.components.includes('account_changesets');
-                      return p.components.includes(c.name);
-                    });
-                    return (
-                      <button
-                        key={p.name}
-                        type="button"
-                        data-preset={p.name}
-                        onClick={handlePresetClick}
-                        aria-label={p.displayName}
-                        className={cn(
-                          'flex flex-col items-start rounded-xl border px-4 py-3.5 text-left transition-[color,box-shadow] duration-150 ease-out',
-                          selected
-                            ? 'border-transparent ring-2 ring-foreground'
-                            : 'border-bds-gray-10 hover:border-bds-gray-15',
-                        )}
-                      >
-                        <div className="flex w-full items-baseline gap-2">
-                          <Text as="span" variant="label.medium">
-                            {p.displayName}
+                  <RadioGroup
+                    value={preset}
+                    onValueChange={(next) => {
+                      if (next == null) return;
+                      selectPreset(next as PresetName);
+                    }}
+                    aria-label="Configure Snapshot"
+                    className="grid-cols-1 lg:grid-cols-3"
+                  >
+                    {PRESETS.map((p) => {
+                      const size = activeSnapshot.components
+                        .filter((c) => p.components.includes(c.name))
+                        .reduce((sum, c) => sum + c.size, 0);
+                      const includedComponents = displayComponents.filter((c) => {
+                        if (c.name === 'state_history') return p.components.includes('account_changesets');
+                        return p.components.includes(c.name);
+                      });
+                      return (
+                        <Radio.Root key={p.name} value={p.name} aria-label={p.displayName} className="items-start py-3.5">
+                          <div className="flex w-full items-baseline gap-2">
+                            <Text as="span" variant="label.medium">
+                              {p.displayName}
+                            </Text>
+                            <Text as="span" variant="footnote" tone="muted" className="font-mono">
+                              {formatBytes(size)}
+                            </Text>
+                          </div>
+                          <Text as="span" variant="label.regular" tone="muted" className="leading-[22px]">
+                            {p.description}
                           </Text>
-                          <Text as="span" variant="footnote" tone="muted" className="font-mono">
-                            {formatBytes(size)}
-                          </Text>
-                        </div>
-                        <Text as="span" variant="label.regular" tone="muted" className="mt-1 leading-[22px]">
-                          {p.description}
-                        </Text>
-                        <div className="mt-3 flex w-full flex-col gap-1.5 border-t border-bds-gray-10 pt-3">
-                          {includedComponents.map((c) => (
-                            <div key={c.name} className="flex items-center gap-1.5">
-                              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-brand-blue">
-                                <path d="M20 6 9 17l-5-5" />
-                              </svg>
-                              <Text as="span" variant="label.regular">
-                                {c.displayName}
-                              </Text>
-                            </div>
-                          ))}
-                        </div>
-                      </button>
-                    );
-                  })}
+                          <div className="mt-2 flex w-full flex-col gap-1.5 border-t border-bds-gray-10 pt-3">
+                            {includedComponents.map((c) => (
+                              <div key={c.name} className="flex items-center gap-1.5">
+                                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-brand-blue">
+                                  <path d="M20 6 9 17l-5-5" />
+                                </svg>
+                                <Text as="span" variant="label.regular">
+                                  {c.displayName}
+                                </Text>
+                              </div>
+                            ))}
+                          </div>
+                        </Radio.Root>
+                      );
+                    })}
+                  </RadioGroup>
                 </motion.div>
               ) : (
                 <motion.div
