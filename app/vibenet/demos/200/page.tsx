@@ -3,7 +3,7 @@ import { Text } from '../../../components/ui/Text';
 
 export default function BlockRunnerPage() {
   return (
-    <div className="animate-in mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <header className="flex flex-col gap-2">
         <Text variant="caption" className="text-base-blue dark:text-white">
           Vibenet · 200 ms blocks

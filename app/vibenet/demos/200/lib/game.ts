@@ -27,12 +27,26 @@ const PULL_SPEED = 1300;
 const PUFF_TIME = 0.12;
 /** The mouth must be visibly open this long before a pulled block goes down. */
 const OPEN_MIN = 0.07;
+/** One tap opens the mouth for this long — one bite per tap. */
+const INHALE_BURST = 0.28;
 /** Fullness gained per unit of block weight. Only the full-mode cycle empties it. */
 const FULL_PER_WEIGHT = 0.11;
 /** Seconds of FULL mode: too round to hurt, rolling over every block. */
 const FULL_TIME = 2.5;
 /** How fast he slims back down once full mode ends. */
 const DEFLATE_RATE = 2.2;
+
+/**
+ * The FULL gauge, 0..1: how much of the whole FULL experience remains —
+ * the cruise timer plus the shrink back down — so the bar hits empty on the
+ * exact frame the state ends, never before.
+ */
+export function fullMeter(game: Pick<Game, 'stuffed' | 'fullTime' | 'fullness'>): number {
+  if (!game.stuffed) return 0;
+  const total = FULL_TIME + 1 / DEFLATE_RATE;
+  const remaining = game.fullTime + game.fullness / DEFLATE_RATE;
+  return Math.max(0, Math.min(1, remaining / total));
+}
 
 export const BOSS_X = WIDTH - 104;
 const SPAWN_X = BOSS_X + 8;
@@ -96,6 +110,11 @@ export type Game = {
   /** Afterimage cadence timer while FULL (he barrels along up there). */
   sinceImage: number;
   blocks: Block[];
+  /** Heads waiting to be spat. Arrival jitter is absorbed here: the boss
+   * emits exactly one every 200 ms of game time, so spacing stays even. */
+  pending: Head[];
+  /** Time banked toward the next spit. */
+  spawnClock: number;
   labels: Label[];
   particles: Particle[];
   afterimages: Afterimage[];
@@ -103,8 +122,10 @@ export type Game = {
   shake: number;
   /** Seconds the boss mouth stays open after spitting a block. */
   bossMouth: number;
-  /** Hold to inhale: suction is on while this is held. */
+  /** The mouth is open (a tap's bite window is running). */
   inhaling: boolean;
+  /** Seconds left in the current bite window. */
+  inhaleTime: number;
   /** Chew timer after a swallow; suction pauses while it runs. */
   puffed: number;
   /** Seconds the mouth has been open in the current inhale cycle. */
@@ -117,7 +138,7 @@ export type Game = {
   stuffed: boolean;
   /** Seconds of FULL mode remaining before he shrinks back to empty. */
   fullTime: number;
-  /** After FULL ends: keeps his footing on tall blocks until he touches road. */
+  /** After FULL ends: ghost-falls through blocks until he touches the road. */
   descending: boolean;
   /** Seconds since the run ended; a restart needs a deliberate press after a beat. */
   sinceDeath: number;
@@ -131,7 +152,7 @@ export type Game = {
   events: GameEvent[];
 };
 
-export type GameEvent = 'inhale-on' | 'inhale-off' | 'gulp' | 'stuffed' | 'hurt' | 'die' | 'land' | 'thud' | 'heart';
+export type GameEvent = 'inhale-on' | 'gulp' | 'stuffed' | 'hurt' | 'die' | 'land' | 'thud' | 'heart';
 
 export function createGame(): Game {
   return {
@@ -142,12 +163,15 @@ export function createGame(): Game {
     player: { y: GROUND_Y - PLAYER_H, vy: 0, grounded: true },
     sinceImage: 0,
     blocks: [],
+    pending: [],
+    spawnClock: 0.2,
     labels: [],
     particles: [],
     afterimages: [],
     shake: 0,
     bossMouth: 0,
     inhaling: false,
+    inhaleTime: 0,
     puffed: 0,
     mouthOpen: 0,
     runDust: 0,
@@ -211,23 +235,14 @@ export function blockLabel(block: Pick<Block, 'number' | 'timestampMs'>): string
   return slot ? `${block.number.toLocaleString()} · ${slot}` : block.number.toLocaleString();
 }
 
-/** A new head arrived: the boss spits a block. Ignored unless running. */
+/**
+ * A new head arrived: queue it. The step spits queued heads on a strict
+ * 200 ms metronome, so network delivery jitter never shows up as uneven
+ * spacing on the street. Ignored unless running.
+ */
 export function spawnBlock(game: Game, head: Head): Game {
   if (game.phase !== 'running') return game;
-  const { w, h } = blockSizeFor(head.gasUsed, game.score, head.number, game.time);
-  const block: Block = {
-    id: game.nextId,
-    x: SPAWN_X,
-    y: MOUTH_Y - h,
-    vy: SPIT_VY,
-    landed: false,
-    w,
-    h,
-    weight: weightFor(w),
-    number: head.number,
-    timestampMs: head.timestampMs,
-  };
-  return { ...game, nextId: game.nextId + 1, blocks: [...game.blocks, block], bossMouth: BOSS_MOUTH_OPEN };
+  return { ...game, pending: [...game.pending, head] };
 }
 
 export function start(game: Game): Game {
@@ -237,7 +252,6 @@ export function start(game: Game): Game {
     ...createGame(),
     phase: 'running',
     nextId: game.nextId,
-    inhaling: game.inhaling,
   };
 }
 
@@ -251,14 +265,19 @@ export function restart(game: Game): Game {
   return start(game);
 }
 
-/** Hold to inhale; the step drags the nearest block in range to the mouth. */
-export function setInhale(game: Game, held: boolean): Game {
-  if (game.phase === 'ready' && held) return { ...start(game), inhaling: true };
-  if (game.inhaling === held) return game;
+/**
+ * One tap = one bite: opens the mouth for a short window that can swallow at
+ * most one block, then it closes. Holding a key does nothing more — the next
+ * block needs the next tap. Tapping mid-window refreshes it.
+ */
+export function tap(game: Game): Game {
+  if (game.phase === 'ready') return { ...start(game), inhaling: true, inhaleTime: INHALE_BURST };
+  if (game.phase !== 'running') return game;
   return {
     ...game,
-    inhaling: held && game.phase === 'running',
-    events: game.phase === 'running' ? [...game.events, held ? 'inhale-on' : 'inhale-off'] : game.events,
+    inhaling: true,
+    inhaleTime: INHALE_BURST,
+    events: game.inhaling ? game.events : [...game.events, 'inhale-on'],
   };
 }
 
@@ -343,6 +362,35 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     })
     .filter((b) => b.x + b.w > -4);
 
+  // The boss's metronome: spit one queued head per 200 ms of game time.
+  let pending = game.pending;
+  let spawnClock = Math.min(0.2, game.spawnClock + dt);
+  let nextId = game.nextId;
+  let bossMouth = Math.max(0, game.bossMouth - dt);
+  while (spawnClock >= 0.2 && pending.length > 0) {
+    const head = pending[0];
+    pending = pending.slice(1);
+    spawnClock -= 0.2;
+    const { w, h } = blockSizeFor(head.gasUsed, score, head.number, game.time);
+    blocks = [
+      ...blocks,
+      {
+        id: nextId,
+        x: SPAWN_X,
+        y: MOUTH_Y - h,
+        vy: SPIT_VY,
+        landed: false,
+        w,
+        h,
+        weight: weightFor(w),
+        number: head.number,
+        timestampMs: head.timestampMs,
+      },
+    ];
+    nextId += 1;
+    bossMouth = BOSS_MOUTH_OPEN;
+  }
+
   const fx = decay(game.labels, game.particles, afterimages);
   let { labels, particles } = fx;
   afterimages = fx.afterimages;
@@ -357,6 +405,8 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
   // scores the block's weight and shows its label. Everything else keeps
   // scrolling at them meanwhile.
   const mouthX = PLAYER_X + PLAYER_W - 4;
+  let inhaleTime = Math.max(0, game.inhaleTime - dt);
+  let inhaling = game.inhaling && inhaleTime > 0;
   let puffed = Math.max(0, game.puffed - dt);
   const chewing = puffed > 0;
   // FULL mode runs on a timer, then he deflates back to empty and is hungry
@@ -378,10 +428,10 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
   }
   // The mouth cycle: open (pull) → chomp → chew → open. The open phase must
   // last a beat before anything goes down, so the animation always shows it.
-  let mouthOpen = game.inhaling && !chewing ? game.mouthOpen + dt : 0;
+  let mouthOpen = inhaling && !chewing ? game.mouthOpen + dt : 0;
   let target: Block | null = null;
   const mouthReach = game.player.y + PLAYER_H + 6;
-  if (game.inhaling && !chewing && !stuffed) {
+  if (inhaling && !chewing && !stuffed) {
     for (const b of blocks) {
       if (!b.landed || b.x + b.w < mouthX || b.x > mouthX + INHALE_RANGE) continue;
       // The mouth can only eat what it can reach: a block whose top is below
@@ -406,6 +456,8 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
       particles = [...particles, ...shards(mouthX + 10, pulled.y + pulled.h / 2, rng)];
       events.push('gulp');
       mouthOpen = 0;
+      inhaling = false;
+      inhaleTime = 0;
       fullness = Math.min(1, fullness + FULL_PER_WEIGHT * pulled.weight);
       if (fullness >= 1) {
         stuffed = true;
@@ -427,21 +479,22 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
   let bonked: Block | null = null;
   for (const b of blocks) {
     if (b.id === eatingId) continue; // you cannot stand on what you are swallowing
+    if (descending) continue; // ghost-fall: he drops through everything to the road
     const overlapsX = right > b.x && left < b.x + b.w;
     if (!overlapsX) continue;
     const top = b.y;
     // Consistency rule: every block is a collision unless eaten. Blocks are
-    // only walkable in FULL mode (he rolls over everything) and during the
-    // descent right after it (he keeps his footing until he is back on the
-    // street, so the power-up cannot strand him inside a wall).
-    const walkable = stuffed || descending;
-    if (walkable && vy >= 0) {
+    // only walkable in FULL mode, where he rolls over everything. The descent
+    // after FULL is a ghost-fall (handled above): in a stream this dense there
+    // is always another block underfoot, so walking the descent down would
+    // strand him on the tops forever.
+    if (stuffed && vy >= 0) {
       floor = Math.min(floor, top);
     } else if (y + PLAYER_H > top + 1) {
       bonked = bonked ?? b;
     }
   }
-  if (bonked && game.inhaling && !stuffed && puffed <= 0) {
+  if (bonked && inhaling && !stuffed && puffed <= 0) {
     // Mouth-first: while inhaling with the mouth free, contact is a meal, not
     // a crash. Mid-chew the mouth is busy — a wall then is a real hit, which
     // is what makes back-to-back walls dangerous.
@@ -450,6 +503,8 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     heartProgress += 1;
     puffed = PUFF_TIME;
     mouthOpen = 0;
+    inhaling = false;
+    inhaleTime = 0;
     fullness = Math.min(1, fullness + FULL_PER_WEIGHT * bonked.weight);
     if (fullness >= 1) {
       stuffed = true;
@@ -522,8 +577,13 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     labels,
     particles,
     afterimages,
+    pending,
+    spawnClock,
+    nextId,
     shake,
-    bossMouth: Math.max(0, game.bossMouth - dt),
+    bossMouth,
+    inhaling,
+    inhaleTime,
     puffed,
     mouthOpen,
     runDust,

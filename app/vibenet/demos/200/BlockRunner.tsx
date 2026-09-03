@@ -3,8 +3,8 @@
 // Block Runner: an 8-bit pixel runner in Base colors where the vibenet chain is
 // the spawner. Every new head (one per 200 ms under Denim) is spat out as a
 // block by the boss on the right edge. The player is a round Base-blue glutton:
-// hold ONE button — Space, X, or a finger anywhere on the picture — to inhale,
-// and the nearest block drags into its mouth and is swallowed — one eaten.
+// tap ONE button — Space, X, or anywhere on the picture — and each tap is a
+// bite: the mouth opens briefly, swallows at most one block — one eaten.
 // Heavy walls drag slower while the chain keeps coming. Any block
 // that reaches him uneaten costs a heart; fill the belly and he goes FULL —
 // briefly invulnerable, rolling the tops — then hungry again. A city at night.
@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../../components/ui/Button';
 import { Text } from '../../../components/ui/Text';
-import { VIBENET_RPC_URL, VIBENET_WS_URL } from '../../library/config';
+import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL, VIBENET_WS_URL } from '../../library/config';
 import { connectJsonRpcStream } from '../validity/lib/stream';
 import {
   BOSS_X,
@@ -29,9 +29,10 @@ import {
   PLAYER_H,
   PLAYER_W,
   PLAYER_X,
+  fullMeter,
   INHALE_RANGE,
   restart,
-  setInhale,
+  tap,
   slotOf,
   spawnBlock,
   step,
@@ -40,6 +41,14 @@ import {
   type Head,
 } from './lib/game';
 import gluttonSheet from './glutton-sheet-v2.png';
+import {
+  fetchBest,
+  fetchBoard,
+  scoreWallet,
+  shortAddr,
+  submitScore,
+  type BoardEntry,
+} from './lib/leaderboard';
 import { Sound } from './lib/sound';
 import {
   BOSS_CLOSED,
@@ -96,15 +105,15 @@ function glutton(): HTMLImageElement {
   return gluttonImg;
 }
 
-function drawGlutton(ctx: CanvasRenderingContext2D, frame: number, x: number, y: number, swell = 1): void {
+function drawGlutton(ctx: CanvasRenderingContext2D, frame: number, x: number, y: number, swell = 1, px = SCALE): void {
   const img = glutton();
   if (!img.complete || img.naturalWidth === 0) return;
   // The art is 20 wide over a 16-wide hitbox: ears and arms overhang evenly.
   // `swell` grows the whole body around the feet — the gulp bulge.
-  const w = G_W * SCALE * swell;
-  const h = G_H * SCALE * swell;
-  const dx = x - ((G_W - 16) / 2) * SCALE - (w - G_W * SCALE) / 2;
-  const dy = y - (h - G_H * SCALE);
+  const w = G_W * px * swell;
+  const h = G_H * px * swell;
+  const dx = x - ((G_W - 16) / 2) * px - (w - G_W * px) / 2;
+  const dy = y - (h - G_H * px);
   ctx.drawImage(img, frame * G_W, 0, G_W, G_H, Math.round(dx), Math.round(dy), Math.round(w), Math.round(h));
 }
 
@@ -303,6 +312,181 @@ function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   drawSprite(ctx, CRATE_TOP.slice(0, 1), x, y + h - scale, scale, P);
 }
 
+/** Chunky pixel text: rendered small offscreen with an outline, scaled up
+ * with smoothing off. Cached per string+style. */
+const chunkyCache = new Map<string, HTMLCanvasElement>();
+function chunkyText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  cx: number,
+  top: number,
+  scale: number,
+  fill: string,
+  outline: string,
+): number {
+  const key = `${text}|${fill}|${outline}`;
+  let off = chunkyCache.get(key);
+  if (!off) {
+    const measure = document.createElement('canvas').getContext('2d')!;
+    measure.font = 'bold 11px ui-monospace, monospace';
+    const tw = Math.ceil(measure.measureText(text).width);
+    off = document.createElement('canvas');
+    off.width = tw + 4;
+    off.height = 16;
+    const o = off.getContext('2d')!;
+    o.font = 'bold 11px ui-monospace, monospace';
+    o.textBaseline = 'top';
+    o.fillStyle = outline;
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1], [-1, 1]] as const) o.fillText(text, 2 + dx, 2 + dy);
+    o.fillStyle = fill;
+    o.fillText(text, 2, 2);
+    chunkyCache.set(key, off);
+  }
+  const w = off.width * scale;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(off, Math.round(cx - w / 2), Math.round(top), w, off.height * scale);
+  return w;
+}
+
+/** A row of colored key hints ("R restart · M mute…"), centered. */
+function keysLine(ctx: CanvasRenderingContext2D, cx: number, y: number): void {
+  const parts: Array<[string, string]> = [
+    ['R', P.b],
+    [' restart  ·  ', P.g],
+    ['M', P.b],
+    [' mute  ·  ', P.g],
+    ['F', P.b],
+    [' full screen', P.g],
+  ];
+  ctx.font = 'bold 12px var(--font-mono, ui-monospace, monospace)';
+  ctx.textAlign = 'left';
+  const total = parts.reduce((n, [t]) => n + ctx.measureText(t).width, 0);
+  let x = cx - total / 2;
+  for (const [t, color] of parts) {
+    ctx.fillStyle = color;
+    ctx.fillText(t, x, y);
+    x += ctx.measureText(t).width;
+  }
+  ctx.textAlign = 'center';
+}
+
+/** The title / game-over card, styled like a riveted arcade bezel. */
+function drawDialog(ctx: CanvasRenderingContext2D, game: Game, frame: number): void {
+  const dead = game.phase === 'dead';
+  const w = 660;
+  const h = dead ? 190 : 232;
+  const x = Math.round((WIDTH - w) / 2);
+  const y = 34;
+  const METAL = '#8d95a6';
+  const METAL_DARK = '#4a5164';
+  const METAL_LIGHT = '#c3cad9';
+  const INNER = '#0b1030';
+
+  // Shadow, metal frame, dark inner.
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(x + 7, y + 9, w, h);
+  ctx.fillStyle = METAL_DARK;
+  ctx.fillRect(x - 10, y - 10, w + 20, h + 20);
+  ctx.fillStyle = METAL;
+  ctx.fillRect(x - 7, y - 7, w + 14, h + 14);
+  ctx.fillStyle = METAL_LIGHT;
+  ctx.fillRect(x - 7, y - 7, w + 14, 3);
+  ctx.fillStyle = P.k;
+  ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+  ctx.fillStyle = INNER;
+  ctx.fillRect(x, y, w, h);
+
+  // Rivets along the frame.
+  ctx.fillStyle = METAL_DARK;
+  for (let rx = x + 8; rx < x + w - 6; rx += 52) {
+    ctx.fillRect(rx, y - 6, 3, 3);
+    ctx.fillRect(rx, y + h + 3, 3, 3);
+  }
+  // Glowing side lights, three per rail.
+  for (let i = 0; i < 3; i += 1) {
+    const ly = y + 30 + i * ((h - 60) / 2);
+    for (const lx of [x - 6, x + w + 1]) {
+      ctx.fillStyle = P.D;
+      ctx.fillRect(lx, ly, 5, 12);
+      ctx.fillStyle = P.c;
+      ctx.fillRect(lx + 1, ly + 2, 3, 8);
+    }
+  }
+
+  // Gulpy peeking over the top edge, standing on a small notch plate.
+  ctx.fillStyle = METAL;
+  ctx.fillRect(WIDTH / 2 - 42, y - 10, 84, 4);
+  drawGlutton(ctx, GLUTTON.idleA, WIDTH / 2 - 8, y - 10 - 16 * 2 + 6);
+
+  // Title with arrow flourishes.
+  const titleY = y + 14;
+  const tw = chunkyText(ctx, dead ? 'GAME OVER' : 'BLOCK RUNNER', WIDTH / 2, titleY, 3, P.w, '#1a3fb8');
+  ctx.fillStyle = P.b;
+  const gap = tw / 2 + 16;
+  ctx.fillRect(WIDTH / 2 - gap - 30, titleY + 20, 24, 3);
+  ctx.fillRect(WIDTH / 2 - gap - 6, titleY + 17, 5, 9);
+  ctx.fillRect(WIDTH / 2 + gap + 6, titleY + 20, 24, 3);
+  ctx.fillRect(WIDTH / 2 + gap + 1, titleY + 17, 5, 9);
+
+  ctx.textAlign = 'center';
+  if (dead) {
+    chunkyText(ctx, `${game.score} BLOCKS EATEN`, WIDTH / 2, y + 74, 2, P.y, '#5c4a00');
+    keysLine(ctx, WIDTH / 2, y + 122);
+  } else {
+    // Icon bullets: real game sprites next to each line.
+    const lines: Array<[() => void, string]> = [
+      [() => drawBlock(ctx, x + 34, y + 66, 16, 14), 'Every crate is a real vibenet block — one every 200 ms, spat by the sequencer.'],
+      [() => drawGlutton(ctx, GLUTTON.happy, x + 30, y + 84, 1, 1.5), 'Tap to bite: one tap, one block. Uneaten blocks cost a heart.'],
+      [() => drawSprite(ctx, HEART, x + 34, y + 118, 2, P), 'Fill the belly for FULL mode — briefly unstoppable, then hungry again.'],
+    ];
+    ctx.font = '12px var(--font-mono, ui-monospace, monospace)';
+    ctx.textAlign = 'left';
+    lines.forEach(([icon, text], i) => {
+      icon();
+      ctx.fillStyle = P.w;
+      ctx.fillText(text, x + 62, y + 78 + i * 26);
+    });
+    ctx.textAlign = 'center';
+    // Dotted divider with a little face.
+    ctx.fillStyle = P.D;
+    for (let dx = x + 30; dx < x + w - 30; dx += 8) {
+      if (Math.abs(dx - WIDTH / 2) > 26) ctx.fillRect(dx, y + 148, 4, 3);
+    }
+    drawGlutton(ctx, GLUTTON.idleA, WIDTH / 2 - 12, y + 136, 1, 1.5);
+    keysLine(ctx, WIDTH / 2, y + 178);
+  }
+
+  // TAP TO START button bar.
+  const bw = 240;
+  const bh = 30;
+  const bx = Math.round(WIDTH / 2 - bw / 2);
+  const by = y + h - bh - 12;
+  ctx.fillStyle = METAL;
+  ctx.fillRect(bx - 4, by - 4, bw + 8, bh + 8);
+  ctx.fillStyle = P.k;
+  ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+  ctx.fillStyle = '#141a3d';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = P.c;
+  ctx.fillRect(bx - 4, by + bh / 2 - 4, 3, 8);
+  ctx.fillRect(bx + bw + 1, by + bh / 2 - 4, 3, 8);
+  if (Math.floor(frame / 24) % 2 === 0) {
+    chunkyText(ctx, dead ? '\u25b6 TAP TO RUN AGAIN' : '\u25b6 TAP TO START', WIDTH / 2, by + 5, 2, P.y, '#5c4a00');
+  }
+
+  // Bottom-left hearts + belly chip; bottom-right crate stack (ready only).
+  if (!dead) {
+    for (let i = 0; i < 3; i += 1) drawSprite(ctx, HEART, x + 22 + i * 22, y + h - 34, 2, P);
+    ctx.fillStyle = P.D;
+    ctx.fillRect(x + 22, y + h - 14, 62, 6);
+    ctx.fillStyle = P.b;
+    ctx.fillRect(x + 23, y + h - 13, 40, 4);
+    drawBlock(ctx, x + w - 50, y + h - 34, 20, 16);
+    drawBlock(ctx, x + w - 72, y + h - 34, 20, 16);
+    drawBlock(ctx, x + w - 61, y + h - 52, 20, 16);
+  }
+}
+
 function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQuiet: boolean, happyFrames: number): void {
   ctx.imageSmoothingEnabled = false;
   const barreling = game.stuffed;
@@ -419,9 +603,12 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
   ctx.restore();
 
   // Belly gauge, HUD-fixed (not shaken): fills as he eats; during FULL it
-  // shows the time left and drains to empty — then he must eat again.
+  // drains over the whole state — cruise plus shrink — reaching empty on the
+  // exact frame he is hungry again. The dialog carries its own hearts and
+  // belly chip, so the live HUD only draws mid-run.
+  if (game.phase === 'running') {
   const meterW = 120;
-  const fillFrac = game.stuffed ? game.fullTime / 2.5 : game.fullness;
+  const fillFrac = game.stuffed ? fullMeter(game) : game.fullness;
   ctx.fillStyle = P.railEdge;
   ctx.fillRect(16, 16, meterW + 6, 14);
   ctx.fillStyle = P.rail;
@@ -437,29 +624,12 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
   for (let i = 0; i < MAX_HEARTS; i += 1) {
     drawSprite(ctx, i < game.hearts ? HEART : HEART_EMPTY, 150 + i * 22, 14, 2, P);
   }
+  }
 
-  // Overlays.
+  // Overlays: an 8-bit dialog — layered pixel border, drop shadow, accent
+  // bar — instead of a flat slab.
   if (game.phase !== 'running') {
-    ctx.fillStyle = P.B;
-    ctx.fillRect(WIDTH / 2 - 250, 70, 500, 96);
-    ctx.fillStyle = P.D;
-    ctx.fillRect(WIDTH / 2 - 250, 166, 500, 4);
-    ctx.fillStyle = P.w;
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 20px var(--font-mono, ui-monospace, monospace)';
-    const title = game.phase === 'dead' ? 'GAME OVER' : 'BLOCK RUNNER';
-    ctx.fillText(title, WIDTH / 2, 106);
-    ctx.font = '12px var(--font-mono, ui-monospace, monospace)';
-    ctx.fillStyle = P.c;
-    const hint =
-      game.phase === 'dead'
-        ? 'Press any key to run again'
-        : 'Hold Space (or touch) to eat · every block hits if you don’t · one every 200 ms';
-    ctx.fillText(hint, WIDTH / 2, 134);
-    if (game.phase === 'dead') {
-      ctx.fillStyle = P.y;
-      ctx.fillText(`${game.score} blocks eaten`, WIDTH / 2, 152);
-    }
+    drawDialog(ctx, game, frame);
   }
 }
 
@@ -470,6 +640,15 @@ export function BlockRunner() {
   const frameRef = useRef(0);
   const feedRef = useRef<'connecting' | 'live' | 'polling' | 'quiet'>('connecting');
   const [muted, setMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Immersive takeover: the game fills the viewport by default on load.
+  // (True fullscreen needs a user gesture, so this is the load-time version.)
+  const [immersive, setImmersive] = useState(true);
+  const [board, setBoard] = useState<BoardEntry[]>([]);
+  const [chainBest, setChainBest] = useState(0);
+  const [myAddress, setMyAddress] = useState<string | null>(null);
+  const [submitState, setSubmitState] = useState<'' | 'funding' | 'submitting' | 'confirming' | 'done' | 'error'>('');
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [phase, setPhase] = useState<Game['phase']>('ready');
@@ -585,8 +764,65 @@ export function BlockRunner() {
     };
   }, [apply, setFeed]);
 
+  // Onchain high scores: poll the board, know our own best.
+  useEffect(() => {
+    let cancelled = false;
+    const wallet = scoreWallet();
+    // Deferred so the effect body itself does not set state synchronously.
+    const t = window.setTimeout(() => setMyAddress(wallet.address), 0);
+    const load = async () => {
+      try {
+        const [entries, mine] = await Promise.all([fetchBoard(), fetchBest(wallet.address)]);
+        if (!cancelled) {
+          setBoard(entries);
+          setChainBest(mine);
+        }
+      } catch {
+        /* Board is decoration; the next poll retries (or the chain regenesised). */
+      }
+    };
+    void load();
+    const id = window.setInterval(() => {
+      if (!document.hidden) void load();
+    }, 12_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const postScore = useCallback(async () => {
+    const s = gameRef.current.score;
+    if (s <= 0 || submitState === 'funding' || submitState === 'submitting' || submitState === 'confirming') return;
+    setSubmitState('funding');
+    try {
+      await submitScore(s, (st) => setSubmitState(st));
+      setSubmitState('done');
+      setChainBest((b) => Math.max(b, s));
+      setBoard(await fetchBoard());
+    } catch {
+      setSubmitState('error');
+    }
+  }, [submitState]);
+
+  // Fullscreen: the stage wrapper goes fullscreen; the canvas letterboxes
+  // inside it with object-contain so the aspect never distorts.
+  const toggleFullscreen = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else if (stage.requestFullscreen) void stage.requestFullscreen();
+  }, []);
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
   // Input.
-  const doInhale = useCallback((held: boolean) => apply(setInhale(gameRef.current, held)), [apply]);
+  const doTap = useCallback(() => apply(tap(gameRef.current)), [apply]);
   const doRestart = useCallback(() => apply(restart(gameRef.current)), [apply]);
 
   useEffect(() => {
@@ -601,29 +837,23 @@ export function BlockRunner() {
       if (e.code === 'Space' || e.code === 'KeyX' || e.code === 'Enter') {
         e.preventDefault();
         if (gameRef.current.phase === 'dead') doRestart();
-        else doInhale(true);
+        else doTap();
       } else if (e.code === 'KeyR') {
         // Same as Space on the game-over screen; never resets a live run.
         if (gameRef.current.phase === 'dead') doRestart();
+      } else if (e.code === 'KeyF') {
+        toggleFullscreen();
       } else if (e.code === 'KeyM') {
         const next = !sound().muted;
         sound().setMuted(next);
         setMuted(next);
       }
     };
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'KeyX' || e.code === 'Enter') doInhale(false);
-    };
-    const onBlur = () => doInhale(false);
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    window.addEventListener('blur', onBlur);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
-      window.removeEventListener('blur', onBlur);
     };
-  }, [doInhale, doRestart]);
+  }, [doTap, doRestart, toggleFullscreen]);
 
   // Main loop. requestAnimationFrame when the tab is visible; a 60 Hz timer
   // takes over when the browser stops issuing frames (hidden or throttled),
@@ -676,6 +906,8 @@ export function BlockRunner() {
       if (next.phase !== shownPhase) {
         shownPhase = next.phase;
         setPhase(next.phase);
+        if (next.phase === 'running') sound().startMusic();
+        else sound().stopMusic();
         if (next.phase === 'dead') {
           setBest((b) => {
             const nb = Math.max(b, next.score);
@@ -708,6 +940,7 @@ export function BlockRunner() {
     return () => {
       window.cancelAnimationFrame(raf);
       window.clearInterval(fallback);
+      soundRef.current?.stopMusic(0.2);
     };
   }, []);
 
@@ -715,10 +948,9 @@ export function BlockRunner() {
     e.preventDefault();
     sound().unlock();
     if (gameRef.current.phase === 'dead') return doRestart();
-    // One action everywhere: press (and hold) to inhale.
-    doInhale(true);
+    // One action everywhere: a tap is a bite.
+    doTap();
   };
-  const onPointerUp = () => doInhale(false);
 
   const slot = head ? slotOf(head.timestampMs) : null;
   const feedLabel =
@@ -765,29 +997,132 @@ export function BlockRunner() {
           >
             {muted ? 'Unmute' : 'Mute'}
           </Button>
+          <Button variant="secondary" size="sm" onClick={toggleFullscreen} aria-pressed={isFullscreen}>
+            {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+          </Button>
         </div>
       </div>
 
+      <div
+        ref={stageRef}
+        className={
+          isFullscreen
+            ? 'flex h-full w-full items-center justify-center bg-[#12093a]'
+            : immersive
+              ? 'fixed inset-0 z-[115] flex items-center justify-center bg-[#12093a]'
+              : 'contents'
+        }
+      >
       <canvas
         ref={canvasRef}
         onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
         onContextMenu={(e) => e.preventDefault()}
-        className="mx-auto w-full max-w-[800px] select-none rounded-xl bg-[#12093a] [image-rendering:pixelated]"
+        className={
+          isFullscreen || immersive
+            ? 'h-full w-full select-none object-contain [image-rendering:pixelated]'
+            : 'mx-auto w-full max-w-[800px] select-none rounded-xl bg-[#12093a] [image-rendering:pixelated]'
+        }
         style={{ aspectRatio: `${WIDTH} / ${HEIGHT}`, touchAction: 'none', background: P.sky, WebkitTouchCallout: 'none' }}
-        aria-label={`Block Runner. ${phase === 'running' ? `Score ${score}.` : 'Press space or touch to start eating.'}`}
+        aria-label={`Block Runner. ${phase === 'running' ? `Score ${score}.` : 'Tap space or the screen to start eating.'}`}
         role="img"
       />
+      {immersive && !isFullscreen ? (
+        <div className="absolute right-4 top-4 flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              const next = !sound().muted;
+              sound().setMuted(next);
+              setMuted(next);
+            }}
+          >
+            {muted ? 'Unmute' : 'Mute'}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={toggleFullscreen}>
+            Full Screen
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setImmersive(false)}>
+            Exit
+          </Button>
+        </div>
+      ) : null}
+      </div>
+
+      <section className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Text variant="headline">Onchain high scores</Text>
+          <div className="flex items-center gap-3">
+            {phase === 'dead' && score > 0 && score > chainBest ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void postScore()}
+                disabled={submitState === 'funding' || submitState === 'submitting' || submitState === 'confirming'}
+              >
+                {submitState === 'funding'
+                  ? 'Funding wallet…'
+                  : submitState === 'submitting'
+                    ? 'Submitting…'
+                    : submitState === 'confirming'
+                      ? 'Confirming…'
+                      : `Post ${score} onchain`}
+              </Button>
+            ) : null}
+            {submitState === 'error' ? (
+              <Text variant="footnote" className="text-bds-red-60">
+                Submission failed — try again.
+              </Text>
+            ) : null}
+          </div>
+        </div>
+        <div className="overflow-hidden rounded-lg border border-bds-gray-10 dark:border-white/10">
+          {board.length === 0 ? (
+            <Text variant="label.regular" tone="muted" className="block px-4 py-3">
+              No scores onchain yet — die proudly and post yours.
+            </Text>
+          ) : (
+            <ul className="divide-y divide-bds-gray-10 dark:divide-white/10">
+              {board.map((e, i) => (
+                <li
+                  key={e.player}
+                  className={`flex items-center gap-3 px-4 py-2 text-[13px] ${
+                    myAddress && e.player.toLowerCase() === myAddress.toLowerCase() ? 'bg-bds-blue-0' : ''
+                  }`}
+                >
+                  <span className="w-6 shrink-0 text-bds-gray-50">{i + 1}</span>
+                  <a
+                    href={`${VIBENET_EXPLORER_PATH}/address/${e.player}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-base-blue hover:underline"
+                  >
+                    {shortAddr(e.player)}
+                  </a>
+                  {myAddress && e.player.toLowerCase() === myAddress.toLowerCase() ? (
+                    <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-50">you</span>
+                  ) : null}
+                  <span className="ml-auto font-doto text-[18px] tabular-nums">{e.score}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <Text variant="footnote" tone="muted">
+          Scores live in a contract on vibenet — no names, only the wallet that posted them. Your browser plays as{' '}
+          {myAddress ? <span className="font-mono">{shortAddr(myAddress as `0x${string}`)}</span> : '…'} and the
+          faucet funds its first submission. A devnet regenesis wipes the board.
+        </Text>
+      </section>
 
       <Text variant="footnote" tone="muted">
         The boss on the right is the sequencer: every block it spits is a real vibenet block, pushed over WebSocket as
         it lands, one every 200 ms. Block height follows gas used. Swallow one to read its number and slot
-        {head ? `, like ${blockLabel(head)}` : ''}. Hold Space, X, or a finger on the picture to inhale — the
-        nearest block drags in and is swallowed, and heavy walls drag slower. Every block that reaches him uneaten
-        costs a heart. Fill the belly gauge and he is FULL — for a few seconds nothing can hurt him and he rolls
-        along the top of the blocks while the gauge drains, then he is hungry again. R restarts after a run, M
-        mutes.
+        {head ? `, like ${blockLabel(head)}` : ''}. Tap Space, X, or the picture to bite — each tap opens the
+        mouth for one block, and the next block needs the next tap. Heavy walls drag in slower. Every block that
+        reaches him uneaten costs a heart. Fill the belly gauge and he is FULL — for a few seconds nothing can hurt him and he rolls
+        along the top of the blocks while the gauge drains, then he is hungry again. The beat runs at one note per
+        block. R restarts after a run, M mutes music and effects, F goes full screen.
       </Text>
     </div>
   );

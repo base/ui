@@ -5,6 +5,7 @@ import {
   blockLabel,
   BOSS_X,
   createGame,
+  fullMeter,
   INHALE_RANGE,
   GROUND_Y,
   MAX_HEARTS,
@@ -14,7 +15,7 @@ import {
   restart,
   RESTART_GRACE,
   PLAYER_W,
-  setInhale,
+  tap,
   slotOf,
   spawnBlock,
   speedFor,
@@ -106,14 +107,37 @@ describe('spawnBlock', () => {
     expect(spawnBlock(createGame(), head(1)).blocks).toHaveLength(0);
   });
 
-  it('spits a block from the boss mouth and opens its mouth once running', () => {
-    const g = spawnBlock(start(createGame()), head(148_646));
+  it('queues the head, then spits it from the boss mouth on the next beat', () => {
+    let g = spawnBlock(start(createGame()), head(148_646));
+    expect(g.pending).toHaveLength(1);
+    expect(g.blocks).toHaveLength(0);
+    g = step(g, 1 / 120, zeroRng);
+    expect(g.pending).toHaveLength(0);
     expect(g.blocks).toHaveLength(1);
-    expect(g.blocks[0].x).toBeGreaterThanOrEqual(BOSS_X);
+    expect(g.blocks[0].x).toBeGreaterThanOrEqual(BOSS_X - 60);
     expect(g.blocks[0].number).toBe(148_646);
     expect(g.blocks[0].landed).toBe(false);
-    expect(g.blocks[0].y + g.blocks[0].h).toBeLessThanOrEqual(MOUTH_Y);
     expect(g.bossMouth).toBeGreaterThan(0);
+  });
+
+  it('spits queued heads exactly one per 200 ms, so spacing stays even', () => {
+    // Three heads arrive in a burst (network jitter): they must NOT spawn in
+    // a clump.
+    let g = start(createGame());
+    g = spawnBlock(g, head(1));
+    g = spawnBlock(g, head(2));
+    g = spawnBlock(g, head(3));
+    g = step(g, 1 / 120, zeroRng);
+    expect(g.blocks).toHaveLength(1);
+    g = run(g, 0.21);
+    expect(g.blocks).toHaveLength(2);
+    g = run(g, 0.21);
+    expect(g.blocks).toHaveLength(3);
+    // Spacing between consecutive spits ≈ speed × 0.2 (equal gaps).
+    const xs = [...g.blocks].sort((a, b) => a.x - b.x).map((b) => b.x);
+    const gap1 = xs[1] - xs[0];
+    const gap2 = xs[2] - xs[1];
+    expect(Math.abs(gap1 - gap2)).toBeLessThan(8);
   });
 
   it('a spat block arcs, falls, and thuds onto the rail with dust', () => {
@@ -130,15 +154,8 @@ describe('spawnBlock', () => {
 });
 
 describe('inhale', () => {
-  it('a restart keeps held keys so a mashing player comes back inhaling', () => {
-    let g = setInhale(start(createGame()), true);
-    g = start(g);
-    expect(g.inhaling).toBe(true);
-    expect(g.score).toBe(0);
-  });
-
   it('start the run from the ready screen', () => {
-    expect(setInhale(createGame(), true).phase).toBe('running');
+    expect(tap(createGame()).phase).toBe('running');
   });
 
 });
@@ -151,7 +168,7 @@ describe('weightFor / swallowing', () => {
   });
 
   it('inhaling drags the nearest block in and swallows it, counting one eaten', () => {
-    let g = setInhale(start(createGame()), true);
+    let g = tap(start(createGame()));
     g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60, weight: 2, number: 148_646, timestampMs: 1_788_419_137_200 })] };
     g = run(g, 0.2);
     expect(g.blocks).toHaveLength(0);
@@ -162,7 +179,7 @@ describe('weightFor / swallowing', () => {
 
   it('a heavy wall drags in slower than a light block', () => {
     const timeToEat = (weight: number) => {
-      let g = setInhale(start(createGame()), true);
+      let g = tap(start(createGame()));
       g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 250, h: 60, weight })] };
       let t = 0;
       while (g.blocks.length > 0 && t < 2) {
@@ -175,7 +192,7 @@ describe('weightFor / swallowing', () => {
   });
 
   it('blocks beyond inhale range are left alone', () => {
-    let g = setInhale(start(createGame()), true);
+    let g = tap(start(createGame()));
     const farX = PLAYER_X + PLAYER_W + INHALE_RANGE + 100;
     g = { ...g, blocks: [blk({ id: 9, x: farX, h: 60 })] };
     g = step(g, 1 / 120, zeroRng);
@@ -184,7 +201,7 @@ describe('weightFor / swallowing', () => {
   });
 
   it('contact while inhaling is a meal, not a crash', () => {
-    let g = setInhale(start(createGame()), true);
+    let g = tap(start(createGame()));
     g = { ...g, blocks: [blk({ x: PLAYER_X + 80, h: 96, weight: 2 })] };
     g = run(g, 0.3);
     expect(g.hearts).toBe(MAX_HEARTS);
@@ -193,13 +210,32 @@ describe('weightFor / swallowing', () => {
     expect(g.score).toBeGreaterThanOrEqual(1);
   });
 
-  it('released inhale stops the pull', () => {
-    let g = setInhale(start(createGame()), true);
-    g = setInhale(g, false);
+  it('the bite window expires on its own — holding gives nothing extra', () => {
+    let g = tap(start(createGame()));
+    expect(g.inhaling).toBe(true);
+    g = run(g, 0.35);
+    expect(g.inhaling).toBe(false);
+    // A block arriving after expiry is not eaten by the stale tap.
     g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60 })] };
     g = step(g, 1 / 120, zeroRng);
     expect(g.blocks).toHaveLength(1);
+  });
+
+  it('one tap eats at most one block — the second needs a second tap', () => {
+    let g = tap(start(createGame()));
+    g = {
+      ...g,
+      blocks: [
+        blk({ id: 9, x: PLAYER_X + 120, h: 60 }),
+        blk({ id: 10, x: PLAYER_X + 420, h: 60 }),
+      ],
+    };
+    g = run(g, 0.25);
+    expect(g.score).toBe(1);
     expect(g.inhaling).toBe(false);
+    g = tap(g);
+    g = run(g, 0.35);
+    expect(g.score).toBe(2);
   });
 });
 
@@ -220,7 +256,7 @@ describe('fullness / stuffed', () => {
   });
 
   it('a heavy wall still counts as ONE eaten, not its weight', () => {
-    let g = setInhale(start(createGame()), true);
+    let g = tap(start(createGame()));
     g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 96, weight: 2 })] };
     g = run(g, 0.4);
     expect(g.blocks).toHaveLength(0);
@@ -229,7 +265,7 @@ describe('fullness / stuffed', () => {
 
   it('each swallow fills the belly; heavier blocks fill it more', () => {
     const eat = (weight: number) => {
-      let g = setInhale(start(createGame()), true);
+      let g = tap(start(createGame()));
       g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60, weight })] };
       g = run(g, 0.3);
       return g.fullness;
@@ -239,7 +275,7 @@ describe('fullness / stuffed', () => {
   });
 
   it('eating to the max enters FULL mode: no more eating, and a power fanfare', () => {
-    let g = setInhale(start(createGame()), true);
+    let g = tap(start(createGame()));
     g = { ...g, fullness: 0.95 };
     g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60, weight: 2 })] };
     let announced = false;
@@ -268,12 +304,12 @@ describe('fullness / stuffed', () => {
   });
 
   it('FULL mode times out, he shrinks back to empty, and is hungry again', () => {
-    let g = { ...setInhale(start(createGame()), true), fullness: 1, stuffed: true, fullTime: 0.2 };
+    let g = { ...tap(start(createGame())), fullness: 1, stuffed: true, fullTime: 0.2 };
     g = run(g, 1);
     expect(g.fullness).toBe(0);
     expect(g.stuffed).toBe(false);
-    // Hungry again: a block within range gets eaten.
-    g = { ...g, blocks: [blk({ id: 11, x: PLAYER_X + 200, h: 60, weight: 1 })] };
+    // Hungry again: a fresh tap eats a block in range.
+    g = tap({ ...g, blocks: [blk({ id: 11, x: PLAYER_X + 200, h: 60, weight: 1 })] });
     g = run(g, 0.3);
     expect(g.score).toBeGreaterThan(0);
   });
@@ -297,17 +333,51 @@ describe('blocks are never road', () => {
     expect(hurt).toBe(true);
   });
 
-  it('after FULL ends he keeps his footing over walls until he reaches the road', () => {
+  it('after FULL ends he ghost-falls through the stream to the road, unharmed', () => {
     let g = { ...start(createGame()), fullness: 0.01, stuffed: true, fullTime: 0 };
-    g = { ...g, player: { y: GROUND_Y - 96 - PLAYER_H, vy: 0, grounded: true }, blocks: [blk({ x: PLAYER_X - 10, h: 96, weight: 2 })] };
-    g = run(g, 0.2);
-    expect(g.hearts).toBe(MAX_HEARTS);
-    expect(g.descending || g.player.y + PLAYER_H >= GROUND_Y - 1).toBe(true);
-    // Once the wall passes he lands on the road and is a normal runner again.
-    g = { ...g, blocks: [] };
-    g = run(g, 0.6);
-    expect(g.descending).toBe(false);
-    expect(g.player.y).toBe(GROUND_Y - PLAYER_H);
+    // Up on a wall with a continuous stream below — the exact situation that
+    // used to strand him surfing the tops forever.
+    g = {
+      ...g,
+      player: { y: GROUND_Y - 96 - PLAYER_H, vy: 0, grounded: true },
+      blocks: [
+        blk({ id: 1, x: PLAYER_X - 10, h: 96, weight: 2 }),
+        blk({ id: 2, x: PLAYER_X + 60, h: 96, weight: 2 }),
+        blk({ id: 3, x: PLAYER_X + 130, h: 60 }),
+      ],
+    };
+    let g2 = g;
+    let landed = false;
+    for (let t = 0; t < 0.8 && !landed; t += 1 / 120) {
+      // Keep the stream continuous under him while he falls.
+      g2 = { ...g2, blocks: g2.blocks.map((b, i) => ({ ...b, x: PLAYER_X - 10 + i * 70 })) };
+      g2 = step(g2, 1 / 120, zeroRng);
+      landed = !g2.descending && !g2.stuffed;
+    }
+    // He reached the road through the stream without losing a heart.
+    expect(landed).toBe(true);
+    expect(g2.hearts).toBe(MAX_HEARTS);
+    expect(g2.player.y).toBe(GROUND_Y - PLAYER_H);
+  });
+});
+
+describe('fullMeter', () => {
+  it('tracks the whole FULL experience and hits zero exactly when it ends', () => {
+    expect(fullMeter({ stuffed: false, fullTime: 0, fullness: 0.5 })).toBe(0);
+    // Entry: full timer + full belly = 1.
+    expect(fullMeter({ stuffed: true, fullTime: 2.5, fullness: 1 })).toBe(1);
+    // Timer done but still deflating: the bar is NOT empty yet.
+    expect(fullMeter({ stuffed: true, fullTime: 0, fullness: 0.5 })).toBeGreaterThan(0);
+    // The meter and the state end together.
+    let g = { ...start(createGame()), fullness: 1, stuffed: true, fullTime: 0.3 };
+    let lastMeter = 1;
+    for (let t = 0; t < 2; t += 1 / 120) {
+      g = step(g, 1 / 120, zeroRng);
+      if (g.stuffed) lastMeter = fullMeter(g);
+      else break;
+    }
+    expect(g.stuffed).toBe(false);
+    expect(lastMeter).toBeLessThan(0.03);
   });
 });
 
@@ -374,7 +444,7 @@ describe('step', () => {
 
 
   it('swallowing blocks earns a heart back', () => {
-    let g = setInhale({ ...start(createGame()), hearts: 1, heartProgress: 11 }, true);
+    let g = tap({ ...start(createGame()), hearts: 1, heartProgress: 11 });
     g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60 })] };
     g = run(g, 0.5);
     expect(g.hearts).toBe(2);

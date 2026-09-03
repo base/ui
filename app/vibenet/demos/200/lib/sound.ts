@@ -1,15 +1,25 @@
-// Tiny synthesized sound set — no audio files. Everything is a short
-// oscillator or noise burst through one gain node, so it stays under a few
-// hundred bytes of code and never blocks on a network fetch.
+// Tiny synthesized sound set plus one looping backing track. Effects are
+// short oscillator or noise bursts through one gain node, so they never block
+// on a network fetch. The music is a 300 KB chiptune lofi loop rendered by
+// scripts/block-runner-music.mjs; it is fetched lazily and decoded into an
+// AudioBuffer so the loop point is sample-accurate.
 //
 // Browsers only allow audio after a user gesture, so the context is created
 // lazily on the first play call, which the game reaches from a key press.
 
 const STORAGE_KEY = 'block-runner:muted';
+const MUSIC_URL = '/audio/block-runner-lofi.mp3';
+const MUSIC_GAIN = 0.5;
 
 export class Sound {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private musicGain: GainNode | null = null;
+  private musicSource: AudioBufferSourceNode | null = null;
+  private musicBuffer: AudioBuffer | null = null;
+  private musicLoad: Promise<void> | null = null;
+  /** The game wants music; playback follows this once the buffer is decoded. */
+  private musicWanted = false;
   muted = false;
 
   constructor() {
@@ -27,6 +37,8 @@ export class Sound {
     } catch {
       /* Persistence is a convenience. */
     }
+    if (muted) this.haltMusic(0.05);
+    else if (this.musicWanted) this.startMusic();
   }
 
   /**
@@ -35,7 +47,72 @@ export class Sound {
    * before the game loop gets to play anything.
    */
   unlock(): void {
-    if (!this.muted) this.ensure();
+    if (this.muted) return;
+    this.ensure();
+    // Kick off the fetch now so the loop is decoded by the time a run starts.
+    void this.loadMusic();
+  }
+
+  /** Loop the backing track. Safe to call repeatedly; starts once decoded. */
+  startMusic(): void {
+    this.musicWanted = true;
+    if (this.muted || this.musicSource) return;
+    const ctx = this.ensure();
+    if (!ctx || !this.master) return;
+    if (!this.musicBuffer) {
+      void this.loadMusic().then(() => {
+        if (this.musicWanted) this.startMusic();
+      });
+      return;
+    }
+    if (!this.musicGain) {
+      this.musicGain = ctx.createGain();
+      this.musicGain.connect(this.master);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = this.musicBuffer;
+    src.loop = true;
+    src.connect(this.musicGain);
+    const now = ctx.currentTime;
+    this.musicGain.gain.cancelScheduledValues(now);
+    this.musicGain.gain.setValueAtTime(0.001, now);
+    this.musicGain.gain.exponentialRampToValueAtTime(MUSIC_GAIN, now + 0.4);
+    src.start(now);
+    this.musicSource = src;
+  }
+
+  /** Fade the track out; the next startMusic begins from the top. */
+  stopMusic(fade = 0.8): void {
+    this.musicWanted = false;
+    this.haltMusic(fade);
+  }
+
+  private haltMusic(fade: number): void {
+    const src = this.musicSource;
+    if (!src || !this.ctx || !this.musicGain) return;
+    this.musicSource = null;
+    const now = this.ctx.currentTime;
+    this.musicGain.gain.cancelScheduledValues(now);
+    this.musicGain.gain.setValueAtTime(Math.max(0.001, this.musicGain.gain.value), now);
+    this.musicGain.gain.exponentialRampToValueAtTime(0.001, now + fade);
+    src.stop(now + fade + 0.02);
+  }
+
+  private loadMusic(): Promise<void> {
+    if (this.musicLoad) return this.musicLoad;
+    const ctx = this.ensure();
+    if (!ctx) return Promise.resolve();
+    this.musicLoad = fetch(MUSIC_URL)
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(res.statusText))))
+      .then((bytes) => ctx.decodeAudioData(bytes))
+      .then((buffer) => {
+        this.musicBuffer = buffer;
+      })
+      .catch(() => {
+        // No music is fine; the effects still play. Allow a retry later.
+        this.musicLoad = null;
+      });
+    return this.musicLoad;
   }
 
   private ensure(): AudioContext | null {
