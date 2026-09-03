@@ -207,6 +207,7 @@ const ROLE_LABELS: Record<number, string> = {
   2: 'creator',
   3: 'token-from',
   4: 'token-to',
+  5: 'sponsor',
 };
 
 export function roleLabel(role: number): string {
