@@ -24,7 +24,8 @@ import { ValidityJson } from './components/ValidityJson';
 import {
   amountInForVibe,
   amountOutAtLimit,
-  encodeHelperSwap,
+  encodeHelperSwapExactIn,
+  encodeHelperSwapExactOut,
   fillQuoteFromPairLogs,
   fillQuoteFromSwapReceipt,
   getReserves,
@@ -59,7 +60,6 @@ import {
   clampToCondition,
   formatTokenAmount,
   quoteWad,
-  swapOuts,
   tokenInFor,
   USDV_DECIMALS,
   USDV_SYMBOL,
@@ -691,32 +691,48 @@ function ValidityDemoInner() {
     const side: Side = draft.side;
     const tokenIn = tokenInFor(state.deployment, side === 'sell');
     try {
-      const amountIn = amountInForVibe(TRADE_VIBE, side, k, draft.priceWad);
-      if (amountIn === 0n) throw new Error('Swap size is too small.');
-      const inventory = await tokenBalance(publicClient, tokenIn, acct.address);
-      if (inventory < amountIn) {
-        throw new Error(
-          side === 'sell'
-            ? `Need ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL} to sell.`
-            : `Need ${formatTokenAmount(amountIn, USDV_DECIMALS)} ${USDV_SYMBOL} to buy ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL}.`,
-        );
+      // Both sides trade exactly TRADE_VIBE VIBE, filled at the on-chain price
+      // when the predicate lets the tx in. Sell = exact-in (put in 100 VIBE,
+      // take >= the limit USDV); buy = exact-out (take exactly 100 VIBE, spend
+      // <= the limit USDV). The helper computes the variable leg on-chain, so
+      // neither leaves a surplus in the pool.
+      let call: ReturnType<typeof encodeHelperSwapExactIn>;
+      if (side === 'sell') {
+        const amountIn = TRADE_VIBE;
+        const inventory = await tokenBalance(publicClient, tokenIn, acct.address);
+        if (inventory < amountIn) {
+          throw new Error(`Need ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL} to sell.`);
+        }
+        const outAtLimit = amountOutAtLimit(amountIn, 'sell', k, draft.priceWad);
+        const minOut = outAtLimit > 1n ? outAtLimit - 1n : outAtLimit;
+        if (minOut === 0n) throw new Error('Swap size is too small.');
+        call = encodeHelperSwapExactIn({
+          helper: state.deployment.helper,
+          tokenIn,
+          pair: state.deployment.pair,
+          amountIn,
+          minOut,
+        });
+      } else {
+        // Cap the input at the limit-priced USDV, plus a hair (0.1% + 1 wei) so
+        // integer rounding at the limit edge can't trip MAX_IN.
+        const limitIn = amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad);
+        if (limitIn === 0n) throw new Error('Swap size is too small.');
+        const maxIn = limitIn + limitIn / 1000n + 1n;
+        const inventory = await tokenBalance(publicClient, tokenIn, acct.address);
+        if (inventory < maxIn) {
+          throw new Error(
+            `Need ${formatTokenAmount(maxIn, USDV_DECIMALS)} ${USDV_SYMBOL} to buy ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL}.`,
+          );
+        }
+        call = encodeHelperSwapExactOut({
+          helper: state.deployment.helper,
+          tokenIn,
+          pair: state.deployment.pair,
+          amountOut: TRADE_VIBE,
+          maxIn,
+        });
       }
-      const outExact = amountOutAtLimit(amountIn, side, k, draft.priceWad);
-      const out = outExact > 1n ? outExact - 1n : outExact;
-      if (out === 0n) throw new Error('Swap size is too small.');
-      const { amount0Out, amount1Out } = swapOuts({
-        vibeToken0,
-        sellVibe: side === 'sell',
-        amountOut: out,
-      });
-      const call = encodeHelperSwap({
-        helper: state.deployment.helper,
-        tokenIn,
-        pair: state.deployment.pair,
-        amountIn,
-        amount0Out,
-        amount1Out,
-      });
       const seconds =
         submitMode === 'concurrent'
           ? clampNoncelessExpiry(expirySeconds)

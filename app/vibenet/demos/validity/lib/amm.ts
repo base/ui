@@ -214,20 +214,48 @@ export function encodeApprove(token: Address, spender: Address): { to: Address; 
   };
 }
 
-export function encodeHelperSwap(args: {
+/**
+ * Exact-in swap through the 0-fee SwapHelper (used for sells): commit `amountIn`,
+ * receive the full on-chain-computed output (>= `minOut`). The output is derived
+ * from live reserves in the same tx, so nothing is left in the pool and there is
+ * no `UniswapV2: K` revert from a stale quote.
+ */
+export function encodeHelperSwapExactIn(args: {
   helper: Address;
   tokenIn: Address;
   pair: Address;
   amountIn: bigint;
-  amount0Out: bigint;
-  amount1Out: bigint;
+  minOut: bigint;
 }): { to: Address; data: Hex } {
   return {
     to: args.helper,
     data: encodeFunctionData({
       abi: helperAbi,
-      functionName: 'swap',
-      args: [args.tokenIn, args.pair, args.amountIn, args.amount0Out, args.amount1Out],
+      functionName: 'swapExactIn',
+      args: [args.tokenIn, args.pair, args.amountIn, args.minOut],
+    }),
+  };
+}
+
+/**
+ * Exact-out swap through the 0-fee SwapHelper (used for buys): receive exactly
+ * `amountOut`, spending the on-chain-computed input (<= `maxIn`). The helper
+ * pulls only the input required at live reserves, so a buy of exactly N VIBE
+ * never leaves a surplus in the pool.
+ */
+export function encodeHelperSwapExactOut(args: {
+  helper: Address;
+  tokenIn: Address;
+  pair: Address;
+  amountOut: bigint;
+  maxIn: bigint;
+}): { to: Address; data: Hex } {
+  return {
+    to: args.helper,
+    data: encodeFunctionData({
+      abi: helperAbi,
+      functionName: 'swapExactOut',
+      args: [args.tokenIn, args.pair, args.amountOut, args.maxIn],
     }),
   };
 }
