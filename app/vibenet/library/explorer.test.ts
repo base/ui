@@ -15,6 +15,7 @@ import {
   fmtHexInt,
   fmtTokenAmount,
   hexToInt,
+  roleLabel,
   scopeChips,
   scopeLabel,
   timeAgoFromMilliseconds,
@@ -207,6 +208,15 @@ describe('EIP-8130 scope bitmask', () => {
 
   it('falls back to hex for scopes with no known bits', () => {
     expect(scopeChips(16)).toEqual(['0x10']);
+  });
+});
+
+describe('address activity roles', () => {
+  it('labels indexer roles, including sponsor', () => {
+    expect(roleLabel(0)).toBe('sender');
+    expect(roleLabel(4)).toBe('token-to');
+    expect(roleLabel(5)).toBe('sponsor');
+    expect(roleLabel(99)).toBe('99');
   });
 });
 

@@ -92,4 +92,10 @@ describe('titleForPath', () => {
     expect(titleForPath('/vibenet/faucet')).toBe('Faucet');
     expect(titleForPath('/vibenet')).toBe('Overview');
   });
+
+  it('uses catalogue labels for grouped and nested demos', () => {
+    expect(titleForPath('/vibenet/demos/validity')).toBe('Validity Transactions');
+    expect(titleForPath('/vibenet/demos/validity/conditional-swaps')).toBe('Conditional Swaps');
+    expect(titleForPath('/vibenet/demos/validity/race-the-agent')).toBe('Race the Agent');
+  });
 });

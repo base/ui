@@ -57,11 +57,20 @@ function storageNotes(predicate: StoragePredicate, vibeToken0: boolean): Record<
   const mask = BigInt(predicate.params.mask);
   const slot = BigInt(predicate.params.slot);
   const value = BigInt(predicate.params.value);
-  const reserve = reserveFromMask(mask);
-  const symbol = reserve === null ? 'reserve' : tokenForReserve(reserve, vibeToken0);
-  const half = reserve === 0 ? 'low 112 bits' : reserve === 1 ? 'high 112 bits' : 'selected bits';
-  const amount =
-    reserve === null ? value.toString() : formatReserve(decodeReserve(value, mask), symbol);
+  const reserve = slot === PAIR_RESERVES_SLOT ? reserveFromMask(mask) : null;
+  if (reserve === null) {
+    return {
+      type: 'Storage condition',
+      address: 'Contract whose storage is read',
+      slot: `Storage slot ${slot.toString()}`,
+      mask: 'Keep the selected bits',
+      op: `Include only if the selected value is ${comparePhrase(predicate.params.op)}`,
+      value: value.toString(),
+    };
+  }
+  const symbol = tokenForReserve(reserve, vibeToken0);
+  const half = reserve === 0 ? 'low 112 bits' : 'high 112 bits';
+  const amount = formatReserve(decodeReserve(value, mask), symbol);
   return {
     type: `${boundWord(predicate.params.op)} on the ${symbol} reserve`,
     address: 'The simulated VIBE/USDV pair',

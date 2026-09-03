@@ -7,12 +7,44 @@
 
 import { useState } from 'react';
 import { Popover } from '@base-ui/react/popover';
+import { MorphIcon } from 'morphicons/react';
 
 import { cn } from '../../../components/ui/cn';
+import { CHECK_MORPH_ICON, CLIPBOARD_MORPH_ICON } from '../../../components/ui/icons';
 import { Text } from '../../../components/ui/Text';
 import type { StoredAccount } from '../account/library/model';
 import { ChevronIcon, CreateRowButton, DeleteConfirmButton } from './dropdown';
 import { AccountAvatar, AccountIdentity, Badge } from './primitives';
+
+// Icon-only button that copies an account's address; swaps to a green check for
+// 2s after copying. Matches the sibling Details button's styling.
+function CopyAddressButton({ address, label }: { address: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={`Copy address for ${label}`}
+      title="Copy address"
+      className="rounded-md p-1.5 text-bds-gray-40 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10"
+    >
+      <MorphIcon
+        icon={copied ? CHECK_MORPH_ICON : CLIPBOARD_MORPH_ICON}
+        size={15}
+        strokeWidth={2}
+        label={copied ? 'Copied' : 'Copy address'}
+        className={copied ? 'text-bds-green-60' : undefined}
+      />
+    </button>
+  );
+}
 
 function InfoIcon() {
   return (
@@ -88,25 +120,24 @@ export function AccountSwitcher({
             className="min-w-0 flex-1"
           />
         </button>
-        {onDetails || onDelete ? (
-          <span className="flex shrink-0 items-center gap-0.5">
-            {onDetails ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onDetails(a.id);
-                  close();
-                }}
-                aria-label={`Details for ${a.label}`}
-                title="Account details"
-                className="rounded-md p-1.5 text-bds-gray-40 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10"
-              >
-                <InfoIcon />
-              </button>
-            ) : null}
-            {onDelete ? <DeleteConfirmButton onDelete={() => onDelete(a.id)} label={a.label} /> : null}
-          </span>
-        ) : null}
+        <span className="flex shrink-0 items-center gap-0.5">
+          <CopyAddressButton address={a.address} label={a.label} />
+          {onDetails ? (
+            <button
+              type="button"
+              onClick={() => {
+                onDetails(a.id);
+                close();
+              }}
+              aria-label={`Details for ${a.label}`}
+              title="Account details"
+              className="rounded-md p-1.5 text-bds-gray-40 transition-colors hover:bg-bds-gray-5 hover:text-foreground dark:hover:bg-white/10"
+            >
+              <InfoIcon />
+            </button>
+          ) : null}
+          {onDelete ? <DeleteConfirmButton onDelete={() => onDelete(a.id)} label={a.label} /> : null}
+        </span>
       </div>
     );
   };

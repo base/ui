@@ -181,11 +181,16 @@ export function toScope(...flags: number[]): number
 export function encodePolicyData(policy: Policy): Hex
 
 export const actorScope: {
-  sender: number
-  policy: number
-  nonce: number
+  /** `OPERATOR` — ungated initiation (may originate to any `call.to`). Formerly `sender`. */
+  operator: number
+  /** `SELF_PAYER` — may pay for its own transactions (`payer == sender`). */
   selfPayer: number
+  /** `SPONSOR_PAYER` — may sponsor others (`payer != sender`). */
   sponsorPayer: number
+  /** `POLICY` — gated initiation: actor is gated to its policy manager. */
+  policy: number
+  /** `NONCE` — may use sequenced nonce keys; without it, nonce-free only. */
+  nonce: number
 }
 export const scopeUnrestricted: number
 export const accountStateFlags: {

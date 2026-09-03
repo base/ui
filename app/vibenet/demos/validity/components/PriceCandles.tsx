@@ -10,8 +10,6 @@ const BUY_PLOT = '#22ad73';
 const SELL_PLOT = '#ed5966';
 const BUCKET_MS = CANDLE_BUCKET_MS;
 const WINDOW_MS = CANDLE_WINDOW_MS;
-const WIDTH = 960;
-const HEIGHT = 440;
 const PAD = { top: 20, right: 20, bottom: 40, left: 68 };
 
 export type PriceSample = { t: number; price: number };
@@ -131,13 +129,25 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
     return () => window.clearInterval(id);
   }, []);
   const candles = useMemo(() => toCandles(samples ?? [], { now }), [now, samples]);
-  const innerW = WIDTH - PAD.left - PAD.right;
-  const innerH = HEIGHT - PAD.top - PAD.bottom;
+  // Draw in measured CSS pixels so text stays crisp at any container shape.
+  const [chartEl, setChartEl] = useState<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!chartEl) return;
+    const update = () =>
+      setSize({ w: Math.round(chartEl.clientWidth), h: Math.round(chartEl.clientHeight) });
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(chartEl);
+    return () => observer.disconnect();
+  }, [chartEl]);
+  const innerW = size ? size.w - PAD.left - PAD.right : 0;
+  const innerH = size ? size.h - PAD.top - PAD.bottom : 0;
   const visibleLevels = levels.filter((level) => Number.isFinite(level.price) && level.price > 0);
   const visibleFills = fills.filter((fill) => Number.isFinite(fill.price) && fill.price > 0 && fill.t > 0);
 
   const layout = useMemo(() => {
-    if (candles.length === 0) return null;
+    if (candles.length === 0 || innerW <= 0 || innerH <= 0) return null;
     let lo = candles[0].l;
     let hi = candles[0].h;
     for (const candle of candles) {
@@ -172,13 +182,13 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
   }, [candles, innerH, innerW, visibleFills, visibleLevels]);
 
   const firstOpen = candles[0]?.o;
-  const lastClose = layout?.last;
+  const lastClose = candles[candles.length - 1]?.c;
   const change =
     firstOpen && lastClose ? ((lastClose - firstOpen) / firstOpen) * 100 : 0;
   const up = change >= 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-[#0c1117]">
+    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-[#0c1117]">
       <div className="flex items-start justify-between gap-3 px-4 pt-3">
         <div className="flex items-center gap-2">
           <VibeMark />
@@ -189,141 +199,145 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
         </div>
         <div className="text-right">
           <div className="font-mono text-[28px] tabular-nums leading-none text-[#3f6b00] dark:text-[#c8ff4a]">
-            {layout ? formatAxisPrice(layout.last) : '—'}
+            {lastClose !== undefined ? formatAxisPrice(lastClose) : '—'}
           </div>
           <div className={`mt-1 font-mono text-[12px] tabular-nums ${up ? 'text-bds-green-60' : 'text-bds-red-60'}`}>
-            {layout ? `${up ? '+' : ''}${change.toFixed(2)}%` : ''}
+            {lastClose !== undefined ? `${up ? '+' : ''}${change.toFixed(2)}%` : ''}
           </div>
         </div>
       </div>
-      {layout ? (
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-[min(62vh,32rem)] w-full min-h-[380px]" role="img" aria-label="VIBE price in USDV">
-          <g transform={`translate(${PAD.left},${PAD.top})`}>
-            {layout.yTicks.map((tick) => (
-              <g key={`y-${tick}`}>
-                <line x1={0} x2={innerW} y1={layout.y(tick)} y2={layout.y(tick)} className="stroke-bds-gray-10 dark:stroke-[#1e2a36]" />
-                <text
-                  x={-8}
-                  y={layout.y(tick)}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  className="fill-bds-gray-50"
-                  fontSize={11}
-                  fontFamily="ui-monospace, monospace"
-                >
-                  {formatAxisPrice(tick)}
-                </text>
-              </g>
-            ))}
-            {layout.xTicks.map((tick) => (
-              <text
-                key={`x-${tick}`}
-                x={layout.x(tick)}
-                y={innerH + 22}
-                textAnchor="middle"
-                className="fill-bds-gray-50"
-                fontSize={10}
-                fontFamily="ui-monospace, monospace"
-              >
-                {formatAxisTime(tick)}
-              </text>
-            ))}
-            <text x={innerW} y={-6} textAnchor="end" className="fill-bds-gray-50" fontSize={10} fontFamily="ui-monospace, monospace">
-              USDV
-            </text>
-            {candles.map((candle, index) => {
-              const color = isUpCandle(candle, candles[index - 1]) ? BUY_PLOT : SELL_PLOT;
-              const cx = layout.x(candle.t + BUCKET_MS / 2);
-              const highY = layout.y(candle.h);
-              const lowY = layout.y(candle.l);
-              const bodyTop = layout.y(Math.max(candle.o, candle.c));
-              const bodyBot = layout.y(Math.min(candle.o, candle.c));
-              const rawBody = Math.max(bodyBot - bodyTop, 0);
-              const doji = rawBody < 0.8;
-              const bodyH = doji ? 1.6 : Math.max(rawBody, 2);
-              const bodyW = Math.min(Math.max(layout.slot * 0.55, 4), 14);
-              return (
-                <g key={candle.t}>
-                  <line x1={cx} x2={cx} y1={highY} y2={lowY} stroke={color} strokeWidth={1.4} strokeLinecap="round" />
-                  <rect
-                    x={cx - bodyW / 2}
-                    y={doji ? (highY + lowY) / 2 - bodyH / 2 : bodyTop}
-                    width={bodyW}
-                    height={bodyH}
-                    fill={color}
-                    rx={0.4}
-                  />
-                </g>
-              );
-            })}
-            {visibleLevels.map((level) => {
-              const y = layout.y(level.price);
-              const color = level.side === 'buy' ? BUY_PLOT : SELL_PLOT;
-              const draft = level.kind === 'draft';
-              return (
-                <g key={level.id} opacity={level.highlighted ? 1 : draft ? 0.42 : 0.88}>
-                  <line
-                    x1={0}
-                    x2={innerW}
-                    y1={y}
-                    y2={y}
-                    stroke={color}
-                    strokeWidth={level.highlighted ? 1.8 : 1.25}
-                    strokeDasharray={draft ? '3 5' : '7 5'}
-                    strokeLinecap="round"
-                  />
+      {candles.length > 0 ? (
+        <div ref={setChartEl} className="relative min-h-[380px] w-full flex-1">
+          {layout && size ? (
+            <svg viewBox={`0 0 ${size.w} ${size.h}`} className="absolute inset-0 h-full w-full" role="img" aria-label="VIBE price in USDV">
+              <g transform={`translate(${PAD.left},${PAD.top})`}>
+                {layout.yTicks.map((tick) => (
+                  <g key={`y-${tick}`}>
+                    <line x1={0} x2={innerW} y1={layout.y(tick)} y2={layout.y(tick)} className="stroke-bds-gray-10 dark:stroke-[#1e2a36]" />
+                    <text
+                      x={-8}
+                      y={layout.y(tick)}
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      className="fill-bds-gray-50"
+                      fontSize={11}
+                      fontFamily="ui-monospace, monospace"
+                    >
+                      {formatAxisPrice(tick)}
+                    </text>
+                  </g>
+                ))}
+                {layout.xTicks.map((tick) => (
                   <text
-                    x={innerW - 2}
-                    y={y - 5}
-                    textAnchor="end"
-                    fill={color}
+                    key={`x-${tick}`}
+                    x={layout.x(tick)}
+                    y={innerH + 22}
+                    textAnchor="middle"
+                    className="fill-bds-gray-50"
                     fontSize={10}
                     fontFamily="ui-monospace, monospace"
                   >
-                    {draft ? 'draft' : level.side} {formatAxisPrice(level.price)}
+                    {formatAxisTime(tick)}
                   </text>
-                </g>
-              );
-            })}
-            {visibleFills.map((fill) => {
-              const cx = layout.x(fill.t);
-              const cy = layout.y(fill.price);
-              if (cx < -8 || cx > innerW + 8) return null;
-              const color = fill.side === 'buy' ? BUY_PLOT : SELL_PLOT;
-              const r = fill.highlighted ? 7 : 4.5;
-              return (
-                <g key={`fill-${fill.id}`} opacity={fill.highlighted ? 1 : 0.8}>
-                  {fill.highlighted ? (
-                    <line
-                      x1={cx}
-                      x2={cx}
-                      y1={0}
-                      y2={innerH}
-                      stroke={color}
-                      strokeWidth={1}
-                      strokeDasharray="3 4"
-                      opacity={0.7}
-                    />
-                  ) : null}
-                  <circle cx={cx} cy={cy} r={r + 3} fill="none" stroke={color} strokeWidth={fill.highlighted ? 1.6 : 1} opacity={0.45} />
-                  <circle cx={cx} cy={cy} r={r} fill={color} className="stroke-background dark:stroke-[#0c1117]" strokeWidth={1.4} />
-                  {fill.highlighted ? (
-                    <text
-                      x={cx > innerW * 0.62 ? cx - 10 : cx + 10}
-                      y={cy - 10}
-                      textAnchor={cx > innerW * 0.62 ? 'end' : 'start'}
-                      fill={color}
-                      fontSize={10}
-                      fontFamily="ui-monospace, monospace"
-                    >
-                      included {formatAxisPrice(fill.price)}
-                    </text>
-                  ) : null}
-                </g>
-              );
-            })}
-          </g>
-        </svg>
+                ))}
+                <text x={innerW} y={-6} textAnchor="end" className="fill-bds-gray-50" fontSize={10} fontFamily="ui-monospace, monospace">
+                  USDV
+                </text>
+                {candles.map((candle, index) => {
+                  const color = isUpCandle(candle, candles[index - 1]) ? BUY_PLOT : SELL_PLOT;
+                  const cx = layout.x(candle.t + BUCKET_MS / 2);
+                  const highY = layout.y(candle.h);
+                  const lowY = layout.y(candle.l);
+                  const bodyTop = layout.y(Math.max(candle.o, candle.c));
+                  const bodyBot = layout.y(Math.min(candle.o, candle.c));
+                  const rawBody = Math.max(bodyBot - bodyTop, 0);
+                  const doji = rawBody < 0.8;
+                  const bodyH = doji ? 1.6 : Math.max(rawBody, 2);
+                  const bodyW = Math.min(Math.max(layout.slot * 0.55, 4), 14);
+                  return (
+                    <g key={candle.t}>
+                      <line x1={cx} x2={cx} y1={highY} y2={lowY} stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+                      <rect
+                        x={cx - bodyW / 2}
+                        y={doji ? (highY + lowY) / 2 - bodyH / 2 : bodyTop}
+                        width={bodyW}
+                        height={bodyH}
+                        fill={color}
+                        rx={0.4}
+                      />
+                    </g>
+                  );
+                })}
+                {visibleLevels.map((level) => {
+                  const y = layout.y(level.price);
+                  const color = level.side === 'buy' ? BUY_PLOT : SELL_PLOT;
+                  const draft = level.kind === 'draft';
+                  return (
+                    <g key={level.id} opacity={level.highlighted ? 1 : draft ? 0.42 : 0.88}>
+                      <line
+                        x1={0}
+                        x2={innerW}
+                        y1={y}
+                        y2={y}
+                        stroke={color}
+                        strokeWidth={level.highlighted ? 1.8 : 1.25}
+                        strokeDasharray={draft ? '3 5' : '7 5'}
+                        strokeLinecap="round"
+                      />
+                      <text
+                        x={innerW - 2}
+                        y={y - 5}
+                        textAnchor="end"
+                        fill={color}
+                        fontSize={10}
+                        fontFamily="ui-monospace, monospace"
+                      >
+                        {draft ? 'draft' : level.side} {formatAxisPrice(level.price)}
+                      </text>
+                    </g>
+                  );
+                })}
+                {visibleFills.map((fill) => {
+                  const cx = layout.x(fill.t);
+                  const cy = layout.y(fill.price);
+                  if (cx < -8 || cx > innerW + 8) return null;
+                  const color = fill.side === 'buy' ? BUY_PLOT : SELL_PLOT;
+                  const r = fill.highlighted ? 7 : 4.5;
+                  return (
+                    <g key={`fill-${fill.id}`} opacity={fill.highlighted ? 1 : 0.8}>
+                      {fill.highlighted ? (
+                        <line
+                          x1={cx}
+                          x2={cx}
+                          y1={0}
+                          y2={innerH}
+                          stroke={color}
+                          strokeWidth={1}
+                          strokeDasharray="3 4"
+                          opacity={0.7}
+                        />
+                      ) : null}
+                      <circle cx={cx} cy={cy} r={r + 3} fill="none" stroke={color} strokeWidth={fill.highlighted ? 1.6 : 1} opacity={0.45} />
+                      <circle cx={cx} cy={cy} r={r} fill={color} className="stroke-background dark:stroke-[#0c1117]" strokeWidth={1.4} />
+                      {fill.highlighted ? (
+                        <text
+                          x={cx > innerW * 0.62 ? cx - 10 : cx + 10}
+                          y={cy - 10}
+                          textAnchor={cx > innerW * 0.62 ? 'end' : 'start'}
+                          fill={color}
+                          fontSize={10}
+                          fontFamily="ui-monospace, monospace"
+                        >
+                          included {formatAxisPrice(fill.price)}
+                        </text>
+                      ) : null}
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+          ) : null}
+        </div>
       ) : (
         <p className="px-4 pb-6 pt-8 text-[13px] text-bds-gray-50">
           Tape starts once the simulated pool prints a mid.

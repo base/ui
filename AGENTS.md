@@ -125,6 +125,7 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackExplorerChainSelect(chain)` | `app/internal-explorer/components/ChainToggle.tsx` — chain toggle |
    | `trackExplorerActiveBlockJump(chain, jump)` | `app/internal-explorer/components/ActiveBlockButton.tsx` — zeronet latest/previous active block |
    | `trackValidityOrder(side, status)` | `app/vibenet/demos/validity/ValidityDemo.tsx` — conditional swap submit / include / expiry / replace |
+   | `trackValidityRace(attempt, status)` | `app/vibenet/demos/validity/race-the-agent/RaceTheAgentDemo.tsx` — validity/manual comparison and condition agent lifecycle |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.
@@ -176,3 +177,9 @@ The matrix logic is covered by `deploy.config.test.mjs`.
 - Keep the generated-file commit separate from your own work — the hook already
   does this for you. Do not squash it away; it is what makes the generated diff
   reviewable.
+- **Visual changes need screenshots.** If the diff touches `app/**` (pages or
+  components), `app/globals.css`, or `tailwind.config.ts`, run `/screenshot` to
+  capture the affected routes and upload them as GitHub release assets,
+  then include a **Screenshots** section in the PR body with the embedded
+  images. Skip for backend-only changes (`app/api/**`, `app/analytics/**`) or
+  when no visual file changed.

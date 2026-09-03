@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { RESERVE0_MASK, RESERVE1_MASK, RESERVE_BITS, WAD } from './constants';
 import {
   applyOffsetBps,
+  blockExpiryPredicate,
+  blockNumberPredicate,
   formatPrice,
+  parsePriceWad,
   prettyValidity,
   priceValidity,
   rectangleForTarget,
@@ -27,11 +30,70 @@ describe('predicates', () => {
     expect(formatPrice(99n * 10n ** 16n)).toBe('0.9900');
   });
 
+  it('parses typed prices into wad', () => {
+    expect(parsePriceWad('1')).toBe(WAD);
+    expect(parsePriceWad('1.0000')).toBe(WAD);
+    expect(parsePriceWad('$0.99')).toBe(99n * 10n ** 16n);
+    expect(parsePriceWad('.5')).toBe(WAD / 2n);
+    expect(parsePriceWad('1,024.5')).toBe(1_024n * WAD + WAD / 2n);
+    expect(parsePriceWad(' 2.5 ')).toBe((5n * WAD) / 2n);
+    expect(parsePriceWad(formatPrice((3n * WAD) / 2n))).toBe((3n * WAD) / 2n);
+  });
+
+  it('rejects non-prices', () => {
+    expect(parsePriceWad('')).toBeNull();
+    expect(parsePriceWad('0')).toBeNull();
+    expect(parsePriceWad('0.000')).toBeNull();
+    expect(parsePriceWad('-1')).toBeNull();
+    expect(parsePriceWad('1e3')).toBeNull();
+    expect(parsePriceWad('1.2.3')).toBeNull();
+    expect(parsePriceWad('abc')).toBeNull();
+    expect(parsePriceWad('1.0000000000000000001')).toBeNull();
+  });
+
   it('offsets spot in basis points for buy and sell', () => {
     expect(applyOffsetBps(WAD, 'buy', 100)).toBe((99n * WAD) / 100n);
     expect(applyOffsetBps(WAD, 'sell', 100)).toBe((101n * WAD) / 100n);
     expect(applyOffsetBps(WAD, 'buy', 0)).toBe(WAD);
     expect(applyOffsetBps(WAD, 'sell', 0)).toBe(WAD);
+  });
+
+  it('stretches a satisfied buy box to the current point', () => {
+    const k = 1_000n * WAD * (1_000n * WAD); // mid 1.0
+    const current = WAD;
+    const target = 2n * WAD; // buy at ≤ 2 with mid at 1: already satisfied
+    const box = rectangleForTarget(k, target, 'buy', current);
+    const r0Now = sqrt((k * WAD) / current);
+    const r1Now = k / r0Now;
+    expect(box.r0Min <= r0Now && r0Now <= box.r0Max).toBe(true);
+    expect(box.r1Min <= r1Now && r1Now <= box.r1Max).toBe(true);
+    // Corners still respect price ≤ P.
+    expect((box.r1Max * WAD) / box.r0Min <= target).toBe(true);
+  });
+
+  it('stretches a satisfied sell box to the current point', () => {
+    const k = 1_000n * WAD * (1_000n * WAD); // mid 1.0
+    const current = WAD;
+    const target = WAD / 2n; // sell at ≥ 0.5 with mid at 1: already satisfied
+    const box = rectangleForTarget(k, target, 'sell', current);
+    const r0Now = sqrt((k * WAD) / current);
+    const r1Now = k / r0Now;
+    expect(box.r0Min <= r0Now && r0Now <= box.r0Max).toBe(true);
+    expect(box.r1Min <= r1Now && r1Now <= box.r1Max).toBe(true);
+    // Corners still respect price ≥ P.
+    expect((box.r1Min * WAD) / box.r0Max >= target).toBe(true);
+  });
+
+  it('keeps the resting box when the condition is not yet met', () => {
+    const k = 1_000n * WAD * (1_000n * WAD); // mid 1.0
+    const buyTarget = (99n * WAD) / 100n; // buy below mid rests as before
+    expect(rectangleForTarget(k, buyTarget, 'buy', WAD)).toEqual(
+      rectangleForTarget(k, buyTarget, 'buy'),
+    );
+    const sellTarget = (101n * WAD) / 100n; // sell above mid rests as before
+    expect(rectangleForTarget(k, sellTarget, 'sell', WAD)).toEqual(
+      rectangleForTarget(k, sellTarget, 'sell'),
+    );
   });
 
   it('buy box implies every corner has price ≤ P', () => {
@@ -84,6 +146,17 @@ describe('predicates', () => {
     const pretty = prettyValidity(predicates);
     expect(pretty).toContain('"slot": "0x8"');
     expect(pretty).not.toContain('0x00000000');
+  });
+
+  it('builds generic block predicates without changing block expiry behavior', () => {
+    expect(blockNumberPredicate('>=', 42n)).toEqual({
+      type: 'block_number',
+      params: { op: '>=', value: toWord(42n) },
+    });
+    expect(blockExpiryPredicate(42n)).toEqual({
+      type: 'block_number',
+      params: { op: '<=', value: toWord(42n) },
+    });
   });
 
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent, MouseEvent, ReactNode } from 'react';
 
 import Link from 'next/link';
@@ -8,18 +8,20 @@ import Link from 'next/link';
 import { trackFaucetRequest } from '../../analytics/events';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Spinner } from '../../components/ui/Spinner';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { ExplorerLink } from '../components/ExplorerLink';
 import { FAUCET_TOKENS, faucetTokenLabel } from '../data/faucetTokens';
+import { AddressAutocomplete } from '../demos/_shared/AddressAutocomplete';
+import { useAccounts } from '../demos/account/useAccounts';
 import type { FaucetStatusResponse } from '../library/api-types';
 import { vibenetApi, VibenetApiError } from '../library/client';
 import { VIBENET_EXPLORER_PATH } from '../library/config';
 import { isAddress, shortAddress } from '../library/format';
 import type { DripState, FaucetTokenId } from '../library/types';
+import { defaultFaucetRecipient } from './recipient';
 
 const RESULT_CLASSES: Record<DripState['phase'], string> = {
   idle: '',
@@ -39,11 +41,23 @@ function dripErrorMessage(err: unknown): string {
 }
 
 export default function FaucetPage() {
+  const { accounts, activeAccountId, hydrated } = useAccounts();
   const [status, setStatus] = useState<FaucetStatusResponse | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [address, setAddress] = useState('');
+  const [addressOverride, setAddressOverride] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [drip, setDrip] = useState<DripState>({ phase: 'idle' });
+
+  const addressBook = useMemo(
+    () => accounts.map(({ label, address }) => ({ label, address })),
+    [accounts],
+  );
+
+  // Start with the selected local demo account when one is available. Once the
+  // visitor types or pastes anything, their input takes precedence (including
+  // an intentionally blank field).
+  const address =
+    addressOverride ?? (hydrated ? defaultFaucetRecipient(accounts, activeAccountId) : null) ?? '';
 
   useEffect(() => {
     let cancelled = false;
@@ -117,10 +131,6 @@ export default function FaucetPage() {
     },
     [runDrip],
   );
-
-  const handleAddressChange = useCallback((value: string) => {
-    setAddress(value);
-  }, []);
 
   const validAddress = isAddress(address);
 
@@ -226,15 +236,15 @@ export default function FaucetPage() {
           </Text>
         </div>
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-          <Input
-            id="faucet-address"
-            aria-label="Recipient address"
-            value={address}
-            onValueChange={handleAddressChange}
-            placeholder="0x…"
-            spellCheck={false}
-            autoComplete="off"
-          />
+          <label className="flex flex-col gap-2 text-[14px]">
+            <span className="sr-only">Recipient address</span>
+            <AddressAutocomplete
+              value={address}
+              onChange={setAddressOverride}
+              accounts={addressBook}
+              placeholder="0x… recipient address or account name"
+            />
+          </label>
           <div className="flex flex-wrap gap-3">
             {FAUCET_TOKENS.map((token) => {
               const enabled = status ? token.isEnabled(status) : token.id === 'eth';

@@ -9,16 +9,12 @@ describe('parseStored', () => {
         v: 2,
         chainId: 84538453,
         genesisHash: '0xabc',
-        accountId: 'acct-1',
-        makerAccountIds: ['m1', 'm2'],
       }),
     );
     expect(parsed).toEqual({
       v: 2,
       chainId: 84538453,
       genesisHash: '0xabc',
-      accountId: 'acct-1',
-      makerAccountIds: ['m1', 'm2'],
       deployment: undefined,
       orders: undefined,
     });

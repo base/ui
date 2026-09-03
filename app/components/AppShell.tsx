@@ -10,7 +10,7 @@ import { Toaster } from 'sonner';
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
 import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
 import { getChangeBySlug } from '../upgrades/data/changes';
-import { demoLabel } from '../vibenet/demos/catalogue';
+import { demoBreadcrumb } from '../vibenet/demos/catalogue';
 import { getUpgradeById } from '../upgrades/data/upgrades';
 
 import { trackNavClick } from '../analytics/events';
@@ -869,15 +869,16 @@ export function AppShell({ children }: PropsWithChildren) {
                 let childLabel = title;
                 let middle: { label: string; href: string } | undefined;
                 const explorerDetailMatch = pathname.match(/^\/vibenet\/explorer\/(tx|block|address)\/(.+)$/);
-                const demoMatch = pathname.match(/^\/vibenet\/demos\/(.+)$/);
+                const demo = demoBreadcrumb(pathname);
                 if (explorerDetailMatch) {
                   middle = { label: 'Explorer', href: '/vibenet/explorer' };
                   const raw = explorerDetailMatch[2];
                   childLabel = raw.startsWith('0x') && raw.length > 12
                     ? `${raw.slice(0, 6)}…${raw.slice(-4)}`
                     : raw;
-                } else if (demoMatch) {
-                  childLabel = demoLabel(demoMatch[1].split('/')[0]);
+                } else if (demo) {
+                  childLabel = demo.childLabel;
+                  middle = demo.middle;
                 }
                 return (
                   <Breadcrumb
