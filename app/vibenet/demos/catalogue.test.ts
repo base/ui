@@ -47,7 +47,7 @@ describe('DEMOS', () => {
   it('keeps Validity Transactions reachable but hidden from the top-level grid', () => {
     const validity = DEMOS.find((demo) => demo.href === '/vibenet/demos/validity');
     expect(validity?.title).toBe('Validity Transactions');
-    expect(validity?.children?.map((demo) => demo.title)).toEqual(['Conditional Swaps', 'Race the Agent']);
+    expect(validity?.children?.map((demo) => demo.title)).toEqual(['Race the Agent', 'Conditional Swaps']);
     expect(listedDemos()).not.toContain(validity);
   });
 });

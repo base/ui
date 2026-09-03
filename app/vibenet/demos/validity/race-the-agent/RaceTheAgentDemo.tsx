@@ -47,10 +47,8 @@ import { probeSingleton } from '../lib/singleton';
 import { connectJsonRpcStream, headNumber, type StreamHead } from '../lib/stream';
 import {
   attemptHistoryRows,
-  canResetRace,
   canSubmitManual,
   canSubmitValidity,
-  comparisonResult,
   isAttemptTerminal,
   preserveCompletedAttempt,
   randomAgentDwellMs,
@@ -139,7 +137,6 @@ function RaceTheAgentDemoInner() {
   const [agentPhase, setAgentPhase] = useState<AgentPhase>('Waiting');
   const [agentRestartToken, setAgentRestartToken] = useState(0);
   const [agentError, setAgentError] = useState<string | null>(null);
-  const [streamLive, setStreamLive] = useState(false);
   const [prepared, setPrepared] = useState(false);
   const [setupRunning, setSetupRunning] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
@@ -157,7 +154,6 @@ function RaceTheAgentDemoInner() {
 
   const generationRef = useRef(0);
   const observedRef = useRef<Observation | null>(null);
-  const validityRef = useRef(validity);
   const accountKeyRef = useRef<string | null>(null);
   const setupInFlightKeyRef = useRef<string | null>(null);
   const setupReadyKeyRef = useRef<string | null>(null);
@@ -167,7 +163,6 @@ function RaceTheAgentDemoInner() {
   const rpcSendRef = useRef<RpcSend | null>(null);
   const engineRef = useRef(engine);
   engineRef.current = engine;
-  validityRef.current = validity;
   observedRef.current = observed;
 
   useEffect(() => {
@@ -279,7 +274,6 @@ function RaceTheAgentDemoInner() {
     const startPoll = () => {
       if (pollId !== undefined) return;
       rpcSendRef.current = null;
-      setStreamLive(false);
       void syncState();
       pollId = window.setInterval(() => void syncState(), STATE_FALLBACK_POLL_MS);
     };
@@ -300,7 +294,6 @@ function RaceTheAgentDemoInner() {
         stream.close();
         return;
       }
-      setStreamLive(true);
       void syncState();
     };
 
@@ -319,7 +312,6 @@ function RaceTheAgentDemoInner() {
       rpcSendRef.current = null;
       if (pollId !== undefined) window.clearInterval(pollId);
       stream?.close();
-      setStreamLive(false);
     };
   }, [applyObservation, client, vibe, withdrawal]);
 
@@ -771,25 +763,6 @@ function RaceTheAgentDemoInner() {
     }
   };
 
-  const reset = () => {
-    if (!canResetRace(validityRef.current, validBefore)) {
-      setError(`This validity transaction is still pending and can land until its ${RACE_VALIDITY_SECONDS}-second expiry. Keep watching the receipt and chain state.`);
-      return;
-    }
-    setValidity(EMPTY_ATTEMPT);
-    setValidityHistory([]);
-    setValidityAttemptCount(0);
-    setManual(EMPTY_ATTEMPT);
-    setManualHistory([]);
-    setManualAttemptCount(0);
-    setValidBefore(null);
-    setError(null);
-    setAgentError(null);
-    setObservations(observedRef.current ? [observedRef.current] : []);
-  };
-
-  const result = comparisonResult(validity, manual);
-  const resetAllowed = canResetRace(validity, validBefore);
   const readyToSubmit = prepared && observed?.enabled === false && canSubmitValidity(validity.status);
   const readyToWithdraw = canSubmitManual({
     status: manual.status,
@@ -809,58 +782,24 @@ function RaceTheAgentDemoInner() {
     <AccountDemoShell
       gateTitle="Create an account to race the agent"
       gateDescription="Both comparison attempts use your active EIP-8130 account."
-      className="gap-10 pb-28"
+      className="gap-6 pb-24"
     >
       <DemoHeader
         eyebrow="Validity Transactions · live comparison"
         title="Race the Agent"
         description="The same permissionless withdrawal pays exactly 1 VIBE. One transaction waits in advance for storage to equal 1; the other can be fired at any time and succeeds or reverts against the state it reaches onchain."
-        actions={validity.status !== 'idle' || manual.status !== 'idle' ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={reset}
-            disabled={!resetAllowed}
-            title={resetAllowed ? undefined : 'The pending validity transaction can still land until expiry.'}
-          >
-            Reset race
-          </Button>
-        ) : undefined}
       />
 
-      <Card className="flex flex-wrap items-center justify-between gap-4 bg-background px-4 py-3 dark:bg-white/[.04]">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className={cn(
-            'h-2.5 w-2.5 shrink-0 rounded-full',
-            prepared ? 'bg-bds-green-50' : setupError ? 'bg-red-500' : 'animate-pulse bg-base-blue',
-          )} />
+      <section className="grid min-w-0 gap-4 xl:h-[calc(100dvh-19rem)] xl:min-h-[38rem] xl:max-h-[46rem] xl:grid-cols-2">
+        <Card className="flex min-h-0 flex-col overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <div className="min-w-0">
-            <Text variant="label" className="truncate">
-              {prepared ? 'Race setup ready' : setupError ? 'Automatic setup needs attention' : setupRunning ? 'Preparing race automatically' : 'Waiting to start setup'}
-            </Text>
-            <Text variant="footnote" tone="muted" className="mt-0.5">
-              {setupError ?? progress ?? (prepared
-                ? agentRunning ? `Condition agent: ${agentPhase}` : 'Singleton funded; restarting condition agent.'
-                : 'Waiting for account and chain state.')}
-            </Text>
-          </div>
-        </div>
-        {setupError ? <Button variant="outline" size="sm" onClick={retrySetup}>Retry setup</Button> : null}
-      </Card>
-
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.78fr)_minmax(420px,1.22fr)]">
-        <Card className="flex flex-col bg-background p-5 sm:p-6 dark:bg-white/[.04]">
-          <div className="flex min-w-0 items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <Text variant="caption" tone="muted">Shared onchain switch</Text>
-              <Text as="h2" variant="title2" className="mt-2">Withdrawal condition</Text>
-            </div>
-            <ConditionPill enabled={observed?.enabled ?? null} />
+            <Text variant="caption" tone="muted">Shared onchain switch</Text>
+            <Text as="h2" variant="title2" className="mt-2">Withdrawal condition</Text>
           </div>
 
-          <div className="mt-8 flex items-center justify-center py-5">
+          <div className="mt-5 grid items-center gap-5 sm:grid-cols-[auto_minmax(0,1fr)]">
             <div className={cn(
-              'relative flex h-40 w-40 items-center justify-center rounded-full border transition-colors duration-300',
+              'relative mx-auto flex h-28 w-28 items-center justify-center rounded-full border transition-colors duration-300 sm:mx-0',
               observed?.enabled
                 ? 'border-bds-green-40 bg-bds-green-10 dark:border-bds-green-60 dark:bg-bds-green-80/20'
                 : 'border-bds-gray-15 bg-bds-gray-5 dark:border-white/10 dark:bg-white/5',
@@ -871,28 +810,33 @@ function RaceTheAgentDemoInner() {
                 <Text variant="stats" className="mt-1 font-mono">{observed ? (observed.enabled ? '1' : '0') : '—'}</Text>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Metric label="Observed block" value={observed ? `#${observed.block.toLocaleString()}` : '—'} />
+              <Metric label="Observed at" value={observed ? formatTime(observed.at) : '—'} />
+            </div>
           </div>
 
-          <div className="mt-auto grid grid-cols-2 gap-3 border-t border-bds-gray-10 pt-5 dark:border-white/10">
-            <Metric label="Observed block" value={observed ? `#${observed.block.toLocaleString()}` : '—'} />
-            <Metric label="Observed at" value={observed ? formatTime(observed.at) : '—'} />
-            <Metric label="Contract balance" value={contractBalance === null ? '—' : `${formatCompactVibe(contractBalance)} VIBE`} />
-            <Metric label="Agent" value={agentRunning ? agentPhase : agent ? 'Restarting' : 'Not prepared'} />
+          <div className="mt-5 flex min-h-0 flex-1 flex-col border-t border-bds-gray-10 pt-5 dark:border-white/10">
+            <div>
+              <Text variant="caption" tone="muted">Comparison</Text>
+              <Text variant="headline" className="mt-1">Same call, different timing.</Text>
+            </div>
+            <Text variant="label.regular" tone="muted" className="mt-2">
+              Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
+            </Text>
+            <div className="mt-4 grid h-72 flex-none grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden xl:h-auto xl:min-h-0 xl:flex-1">
+              <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
+              <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
+            </div>
           </div>
-          <Text variant="footnote" tone="muted" className="mt-4">
-            {streamLive
-              ? 'WebSocket observations follow each Vibenet head at roughly 200ms cadence.'
-              : 'WebSocket unavailable; state observations are polling every second.'}{' '}
-            Inclusion blocks below remain the primary ordering evidence.
-          </Text>
         </Card>
 
-        <Card className="flex flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
+        <Card className="flex min-h-0 flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
           <div className="border-b border-bds-gray-10 p-5 sm:p-6 dark:border-white/10">
             <Text variant="caption" tone="muted">Guided race</Text>
-            <Text as="h2" variant="title2" className="mt-2">Submit first. React second.</Text>
+            <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
           </div>
-          <div className="grid flex-1 auto-rows-fr gap-px bg-bds-gray-10 dark:bg-white/10 lg:grid-cols-3">
+          <div className="grid min-h-0 flex-1 grid-rows-3 gap-px bg-bds-gray-10 dark:bg-white/10">
             <RaceStep
               number="01"
               title="Automatic condition agent"
@@ -900,23 +844,19 @@ function RaceTheAgentDemoInner() {
               active={prepared && !agentRunning}
               complete={agentRunning}
             >
-              <Text variant="footnote" tone="muted">
-                {agentRunning ? agentPhase : setupRunning ? 'Starting after setup' : 'Waiting for setup'}
-              </Text>
+              {setupError ? (
+                <div className="flex flex-col items-start gap-2">
+                  <Text variant="footnote" className="text-red-600 dark:text-red-300">{setupError}</Text>
+                  <Button variant="outline" size="sm" onClick={retrySetup}>Retry setup</Button>
+                </div>
+              ) : (
+                <Text variant="footnote" tone="muted">
+                  {progress ?? (agentRunning ? agentPhase : setupRunning ? 'Starting after setup' : 'Waiting for setup')}
+                </Text>
+              )}
             </RaceStep>
             <RaceStep
               number="02"
-              title="Pre-submit validity"
-              detail={`Submit a validity transaction while the withdrawal is off. It waits in advance, then claims 1 $VIBE automatically if the withdrawal opens within ${RACE_VALIDITY_SECONDS} seconds.`}
-              active={readyToSubmit}
-              complete={validityAttemptCount > 0}
-            >
-              <Button onClick={submitValidity} disabled={!readyToSubmit || busy}>
-                Submit validity
-              </Button>
-            </RaceStep>
-            <RaceStep
-              number="03"
               title="Race it manually"
               detail="Try to claim 1 $VIBE during the short open window. If the withdrawal is off, the transaction reverts; if it is on, your transaction still has to reach the chain before the agent turns it off again."
               active={readyToWithdraw}
@@ -924,6 +864,17 @@ function RaceTheAgentDemoInner() {
             >
               <Button onClick={withdrawNow} disabled={!readyToWithdraw}>
                 Withdraw now
+              </Button>
+            </RaceStep>
+            <RaceStep
+              number="03"
+              title="Pre-submit validity"
+              detail={`Submit a validity transaction while the withdrawal is off. It waits in advance, then claims 1 $VIBE automatically if the withdrawal opens within ${RACE_VALIDITY_SECONDS} seconds.`}
+              active={readyToSubmit}
+              complete={validityAttemptCount > 0}
+            >
+              <Button onClick={submitValidity} disabled={!readyToSubmit || busy}>
+                Submit validity
               </Button>
             </RaceStep>
           </div>
@@ -934,39 +885,11 @@ function RaceTheAgentDemoInner() {
             </div>
           ) : null}
         </Card>
+
       </section>
 
-      <section>
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <Text variant="caption" tone="muted">Comparison</Text>
-            <Text as="h2" variant="title2" className="mt-2">Same call, different timing model</Text>
-          </div>
-          <ResultPill result={result} validity={validity} manual={manual} />
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <AttemptCard
-            label={validity.number ? `Validity attempt #${validity.number}` : 'Validity transaction'}
-            headline="Already waiting"
-            description={`Submitted while withdrawals are closed. The transaction has nonceKeyMax, sequence 0, a ${RACE_VALIDITY_SECONDS}-second expiry, and storage == 1 as its eligibility condition.`}
-            attempt={validity}
-            accent="blue"
-          />
-          <AttemptCard
-            label={manual.number ? `Manual attempt #${manual.number}` : 'Manual transaction'}
-            headline="Starts on your click"
-            description="Send it whenever you want. It claims 1 $VIBE only if withdrawals are on when your transaction executes onchain."
-            attempt={manual}
-            accent="green"
-          />
-        </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <AttemptHistoryCard title="Validity attempts" attempts={validityAttempts} />
-          <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
-        </div>
-      </section>
-
-      <details className="group rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/[.04]">
+      <div className="flex flex-col gap-6">
+      <details className="group order-2 rounded-2xl border border-bds-gray-10 bg-background dark:border-white/10 dark:bg-white/[.04]">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none sm:px-6 [&::-webkit-details-marker]:hidden">
           <div>
             <Text variant="caption" tone="muted">Advanced details</Text>
@@ -975,10 +898,30 @@ function RaceTheAgentDemoInner() {
           <ChevronIcon className="shrink-0 duration-150 group-open:rotate-180" />
         </summary>
         <div className="border-t border-bds-gray-10 px-5 py-5 sm:px-6 dark:border-white/10">
-          <Text variant="label.regular" tone="muted" className="max-w-2xl">
-            Solidity stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
-            in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
-          </Text>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <Text variant="label.regular" tone="muted" className="max-w-2xl">
+              The contract stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
+              in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
+            </Text>
+            {withdrawal ? (
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                <div>
+                  <Text variant="caption" tone="muted">Singleton contract</Text>
+                  <CopyableValue
+                    value={withdrawal}
+                    display={`${withdrawal.slice(0, 10)}…${withdrawal.slice(-8)}`}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Text variant="caption" tone="muted">Contract balance</Text>
+                  <Text variant="label.mono" className="mt-1">
+                    {contractBalance === null ? '—' : `${formatCompactVibe(contractBalance)} VIBE`}
+                  </Text>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
             <CodeSnippet label="ConditionalWithdrawal.sol" code={CONTRACT_SNIPPET} language="solidity" />
             <CodeSnippet label="Withdrawal validity predicate" code={predicateSnippet} language="json" />
@@ -986,7 +929,7 @@ function RaceTheAgentDemoInner() {
         </div>
       </details>
 
-      <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)]">
+      <section className="order-1 min-w-0">
         <Card className="min-w-0 overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <Text variant="caption" tone="muted">Observed chain state</Text>
           <div ref={observationsScrollRef} className="mt-5 max-w-full overflow-x-auto overscroll-x-contain">
@@ -1013,20 +956,8 @@ function RaceTheAgentDemoInner() {
             </div>
           </div>
         </Card>
-        <Card className="bg-bds-blue-0 p-5 sm:p-6 dark:bg-white/[.04]">
-          <Text variant="caption" tone="muted">What the result means</Text>
-          <Text variant="headline" className="mt-3">Blocks beat stopwatches.</Text>
-          <Text variant="label.regular" tone="muted" className="mt-3">
-            The timestamps show when this browser sampled state or received a receipt. They are useful context, not authoritative sequencing. The lower included block landed first; the same block is a tie at this resolution.
-          </Text>
-          {withdrawal ? (
-            <div className="mt-5 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-              <Text variant="caption" tone="muted">Global singleton</Text>
-              <CopyableValue value={withdrawal} display={`${withdrawal.slice(0, 10)}…${withdrawal.slice(-8)}`} className="mt-2" />
-            </div>
-          ) : null}
-        </Card>
       </section>
+      </div>
     </AccountDemoShell>
   );
 }
@@ -1100,29 +1031,14 @@ function formatCompactVibe(value: bigint): string {
   return Number(whole).toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 }
 
-function ConditionPill({ enabled }: { enabled: boolean | null }) {
-  return (
-    <span className={cn(
-      'shrink-0 whitespace-nowrap rounded-full px-2.5 py-1.5 font-mono text-[11px] sm:px-3 sm:text-[12px]',
-      enabled === null
-        ? 'bg-bds-gray-10 text-bds-gray-60 dark:bg-white/10'
-        : enabled
-          ? 'bg-bds-green-10 text-bds-green-80 dark:bg-bds-green-80/30 dark:text-bds-green-30'
-          : 'bg-bds-gray-10 text-bds-gray-70 dark:bg-white/10 dark:text-white/60',
-    )}>
-      {enabled === null ? 'unobserved' : enabled ? 'enabled · 1' : 'disabled · 0'}
-    </span>
-  );
-}
-
 function AttemptHistoryCard({ title, attempts }: { title: string; attempts: Attempt[] }) {
   return (
-    <Card className="flex min-h-40 flex-col bg-background p-4 dark:bg-white/[.04]">
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden bg-background p-4 dark:bg-white/[.04]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Text variant="caption" tone="muted">{title}</Text>
         <Text variant="footnote" tone="muted">{attempts.length} total</Text>
       </div>
-      <div className="mt-3 flex flex-1 flex-col divide-y divide-bds-gray-10 dark:divide-white/10">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain pr-1 divide-y divide-bds-gray-10 dark:divide-white/10">
         {attempts.length === 0 ? (
           <Text variant="label.regular" tone="muted" className="my-auto py-4">No previous attempts yet.</Text>
         ) : attempts.map((attempt, index) => (
@@ -1231,7 +1147,7 @@ function RaceStep({
   return (
     <div
       className={cn(
-        'flex h-full min-h-56 flex-col bg-background p-5 sm:p-6 dark:bg-[#090b12]',
+        'flex h-full min-h-0 flex-col bg-background p-4 dark:bg-[#090b12]',
         active && 'bg-bds-blue-0 dark:bg-[#0c1222]',
       )}
     >
@@ -1239,51 +1155,10 @@ function RaceStep({
         <Text variant="caption" className={active ? 'text-base-blue' : 'text-bds-gray-40 dark:text-white/35'}>{number}</Text>
         <span className={cn('h-2 w-2 rounded-full', complete ? 'bg-bds-green-50' : active ? 'bg-base-blue' : 'bg-bds-gray-20 dark:bg-white/15')} />
       </div>
-      <Text variant="headline" className="mt-5">{title}</Text>
-      <Text variant="label.regular" tone="muted" className="mt-2">{detail}</Text>
-      <div className="mt-auto pt-5">{children}</div>
+      <Text variant="headline" className="mt-3">{title}</Text>
+      <Text variant="label.regular" tone="muted" className="mt-1">{detail}</Text>
+      <div className="mt-auto pt-3">{children}</div>
     </div>
-  );
-}
-
-function AttemptCard({
-  label,
-  headline,
-  description,
-  attempt,
-  accent,
-}: {
-  label: string;
-  headline: string;
-  description: string;
-  attempt: Attempt;
-  accent: 'blue' | 'green';
-}) {
-  const explorer = attempt.hash ? `${VIBENET_EXPLORER_PATH}/tx/${attempt.hash}` : null;
-  return (
-    <Card className="relative overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
-      <span className={cn('absolute inset-x-0 top-0 h-1', accent === 'blue' ? 'bg-base-blue' : 'bg-bds-green-50')} />
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Text variant="caption" tone="muted">{label}</Text>
-          <Text as="h3" variant="title2" className="mt-2">{headline}</Text>
-        </div>
-        <StatusPill status={attempt.status} />
-      </div>
-      <Text variant="label.regular" tone="muted" className="mt-4 max-w-xl">{description}</Text>
-      <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-bds-gray-10 pt-5 dark:border-white/10">
-        <Metric label="Hash" value={shortHash(attempt.hash)} />
-        <Metric label="Observed submit block" value={attempt.submittedBlock === undefined ? '—' : `#${attempt.submittedBlock.toLocaleString()}`} />
-        <Metric label="Included block" value={attempt.includedBlock === undefined ? '—' : `#${attempt.includedBlock.toLocaleString()}`} />
-        <Metric label="Browser receipt time" value={attempt.includedAt ? formatTime(attempt.includedAt) : '—'} />
-      </div>
-      {attempt.error ? <Text variant="footnote" className="mt-4 text-red-600 dark:text-red-300">{attempt.error}</Text> : null}
-      {explorer ? (
-        <a href={explorer} className="mt-5 inline-flex text-[13px] text-base-blue hover:underline dark:text-bds-blue-30">
-          View transaction in explorer
-        </a>
-      ) : null}
-    </Card>
   );
 }
 
@@ -1294,7 +1169,7 @@ function StatusPill({ status }: { status: Attempt['status'] }) {
     <span className={cn(
       'rounded-full px-3 py-1.5 text-[12px] capitalize',
       positive
-        ? 'bg-bds-green-10 text-bds-green-80 dark:bg-bds-green-80/30 dark:text-bds-green-30'
+        ? 'bg-bds-green-10 text-bds-green-80 dark:bg-bds-green-80/30 dark:text-[#b8f7d1]'
         : negative
           ? 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300'
           : 'bg-bds-gray-10 text-bds-gray-70 dark:bg-white/10 dark:text-white/60',
@@ -1302,16 +1177,4 @@ function StatusPill({ status }: { status: Attempt['status'] }) {
       {status}
     </span>
   );
-}
-
-function ResultPill({ result, validity, manual }: { result: ReturnType<typeof comparisonResult>; validity: Attempt; manual: Attempt }) {
-  let label = 'Race in progress';
-  if (result === 'validity-first') label = 'Validity landed first';
-  if (result === 'manual-first') label = 'Manual landed first';
-  if (result === 'same-block') label = 'Same inclusion block';
-  if (result === 'validity-only') label = 'Only validity succeeded';
-  if (result === 'manual-only') label = 'Only manual succeeded';
-  if (result === 'neither-succeeded') label = 'Neither transaction succeeded';
-  if (result === 'none' && validity.status === 'idle' && manual.status === 'idle') label = 'Not started';
-  return <span className="rounded-full bg-bds-gray-10 px-3 py-1.5 text-[12px] text-bds-gray-70 dark:bg-white/10 dark:text-white/70">{label}</span>;
 }

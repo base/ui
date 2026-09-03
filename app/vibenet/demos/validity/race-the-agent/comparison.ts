@@ -22,41 +22,8 @@ export type Attempt = {
   error?: string;
 };
 
-export type ComparisonResult =
-  | 'validity-first'
-  | 'manual-first'
-  | 'same-block'
-  | 'validity-only'
-  | 'manual-only'
-  | 'neither-succeeded'
-  | 'none';
-
-export function comparisonResult(validity: Attempt, manual: Attempt): ComparisonResult {
-  const validityLanded = validity.status === 'success' && validity.includedBlock !== undefined;
-  const manualLanded = manual.status === 'success' && manual.includedBlock !== undefined;
-  if (validityLanded && manualLanded) {
-    if (validity.includedBlock! < manual.includedBlock!) return 'validity-first';
-    if (manual.includedBlock! < validity.includedBlock!) return 'manual-first';
-    return 'same-block';
-  }
-  if (validityLanded && isAttemptTerminal(manual.status)) return 'validity-only';
-  if (manualLanded && isAttemptTerminal(validity.status)) return 'manual-only';
-  if (
-    (!validityLanded && isAttemptTerminal(validity.status) && manual.status === 'idle') ||
-    (!validityLanded && !manualLanded && isAttemptTerminal(validity.status) && isAttemptTerminal(manual.status))
-  ) {
-    return 'neither-succeeded';
-  }
-  return 'none';
-}
-
 export function isAttemptTerminal(status: AttemptStatus): boolean {
   return status === 'success' || status === 'reverted' || status === 'expired' || status === 'error';
-}
-
-export function canResetRace(validity: Attempt, validBefore: number | null, now = Date.now()): boolean {
-  if (validity.status !== 'pending') return true;
-  return validBefore !== null && now > validBefore;
 }
 
 export function canSubmitAttempt(status: AttemptStatus): boolean {

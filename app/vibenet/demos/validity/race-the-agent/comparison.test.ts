@@ -4,10 +4,8 @@ import {
   AGENT_DISABLED_DWELL_MAX_MS,
   AGENT_DISABLED_DWELL_MIN_MS,
   attemptHistoryRows,
-  canResetRace,
   canSubmitManual,
   canSubmitValidity,
-  comparisonResult,
   isAttemptTerminal,
   preserveCompletedAttempt,
   randomAgentDwellMs,
@@ -23,27 +21,6 @@ import { conditionalWithdrawalEnabledPredicate } from '../lib/conditionalWithdra
 import { blockNumberPredicate } from '../lib/predicates';
 
 const WITHDRAWAL = '0x1111111111111111111111111111111111111111';
-
-function success(block: bigint): Attempt {
-  return { status: 'success', includedBlock: block };
-}
-
-describe('comparisonResult', () => {
-  it('uses inclusion block ordering instead of browser timestamps', () => {
-    expect(comparisonResult(success(10n), { ...success(11n), includedAt: 1 })).toBe('validity-first');
-    expect(comparisonResult({ ...success(12n), includedAt: 1 }, success(11n))).toBe('manual-first');
-    expect(comparisonResult(success(12n), success(12n))).toBe('same-block');
-  });
-
-  it('describes one-sided and unfinished outcomes', () => {
-    expect(comparisonResult(success(10n), { status: 'reverted' })).toBe('validity-only');
-    expect(comparisonResult({ status: 'expired' }, success(10n))).toBe('manual-only');
-    expect(comparisonResult(success(10n), { status: 'idle' })).toBe('none');
-    expect(comparisonResult({ status: 'pending' }, { status: 'idle' })).toBe('none');
-    expect(comparisonResult({ status: 'expired' }, { status: 'idle' })).toBe('neither-succeeded');
-    expect(comparisonResult({ status: 'reverted' }, { status: 'error' })).toBe('neither-succeeded');
-  });
-});
 
 describe('isAttemptTerminal', () => {
   it('only stops on final receipt or expiry states', () => {
@@ -61,13 +38,6 @@ describe('race lifecycle predicates', () => {
     const fields = noncelessFields(RACE_VALIDITY_SECONDS, now);
     expect(RACE_VALIDITY_SECONDS).toBe(15);
     expect(fields.validBefore).toBe(BigInt(now + 15_000));
-  });
-
-  it('blocks reset only while a submitted validity transaction can still land', () => {
-    expect(canResetRace({ status: 'pending' }, 20_000, 10_000)).toBe(false);
-    expect(canResetRace({ status: 'pending' }, null, 20_001)).toBe(false);
-    expect(canResetRace({ status: 'pending' }, 20_000, 20_001)).toBe(true);
-    expect(canResetRace({ status: 'expired' }, 20_000, 10_000)).toBe(true);
   });
 
   it('runs the condition agent only when automatic setup resources are ready', () => {
