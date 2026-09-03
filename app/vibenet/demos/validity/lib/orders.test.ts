@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ageRestoredOrders, occupyingOrder, maxBlockForExpiry, orderBlockExpired, orderWallClockExpired, restingOrderToReplace } from './orders';
+import { ageRestoredOrders, occupyingOrder, maxBlockForExpiry, minBlockForDelay, orderBlockExpired, orderWallClockExpired, restingOrderToReplace } from './orders';
 
 describe('orderWallClockExpired', () => {
   it('expires a resting order after the window plus grace', () => {
@@ -42,6 +42,17 @@ describe('maxBlockForExpiry', () => {
   it('uses 200ms Denim blocks, not 2s pre-Denim heads', () => {
     expect(maxBlockForExpiry(1_000n, 60)).toBe(1_300n);
     expect(maxBlockForExpiry(1_000n, 5)).toBe(1_025n);
+  });
+});
+
+describe('minBlockForDelay', () => {
+  it('mirrors the expiry block math', () => {
+    expect(minBlockForDelay(1_000n, 5)).toBe(1_025n);
+    expect(minBlockForDelay(1_000n, 15)).toBe(1_075n);
+  });
+
+  it('is a no-op without a delay', () => {
+    expect(minBlockForDelay(1_000n, 0)).toBe(1_000n);
   });
 });
 

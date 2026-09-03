@@ -87,9 +87,10 @@ function storageNotes(predicate: StoragePredicate, vibeToken0: boolean): Record<
 function notesFor(predicate: ValidityPredicate, vibeToken0: boolean): Record<string, string> {
   if (predicate.type === 'storage') return storageNotes(predicate, vibeToken0);
   const block = BigInt(predicate.params.value);
+  const lowerBound = predicate.params.op === '>=' || predicate.params.op === '>';
   return {
-    type: 'Block-number expiry',
-    op: `Include only while the head is ${comparePhrase(predicate.params.op)}`,
+    type: lowerBound ? 'Block-number delay' : 'Block-number expiry',
+    op: `Include only ${lowerBound ? 'once' : 'while'} the head is ${comparePhrase(predicate.params.op)}`,
     value: `L2 block ${block.toString()}`,
   };
 }
