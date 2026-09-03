@@ -4,11 +4,12 @@ import type { PlacedOrder } from './types';
 const WALL_CLOCK_GRACE_MS = 400;
 
 export function orderWallClockExpired(
-  order: Pick<PlacedOrder, 'status' | 'submittedAt' | 'expirySeconds'>,
+  order: Pick<PlacedOrder, 'status' | 'submittedAt' | 'expirySeconds' | 'delaySeconds'>,
   now = Date.now(),
 ): boolean {
   if (order.status !== 'pending') return false;
-  return now > order.submittedAt + order.expirySeconds * 1000 + WALL_CLOCK_GRACE_MS;
+  const totalSeconds = (order.delaySeconds ?? 0) + order.expirySeconds;
+  return now > order.submittedAt + totalSeconds * 1000 + WALL_CLOCK_GRACE_MS;
 }
 
 export function orderBlockExpired(

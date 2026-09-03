@@ -13,6 +13,12 @@ describe('orderWallClockExpired', () => {
     const order = { status: 'filled' as const, submittedAt: 1_000, expirySeconds: 5 };
     expect(orderWallClockExpired(order, 1_000 + 60_000)).toBe(false);
   });
+
+  it('adds delaySeconds to the window before expiring', () => {
+    const order = { status: 'pending' as const, submittedAt: 1_000, expirySeconds: 5, delaySeconds: 10 };
+    expect(orderWallClockExpired(order, 1_000 + 15_000 + 400)).toBe(false);
+    expect(orderWallClockExpired(order, 1_000 + 15_000 + 401)).toBe(true);
+  });
 });
 
 describe('ageRestoredOrders', () => {
