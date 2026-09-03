@@ -505,8 +505,13 @@ export function BlockRunner() {
       if (cancelled) return;
       const now = performance.now();
       lastHeadAt.current = now;
-      headTimes.current = [...headTimes.current.filter((t) => now - t < 2000), now];
-      setRate(headTimes.current.length / 2);
+      // Rate from the span between oldest and newest head in a ~3 s window.
+      // Counting heads per fixed bucket makes a steady 200 ms cadence flicker
+      // between 5.0 and 5.5 as the window edge crosses a head; the span
+      // measure reads a constant 5.0.
+      headTimes.current = [...headTimes.current.filter((t) => now - t < 3000), now];
+      const span = headTimes.current.length > 1 ? (now - headTimes.current[0]) / 1000 : 0;
+      setRate(span > 0 ? (headTimes.current.length - 1) / span : 0);
       setHead(h);
       // If the loop has stalled (a throttled tab), skip the spawn so blocks do
       // not pile up at the boss and greet the player with a wall on return.
