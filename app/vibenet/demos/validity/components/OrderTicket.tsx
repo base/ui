@@ -291,13 +291,13 @@ export function OrderTicket({
           </div>
           <div className="flex flex-wrap gap-2">
             {DELAYS.map((seconds) => {
-              const blocked = seconds > 0 && seconds >= expirySeconds;
+              const blocked = seconds > 0 && seconds > expirySeconds;
               return (
                 <button
                   key={seconds}
                   type="button"
                   disabled={blocked}
-                  title={blocked ? 'Delay must be shorter than expiry' : undefined}
+                  title={blocked ? 'Delay cannot exceed expiry' : undefined}
                   onClick={() => onDelay(seconds)}
                   className={
                     blocked
