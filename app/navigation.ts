@@ -1,5 +1,6 @@
 import { BENCHMARK_ENABLED } from './benchmark/flag';
 import { EXPLORER_ENABLED, EXPLORER_LABEL } from './internal-explorer/flag';
+import { demoBreadcrumb } from './vibenet/demos/catalogue';
 
 export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
 
@@ -66,6 +67,8 @@ export function pathMatches(href: string, pathname: string, exact = false): bool
 
 export function titleForPath(pathname: string): string {
   if (pathname === '/') return 'Home';
+  const demo = demoBreadcrumb(pathname);
+  if (demo) return demo.childLabel;
   for (const item of NAV_ITEMS) {
     if (item.children) {
       for (const child of item.children) {

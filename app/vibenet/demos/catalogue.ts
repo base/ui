@@ -19,6 +19,8 @@ export type DemoEntry = {
   available: boolean;
   /** When false, the route stays live but is omitted from the Vibenet demos grid. */
   listed?: boolean;
+  /** Nested demos shown from a group landing page. */
+  children?: DemoEntry[];
 };
 
 /** Demos shown on the Vibenet index. Unlisted entries stay reachable by URL. */
@@ -55,17 +57,30 @@ export const DEMOS: DemoEntry[] = [
   },
   {
     href: '/vibenet/demos/validity',
-    title: 'Validity',
-    shortTitle: 'Validity',
+    title: 'Validity Transactions',
+    shortTitle: 'Validity Transactions',
     summary:
-      'Attach conditions to a transaction so the sequencer includes it only while they hold. A simulated pool shows a swap waiting on price, then landing or expiring.',
+      'Explore transactions that remain pending until their onchain conditions are satisfied, then execute without a keeper or a custom settlement contract.',
     points: [
-      'Add storage and block-number conditions to an ordinary swap',
-      'A simulated AMM makes those conditions visible on a moving mid',
-      'Stack several 8130 conditions at once, or replace the resting one',
+      'Attach storage and block-number conditions to signed transactions',
+      'Let the sequencer evaluate validity before inclusion',
+      'Build intent-like flows from ordinary account transactions',
     ],
     available: true,
-    listed: false,
+    children: [
+      {
+        href: '/vibenet/demos/validity/conditional-swaps',
+        title: 'Conditional Swaps',
+        summary:
+          'Place a swap that waits for a target price, then lands or expires as a shared simulated market moves through its validity window.',
+        points: [
+          'Set a buy or sell price against a live VIBE/USDV pool',
+          'Inspect the EIP-8130 predicates attached to the swap',
+          'Watch pending orders fill, expire, or get replaced',
+        ],
+        available: true,
+      },
+    ],
   },
 ];
 
@@ -86,4 +101,43 @@ function prettifySlug(slug: string): string {
 export function demoLabel(slug: string): string {
   const demo = DEMOS.find((entry) => entry.href === `/vibenet/demos/${slug}`);
   return demo?.shortTitle ?? demo?.title ?? prettifySlug(slug);
+}
+
+function entryLabel(entry: DemoEntry | undefined, fallbackSlug: string): string {
+  return entry?.shortTitle ?? entry?.title ?? prettifySlug(fallbackSlug);
+}
+
+/** Finds a registered top-level or nested demo by its full route. */
+export function demoForPath(pathname: string): DemoEntry | undefined {
+  for (const demo of DEMOS) {
+    if (demo.href === pathname) return demo;
+    const child = demo.children?.find((entry) => entry.href === pathname);
+    if (child) return child;
+  }
+  return undefined;
+}
+
+export type DemoBreadcrumb = {
+  childLabel: string;
+  middle?: { label: string; href: string };
+};
+
+/** Resolves catalogue-backed labels for any route below `/vibenet/demos`. */
+export function demoBreadcrumb(pathname: string): DemoBreadcrumb | null {
+  const prefix = '/vibenet/demos/';
+  if (!pathname.startsWith(prefix)) return null;
+
+  const segments = pathname.slice(prefix.length).split('/').filter(Boolean);
+  if (segments.length === 0) return null;
+
+  const parentHref = `${prefix}${segments[0]}`;
+  const parent = DEMOS.find((entry) => entry.href === parentHref);
+  const parentLabel = entryLabel(parent, segments[0]);
+  if (segments.length === 1) return { childLabel: parentLabel };
+
+  const child = parent?.children?.find((entry) => entry.href === pathname);
+  return {
+    middle: { label: parentLabel, href: parentHref },
+    childLabel: entryLabel(child, segments.at(-1) ?? ''),
+  };
 }
