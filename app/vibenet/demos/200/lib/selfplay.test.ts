@@ -76,7 +76,7 @@ describe('self-play balance', () => {
   it('the eat → FULL → shrink cycle keeps a run alive and scoring', () => {
     const r = play(holdBot, 60, 1);
     expect(r.longestRun).toBeGreaterThan(15);
-    expect(r.bestScore).toBeGreaterThan(40);
+    expect(r.bestScore).toBeGreaterThan(30);
   });
 
 

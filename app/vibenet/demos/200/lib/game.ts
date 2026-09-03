@@ -4,8 +4,8 @@
 // The chain is the spawner: every new vibenet head (one per 200 ms under
 // Denim) becomes one block that the boss on the right edge spits out. The
 // player is a round little glutton who auto-runs and holds ONE button to
-// inhale: the nearest block in range is dragged into its mouth and swallowed,
-// scoring its weight and revealing its number and 200 ms slot. Busy walls are
+// inhale: the nearest block in range is dragged into its mouth and swallowed —
+// one eaten — revealing its number and 200 ms slot. Busy walls are
 // heavy — they drag in slower while the next blocks keep coming. EVERY block
 // is a collision unless eaten: one heart per hit. Eat enough and he goes FULL
 // for a few seconds — invulnerable, rolling over everything, unable to eat —
@@ -76,7 +76,7 @@ export type Block = {
   landed: boolean;
   w: number;
   h: number;
-  /** Suction weight: heavy walls pull in slower and score more. */
+  /** Suction weight: heavy walls pull in slower and fill the belly faster. */
   weight: number;
   number: number;
   timestampMs: number | null;
@@ -397,7 +397,9 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     const pulled = { ...target, x: Math.max(mouthX, target.x - (PULL_SPEED / target.weight) * dt) };
     if (pulled.x <= mouthX && mouthOpen >= OPEN_MIN) {
       blocks = blocks.filter((b) => b.id !== target.id);
-      score += pulled.weight;
+      // Score is a true count of blocks eaten — heavy walls reward through
+      // the belly instead (they fill it twice as fast).
+      score += 1;
       heartProgress += 1;
       puffed = PUFF_TIME;
       labels = [...labels, { x: mouthX + 20, y: pulled.y - 14, text: blockLabel(pulled), age: 0 }];
@@ -444,7 +446,7 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     // a crash. Mid-chew the mouth is busy — a wall then is a real hit, which
     // is what makes back-to-back walls dangerous.
     blocks = blocks.filter((b) => b.id !== bonked.id);
-    score += bonked.weight;
+    score += 1;
     heartProgress += 1;
     puffed = PUFF_TIME;
     mouthOpen = 0;
