@@ -123,7 +123,8 @@ async function wait(publicClient: PublicClient, hash: Hex): Promise<TransactionR
   const receipt = await publicClient.waitForTransactionReceipt({
     hash,
     timeout: 120_000,
-    pollingInterval: 1_000,
+    // Vibenet mints a block every 200 ms (Denim); poll receipts at that cadence.
+    pollingInterval: 150,
   });
   if (receipt.status === 'reverted') {
     throw new Error(`Transaction reverted (${hash})`);

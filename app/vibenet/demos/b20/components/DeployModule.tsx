@@ -11,6 +11,7 @@ import { CopyableValue } from '../../../components/CopyableValue';
 import { formatTokenAmount, short } from '../../account/shared';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
+import type { Inclusion } from '../../_shared/inclusion';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import { client, INITIAL_ALLOCATION_MEMO } from '../lib/constants';
 import { B20_HELP } from '../lib/glossary';
@@ -42,6 +43,7 @@ export function DeployModule({
   onClose,
   wallet,
   onSendCalls,
+  inclusionFor,
   onCreated,
   onFirstPayment,
 }: {
@@ -49,6 +51,8 @@ export function DeployModule({
   onClose: () => void;
   wallet: Address | null;
   onSendCalls: (label: string, calls: Array<{ to: Address; data: Hex }>, action: string) => Promise<Hex | null>;
+  /** Inclusion timing for a landed hash — which 200 ms block, how fast. */
+  inclusionFor?: (hash: Hex) => Inclusion | undefined;
   onCreated: (token: CreatedToken) => Promise<void>;
   /** Guided flow: after a stablecoin is created, jump to a first payment in it. */
   onFirstPayment?: () => void;
@@ -182,7 +186,7 @@ export function DeployModule({
       step={step}
       busy={finalizing}
       error={error ?? undefined}
-      result={createdToken ? { txHash: createdToken.hash } : null}
+      result={createdToken ? { txHash: createdToken.hash, inclusion: inclusionFor?.(createdToken.hash) } : null}
       titles={{ build: 'Create a Token', submitted: 'Create a Token' }}
       canProceed={Boolean(name && symbol)}
       proceedLabel="Create Token"

@@ -8,6 +8,7 @@ import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { short } from '../../account/shared';
 import { walletErrorMessage } from '../../../library/wallet';
 import { CallRow, ReviewArrow } from '../../_shared/CallRow';
+import type { Inclusion } from '../../_shared/inclusion';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import type { TokenInfo } from '../lib/types';
 import { Notice } from './primitives';
@@ -25,6 +26,7 @@ export function GasModule({
   recipient,
   fee,
   onPay,
+  inclusionFor,
 }: {
   open: boolean;
   onClose: () => void;
@@ -37,6 +39,8 @@ export function GasModule({
   fee: string;
   /** Sends the demo transaction with its gas paid in the token; resolves to the tx hash. */
   onPay: () => Promise<Hex | null>;
+  /** Inclusion timing for a landed hash — which 200 ms block, how fast. */
+  inclusionFor?: (hash: Hex) => Inclusion | undefined;
 }) {
   const [step, setStep] = useState<TxStep>('build');
   const [finalizing, setFinalizing] = useState(false);
@@ -80,7 +84,7 @@ export function GasModule({
       step={step}
       busy={finalizing}
       error={error ?? undefined}
-      result={txHash ? { txHash } : null}
+      result={txHash ? { txHash, inclusion: inclusionFor?.(txHash) } : null}
       titles={{ build: 'Gas Payments', submitted: 'Gas Payments' }}
       canProceed={Boolean(isStablecoin)}
       proceedLabel="Send"
