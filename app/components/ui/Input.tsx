@@ -9,14 +9,15 @@ import { textVariantClasses } from './Text';
 export type { InputProps };
 
 export const inputClassName = cn(
-  'w-full rounded-lg bg-transparent py-2.5 ps-2.5 pe-2.5 outline-none',
+  'w-full rounded-lg bg-transparent py-2.5 ps-2.5 pe-2.5',
   textVariantClasses['label.regular'],
   'text-bds-gray-100 placeholder:text-bds-gray-40',
-  'ring-1 ring-inset ring-bds-gray-10',
-  'transition-[box-shadow] duration-150 ease motion-reduce:transition-none',
-  'focus:ring-2 focus:ring-bds-gray-100',
-  'aria-invalid:ring-bds-red-40 data-[invalid]:ring-bds-red-40',
-  'focus:aria-invalid:ring-bds-red-40',
+  'outline outline-1 outline-offset-[-1px] outline-bds-gray-10',
+  'transition-[outline-color] duration-150 ease-out motion-reduce:transition-none',
+  'hover:outline-bds-gray-15',
+  'focus:outline-2 focus:outline-foreground',
+  'aria-invalid:outline-bds-red-40 data-[invalid]:outline-bds-red-40',
+  'focus:aria-invalid:outline-bds-red-40',
   'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
 );
 
