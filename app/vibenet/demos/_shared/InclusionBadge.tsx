@@ -33,7 +33,7 @@ export function InclusionBadge({ inclusion, className }: { inclusion: Inclusion;
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full bg-bds-blue-0 px-2.5 py-1 text-[11px] font-normal leading-none tracking-[0px] text-bds-blue-60 dark:text-base-blue',
+        'inclusion-shimmer inline-flex shrink-0 items-center gap-1.5 rounded-full bg-bds-blue-0 px-2.5 py-1 text-[11px] font-normal leading-none tracking-[0px] text-bds-blue-60 dark:text-base-blue',
         className,
       )}
       title={
