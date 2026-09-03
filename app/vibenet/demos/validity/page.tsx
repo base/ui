@@ -16,7 +16,11 @@ const VALIDITY_FEATURE: VibenetFeature = {
   status: 'live',
   availability: 'Coming soon in ',
   availabilityLabel: 'Base Cobalt',
-  availabilityHref: '/upgrades/upgrade/cobalt',
+  availabilityHref: {
+    label: 'Base Cobalt',
+    href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/overview',
+    external: true,
+  },
   highlights: [
     {
       title: 'State-Aware Inclusion',

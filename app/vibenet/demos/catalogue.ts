@@ -63,6 +63,7 @@ export const DEMOS: DemoEntry[] = [
     href: '/vibenet/demos/validity',
     title: 'Validity Transactions',
     shortTitle: 'Validity Transactions',
+    icon: '/validity-illo.svg',
     summary:
       'Explore transactions that remain pending until their onchain conditions are satisfied, then execute without a keeper or a custom settlement contract.',
     points: [
