@@ -28,7 +28,10 @@ import { toast } from 'sonner';
 
 import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
+import { Field } from '../../../../components/ui/Field';
 import { CloseIcon } from '../../../../components/ui/icons';
+import { Input } from '../../../../components/ui/Input';
+import { InputGroup } from '../../../../components/ui/InputGroup';
 import { Modal } from '../../../../components/ui/Modal';
 import { Select } from '../../../../components/ui/Select';
 import { Spinner } from '../../../../components/ui/Spinner';
@@ -56,9 +59,6 @@ import { formatExpiry, scopeChips, type SignerKind, type StoredAccount } from '.
 import { scopeLabel } from '../library/policy';
 import { formatTokenAmount, KIND_LABEL, short, type WalletSigner } from '../shared';
 import { conciseError, EstimateRevertedError, isSeqMismatch, TxPendingError, useAccountEngine } from '../useAccountEngine';
-
-const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40';
 
 export type TransactPreset = { calls: CallRow[]; gasMode?: 'eth' | 'free' | 'usdv'; metadata?: string };
 /** Apply the staged owner change, or a specific session key's change. */
@@ -802,24 +802,23 @@ export function TransactionModal({ onClose, preset, applyTarget }: TransactionMo
           </div>
 
           {/* Metadata */}
-          <div className="flex flex-col gap-1.5">
+          <Field.Root>
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">Metadata</span>
+              <Field.Label>Metadata</Field.Label>
               <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">Top-Level · Signed</span>
             </div>
-            <input
+            <Input
               value={metaField}
               spellCheck={false}
               placeholder="Optional note / app data — e.g. invoice #4242"
-              onChange={(e) => setMetaField(e.target.value)}
-              className="w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40"
+              onValueChange={setMetaField}
             />
             {metadataHex ? (
-              <p className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
+              <Field.Description>
                 → <span>{short(metadataHex, 14, 8)}</span>
-              </p>
+              </Field.Description>
             ) : null}
-          </div>
+          </Field.Root>
 
           {/* Gas */}
           <div className="flex flex-col gap-1.5">
@@ -941,36 +940,32 @@ function CallsEditor(props: CallsEditorProps) {
                         }
                       }}
                     />
-                    <label className="flex w-28 flex-col">
-                      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
-                        <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">USDV</span>
-                        <input
-                          className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
-                          value={amtDisplay}
-                          spellCheck={false}
-                          inputMode="decimal"
-                          placeholder="0"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setUsdvAmountDrafts((d) => ({ ...d, [r.id]: val }));
-                            try {
-                              const amt = parseUnits(val || '0', USDV_DECIMALS);
-                              const rec = isAddressStr(recipientDisplay) ? recipientDisplay : usdv.recipient;
-                              setRow(r.id, { data: encodeUsdvTransfer(rec, amt) });
-                            } catch {
-                              /* ignore */
-                            }
-                          }}
-                          onBlur={() =>
-                            setUsdvAmountDrafts((d) => {
-                              const n = { ...d };
-                              delete n[r.id];
-                              return n;
-                            })
+                    <InputGroup.Root className="w-28">
+                      <span className="shrink-0 ps-2.5 text-[11px] text-bds-gray-40">USDV</span>
+                      <InputGroup.Control
+                        value={amtDisplay}
+                        spellCheck={false}
+                        inputMode="decimal"
+                        placeholder="0"
+                        onValueChange={(val) => {
+                          setUsdvAmountDrafts((d) => ({ ...d, [r.id]: val }));
+                          try {
+                            const amt = parseUnits(val || '0', USDV_DECIMALS);
+                            const rec = isAddressStr(recipientDisplay) ? recipientDisplay : usdv.recipient;
+                            setRow(r.id, { data: encodeUsdvTransfer(rec, amt) });
+                          } catch {
+                            /* ignore */
                           }
-                        />
-                      </div>
-                    </label>
+                        }}
+                        onBlur={() =>
+                          setUsdvAmountDrafts((d) => {
+                            const n = { ...d };
+                            delete n[r.id];
+                            return n;
+                          })
+                        }
+                      />
+                    </InputGroup.Root>
                     {calls.length > 1 && <RemoveRowButton onClick={() => removeRow(r.id)} disabled={false} />}
                   </li>
                 );
@@ -984,19 +979,16 @@ function CallsEditor(props: CallsEditorProps) {
                     onChange={(to) => setRow(r.id, { to })}
                     accounts={addressBook}
                   />
-                  <label className="flex w-28 flex-col">
-                    <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-bds-gray-0 transition-colors focus-within:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white">
-                      <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">ETH</span>
-                      <input
-                        className="w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40"
-                        value={r.value}
-                        spellCheck={false}
-                        inputMode="decimal"
-                        placeholder="0.0"
-                        onChange={(e) => setRow(r.id, { value: e.target.value })}
-                      />
-                    </div>
-                  </label>
+                  <InputGroup.Root className="w-28">
+                    <span className="shrink-0 ps-2.5 text-[11px] text-bds-gray-40">ETH</span>
+                    <InputGroup.Control
+                      value={r.value}
+                      spellCheck={false}
+                      inputMode="decimal"
+                      placeholder="0.0"
+                      onValueChange={(value) => setRow(r.id, { value })}
+                    />
+                  </InputGroup.Root>
                   {calls.length > 1 && <RemoveRowButton onClick={() => removeRow(r.id)} disabled={false} />}
                 </li>
               );
@@ -1052,27 +1044,27 @@ function CallsEditor(props: CallsEditorProps) {
                 >
                   {r.phase === 0 ? 'pre' : '1'}
                 </button>
-                <input
-                  className={cn(INPUT_CLS, 'flex-1')}
+                <Input
+                  className="flex-1"
                   value={r.to}
                   spellCheck={false}
                   placeholder="Contract / address"
-                  onChange={(e) => setRow(r.id, { to: e.target.value })}
+                  onValueChange={(to) => setRow(r.id, { to })}
                 />
-                <input
-                  className={cn(INPUT_CLS, 'w-24')}
+                <Input
+                  className="w-24"
                   value={r.value}
                   spellCheck={false}
                   inputMode="decimal"
                   placeholder="0.0"
-                  onChange={(e) => setRow(r.id, { value: e.target.value })}
+                  onValueChange={(value) => setRow(r.id, { value })}
                 />
-                <input
-                  className={cn(INPUT_CLS, 'flex-1')}
+                <Input
+                  className="flex-1"
                   value={r.data}
                   spellCheck={false}
                   placeholder="0x"
-                  onChange={(e) => setRow(r.id, { data: e.target.value })}
+                  onValueChange={(data) => setRow(r.id, { data })}
                 />
                 {calls.length > 1 && <RemoveRowButton onClick={() => removeRow(r.id)} disabled={false} />}
               </li>

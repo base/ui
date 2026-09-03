@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { encodeFunctionData, type Address, type Hex } from 'viem';
 
 import { Button } from '../../../../components/ui/Button';
-import { cn } from '../../../../components/ui/cn';
 import { Drawer } from '../../../../components/ui/Drawer';
+import { Radio } from '../../../../components/ui/Radio';
+import { RadioGroup } from '../../../../components/ui/RadioGroup';
 import { Select } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { walletErrorMessage } from '../../../library/wallet';
@@ -171,19 +172,30 @@ export function CreatePolicy({
         </Field>
       </div>
       <div className="mt-5">
-        <Text as="span" variant="label" tone="muted" className="mb-2 block">Policy type</Text>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {([
-            ['allowlist', 'Allowlist', 'Only member wallets pass.'],
-            ['blocklist', 'Blocklist', 'Every wallet except listed members passes.'],
-            ['advanced', 'Advanced', 'Combine existing policies.'],
-          ] as const).map(([value, title, body]) => {
-            const selected = value === 'advanced' ? mode === 'composite' : mode === 'simple' && simpleKind === value;
-            return (
-              <button key={value} type="button" aria-pressed={selected} onClick={() => selectType(value)} className={cn('flex flex-col gap-1 rounded-xl border p-4 text-left', selected ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{title}</strong><span className="text-[12px] text-bds-gray-60">{body}</span></button>
-            );
-          })}
-        </div>
+        <Field label="Policy type">
+          <RadioGroup
+            value={mode === 'composite' ? 'advanced' : simpleKind}
+            onValueChange={(next) => selectType(next as SimplePolicyKind | 'advanced')}
+            className="grid-cols-1 sm:grid-cols-3"
+          >
+            {(
+              [
+                ['allowlist', 'Allowlist', 'Only member wallets pass.'],
+                ['blocklist', 'Blocklist', 'Every wallet except listed members passes.'],
+                ['advanced', 'Advanced', 'Combine existing policies.'],
+              ] as const
+            ).map(([value, title, body]) => (
+              <Radio.Root key={value} value={value}>
+                <Text as="span" variant="label.regular">
+                  {title}
+                </Text>
+                <Text as="span" variant="footnote" tone="muted">
+                  {body}
+                </Text>
+              </Radio.Root>
+            ))}
+          </RadioGroup>
+        </Field>
       </div>
       {mode === 'simple' ? (
         <div className="mt-5">
@@ -227,7 +239,22 @@ export function CreatePolicy({
               />
             </Field>
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">{compositeKinds.map((item) => <button key={item} type="button" aria-pressed={compositeKind === item} onClick={() => setCompositeKind(item)} className={cn('rounded-xl border p-4 text-left', compositeKind === item ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10')}><strong className="text-[13px]">{policyKindLabel(item)}</strong><span className="mt-1 block text-[12px] text-bds-gray-60">{item === 'union' ? 'UNION · A wallet passes when any child allows it.' : 'INTERSECT · A wallet passes only when every child allows it.'}</span></button>)}</div>
+          <div className="mt-5">
+            <RadioGroup value={compositeKind} onValueChange={setCompositeKind} className="grid-cols-1 sm:grid-cols-2">
+              {compositeKinds.map((item) => (
+                <Radio.Root key={item} value={item}>
+                  <Text as="span" variant="label.regular">
+                    {policyKindLabel(item)}
+                  </Text>
+                  <Text as="span" variant="footnote" tone="muted">
+                    {item === 'union'
+                      ? 'UNION · A wallet passes when any child allows it.'
+                      : 'INTERSECT · A wallet passes only when every child allows it.'}
+                  </Text>
+                </Radio.Root>
+              ))}
+            </RadioGroup>
+          </div>
           <div className="mt-5 divide-y divide-bds-gray-10 overflow-hidden rounded-lg border border-bds-gray-10 dark:divide-white/10 dark:border-white/10">
             {children.map((child, index) => {
               // Keep this row's current selection in the option list so the Select

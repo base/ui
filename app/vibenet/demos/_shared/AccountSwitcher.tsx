@@ -124,7 +124,10 @@ export function AccountSwitcher({
     >
       <Popover.Trigger
         className={cn(
-          'group flex items-center justify-between gap-2 rounded-lg border border-bds-gray-10 bg-background px-2.5 py-1.5 transition-colors hover:border-foreground dark:border-white/10 dark:bg-white/5 dark:hover:border-white',
+          'group flex h-10 items-center justify-between gap-2 rounded-lg bg-transparent px-2.5 outline-none',
+          'ring-1 ring-inset ring-bds-gray-10',
+          'transition-[box-shadow] duration-150 ease motion-reduce:transition-none',
+          'focus:ring-black/40 data-[popup-open]:ring-black/40 dark:focus:ring-white/40 dark:data-[popup-open]:ring-white/40',
           triggerClassName,
         )}
       >

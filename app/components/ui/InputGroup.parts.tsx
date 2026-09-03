@@ -21,9 +21,9 @@ export function Root({ role = 'group', disabled, invalid, ...props }: RootProps)
       {...mergeProps(
         {
           className: cn(
-            'flex items-center rounded-xl ring-1 ring-inset ring-bds-gray-10',
+            'flex items-center rounded-lg ring-1 ring-inset ring-bds-gray-10',
             'transition-[box-shadow] duration-150 ease motion-reduce:transition-none',
-            'has-[input[data-focused]]:ring-2 has-[input[data-focused]]:ring-bds-gray-100',
+            'has-[input:focus]:ring-2 has-[input:focus]:ring-bds-gray-100',
             'aria-invalid:ring-bds-red-40 has-[input[data-invalid]]:ring-bds-red-40',
             'aria-disabled:opacity-50',
           ),

@@ -8,5 +8,5 @@ import { cn } from './cn';
 export type { RadioGroupProps };
 
 export function RadioGroup(props: RadioGroupProps) {
-  return <BaseRadioGroup {...mergeProps({ className: cn('grid w-full gap-2') }, props)} />;
+  return <BaseRadioGroup {...mergeProps({ className: cn('grid w-full gap-3') }, props)} />;
 }

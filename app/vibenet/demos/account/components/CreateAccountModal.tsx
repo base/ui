@@ -424,11 +424,12 @@ function KeyPicker({
                   type="button"
                   onClick={() => onToggle(s)}
                   className={cn(
-                    'flex flex-1 items-center gap-2 rounded-xl px-2 py-2.5 text-left outline-none',
+                    'flex flex-1 items-center gap-2 rounded-lg px-2 py-2.5 text-left outline-none',
                     'ring-1 ring-inset ring-bds-gray-10',
                     'transition-[box-shadow] duration-150 ease motion-reduce:transition-none',
                     on ? 'ring-2 ring-bds-gray-100' : 'hover:ring-bds-gray-20',
-                    'focus-visible:ring-2 focus-visible:ring-brand-blue',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-blue',
+                    'focus-visible:transition-none',
                   )}
                 >
                   <Text as="span" variant="label" className="truncate">
@@ -447,11 +448,12 @@ function KeyPicker({
                     aria-label={`Delete key ${s.label}`}
                     title="Delete unused key"
                     className={cn(
-                      'flex w-8 shrink-0 items-center justify-center rounded-xl text-bds-gray-50 outline-none',
+                      'flex w-8 shrink-0 items-center justify-center rounded-lg text-bds-gray-50 outline-none',
                       'ring-1 ring-inset ring-bds-gray-10',
                       'transition-[box-shadow,color] duration-150 ease motion-reduce:transition-none',
                       'hover:text-bds-red-60 hover:ring-bds-red-40',
-                      'focus-visible:ring-2 focus-visible:ring-bds-gray-100',
+                      'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bds-gray-100',
+                      'focus-visible:transition-none',
                     )}
                   >
                     <TrashIcon size={15} />
@@ -459,7 +461,7 @@ function KeyPicker({
                 ) : inUse ? (
                   <span
                     title="Bound to an account — can't be deleted"
-                    className="flex shrink-0 items-center rounded-xl px-2 text-[11px] text-bds-gray-50 ring-1 ring-inset ring-bds-gray-10"
+                    className="flex shrink-0 items-center rounded-lg px-2 text-[11px] text-bds-gray-50 ring-1 ring-inset ring-bds-gray-10"
                   >
                     in use
                   </span>

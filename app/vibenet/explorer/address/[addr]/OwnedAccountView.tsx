@@ -15,6 +15,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { cn } from '../../../../components/ui/cn';
+import { Field } from '../../../../components/ui/Field';
+import { Input } from '../../../../components/ui/Input';
 import { Modal } from '../../../../components/ui/Modal';
 import { Select } from '../../../../components/ui/Select';
 import { Spinner } from '../../../../components/ui/Spinner';
@@ -39,9 +41,6 @@ import { AccountEngineProvider, useAccountEngine } from '../../../demos/account/
 import { AccountShell, useSectionParam, type ShellSection } from './AccountShell';
 import { ActivityTable } from './ActivityTable';
 import { AssetsCard } from './AssetsCard';
-
-const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-background px-3.5 py-2.5 text-[14px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40';
 
 const SECTIONS: ShellSection[] = [
   { id: 'overview', label: 'Overview' },
@@ -526,14 +525,13 @@ function SubAccountsSection() {
           </>
         }
       >
-        <label className="flex flex-col gap-2 text-[14px] font-normal">
-          Account name
-          <input
+        <Field.Root>
+          <Field.Label>Account name</Field.Label>
+          <Input
             autoFocus
-            className={INPUT_CLS}
             value={label}
             placeholder="Trading bot, Team vault…"
-            onChange={(event) => setLabel(event.target.value)}
+            onValueChange={setLabel}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
@@ -541,10 +539,10 @@ function SubAccountsSection() {
               }
             }}
           />
-        </label>
-        <Text variant="label.regular" tone="muted">
-          A delegated account with its own address, controlled by this account. It deploys on first use.
-        </Text>
+          <Field.Description>
+            A delegated account with its own address, controlled by this account. It deploys on first use.
+          </Field.Description>
+        </Field.Root>
       </Modal>
     </div>
   );
