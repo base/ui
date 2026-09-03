@@ -6,6 +6,7 @@ import {
   blockExpiryPredicate,
   blockNumberPredicate,
   formatPrice,
+  parsePriceWad,
   prettyValidity,
   priceValidity,
   rectangleForTarget,
@@ -27,6 +28,27 @@ describe('predicates', () => {
   it('formats wad prices', () => {
     expect(formatPrice(WAD)).toBe('1.0000');
     expect(formatPrice(99n * 10n ** 16n)).toBe('0.9900');
+  });
+
+  it('parses typed prices into wad', () => {
+    expect(parsePriceWad('1')).toBe(WAD);
+    expect(parsePriceWad('1.0000')).toBe(WAD);
+    expect(parsePriceWad('$0.99')).toBe(99n * 10n ** 16n);
+    expect(parsePriceWad('.5')).toBe(WAD / 2n);
+    expect(parsePriceWad('1,024.5')).toBe(1_024n * WAD + WAD / 2n);
+    expect(parsePriceWad(' 2.5 ')).toBe((5n * WAD) / 2n);
+    expect(parsePriceWad(formatPrice((3n * WAD) / 2n))).toBe((3n * WAD) / 2n);
+  });
+
+  it('rejects non-prices', () => {
+    expect(parsePriceWad('')).toBeNull();
+    expect(parsePriceWad('0')).toBeNull();
+    expect(parsePriceWad('0.000')).toBeNull();
+    expect(parsePriceWad('-1')).toBeNull();
+    expect(parsePriceWad('1e3')).toBeNull();
+    expect(parsePriceWad('1.2.3')).toBeNull();
+    expect(parsePriceWad('abc')).toBeNull();
+    expect(parsePriceWad('1.0000000000000000001')).toBeNull();
   });
 
   it('offsets spot in basis points for buy and sell', () => {

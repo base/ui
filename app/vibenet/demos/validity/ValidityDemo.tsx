@@ -122,6 +122,7 @@ function ValidityDemoInner() {
   const [txHash, setTxHash] = useState<Hex | null>(null);
   const [side, setSide] = useState<Side>('buy');
   const [offsetBps, setOffsetBps] = useState(100);
+  const [priceOverrideWad, setPriceOverrideWad] = useState<bigint | null>(null);
   const [expirySeconds, setExpirySeconds] = useState(15);
   const [submitMode, setSubmitMode] = useState<SubmitMode>('concurrent');
   const [orders, setOrders] = useState<PlacedOrder[]>([]);
@@ -546,7 +547,7 @@ function ValidityDemoInner() {
   const draft = useMemo(() => {
     if (!state?.deployment || k === 0n || spot === 0n) return null;
     try {
-      const price = applyOffsetBps(spot, side, offsetBps);
+      const price = priceOverrideWad ?? applyOffsetBps(spot, side, offsetBps);
       const ammPrice = ammPriceFromQuote(price, vibeToken0);
       const built = priceValidity(state.deployment.pair, k, ammPrice, ammSide(side, vibeToken0));
       return {
@@ -559,7 +560,7 @@ function ValidityDemoInner() {
     } catch {
       return null;
     }
-  }, [k, offsetBps, side, spot, state?.deployment, vibeToken0]);
+  }, [k, offsetBps, priceOverrideWad, side, spot, state?.deployment, vibeToken0]);
 
   const reviewPredicates = useMemo(() => {
     if (!draft) return [];
@@ -935,9 +936,17 @@ function ValidityDemoInner() {
                   busy={busy}
                   vibeBalance={vibeBalance}
                   costHint={costHint}
+                  priceOverrideWad={priceOverrideWad}
                   canAfford={canAffordTrade}
-                  onSide={setSide}
-                  onOffset={setOffsetBps}
+                  onSide={(next) => {
+                    setSide(next);
+                    setPriceOverrideWad(null);
+                  }}
+                  onOffset={(bps) => {
+                    setOffsetBps(bps);
+                    setPriceOverrideWad(null);
+                  }}
+                  onPriceOverride={setPriceOverrideWad}
                   onExpiry={setExpirySeconds}
                   onSubmitMode={(mode) => {
                     setSubmitMode(mode);
