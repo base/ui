@@ -2,7 +2,7 @@ import { BENCHMARK_ENABLED } from './benchmark/flag';
 import { EXPLORER_ENABLED, EXPLORER_LABEL } from './internal-explorer/flag';
 import { demoBreadcrumb } from './vibenet/demos/catalogue';
 
-export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
+export type NavIcon = 'home' | 'snapshots' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
 
 export type NavChild = {
   label: string;
@@ -32,8 +32,6 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'Explorer', href: '/vibenet/explorer', icon: 'explorer' },
     ],
   },
-  { label: 'Upgrades', href: '/upgrades', icon: 'upgrades', enabled: true },
-  { label: 'Changelog', href: '/upgrades/changelog', icon: 'changelog', enabled: true },
   { label: 'Snapshots', href: '/snapshots', icon: 'snapshots', enabled: true },
   // Internal Explorer is internal-only; present only in the internal build
   // target (deploy.config.mjs). See app/internal-explorer/flag.ts.

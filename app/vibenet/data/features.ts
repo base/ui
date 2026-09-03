@@ -1,7 +1,6 @@
 import type { VibenetFeature } from '../library/types';
 
 // Curated capability catalog rendered at the top of the Accounts demo.
-// (Mirrors how the Upgrades section keeps its `changes` in a data module.)
 export const FEATURES: VibenetFeature[] = [
   {
     id: 'eip-8130-account-abstraction',
@@ -11,7 +10,8 @@ export const FEATURES: VibenetFeature[] = [
       'Built into the protocol. No bundler, no entrypoint. Powerful UX primitives in accounts that work on Base.',
     status: 'live',
     availability: 'Coming soon in ',
-    availabilityHref: '/upgrades/upgrade/cobalt',
+    availabilityLabel: 'Base Cobalt',
+    availabilityHref: {label: 'Base Cobalt', href: 'https://docs.base.org/base-chain/specs/upgrades/cobalt/overview', external: true},
     highlights: [
       { title: 'Authorize How You Want', detail: 'Support for secp256k1, P-256, and WebAuthn passkeys.' },
       { title: 'Portable Everywhere', detail: 'Same account and address on any EVM chain.' },
@@ -35,8 +35,7 @@ export const FEATURES: VibenetFeature[] = [
   // 200ms Blocks is intentionally absent: it is a Denim roadmap item that has
   // not landed on vibenet yet (blocks are still ~2s, `timestampMs` is not on
   // the RPC payload, and the BaseTime predeploy is an uninitialized proxy).
-  // It stays documented under /upgrades/changelog/200ms-blocks until it ships
-  // here — add the feature card back in the same PR that enables it.
+  // Add the feature card back in the same PR that enables it here.
 ];
 
 // Raw feature shape as it appears in the API `config` payload.

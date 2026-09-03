@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Card, LinkCard } from '../components/ui/Card';
+import { Card } from '../components/ui/Card';
 import { Text } from '../components/ui/Text';
 
 import { CopyableValue } from './components/CopyableValue';
-import { listedDemos, type DemoEntry } from './demos/catalogue';
+import { listedDemos } from './demos/catalogue';
+import { DemoCard } from './demos/DemoCard';
 import type { ConfigResponse } from './library/api-types';
 import { vibenetApi } from './library/client';
 import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL } from './library/config';
@@ -41,7 +42,7 @@ export default function VibenetHomePage() {
 
   return (
     <div className="animate-in -mb-20 flex min-w-0 flex-1 flex-col gap-16 pb-4 text-foreground">
-      <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:justify-between md:gap-8">
+      <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-end md:justify-between md:gap-8">
         <div className="flex max-w-xl flex-1 flex-col gap-6">
           <Image src="/vibenet-illo.svg" alt="" width={48} height={48} className="mt-8" />
           <Text variant="title2" tone="muted">
@@ -70,28 +71,12 @@ export default function VibenetHomePage() {
         </Card>
       </header>
 
-      <section className="flex flex-col gap-6">
+      <section className="flex flex-col gap-4">
         <Text variant="headline">Demos</Text>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {listedDemos().map((demo) =>
-            demo.available ? (
-              <LinkCard
-                key={demo.href}
-                href={demo.href}
-                interactive={false}
-                className="group flex flex-col gap-4 bg-background p-6 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]"
-              >
-                <DemoCardBody demo={demo} />
-              </LinkCard>
-            ) : (
-              <Card
-                key={demo.href}
-                className="flex flex-col gap-4 bg-background p-6 opacity-60 dark:bg-white/5"
-              >
-                <DemoCardBody demo={demo} />
-              </Card>
-            ),
-          )}
+          {listedDemos().map((demo) => (
+            <DemoCard key={demo.href} demo={demo} />
+          ))}
         </div>
       </section>
 
@@ -151,33 +136,5 @@ export default function VibenetHomePage() {
         </span>
       </footer>
     </div>
-  );
-}
-
-function DemoCardBody({ demo }: { demo: DemoEntry }) {
-  return (
-    <>
-      <div>
-        <div className="flex items-center gap-2">
-          <Text variant="headline">{demo.title}</Text>
-          {!demo.available ? (
-            <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">
-              Coming soon
-            </span>
-          ) : null}
-        </div>
-        <Text variant="body" tone="muted" className="mt-2">
-          {demo.summary}
-        </Text>
-      </div>
-      <ul className="mt-auto flex flex-col gap-2 border-t border-bds-gray-10 pt-4 dark:border-white/10">
-        {demo.points.map((point) => (
-          <li key={point} className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-[1px] bg-bds-gray-30" aria-hidden="true" />
-            <Text as="span" variant="label.regular" tone="muted">{point}</Text>
-          </li>
-        ))}
-      </ul>
-    </>
   );
 }

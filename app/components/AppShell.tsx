@@ -8,10 +8,9 @@ import { AnimatePresence, easeOut, motion, useIsPresent, useMotionTemplate, useM
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
-import { BLUE, BORDER, DISABLED, INK, MUTED, SELECTED } from '../theme';
-import { getChangeBySlug } from '../upgrades/data/changes';
-import { demoBreadcrumb } from '../vibenet/demos/catalogue';
-import { getUpgradeById } from '../upgrades/data/upgrades';
+
+import { BLUE, BORDER, BRAND_BLUE, DISABLED, INK, MUTED, SELECTED } from '../theme';
+import { demoLabel, demoBreadcrumb } from '../vibenet/demos/catalogue';
 
 import { trackNavClick } from '../analytics/events';
 import { navExitingHighlightPath, navSlideDirection, type NavPresenceCustom } from './nav-motion';
@@ -95,8 +94,8 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     padding: '1px 6px',
   },
-  // Pinned below the sliding panes so Status/Support/Docs/Blog stay put when
-  // a section sub-nav slides in. The switch sits on the last row beside Blog.
+  // Pinned below the sliding panes so Upgrades/Docs/Status/Support/Blog stay put
+  // when a section sub-nav slides in. The switch sits on the last row beside Blog.
   sidebarFooter: {
     display: 'flex',
     flexDirection: 'column',
@@ -201,22 +200,6 @@ function NavGlyph({ name }: NavGlyphProps) {
         <svg width={common.width} height={common.height} viewBox="5 6.5 30 27" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="nav-snapshots-icon">
           <path d="M23.5 21C23.5 22.933 21.933 24.5 20 24.5C18.067 24.5 16.5 22.933 16.5 21C16.5 19.067 18.067 17.5 20 17.5C21.933 17.5 23.5 19.067 23.5 21Z" />
           <path d="M9 16.5826C9 14.604 10.604 13 12.5826 13H12.6972C13.8235 13 14.8753 12.4371 15.5 11.5C16.1247 10.5629 17.1765 10 18.3028 10H21.6972C22.8235 10 23.8753 10.5629 24.5 11.5C25.1247 12.4371 26.1765 13 27.3028 13H27.4174C29.396 13 31 14.604 31 16.5826V26C31 28.2091 29.2091 30 27 30H13C10.7909 30 9 28.2091 9 26V16.5826Z" />
-        </svg>
-      );
-    case 'upgrades':
-      return (
-        <svg {...common}>
-          <path d="M3 6.7C3 4.65 4.65 3 6.7 3h10.6C19.35 3 21 4.65 21 6.7v10.6c0 2.05-1.65 3.7-3.7 3.7H6.7C4.65 21 3 19.35 3 17.3V6.7Z" />
-          <path
-            d="M12.2 16.5V7.9M16.9 12.6 12.2 7.9 7.6 12.6"
-            className="nav-upgrades-arrow"
-          />
-        </svg>
-      );
-    case 'changelog':
-      return (
-        <svg {...common} viewBox="0 0 24 24" strokeWidth={1.8} className="nav-changelog-icon">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
         </svg>
       );
     case 'vibenet':
@@ -581,6 +564,27 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
       </div>
 
       <div style={styles.sidebarFooter} className="sidebar-gutter">
+        <a href="https://docs.base.org/base-chain/specs/upgrades/overview" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6.7C3 4.65 4.65 3 6.7 3h10.6C19.35 3 21 4.65 21 6.7v10.6c0 2.05-1.65 3.7-3.7 3.7H6.7C4.65 21 3 19.35 3 17.3V6.7Z" />
+                <path d="M12.2 16.5V7.9M16.9 12.6 12.2 7.9 7.6 12.6" />
+              </svg>
+            </span>
+            <span className={TEXT_TRIM}>Upgrades</span>
+          </span>
+        </a>
+        <a href="https://docs.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+              </svg>
+            </span>
+            <span className={TEXT_TRIM}>Docs</span>
+          </span>
+        </a>
         <a href="https://status.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
           <span className={SIDEBAR_FOOTER_LINK_LABEL}>
             <span style={styles.footerIcon}>
@@ -601,32 +605,18 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
             <span className={TEXT_TRIM}>Support</span>
           </span>
         </a>
-        <a href="https://docs.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+        <a href="https://blog.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
           <span className={SIDEBAR_FOOTER_LINK_LABEL}>
             <span style={styles.footerIcon}>
-              <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
               </svg>
             </span>
-            <span className={TEXT_TRIM}>Docs</span>
+            <span className={TEXT_TRIM}>Blog</span>
           </span>
         </a>
-        <div style={styles.footerLastRow}>
-          <a href="https://blog.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={{ ...styles.footerLink, flex: 1 }}>
-            <span className={SIDEBAR_FOOTER_LINK_LABEL}>
-              <span style={styles.footerIcon}>
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-                </svg>
-              </span>
-              <span className={TEXT_TRIM}>Blog</span>
-            </span>
-          </a>
-          {/* `role="switch"` rather than a plain button: the control reports a state
-              rather than firing an action, so screen readers announce "on"/"off"
-              against a stable label instead of the label itself changing. The switch
-              renders bare, so that name comes from `aria-label` — the visible track
-              is decorative and hidden from the tree. */}
+        <div style={styles.footerLastRow} className="justify-between -mb-1.5">
+          <span className="pl-2.5 text-[12px] font-medium text-bds-gray-20 dark:text-bds-gray-40">Developer Console</span>
           <button
             type="button"
             role="switch"
@@ -638,11 +628,11 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
           >
             <span
               aria-hidden
-              className={`${THEME_SWITCH_ANIM} bg-bds-gray-50 transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-bds-gray-70 dark:bg-brand-blue dark:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue`}
+              className={`${THEME_SWITCH_ANIM} bg-brand-blue transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,black)] dark:bg-brand-blue dark:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue`}
               style={styles.switchTrack}
             >
               <span
-                className={`${THEME_SWITCH_ANIM} text-bds-gray-50 transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none dark:translate-x-[14px] dark:text-brand-blue`}
+                className={`${THEME_SWITCH_ANIM} text-brand-blue transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none dark:translate-x-[14px] dark:text-brand-blue`}
                 style={styles.switchThumb}
               >
                 <ThemeIcon />
@@ -843,28 +833,6 @@ export function AppShell({ children }: PropsWithChildren) {
           >
             <div id="topbar-actions-slot" className="absolute right-7 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2" />
             {(() => {
-              const slugMatch = pathname.match(/^\/upgrades\/changelog\/(.+)$/);
-              if (slugMatch) {
-                const change = getChangeBySlug(slugMatch[1]);
-                return (
-                  <Breadcrumb
-                    parentLabel="Changelog"
-                    parentHref="/upgrades/changelog"
-                    childLabel={change?.title ?? slugMatch[1]}
-                  />
-                );
-              }
-              const upgradeMatch = pathname.match(/^\/upgrades\/upgrade\/(.+)$/);
-              if (upgradeMatch) {
-                const upgrade = getUpgradeById(upgradeMatch[1]);
-                return (
-                  <Breadcrumb
-                    parentLabel="Upgrades"
-                    parentHref="/upgrades"
-                    childLabel={upgrade?.name ?? upgradeMatch[1]}
-                  />
-                );
-              }
               if (pathname.startsWith('/vibenet') && pathname !== '/vibenet') {
                 let childLabel = title;
                 let middle: { label: string; href: string } | undefined;

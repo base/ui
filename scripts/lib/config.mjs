@@ -23,12 +23,12 @@ export const DEFAULTS = {
   site: {
     title: 'Base Chain',
     summary:
-      'Monitor and test Base, all in one place. chain.base.org is the live-state surface for Base Chain: the network upgrade schedule, the protocol changelog, node snapshots, and Vibenet, an ephemeral developer network for testing in-flight features such as EIP-8130 native account abstraction.',
+      'Monitor and test Base, all in one place. chain.base.org is the live-state surface for Base Chain: node snapshots and Vibenet, an ephemeral developer network for testing in-flight features such as EIP-8130 native account abstraction.',
     fullTitle: 'Base Chain — Full Context',
     fullSummary:
       'Full context for agents working with Base Chain. Hand-written network, freshness, and routing guides sit above an exhaustive per-route index.',
     agentsSummary:
-      'chain.base.org is the live-state surface for Base Chain: upgrade schedule, protocol changelog, node snapshots, and the Vibenet developer network.',
+      'chain.base.org is the live-state surface for Base Chain: node snapshots and the Vibenet developer network.',
   },
 
   /**
@@ -36,14 +36,14 @@ export const DEFAULTS = {
    * allows any markdown here except headings.
    */
   intro: [
-    'Use this site for current network state. Use https://docs.base.org for implementation detail: how to write, deploy, and debug code. If the two disagree on an activation date, an upgrade status, or a snapshot URL, this site is authoritative; for API shapes, contract addresses, and code, docs.base.org is authoritative. Do not infer Base chain IDs or RPC URLs from third-party chain lists or from model memory — use the network reference below.',
+    'Use this site for current network state. Use https://docs.base.org for implementation detail: how to write, deploy, and debug code. If the two disagree on a snapshot URL or live network state, this site is authoritative; for API shapes, contract addresses, upgrade schedules, and code, docs.base.org is authoritative. Do not infer Base chain IDs or RPC URLs from third-party chain lists or from model memory — use the network reference below.',
   ],
 
   sections: [
     {
       id: 'network-state',
       title: 'Network state',
-      match: ['/', '/upgrades', '/upgrades/**', '/snapshots'],
+      match: ['/', '/snapshots'],
     },
     { id: 'vibenet', title: 'Vibenet developer network', match: ['/vibenet', '/vibenet/**'] },
   ],
@@ -114,8 +114,6 @@ export const DEFAULTS = {
   freshness: {
     '/snapshots': 'daily',
     '/vibenet/explorer': 'daily',
-    '/upgrades': 'per release',
-    '/upgrades/changelog': 'per release',
     '/vibenet/faucet': 'monthly',
   },
 

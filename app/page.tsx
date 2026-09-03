@@ -1,77 +1,91 @@
-import { Card, LinkCard } from './components/ui/Card';
+import { Button } from './components/ui/Button';
 import { Text } from './components/ui/Text';
+import { listedDemos } from './vibenet/demos/catalogue';
+import { DemoCard } from './vibenet/demos/DemoCard';
+import { SAMPLE_SNAPSHOTS, type Snapshot } from './snapshots/data';
+import { getSnapshots } from './snapshots/r2';
+import { SnapshotDownloadBox } from './snapshots/SnapshotDownloadBox';
 
-type Surface = {
-  label: string;
-  href: string;
-  description: string;
-  enabled: boolean;
-};
+// Prefetchable and revalidated like /snapshots, so the homepage paints complete
+// content (including the live snapshot stats) instead of a per-request render.
+export const revalidate = 300;
 
-type SurfaceCardProps = {
-  surface: Surface;
-};
-
-const SURFACES: Surface[] = [
-  {
-    label: 'Vibenet',
-    href: '/vibenet',
-    description: 'An ephemeral Base developer network for testing in-flight features.',
-    enabled: true,
-  },
-  {
-    label: 'Upgrades',
-    href: '/upgrades',
-    description: 'Track Base network upgrades and the features shipping in each fork.',
-    enabled: true,
-  },
-  {
-    label: 'Snapshots',
-    href: '/snapshots',
-    description: 'Download and configure Reth v2 snapshots to sync a Base node faster.',
-    enabled: true,
-  },
-];
-
-function SurfaceCard({ surface }: SurfaceCardProps) {
-  if (!surface.enabled) {
-    return (
-      <Card className="bg-background p-5 opacity-60 dark:bg-white/5">
-        <div className="flex items-center gap-2">
-          <Text variant="headline">{surface.label}</Text>
-          <span className="rounded-full border border-bds-gray-15 px-2.5 py-0.5 text-[13px] text-bds-gray-60">
-            Soon
-          </span>
-        </div>
-        <Text variant="label.regular" tone="muted" className="mt-1">
-          {surface.description}
-        </Text>
-      </Card>
+// Latest Mainnet archive snapshot for the homepage download box. Mirrors the
+// loadSnapshots fallback on /snapshots: sample data in dev when R2 is
+// unconfigured, and null (box hidden) if R2 is down in production.
+async function loadMainnetSnapshot(): Promise<Snapshot | null> {
+  let snapshots: Snapshot[];
+  try {
+    snapshots = await getSnapshots();
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[home] failed to load snapshots from R2:', error);
+      return null;
+    }
+    console.warn(
+      '[home] R2 unavailable, using sample data:',
+      error instanceof Error ? error.message : error,
     );
+    snapshots = SAMPLE_SNAPSHOTS;
   }
-
-  return (
-    <LinkCard href={surface.href} interactive={false} className="group bg-background p-5 transition-colors hover:bg-bds-gray-5 dark:bg-white/5 dark:hover:bg-white/[0.08]">
-      <Text variant="headline">
-        {surface.label}
-      </Text>
-      <Text variant="label.regular" tone="muted" className="mt-1">
-        {surface.description}
-      </Text>
-    </LinkCard>
-  );
+  return snapshots.find((snapshot) => snapshot.network === 'mainnet') ?? null;
 }
 
-export default function Home() {
+export default async function Home() {
+  // The two most recently added demos, newest first (catalogue order is
+  // chronological); the full set lives on /vibenet.
+  const recentDemos = listedDemos().slice(-2).reverse();
+  const mainnetSnapshot = await loadMainnetSnapshot();
+
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <div className="animate-in flex w-full max-w-xl flex-col gap-4 px-6 py-12 text-foreground">
-        <Text variant="title2" className="mb-4">Monitor and test Base, all in one place.</Text>
-        <Text variant="label.medium" tone="muted">Jump to...</Text>
-        {SURFACES.map((surface) => (
-          <SurfaceCard key={surface.href} surface={surface} />
-        ))}
-      </div>
+    <div className="animate-in mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col gap-16 pt-8 pb-4 text-foreground">
+      <header className="flex max-w-2xl flex-col gap-3">
+        <Text variant="title2">Base Developer Console</Text>
+        <Text variant="body" tone="muted">
+          Explore in-flight features on Vibenet and sync a node from the latest snapshot.
+        </Text>
+      </header>
+
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Text variant="headline">Featured Demos</Text>
+            <span className="inline-flex items-center gap-2 rounded-lg bg-[color-mix(in_srgb,var(--base-blue-p3)_10%,transparent)] px-2 py-0.5 text-[13px] font-[450] text-base-blue">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-base-blue opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-base-blue" />
+              </span>
+              Live on Vibenet
+            </span>
+          </div>
+          <Button href="/vibenet" variant="outline" size="sm" arrow>
+            All Demos
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {recentDemos.map((demo) => (
+            <DemoCard key={demo.href} demo={demo} />
+          ))}
+        </div>
+      </section>
+
+      {mainnetSnapshot ? (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <Text variant="headline">Snapshots</Text>
+              <Text variant="label.regular" tone="muted">
+                Sync a node from the latest Base Mainnet archive snapshot, or customize your own.
+              </Text>
+            </div>
+            <Button href="/snapshots" variant="outline" size="sm" arrow>
+              Customize
+            </Button>
+          </div>
+          <SnapshotDownloadBox snapshot={mainnetSnapshot} />
+        </section>
+      ) : null}
+
     </div>
   );
 }
