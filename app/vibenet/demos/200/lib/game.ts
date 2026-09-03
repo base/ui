@@ -3,17 +3,36 @@
 //
 // The chain is the spawner: every new vibenet head (one per 200 ms under
 // Denim) becomes one block that the boss on the right edge spits out. The
-// player auto-runs, jumps over or lands on blocks, shoots them to reveal their
-// number and 200 ms slot, and can hold a dash for speed and double score.
-// Hitting a block's side ends the run, like the offline dino game.
+// player is a round little glutton who auto-runs and holds ONE button to
+// inhale: the nearest block in range is dragged into its mouth and swallowed,
+// scoring its weight and revealing its number and 200 ms slot. Busy walls are
+// heavy — they drag in slower while the next blocks keep coming. EVERY block
+// is a collision unless eaten: one heart per hit. Eat enough and he goes FULL
+// for a few seconds — invulnerable, rolling over everything, unable to eat —
+// then the belly empties and he is hungry again. One action, so it plays the
+// same on a phone as on a keyboard.
 
 export const WIDTH = 800;
 export const HEIGHT = 360;
 export const GROUND_Y = 300;
 
 export const PLAYER_X = 96;
-export const PLAYER_W = 42;
-export const PLAYER_H = 54;
+export const PLAYER_W = 48;
+export const PLAYER_H = 48;
+/** Blocks in front within this range get pulled while inhaling. */
+export const INHALE_RANGE = 280;
+/** Extra approach speed suction adds, divided by the block's weight. */
+const PULL_SPEED = 1300;
+/** Seconds of chew (mouth shut, cheeks full) after each swallow. */
+const PUFF_TIME = 0.12;
+/** The mouth must be visibly open this long before a pulled block goes down. */
+const OPEN_MIN = 0.07;
+/** Fullness gained per unit of block weight. Only the full-mode cycle empties it. */
+const FULL_PER_WEIGHT = 0.11;
+/** Seconds of FULL mode: too round to hurt, rolling over every block. */
+const FULL_TIME = 2.5;
+/** How fast he slims back down once full mode ends. */
+const DEFLATE_RATE = 2.2;
 
 export const BOSS_X = WIDTH - 104;
 const SPAWN_X = BOSS_X + 8;
@@ -27,23 +46,12 @@ const MAX_BLOCK_H = 112;
 
 const BASE_SPEED = 560;
 const MAX_SPEED_BONUS = 160;
-export const DASH_MULTIPLIER = 1.8;
-const DASH_DRAIN = 0.5;
-const DASH_REGEN = 0.3;
-const DASH_RESTART = 0.35;
 const GRAVITY = 2000;
-const JUMP_VY = -700;
-const BULLET_SPEED = 1100;
-export const BULLET_W = 18;
-export const BULLET_H = 15;
-const FIRE_COOLDOWN = 0.14;
 const LABEL_LIFE = 1.2;
 const PARTICLE_LIFE = 0.6;
 const AFTERIMAGE_LIFE = 0.28;
 const AFTERIMAGE_EVERY = 0.045;
 const BOSS_MOUTH_OPEN = 0.16;
-/** A block top this close above the feet is climbed, not crashed into. */
-export const STEP_UP = 22;
 export const MAX_HEARTS = 3;
 const HURT_INVULN = 1.1;
 /** Bursts needed to earn a heart back. */
@@ -68,14 +76,12 @@ export type Block = {
   landed: boolean;
   w: number;
   h: number;
-  /** Hits left; wider blocks take more. Bursts at zero. */
-  hp: number;
-  maxHp: number;
+  /** Suction weight: heavy walls pull in slower and score more. */
+  weight: number;
   number: number;
   timestampMs: number | null;
 };
 
-export type Bullet = { x: number; y: number };
 export type Label = { x: number; y: number; text: string; age: number };
 export type ParticleKind = 'shard' | 'dust' | 'spark';
 export type Particle = { x: number; y: number; vx: number; vy: number; age: number; kind: ParticleKind };
@@ -87,16 +93,9 @@ export type Game = {
   distance: number;
   score: number;
   player: { y: number; vy: number; grounded: boolean };
-  dash: {
-    held: boolean;
-    active: boolean;
-    energy: number;
-    /** True after the meter ran dry; the dash cannot restart until it refills a bit. */
-    spent: boolean;
-    sinceImage: number;
-  };
+  /** Afterimage cadence timer while FULL (he barrels along up there). */
+  sinceImage: number;
   blocks: Block[];
-  bullets: Bullet[];
   labels: Label[];
   particles: Particle[];
   afterimages: Afterimage[];
@@ -104,9 +103,22 @@ export type Game = {
   shake: number;
   /** Seconds the boss mouth stays open after spitting a block. */
   bossMouth: number;
-  fireCooldown: number;
-  /** Hold to fire: the step fires whenever the cooldown allows. */
-  fireHeld: boolean;
+  /** Hold to inhale: suction is on while this is held. */
+  inhaling: boolean;
+  /** Chew timer after a swallow; suction pauses while it runs. */
+  puffed: number;
+  /** Seconds the mouth has been open in the current inhale cycle. */
+  mouthOpen: number;
+  /** Timer for the little dust puffs at the feet while running. */
+  runDust: number;
+  /** How full the belly is, 0..1. The body visibly grows with it. */
+  fullness: number;
+  /** FULL mode: maxed out — invulnerable, rolls over every block, cannot eat. */
+  stuffed: boolean;
+  /** Seconds of FULL mode remaining before he shrinks back to empty. */
+  fullTime: number;
+  /** After FULL ends: keeps his footing on tall blocks until he touches road. */
+  descending: boolean;
   /** Seconds since the run ended; a restart needs a deliberate press after a beat. */
   sinceDeath: number;
   hearts: number;
@@ -119,7 +131,7 @@ export type Game = {
   events: GameEvent[];
 };
 
-export type GameEvent = 'jump' | 'shoot' | 'burst' | 'hit' | 'hurt' | 'die' | 'land' | 'dash-on' | 'dash-off' | 'thud' | 'heart';
+export type GameEvent = 'inhale-on' | 'inhale-off' | 'gulp' | 'stuffed' | 'hurt' | 'die' | 'land' | 'thud' | 'heart';
 
 export function createGame(): Game {
   return {
@@ -128,16 +140,21 @@ export function createGame(): Game {
     distance: 0,
     score: 0,
     player: { y: GROUND_Y - PLAYER_H, vy: 0, grounded: true },
-    dash: { held: false, active: false, energy: 1, spent: false, sinceImage: 0 },
+    sinceImage: 0,
     blocks: [],
-    bullets: [],
     labels: [],
     particles: [],
     afterimages: [],
     shake: 0,
     bossMouth: 0,
-    fireCooldown: 0,
-    fireHeld: false,
+    inhaling: false,
+    puffed: 0,
+    mouthOpen: 0,
+    runDust: 0,
+    fullness: 0,
+    stuffed: false,
+    fullTime: 0,
+    descending: false,
     sinceDeath: 0,
     hearts: MAX_HEARTS,
     invuln: 0,
@@ -147,10 +164,9 @@ export function createGame(): Game {
   };
 }
 
-/** Scroll speed: ramps gently with score, dino-style, caps, and the dash multiplies it. */
-export function speedFor(score: number, dashing = false): number {
-  const base = BASE_SPEED + Math.min(score * 3, MAX_SPEED_BONUS);
-  return dashing ? base * DASH_MULTIPLIER : base;
+/** Scroll speed: ramps gently with score, dino-style, and caps. */
+export function speedFor(score: number): number {
+  return BASE_SPEED + Math.min(score * 3, MAX_SPEED_BONUS);
 }
 
 /**
@@ -179,9 +195,9 @@ export function blockSizeFor(gasUsed: number, score = 0, blockNumber = 0, time =
   return { w: 16 * scale, h: Math.max(h, 12 * scale) };
 }
 
-/** Hits to burst a block: one per 16 px of width beyond the smallest. */
-export function hitsFor(w: number): number {
-  return Math.max(1, Math.round(w / 16) - 1);
+/** Suction weight: quiet blocks are light (1), busy walls heavy (2). */
+export function weightFor(w: number): number {
+  return Math.min(2, Math.max(1, Math.round(w / 16) - 1));
 }
 
 /** The 200 ms slot inside the second, `.000` … `.800`, or null pre-Denim. */
@@ -207,8 +223,7 @@ export function spawnBlock(game: Game, head: Head): Game {
     landed: false,
     w,
     h,
-    hp: hitsFor(w),
-    maxHp: hitsFor(w),
+    weight: weightFor(w),
     number: head.number,
     timestampMs: head.timestampMs,
   };
@@ -216,14 +231,13 @@ export function spawnBlock(game: Game, head: Head): Game {
 }
 
 export function start(game: Game): Game {
-  // Keys still held through a restart keep working: a player mashing Space
-  // with X down should come back firing.
+  // Keys still held through a restart keep working: a player mashing the
+  // button comes back inhaling.
   return {
     ...createGame(),
     phase: 'running',
     nextId: game.nextId,
-    fireHeld: game.fireHeld,
-    dash: { ...createGame().dash, held: game.dash.held },
+    inhaling: game.inhaling,
   };
 }
 
@@ -237,40 +251,15 @@ export function restart(game: Game): Game {
   return start(game);
 }
 
-export function jump(game: Game): Game {
-  if (game.phase === 'ready') return start(game);
-  if (game.phase !== 'running' || !game.player.grounded) return game;
+/** Hold to inhale; the step drags the nearest block in range to the mouth. */
+export function setInhale(game: Game, held: boolean): Game {
+  if (game.phase === 'ready' && held) return { ...start(game), inhaling: true };
+  if (game.inhaling === held) return game;
   return {
     ...game,
-    player: { ...game.player, vy: JUMP_VY, grounded: false },
-    events: [...game.events, 'jump'],
+    inhaling: held && game.phase === 'running',
+    events: game.phase === 'running' ? [...game.events, held ? 'inhale-on' : 'inhale-off'] : game.events,
   };
-}
-
-export function fire(game: Game): Game {
-  if (game.phase === 'ready') return start(game);
-  if (game.phase !== 'running' || game.fireCooldown > 0) return game;
-  const bullet: Bullet = { x: PLAYER_X + PLAYER_W - 6, y: game.player.y + 24 };
-  return {
-    ...game,
-    bullets: [...game.bullets, bullet],
-    fireCooldown: FIRE_COOLDOWN,
-    events: [...game.events, 'shoot'],
-  };
-}
-
-/** Hold to keep firing at the cooldown rate; the first shot fires immediately. */
-export function setFire(game: Game, held: boolean): Game {
-  if (game.fireHeld === held) return game;
-  const next = { ...game, fireHeld: held };
-  return held ? fire(next) : next;
-}
-
-/** Hold to dash. The step decides whether there is energy to actually go faster. */
-export function setDash(game: Game, held: boolean): Game {
-  if (game.phase === 'ready' && held) return { ...start(game), dash: { ...createGame().dash, held: true } };
-  if (game.dash.held === held) return game;
-  return { ...game, dash: { ...game.dash, held } };
 }
 
 function shards(x: number, y: number, rng: () => number): Particle[] {
@@ -279,14 +268,6 @@ function shards(x: number, y: number, rng: () => number): Particle[] {
     const angle = rng() * Math.PI * 2;
     const power = 120 + rng() * 220;
     out.push({ x, y, vx: Math.cos(angle) * power, vy: Math.sin(angle) * power - 100, age: 0, kind: 'shard' });
-  }
-  return out;
-}
-
-function sparks(x: number, y: number, rng: () => number): Particle[] {
-  const out: Particle[] = [];
-  for (let i = 0; i < 5; i += 1) {
-    out.push({ x, y, vx: -80 - rng() * 160, vy: -120 + rng() * 240, age: 0, kind: 'spark' });
   }
   return out;
 }
@@ -334,38 +315,15 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
   let heartProgress = game.heartProgress;
   let invuln = Math.max(0, game.invuln - dt);
 
-  // Held fire: shoot again as soon as the cooldown allows.
-  let fireCooldown = Math.max(0, game.fireCooldown - dt);
-  let fired = game.bullets;
-  if (game.fireHeld && fireCooldown === 0) {
-    fired = [...fired, { x: PLAYER_X + PLAYER_W - 6, y: game.player.y + 24 }];
-    fireCooldown = FIRE_COOLDOWN;
-    events.push('shoot');
-  }
-
-  // Dash: drains while held, regenerates otherwise. A meter that ran dry stays
-  // spent until it refills a little (or the key is released), so it does not
-  // flicker on and off at zero.
-  let energy = game.dash.energy;
-  let spent = game.dash.spent;
-  if (!game.dash.held || energy >= DASH_RESTART) spent = false;
-  const dashing = game.dash.held && !spent && energy > 0;
-  if (dashing) {
-    energy = Math.max(0, energy - DASH_DRAIN * dt);
-    if (energy === 0) spent = true;
-  } else {
-    energy = Math.min(1, energy + DASH_REGEN * dt);
-  }
-  if (dashing && !game.dash.active) events.push('dash-on');
-  if (!dashing && game.dash.active) events.push('dash-off');
-  let sinceImage = game.dash.sinceImage + dt;
+  // FULL mode leaves afterimages — the unstoppable barrel-along up top.
+  let sinceImage = game.sinceImage + dt;
   let afterimages = game.afterimages;
-  if (dashing && sinceImage >= AFTERIMAGE_EVERY) {
+  if (game.stuffed && sinceImage >= AFTERIMAGE_EVERY) {
     sinceImage = 0;
     afterimages = [...afterimages, { y: game.player.y, age: 0, frame: Math.floor(game.time * 12) % 3 }];
   }
 
-  const speed = speedFor(score, dashing);
+  const speed = speedFor(score);
 
   // Scroll blocks; airborne ones fall until they thud onto the rail. Drop the
   // ones that left the screen.
@@ -385,7 +343,6 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     })
     .filter((b) => b.x + b.w > -4);
 
-  // Bullets fly right; a hit removes the block and reveals it.
   const fx = decay(game.labels, game.particles, afterimages);
   let { labels, particles } = fx;
   afterimages = fx.afterimages;
@@ -395,30 +352,68 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     shake = Math.max(shake, Math.min(3, t.w / 24));
     events.push('thud');
   }
-  const bullets: Bullet[] = [];
-  for (const bullet of fired) {
-    const nx = bullet.x + BULLET_SPEED * dt;
-    const hit = blocks.find(
-      (b) => nx + BULLET_W >= b.x && bullet.x <= b.x + b.w && bullet.y + BULLET_H >= b.y && bullet.y <= b.y + b.h,
-    );
-    if (hit && hit.hp > 1) {
-      // Chip it: the block stays, a little lighter.
-      blocks = blocks.map((b) => (b.id === hit.id ? { ...b, hp: b.hp - 1 } : b));
-      particles = [...particles, ...sparks(nx + BULLET_W, bullet.y + BULLET_H / 2, rng)];
-      events.push('hit');
-    } else if (hit) {
-      blocks = blocks.filter((b) => b.id !== hit.id);
-      score += dashing ? 2 : 1;
-      heartProgress += 1;
-      labels = [...labels, { x: hit.x + hit.w / 2, y: hit.y - 14, text: blockLabel(hit), age: 0 }];
-      particles = [...particles, ...shards(hit.x + hit.w / 2, hit.y + hit.h / 2, rng)];
-      shake = Math.max(shake, 4);
-      events.push('burst');
-    } else if (nx < BOSS_X + 20) {
-      bullets.push({ x: nx, y: bullet.y });
+  // Suction: the nearest landed block ahead, within range, is dragged toward
+  // the mouth — heavy walls drag slower. Reaching the mouth is a swallow: it
+  // scores the block's weight and shows its label. Everything else keeps
+  // scrolling at them meanwhile.
+  const mouthX = PLAYER_X + PLAYER_W - 4;
+  let puffed = Math.max(0, game.puffed - dt);
+  const chewing = puffed > 0;
+  // FULL mode runs on a timer, then he deflates back to empty and is hungry
+  // again. Outside full mode, fullness only ever goes up (by eating).
+  let fullness = game.fullness;
+  let stuffed = game.stuffed;
+  let fullTime = game.fullTime;
+  let descending = game.descending;
+  if (stuffed) {
+    if (fullTime > 0) {
+      fullTime = Math.max(0, fullTime - dt);
+    } else {
+      fullness = Math.max(0, fullness - DEFLATE_RATE * dt);
+      if (fullness === 0) {
+        stuffed = false;
+        descending = true;
+      }
     }
   }
-
+  // The mouth cycle: open (pull) → chomp → chew → open. The open phase must
+  // last a beat before anything goes down, so the animation always shows it.
+  let mouthOpen = game.inhaling && !chewing ? game.mouthOpen + dt : 0;
+  let target: Block | null = null;
+  const mouthReach = game.player.y + PLAYER_H + 6;
+  if (game.inhaling && !chewing && !stuffed) {
+    for (const b of blocks) {
+      if (!b.landed || b.x + b.w < mouthX || b.x > mouthX + INHALE_RANGE) continue;
+      // The mouth can only eat what it can reach: a block whose top is below
+      // his feet (he is perched somewhere) is out of range.
+      if (b.y > mouthReach) continue;
+      if (!target || b.x < target.x) target = b;
+    }
+  }
+  const eatingId = target ? target.id : null;
+  if (target) {
+    // A block that reaches the mouth waits pressed against it until the open
+    // phase has lasted long enough, then goes down in one chomp.
+    const pulled = { ...target, x: Math.max(mouthX, target.x - (PULL_SPEED / target.weight) * dt) };
+    if (pulled.x <= mouthX && mouthOpen >= OPEN_MIN) {
+      blocks = blocks.filter((b) => b.id !== target.id);
+      score += pulled.weight;
+      heartProgress += 1;
+      puffed = PUFF_TIME;
+      labels = [...labels, { x: mouthX + 20, y: pulled.y - 14, text: blockLabel(pulled), age: 0 }];
+      particles = [...particles, ...shards(mouthX + 10, pulled.y + pulled.h / 2, rng)];
+      events.push('gulp');
+      mouthOpen = 0;
+      fullness = Math.min(1, fullness + FULL_PER_WEIGHT * pulled.weight);
+      if (fullness >= 1) {
+        stuffed = true;
+        fullTime = FULL_TIME;
+        events.push('stuffed');
+      }
+    } else {
+      blocks = blocks.map((b) => (b.id === target.id ? pulled : b));
+    }
+  }
   // Player physics: gravity, then resolve against the ground and block tops.
   const prevBottom = game.player.y + PLAYER_H;
   let vy = game.player.vy + GRAVITY * dt;
@@ -429,20 +424,39 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
   const right = PLAYER_X + PLAYER_W - 6;
   let bonked: Block | null = null;
   for (const b of blocks) {
+    if (b.id === eatingId) continue; // you cannot stand on what you are swallowing
     const overlapsX = right > b.x && left < b.x + b.w;
     if (!overlapsX) continue;
     const top = b.y;
-    if (prevBottom <= top + 1 && vy >= 0) {
-      // Landing on it.
-      floor = Math.min(floor, top);
-    } else if (prevBottom - top <= STEP_UP && vy >= 0) {
-      // A small step: climb it, like walking up stairs.
+    // Consistency rule: every block is a collision unless eaten. Blocks are
+    // only walkable in FULL mode (he rolls over everything) and during the
+    // descent right after it (he keeps his footing until he is back on the
+    // street, so the power-up cannot strand him inside a wall).
+    const walkable = stuffed || descending;
+    if (walkable && vy >= 0) {
       floor = Math.min(floor, top);
     } else if (y + PLAYER_H > top + 1) {
       bonked = bonked ?? b;
     }
   }
-  if (bonked && invuln <= 0) {
+  if (bonked && game.inhaling && !stuffed && puffed <= 0) {
+    // Mouth-first: while inhaling with the mouth free, contact is a meal, not
+    // a crash. Mid-chew the mouth is busy — a wall then is a real hit, which
+    // is what makes back-to-back walls dangerous.
+    blocks = blocks.filter((b) => b.id !== bonked.id);
+    score += bonked.weight;
+    heartProgress += 1;
+    puffed = PUFF_TIME;
+    mouthOpen = 0;
+    fullness = Math.min(1, fullness + FULL_PER_WEIGHT * bonked.weight);
+    if (fullness >= 1) {
+      stuffed = true;
+      fullTime = FULL_TIME;
+      events.push('stuffed');
+    }
+    labels = [...labels, { x: PLAYER_X + PLAYER_W, y: bonked.y - 14, text: blockLabel(bonked), age: 0 }];
+    events.push('gulp');
+  } else if (bonked && invuln <= 0) {
     // The block you ran into crumbles (no score) and costs a heart. A short
     // invulnerability window keeps one wall from taking every heart at once.
     blocks = blocks.filter((b) => b.id !== bonked.id);
@@ -465,7 +479,20 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     heartProgress = 0;
     events.push('heart');
   }
+  // Run dust: a puff kicked up behind the feet on a quick cadence.
+  // The little cloud that sells the run.
+  let runDust = game.runDust + dt;
+  if (game.player.grounded && runDust >= 0.13) {
+    runDust = 0;
+    particles = [
+      ...particles,
+      { x: PLAYER_X + 2 + rng() * 8, y: game.player.y + PLAYER_H - 2, vx: -70 - rng() * 90, vy: -20 - rng() * 40, age: 0, kind: 'dust' as const },
+      { x: PLAYER_X + 6 + rng() * 10, y: game.player.y + PLAYER_H - 4, vx: -50 - rng() * 70, vy: -10 - rng() * 30, age: 0, kind: 'dust' as const },
+    ];
+  }
+
   let grounded = false;
+  if (descending && y + PLAYER_H >= GROUND_Y - 1) descending = false;
   if (y + PLAYER_H >= floor && vy >= 0) {
     if (!game.player.grounded) {
       events.push('land');
@@ -488,15 +515,20 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     distance: game.distance + speed * dt,
     score,
     player: { y, vy, grounded },
-    dash: { held: game.dash.held, active: dashing && !dead, energy, spent, sinceImage },
+    sinceImage,
     blocks,
-    bullets,
     labels,
     particles,
     afterimages,
     shake,
     bossMouth: Math.max(0, game.bossMouth - dt),
-    fireCooldown,
+    puffed,
+    mouthOpen,
+    runDust,
+    fullness,
+    stuffed,
+    fullTime,
+    descending,
     hearts,
     invuln: dead ? 0 : invuln,
     heartProgress,

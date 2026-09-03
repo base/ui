@@ -85,36 +85,21 @@ export class Sound {
     src.start();
   }
 
-  /** Quiet click on every new head — the chain's 200 ms metronome. Higher while dashing. */
-  tick(dashing = false): void {
-    this.tone('triangle', dashing ? 1800 : 1200, dashing ? 1300 : 900, 0.03, 0.25);
+  /** Quiet click on every new head — the chain's 200 ms metronome. */
+  tick(): void {
+    this.tone('triangle', 1200, 900, 0.03, 0.25);
   }
 
-  dashOn(): void {
-    this.noise(0.12, 0.35);
-    this.tone('sawtooth', 200, 900, 0.18, 0.35);
+  /** Suction kicking in: a rising whoosh. */
+  inhaleOn(): void {
+    this.noise(0.22, 0.3);
+    this.tone('sawtooth', 140, 520, 0.28, 0.3);
   }
 
-  dashOff(): void {
-    this.tone('sawtooth', 700, 250, 0.12, 0.25);
-  }
-
-  jump(): void {
-    this.tone('square', 320, 640, 0.09, 0.6);
-  }
-
-  shoot(): void {
-    this.tone('square', 900, 300, 0.05, 0.5);
-  }
-
-  /** A shot chipping a block that is not done yet. */
-  hit(): void {
-    this.tone('square', 700, 380, 0.04, 0.35);
-  }
-
-  burst(): void {
-    this.noise(0.09, 0.7);
-    this.tone('square', 500, 1100, 0.06, 0.4);
+  /** A block going down the hatch. */
+  gulp(): void {
+    this.tone('square', 520, 160, 0.09, 0.6);
+    this.tone('triangle', 260, 700, 0.12, 0.4);
   }
 
   /** A block hitting the rail; heavier for bigger blocks. */
@@ -125,6 +110,13 @@ export class Sound {
 
   land(): void {
     this.tone('triangle', 200, 120, 0.04, 0.4);
+  }
+
+  /** FULL: a rising power-up fanfare — he is briefly unstoppable. */
+  stuffed(): void {
+    this.tone('square', 260, 520, 0.12, 0.5);
+    this.tone('square', 390, 780, 0.16, 0.45);
+    this.tone('triangle', 520, 1040, 0.25, 0.4);
   }
 
   hurt(): void {

@@ -19,171 +19,36 @@ export type Palette = {
   hud: string;
 };
 
-export const LIGHT: Palette = {
-  k: '#111111', // gray-100: outlines
-  w: '#ffffff', // gray-0
-  B: '#0052ff', // blue-60: Base blue
-  D: '#003ec1', // blue-80
+// One committed look: an 8-bit city at night. Values from the BDS dark
+// spectrum (see app/globals.css) so it still reads as Base.
+export const NIGHT: Palette = {
+  k: '#000d21', // outline ink, near-black navy
+  w: '#f5f8ff', // blue-0
+  B: '#266eff', // blue-40: Base blue, bright enough on navy
+  D: '#0052ff', // blue-60
   b: '#4684ff', // blue-30
-  c: '#b0caff', // blue-10
-  s: '#ffffff', // visor
-  r: '#5e5e5e', // gray-60: crate fill
-  R: '#3a3a3a', // gray-80: crate shade
-  p: '#f5f8ff', // blue-0
-  y: '#ffe436', // yellow-20
+  c: '#92b6ff', // blue-15
+  s: '#f5f8ff', // visor
+  r: '#6f6f6f', // gray-50: crate fill
+  R: '#525252', // gray-70: crate shade
+  p: '#f5f8ff',
+  y: '#ffe436', // yellow-20: lit windows
   o: '#f48c4c', // orange-30
-  g: '#dadada', // gray-15
-  d: '#9a9a9a', // gray-40
-  sky: '#d3e1ff', // blue-5
-  hills: '#73a2ff', // blue-20
-  rail: '#ffffff',
-  railEdge: '#dadada', // gray-15
-  ground: '#efefef', // gray-10: pavement continues down
-  hud: '#5e5e5e', // gray-60
+  g: '#dadada',
+  d: '#9a9a9a',
+  sky: '#12093a', // deep violet night (toward BDS purple-100)
+  hills: '#060a1c', // near towers, almost black
+  rail: '#3a3a3a', // gray-80 sidewalk
+  railEdge: '#525252', // gray-70 kerb
+  ground: '#262626', // gray-90 asphalt
+  hud: '#f5f8ff',
 };
 
-export const DARK: Palette = {
-  ...LIGHT,
-  B: '#266eff', // blue-40 reads better on navy
-  D: '#0052ff',
-  r: '#6f6f6f', // gray-50
-  R: '#525252', // gray-70
-  sky: '#00184d', // blue-100
-  hills: '#002982', // blue-90
-  rail: '#3a3a3a', // gray-80
-  railEdge: '#525252', // gray-70
-  ground: '#262626', // gray-90
-  hud: '#ffffff',
-};
+/** Far tower silhouettes: violet, half-dissolved into the sky. */
+export const NIGHT_FAR = '#241a4d';
 
-// The runner: a blue robot in the Mega Man silhouette. 14 × 18, drawn at 3×.
-// Three run frames plus jump, dash, and a dead pose.
-export const RUNNER_RUN: Sprite[] = [
-  [
-    '.....kkkkk....',
-    '....kBBBBBk...',
-    '...kBBbbbBBk..',
-    '...kBbkskbBk..',
-    '...kBksssskk..',
-    '...kBkskkskk..',
-    '....kksssk....',
-    '.....kBBBk....',
-    '...kkBBBBBkk..',
-    '..kBBkBBBkBBk.',
-    '..kBBkBBBkBBk.',
-    '...kkkBBBkkk..',
-    '.....kBBBk....',
-    '....kBBkBBk...',
-    '...kBBk.kBBk..',
-    '..kBBk...kBBk.',
-    '.kBBBk....kBBk',
-    '.kkkk.....kkkk',
-  ],
-  [
-    '.....kkkkk....',
-    '....kBBBBBk...',
-    '...kBBbbbBBk..',
-    '...kBbkskbBk..',
-    '...kBksssskk..',
-    '...kBkskkskk..',
-    '....kksssk....',
-    '.....kBBBk....',
-    '...kkBBBBBkk..',
-    '..kBBkBBBkBBk.',
-    '..kBBkBBBkBBk.',
-    '...kkkBBBkkk..',
-    '.....kBBBk....',
-    '.....kBBBk....',
-    '....kBBBBBk...',
-    '....kBBkBBk...',
-    '....kBBkBBk...',
-    '....kkk.kkk...',
-  ],
-  [
-    '.....kkkkk....',
-    '....kBBBBBk...',
-    '...kBBbbbBBk..',
-    '...kBbkskbBk..',
-    '...kBksssskk..',
-    '...kBkskkskk..',
-    '....kksssk....',
-    '.....kBBBk....',
-    '...kkBBBBBkk..',
-    '..kBBkBBBkBBk.',
-    '..kBBkBBBkBBk.',
-    '...kkkBBBkkk..',
-    '.....kBBBk....',
-    '....kBBkBBk...',
-    '...kBBk.kBBk..',
-    '...kBBk..kBBk.',
-    '..kBBk....kBk.',
-    '..kkkk....kkk.',
-  ],
-];
-
-export const RUNNER_JUMP: Sprite = [
-  '.....kkkkk....',
-  '....kBBBBBk...',
-  '...kBBbbbBBk..',
-  '...kBbkskbBk..',
-  '...kBksssskk..',
-  '...kBkskkskk..',
-  '....kksssk....',
-  '..kkkkBBBkkkk.',
-  '.kBBkBBBBBkBBk',
-  '.kBBkBBBBBkBBk',
-  '..kkkBBBBBkkk.',
-  '.....kBBBk....',
-  '....kBBBBBk...',
-  '...kBBk.kBBk..',
-  '..kBBk...kBBk.',
-  '..kBBk...kBBk.',
-  '..kkkk...kkkk.',
-  '..............',
-];
-
-// Leaning forward with a trailing edge — shown while dashing.
-export const RUNNER_DASH: Sprite = [
-  '..............',
-  '......kkkkk...',
-  '.....kBBBBBk..',
-  '....kBBbbbBBk.',
-  '....kBbkskbBk.',
-  '....kBksssskk.',
-  '....kBkskkskk.',
-  '.....kksssk...',
-  '..kkkkBBBBk...',
-  '.kBBBBBBBBBk..',
-  '.kBBkBBBBBBBk.',
-  '..kkkBBBBkBBk.',
-  '.....kBBBkkk..',
-  '....kBBkBBBk..',
-  '...kBBk.kBBBk.',
-  '..kBBk...kBBk.',
-  '.kBBk.....kkk.',
-  '.kkkk.........',
-];
-
-export const RUNNER_DEAD: Sprite = [
-  '.....kkkkk....',
-  '....kBBBBBk...',
-  '...kBBbbbBBk..',
-  '...kBbkkkbBk..',
-  '...kBkskskkk..',
-  '...kBksksskk..',
-  '....kkskksk...',
-  '.....kBBBk....',
-  '...kkBBBBBkk..',
-  '..kBBkBBBkBBk.',
-  '..kBBkBBBkBBk.',
-  '...kkkBBBkkk..',
-  '.....kBBBk....',
-  '....kBBkBBk...',
-  '....kBBkBBk...',
-  '....kBBkBBk...',
-  '....kBBkBBk...',
-  '....kkk.kkk...',
-];
+/** Lower sky at the horizon; the dither band blends sky into this. */
+export const NIGHT_HORIZON = '#2c1c5e';
 
 // Grumpy concrete crate — the block. 16 × 16, height is stretched by the renderer.
 export const CRATE_FACE: Sprite = [
@@ -271,25 +136,6 @@ export const BOSS_OPEN: Sprite = [
   '..kkkkkkkkkkkkkkkkkkkkkkkkkkkk..',
 ];
 
-export const CLOUD_BIG: Sprite = [
-  '.......kkkkk........',
-  '.....kkwwwwwkk......',
-  '...kkwwwwwwwwwkkkk..',
-  '..kwwwwwwwwwwwwwwwk.',
-  '.kwwwwwwwwwwwwwwwwwk',
-  'kwwwwwwwwwwwwwwwwwwk',
-  'kwwwwwwwwwwwwwwwwwwk',
-  '.kkkkkkkkkkkkkkkkkk.',
-];
-
-export const CLOUD_SMALL: Sprite = [
-  '...kkkk....',
-  '.kkwwwwkk..',
-  'kwwwwwwwwkk',
-  'kwwwwwwwwwk',
-  '.kkkkkkkkk.',
-];
-
 // Hearts for the HUD, 9 × 8 at 2×. Filled is Base blue; empty is an outline.
 export const HEART: Sprite = [
   '.kk...kk.',
@@ -313,10 +159,6 @@ export const HEART_EMPTY: Sprite = [
   '....k....',
 ];
 
-export const BUSTER_SHOT: Sprite = ['.kkkk.', 'kBBBBk', 'kBwwBk', 'kBBBBk', '.kkkk.'];
-
-export const DUST: Sprite = ['.ww.', 'wwww', '.ww.'];
-
 export function drawSprite(
   ctx: CanvasRenderingContext2D,
   sprite: Sprite,
@@ -335,10 +177,6 @@ export function drawSprite(
       ctx.fillRect(Math.round(x + col * scale), Math.round(y + row * scale), scale, scale);
     }
   }
-}
-
-export function spriteWidth(sprite: Sprite, scale: number): number {
-  return (sprite[0]?.length ?? 0) * scale;
 }
 
 export function spriteHeight(sprite: Sprite, scale: number): number {

@@ -1,10 +1,13 @@
 'use client';
 
-// Block Runner: an 8-bit pixel runner in Base colors where the vibenet chain is the
-// spawner. Every new head (one per 200 ms under Denim) is spat out as a block
-// by the boss on the right edge. Jump over blocks, land on them, shoot them to
-// reveal their number and 200 ms slot, and hold a dash for speed and double
-// score. Hitting a block's side ends the run.
+// Block Runner: an 8-bit pixel runner in Base colors where the vibenet chain is
+// the spawner. Every new head (one per 200 ms under Denim) is spat out as a
+// block by the boss on the right edge. The player is a round Base-blue glutton:
+// hold ONE button — Space, X, or a finger anywhere on the picture — to inhale,
+// and the nearest block drags into its mouth and is swallowed, scoring its
+// weight. Heavy walls drag slower while the chain keeps coming. Any block
+// that reaches him uneaten costs a heart; fill the belly and he goes FULL —
+// briefly invulnerable, rolling the tops — then hungry again. A city at night.
 //
 // Kept deliberately small: one canvas, requestAnimationFrame, hand-drawn
 // sprites, synthesized sounds, and the validity demo's JSON-RPC WebSocket
@@ -20,16 +23,15 @@ import {
   BOSS_X,
   blockLabel,
   createGame,
-  fire,
   GROUND_Y,
   HEIGHT,
-  jump,
   MAX_HEARTS,
   PLAYER_H,
+  PLAYER_W,
   PLAYER_X,
+  INHALE_RANGE,
   restart,
-  setDash,
-  setFire,
+  setInhale,
   slotOf,
   spawnBlock,
   step,
@@ -37,41 +39,73 @@ import {
   type Game,
   type Head,
 } from './lib/game';
+import gluttonSheet from './glutton-sheet-v2.png';
 import { Sound } from './lib/sound';
 import {
   BOSS_CLOSED,
   BOSS_OPEN,
-  BUSTER_SHOT,
-  CLOUD_BIG,
-  CLOUD_SMALL,
   CRATE_BODY,
   CRATE_FACE,
   CRATE_TOP,
-  DARK,
   drawSprite,
   HEART,
   HEART_EMPTY,
-  LIGHT,
+  NIGHT,
+  NIGHT_FAR,
+  NIGHT_HORIZON,
   type Palette,
-  RUNNER_DASH,
-  RUNNER_DEAD,
-  RUNNER_JUMP,
-  RUNNER_RUN,
   spriteHeight,
 } from './lib/sprites';
 
 const BEST_KEY = 'block-runner:best';
 const SCALE = 3;
 
-// Active palette; `render` sets it from the page theme before drawing.
-let P: Palette = LIGHT;
+// One committed night look in both site themes.
+const P: Palette = NIGHT;
 
-/** Follows the site theme: the data-theme attribute, else the system setting. */
-function paletteForTheme(): Palette {
-  const attr = document.documentElement.getAttribute('data-theme');
-  if (attr === 'dark') return DARK;
-  if (attr === 'light') return LIGHT;
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? DARK : LIGHT;
+// The glutton's sprite sheet: seventeen 20 × 16 frames at 1×, blitted at 3×
+// with smoothing off so the pixels stay hard. Column order per the spec
+// (GULPY-SPRITE-SPEC.md):
+const GLUTTON = {
+  idleA: 0,
+  happy: 1,
+  runA: 2,
+  runB: 3,
+  inhale: 4,
+  full: 5, // chew A
+  hurt: 6,
+  dead: 7,
+  inhaleSmall: 8,
+  gulp: 9,
+  chewB: 10,
+  dash: 11,
+  roundRunA: 12,
+  roundRunB: 13,
+  roundInhale: 14,
+  stuffed: 15,
+  stuffedB: 16,
+};
+const G_W = 20;
+const G_H = 16;
+let gluttonImg: HTMLImageElement | null = null;
+function glutton(): HTMLImageElement {
+  if (!gluttonImg) {
+    gluttonImg = new window.Image();
+    gluttonImg.src = gluttonSheet.src;
+  }
+  return gluttonImg;
+}
+
+function drawGlutton(ctx: CanvasRenderingContext2D, frame: number, x: number, y: number, swell = 1): void {
+  const img = glutton();
+  if (!img.complete || img.naturalWidth === 0) return;
+  // The art is 20 wide over a 16-wide hitbox: ears and arms overhang evenly.
+  // `swell` grows the whole body around the feet — the gulp bulge.
+  const w = G_W * SCALE * swell;
+  const h = G_H * SCALE * swell;
+  const dx = x - ((G_W - 16) / 2) * SCALE - (w - G_W * SCALE) / 2;
+  const dy = y - (h - G_H * SCALE);
+  ctx.drawImage(img, frame * G_W, 0, G_W, G_H, Math.round(dx), Math.round(dy), Math.round(w), Math.round(h));
 }
 
 type RawHead = { number?: string; timestampMs?: string; gasUsed?: string };
@@ -102,70 +136,146 @@ function writeBest(score: number): void {
 }
 
 // Deterministic scenery from a seed so nothing allocates per frame beyond a
-// few small objects. Three parallax layers sell the speed: far clouds crawl,
-// hills drift, posts on the rail whip past.
+// few small objects. Three parallax layers sell the speed: far towers crawl,
+// near towers drift, kerb marks on the street whip past.
 function hash(i: number): number {
   return ((i * 2654435761) >>> 0) % 1000;
 }
 
-function drawSky(ctx: CanvasRenderingContext2D, distance: number): void {
+// The sky (bands + dither) never scrolls, so it is rendered once to an
+// offscreen canvas and blitted each frame.
+let skyCache: HTMLCanvasElement | null = null;
+function skyBackdrop(): HTMLCanvasElement {
+  if (skyCache) return skyCache;
+  const c = document.createElement('canvas');
+  c.width = WIDTH;
+  c.height = HEIGHT;
+  const ctx = c.getContext('2d')!;
   ctx.fillStyle = P.sky;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  // Horizon glow with a classic 8-bit dither: solid low band, then rows of
+  // checkerboard thinning out upward.
+  const horizonTop = GROUND_Y - 150;
+  ctx.fillStyle = NIGHT_HORIZON;
+  ctx.fillRect(0, horizonTop + 90, WIDTH, GROUND_Y - horizonTop - 90);
+  for (let row = 0; row < 9; row += 1) {
+    const y = horizonTop + row * 10;
+    const density = row + 1; // sparser at the top
+    for (let x = 0; x < WIDTH; x += 4) {
+      const cell = (x / 4 + row) % 10;
+      if (cell < density) ctx.fillRect(x + ((row % 2) * 2), y, 2, 2);
+    }
+  }
+  skyCache = c;
+  return c;
+}
 
-  // Far clouds at 12% of scroll speed.
-  const cloudPeriod = 360;
-  const off = distance * 0.12;
-  const first = Math.floor(off / cloudPeriod) - 1;
-  for (let i = first; i < first + 5; i += 1) {
-    const x = i * cloudPeriod - off + (hash(i) % 160);
-    const y = 20 + (hash(i + 7) % 80);
-    if (x < -80 || x > WIDTH + 80) continue;
-    drawSprite(ctx, hash(i) % 2 ? CLOUD_BIG : CLOUD_SMALL, x, y, SCALE, P);
+function drawSky(ctx: CanvasRenderingContext2D, distance: number): void {
+  ctx.drawImage(skyBackdrop(), 0, 0);
+
+  // A few stars, barely drifting (5% of scroll).
+  const starOff = distance * 0.02;
+  for (let i = 0; i < 26; i += 1) {
+    const x = ((hash(i) * 37 - starOff) % (WIDTH + 20) + WIDTH + 20) % (WIDTH + 20) - 10;
+    const y = 8 + (hash(i + 91) % 110);
+    ctx.globalAlpha = 0.25 + (hash(i + 7) % 40) / 100;
+    ctx.fillStyle = P.w;
+    ctx.fillRect(Math.round(x), y, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  // Moon, small and dim.
+  ctx.fillStyle = P.c;
+  ctx.globalAlpha = 0.8;
+  ctx.fillRect(WIDTH - 120, 30, 22, 22);
+  ctx.fillStyle = P.w;
+  ctx.fillRect(WIDTH - 117, 33, 16, 16);
+  ctx.globalAlpha = 1;
+
+  // Far towers at 10% of scroll: violet silhouettes, no windows.
+  const farOff = distance * 0.04;
+  const farW = 64;
+  const ffirst = Math.floor(farOff / farW) - 1;
+  ctx.fillStyle = NIGHT_FAR;
+  for (let i = ffirst; i < ffirst + WIDTH / farW + 3; i += 1) {
+    const x = i * farW - farOff;
+    const h = 60 + (hash(i * 7) % 80);
+    ctx.fillRect(Math.round(x) + 6, GROUND_Y - h, farW - 16, h);
   }
 
-  // Hills at 35% of scroll speed: a rolling pixel skyline in 12 px columns.
-  const hillOff = distance * 0.35;
-  const col = 12;
-  const hfirst = Math.floor(hillOff / col) - 1;
-  for (let i = hfirst; i < hfirst + WIDTH / col + 3; i += 1) {
-    const x = i * col - hillOff;
-    const h = Math.round(34 + 22 * Math.sin(i * 0.35) + 10 * Math.sin(i * 0.11 + 2) + (hash(i) % 4));
+  // Near towers at 22% of scroll: near-black slabs, sparse lit slits in white
+  // and pale cyan — a city mostly asleep. One in six roofs carries a neon sign.
+  const nearOff = distance * 0.1;
+  const nearW = 118;
+  const nfirst = Math.floor(nearOff / nearW) - 1;
+  for (let i = nfirst; i < nfirst + WIDTH / nearW + 3; i += 1) {
+    const x = Math.round(i * nearW - nearOff);
+    const h = 90 + (hash(i * 13) % 130);
+    const w = nearW - 22 - (hash(i * 5) % 24);
     ctx.fillStyle = P.hills;
-    ctx.fillRect(Math.round(x), GROUND_Y - h, col, h);
-    ctx.fillStyle = P.k;
-    ctx.fillRect(Math.round(x), GROUND_Y - h, col, 3);
+    ctx.fillRect(x, GROUND_Y - h, w, h);
+    // Window slits: wide and low, lit rarely.
+    for (let wy = GROUND_Y - h + 10; wy < GROUND_Y - 10; wy += 12) {
+      for (let wx = x + 7; wx < x + w - 12; wx += 16) {
+        const seed = hash(wx * 31 + wy * 17 + i);
+        if (seed % 9 > 1) continue;
+        ctx.fillStyle = seed % 5 === 0 ? P.c : P.w;
+        ctx.globalAlpha = 0.9;
+        ctx.fillRect(wx, wy, 7, 3);
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (hash(i * 29) % 6 === 0) drawNeonSign(ctx, x + Math.floor(w / 2), GROUND_Y - h);
   }
 }
 
-function drawGround(ctx: CanvasRenderingContext2D, distance: number, dashing: boolean): void {
-  // Pavement: a light slab with a thin edge, and a kerb line every 112 px —
-  // one per 200 ms at base speed — so the chain's cadence is painted on the
-  // floor. No hard outlines here; the ground should read as surface, not frame.
+/** Rooftop neon: a framed sign glowing Base blue. */
+function drawNeonSign(ctx: CanvasRenderingContext2D, cx: number, roofY: number): void {
+  const w = 46;
+  const h = 16;
+  const x = cx - w / 2;
+  const y = roofY - h - 6;
+  ctx.fillStyle = P.k;
+  ctx.fillRect(cx - 2, roofY - 6, 4, 6); // post
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 4); // frame
+  ctx.fillStyle = P.hills;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = P.B;
+  ctx.globalAlpha = 0.35;
+  ctx.fillRect(x - 4, y - 4, w + 8, h + 8); // glow
+  ctx.globalAlpha = 1;
+  ctx.font = 'bold 11px var(--font-mono, ui-monospace, monospace)';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = P.B;
+  ctx.fillText('BASE', cx, y + 12);
+}
+
+function drawGround(ctx: CanvasRenderingContext2D, distance: number, barreling: boolean): void {
+  // Street: a sidewalk lip, then asphalt. A kerb mark every 112 px — one per
+  // 200 ms at base speed — keeps the chain's cadence painted on the floor.
   ctx.fillStyle = P.railEdge;
   ctx.fillRect(0, GROUND_Y, WIDTH, 3);
   ctx.fillStyle = P.rail;
   ctx.fillRect(0, GROUND_Y + 3, WIDTH, 10);
-  ctx.fillStyle = P.railEdge;
-  ctx.fillRect(0, GROUND_Y + 13, WIDTH, 2);
   ctx.fillStyle = P.ground;
-  ctx.fillRect(0, GROUND_Y + 15, WIDTH, HEIGHT - GROUND_Y - 15);
+  ctx.fillRect(0, GROUND_Y + 13, WIDTH, HEIGHT - GROUND_Y - 13);
 
   const period = 112;
   const off = distance % period;
-  ctx.fillStyle = P.railEdge;
+  ctx.fillStyle = P.d;
   for (let x = -off; x < WIDTH; x += period) {
     ctx.fillRect(Math.round(x), GROUND_Y + 3, 3, 10);
   }
-  // Foreground streaks at 1.6× scroll speed: the fastest layer, the one that
-  // reads as speed. Longer while dashing.
+  // Lane line at 1.6× scroll: the fastest layer, the one that reads as speed.
+  // Longer marks while he barrels along FULL.
   const streakOff = (distance * 1.6) % 120;
-  ctx.fillStyle = P.B;
+  ctx.fillStyle = P.y;
   for (let x = -streakOff; x < WIDTH; x += 120) {
-    ctx.fillRect(Math.round(x), GROUND_Y + 26, dashing ? 56 : 24, 3);
+    ctx.fillRect(Math.round(x), GROUND_Y + 30, barreling ? 56 : 26, 4);
   }
 }
 
-function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, damage = 0): void {
+function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
   // Width fixes the sprite scale (16 px face); height is filled with body rows.
   const scale = Math.max(1, Math.round(w / 16));
   const faceH = spriteHeight(CRATE_FACE, scale) - scale;
@@ -178,7 +288,6 @@ function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
     ctx.restore();
     ctx.fillStyle = P.k;
     ctx.fillRect(x, y + h - scale, w, scale);
-    drawCracks(ctx, x, y, w, h, damage, scale);
     return;
   }
   drawSprite(ctx, CRATE_FACE, x, y, scale, P);
@@ -192,26 +301,11 @@ function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
     ctx.restore();
   }
   drawSprite(ctx, CRATE_TOP.slice(0, 1), x, y + h - scale, scale, P);
-  drawCracks(ctx, x, y, w, h, damage, scale);
 }
 
-// Cracks for each hit taken: dark zig-zags from the top edge, one per hit.
-function drawCracks(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, damage: number, scale: number): void {
-  if (damage <= 0) return;
-  ctx.fillStyle = P.k;
-  for (let i = 0; i < damage; i += 1) {
-    let cx = x + Math.round(w * (0.25 + 0.5 * ((i * 0.618) % 1)));
-    for (let cy = y + scale; cy < y + h * 0.6; cy += scale) {
-      ctx.fillRect(cx, cy, scale, scale);
-      cx += ((cy / scale + i) % 3 === 0 ? -scale : (cy / scale) % 2 === 0 ? scale : 0);
-    }
-  }
-}
-
-function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQuiet: boolean, pal: Palette): void {
-  P = pal;
+function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQuiet: boolean, happyFrames: number): void {
   ctx.imageSmoothingEnabled = false;
-  const dashing = game.dash.active;
+  const barreling = game.stuffed;
 
   ctx.save();
   if (game.shake > 0) {
@@ -220,10 +314,10 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
   }
 
   drawSky(ctx, game.distance);
-  drawGround(ctx, game.distance, dashing);
+  drawGround(ctx, game.distance, barreling);
 
-  // Speed lines while dashing.
-  if (dashing) {
+  // Speed lines while barreling along FULL.
+  if (barreling) {
     ctx.fillStyle = P.w;
     for (let i = 0; i < 7; i += 1) {
       const y = 40 + ((hash(i + frame / 3) + i * 37) % (GROUND_Y - 60));
@@ -236,49 +330,65 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
   const bossY = GROUND_Y - spriteHeight(BOSS_CLOSED, SCALE) - 2;
   drawSprite(ctx, game.bossMouth > 0 ? BOSS_OPEN : BOSS_CLOSED, BOSS_X, bossY, SCALE, P);
   if (feedQuiet) {
-    ctx.fillStyle = P.k;
+    ctx.fillStyle = P.w;
     ctx.font = 'bold 12px var(--font-mono, ui-monospace, monospace)';
     ctx.textAlign = 'center';
     ctx.fillText('zzz', BOSS_X + 48, bossY - 8);
   }
 
   // Blocks.
-  for (const b of game.blocks) drawBlock(ctx, Math.round(b.x), Math.round(b.y), b.w, b.h, b.maxHp - b.hp);
+  for (const b of game.blocks) drawBlock(ctx, Math.round(b.x), Math.round(b.y), b.w, b.h);
 
-  // Afterimages: blue silhouettes fading behind the runner while dashing.
+  // Afterimages: fading ghosts while he barrels along FULL.
   for (const a of game.afterimages) {
-    ctx.globalAlpha = 0.45 * (1 - a.age / 0.28);
+    ctx.globalAlpha = 0.35 * (1 - a.age / 0.28);
     const trail = a.age * 260;
-    drawSprite(ctx, RUNNER_DASH, PLAYER_X - trail, a.y, SCALE, P, P.c);
+    drawGlutton(ctx, GLUTTON.dash, PLAYER_X - trail, a.y);
   }
   ctx.globalAlpha = 1;
 
-  // Runner.
-  const runner =
+  // Suction stream while inhaling: converging streaks from the range edge
+  // into the mouth.
+  const mouthY = game.player.y + 24;
+  if (game.inhaling && game.phase === 'running' && !game.stuffed) {
+    ctx.fillStyle = P.c;
+    for (let i = 0; i < 9; i += 1) {
+      const phase = ((frame * 16 + i * 47) % INHALE_RANGE);
+      const x = PLAYER_X + PLAYER_W + INHALE_RANGE - phase;
+      const spread = (phase / INHALE_RANGE) * 26;
+      const y = mouthY - 26 + spread + (i % 3) * ((26 - spread) / 1.5);
+      ctx.globalAlpha = 0.25 + 0.55 * (phase / INHALE_RANGE);
+      ctx.fillRect(Math.round(x), Math.round(y), 14, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Runner: the glutton, from its sheet.
+  const gframe =
     game.phase === 'dead'
-      ? RUNNER_DEAD
-      : !game.player.grounded
-        ? RUNNER_JUMP
-        : dashing
-          ? RUNNER_DASH
-          : game.phase === 'running'
-            ? RUNNER_RUN[Math.floor(frame / (dashing ? 3 : 5)) % 3]
-            : RUNNER_RUN[1];
-  // Blink while invulnerable after a hit.
+      ? GLUTTON.dead
+      : game.invuln > 0.6
+        ? GLUTTON.hurt
+        : game.stuffed
+          ? GLUTTON.full // too full to inhale — digest first
+          : game.puffed > 0
+          ? GLUTTON.full // chew: a short mouth-shut beat after every gulp
+          : happyFrames > 0
+            ? GLUTTON.happy // digesting: the satisfied face when a heart refills
+            : game.inhaling && game.phase === 'running'
+              ? GLUTTON.inhale
+              : game.phase === 'ready'
+                ? GLUTTON.idleA
+                : [GLUTTON.runA, GLUTTON.runB][Math.floor(frame / 6) % 2];
+  // Blink while invulnerable after a hit; lean forward while inhaling.
   if (game.invuln <= 0 || Math.floor(frame / 4) % 2 === 0) {
-    drawSprite(ctx, runner, PLAYER_X, game.player.y, SCALE, P);
+    const lean = gframe === GLUTTON.inhale ? 6 : 0;
+    // The body is the meter: the round sprite tiers carry most of it, and a
+    // gentle scale plus a gulp pulse blends between tiers.
+    const gulpPulse = game.puffed > 0 ? 0.12 * (game.puffed / 0.12) : 0;
+    const swell = 1 + 0.22 * game.fullness + gulpPulse;
+    drawGlutton(ctx, gframe, PLAYER_X + lean, game.player.y, swell);
   }
-
-  // Muzzle flash right after a shot.
-  if (game.fireCooldown > 0.1) {
-    ctx.fillStyle = P.y;
-    ctx.fillRect(PLAYER_X + 44, game.player.y + 24, 10, 10);
-    ctx.fillStyle = P.w;
-    ctx.fillRect(PLAYER_X + 47, game.player.y + 27, 4, 4);
-  }
-
-  // Buster shots.
-  for (const bl of game.bullets) drawSprite(ctx, BUSTER_SHOT, bl.x, bl.y, SCALE, P);
 
   // Particles.
   for (const p of game.particles) {
@@ -308,18 +418,20 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
 
   ctx.restore();
 
-  // Dash meter, HUD-fixed (not shaken).
+  // Belly gauge, HUD-fixed (not shaken): fills as he eats; during FULL it
+  // shows the time left and drains to empty — then he must eat again.
   const meterW = 120;
+  const fillFrac = game.stuffed ? game.fullTime / 2.5 : game.fullness;
   ctx.fillStyle = P.railEdge;
   ctx.fillRect(16, 16, meterW + 6, 14);
   ctx.fillStyle = P.rail;
   ctx.fillRect(19, 19, meterW, 8);
-  ctx.fillStyle = game.dash.spent ? P.o : dashing ? P.y : P.b;
-  ctx.fillRect(19, 19, Math.round(meterW * game.dash.energy), 8);
+  ctx.fillStyle = game.stuffed ? P.y : P.b;
+  ctx.fillRect(19, 19, Math.round(meterW * Math.max(0, Math.min(1, fillFrac))), 8);
   ctx.fillStyle = P.hud;
   ctx.font = 'bold 10px var(--font-mono, ui-monospace, monospace)';
   ctx.textAlign = 'left';
-  ctx.fillText('DASH', 16, 44);
+  ctx.fillText(game.stuffed ? 'FULL!' : 'BELLY', 16, 44);
 
   // Hearts: pixel hearts next to the meter; empty ones are outlined.
   for (let i = 0; i < MAX_HEARTS; i += 1) {
@@ -341,12 +453,12 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
     ctx.fillStyle = P.c;
     const hint =
       game.phase === 'dead'
-        ? 'Space or R to run again'
-        : 'Space jump · hold X to shoot · hold Shift to dash · 3 hearts · one block every 200 ms';
+        ? 'Press any key to run again'
+        : 'Hold Space (or touch) to eat · every block hits if you don’t · one every 200 ms';
     ctx.fillText(hint, WIDTH / 2, 134);
     if (game.phase === 'dead') {
       ctx.fillStyle = P.y;
-      ctx.fillText(`${game.score} blocks shot`, WIDTH / 2, 152);
+      ctx.fillText(`${game.score} blocks eaten`, WIDTH / 2, 152);
     }
   }
 }
@@ -400,7 +512,7 @@ export function BlockRunner() {
       // not pile up at the boss and greet the player with a wall on return.
       if (now - lastFrameAt.current > 400) return;
       const next = spawnBlock(gameRef.current, h);
-      if (next !== gameRef.current) sound().tick(gameRef.current.dash.active);
+      if (next !== gameRef.current) sound().tick();
       apply(next);
     };
 
@@ -469,11 +581,8 @@ export function BlockRunner() {
   }, [apply, setFeed]);
 
   // Input.
-  const doJump = useCallback(() => apply(jump(gameRef.current)), [apply]);
-  const doFire = useCallback(() => apply(fire(gameRef.current)), [apply]);
-  const doFireHeld = useCallback((held: boolean) => apply(setFire(gameRef.current, held)), [apply]);
+  const doInhale = useCallback((held: boolean) => apply(setInhale(gameRef.current, held)), [apply]);
   const doRestart = useCallback(() => apply(restart(gameRef.current)), [apply]);
-  const doDash = useCallback((held: boolean) => apply(setDash(gameRef.current, held)), [apply]);
 
   useEffect(() => {
     const isTyping = (e: KeyboardEvent) => {
@@ -483,21 +592,11 @@ export function BlockRunner() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (isTyping(e)) return;
       sound().unlock();
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'ArrowRight') {
-        e.preventDefault();
-        if (gameRef.current.phase !== 'dead') doDash(true);
-        return;
-      }
       if (e.repeat) return;
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
+      if (e.code === 'Space' || e.code === 'KeyX' || e.code === 'Enter') {
         e.preventDefault();
         if (gameRef.current.phase === 'dead') doRestart();
-        else doJump();
-      } else if (e.code === 'KeyX' || e.code === 'Enter') {
-        e.preventDefault();
-        if (gameRef.current.phase === 'dead') doRestart();
-        else if (gameRef.current.phase === 'ready') doFire();
-        else doFireHeld(true);
+        else doInhale(true);
       } else if (e.code === 'KeyR') {
         // Same as Space on the game-over screen; never resets a live run.
         if (gameRef.current.phase === 'dead') doRestart();
@@ -508,13 +607,9 @@ export function BlockRunner() {
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'ArrowRight') doDash(false);
-      if (e.code === 'KeyX' || e.code === 'Enter') doFireHeld(false);
+      if (e.code === 'Space' || e.code === 'KeyX' || e.code === 'Enter') doInhale(false);
     };
-    const onBlur = () => {
-      doDash(false);
-      doFireHeld(false);
-    };
+    const onBlur = () => doInhale(false);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
@@ -523,7 +618,7 @@ export function BlockRunner() {
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     };
-  }, [doJump, doFire, doFireHeld, doRestart, doDash]);
+  }, [doInhale, doRestart]);
 
   // Main loop. requestAnimationFrame when the tab is visible; a 60 Hz timer
   // takes over when the browser stops issuing frames (hidden or throttled),
@@ -540,20 +635,16 @@ export function BlockRunner() {
 
     let last = performance.now();
     let raf = 0;
-    let pal = paletteForTheme();
-    let palAt = 0;
     let shownScore = -1;
     let shownPhase: Game['phase'] | null = null;
+    // Satisfied pose: a short victory face when a heart is won back.
+    let happyUntil = 0;
 
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       lastFrameAt.current = now;
       frameRef.current += 1;
-      if (now - palAt > 500) {
-        pal = paletteForTheme();
-        palAt = now;
-      }
       if (frameRef.current === 1) {
         setBest(readBest());
         setMuted(sound().muted);
@@ -562,17 +653,15 @@ export function BlockRunner() {
       const next = step(gameRef.current, dt);
       gameRef.current = next;
 
+      if (next.events.includes('heart')) happyUntil = frameRef.current + 40;
       for (const ev of next.events) {
-        if (ev === 'jump') sound().jump();
-        else if (ev === 'shoot') sound().shoot();
-        else if (ev === 'burst') sound().burst();
-        else if (ev === 'hit') sound().hit();
+        if (ev === 'inhale-on') sound().inhaleOn();
+        else if (ev === 'gulp') sound().gulp();
+        else if (ev === 'stuffed') sound().stuffed();
         else if (ev === 'land') sound().land();
         else if (ev === 'die') sound().die();
         else if (ev === 'hurt') sound().hurt();
         else if (ev === 'heart') sound().heart();
-        else if (ev === 'dash-on') sound().dashOn();
-        else if (ev === 'dash-off') sound().dashOff();
         else if (ev === 'thud') sound().thud();
       }
       if (next.score !== shownScore) {
@@ -591,7 +680,7 @@ export function BlockRunner() {
         }
       }
 
-      render(ctx, next, frameRef.current, feedRef.current === 'quiet', pal);
+      render(ctx, next, frameRef.current, feedRef.current === 'quiet', Math.max(0, happyUntil - frameRef.current));
     };
 
     let lastRafAt = 0;
@@ -621,16 +710,10 @@ export function BlockRunner() {
     e.preventDefault();
     sound().unlock();
     if (gameRef.current.phase === 'dead') return doRestart();
-    // Touch: tapping the picture jumps; the buttons under it shoot and dash.
-    // Mouse: click shoots (hold to keep firing).
-    if (e.pointerType === 'touch') return doJump();
-    if (gameRef.current.phase === 'ready') doFire();
-    else doFireHeld(true);
+    // One action everywhere: press (and hold) to inhale.
+    doInhale(true);
   };
-  const onPointerUp = () => {
-    doDash(false);
-    doFireHeld(false);
-  };
+  const onPointerUp = () => doInhale(false);
 
   const slot = head ? slotOf(head.timestampMs) : null;
   const feedLabel =
@@ -649,7 +732,7 @@ export function BlockRunner() {
           </div>
         </div>
         <Stat label="Blocks / s" value={rate.toFixed(1)} />
-        <Stat label="Shot" value={String(score)} />
+        <Stat label="Eaten" value={String(score)} />
         <Stat label="Best" value={String(best)} />
         <div className="flex items-center gap-3">
           <span
@@ -686,85 +769,22 @@ export function BlockRunner() {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onContextMenu={(e) => e.preventDefault()}
-        className="w-full select-none rounded-xl bg-bds-blue-5 [image-rendering:pixelated] dark:bg-bds-blue-100"
+        className="mx-auto w-full max-w-[800px] select-none rounded-xl bg-[#12093a] [image-rendering:pixelated]"
         style={{ aspectRatio: `${WIDTH} / ${HEIGHT}`, touchAction: 'none', background: P.sky, WebkitTouchCallout: 'none' }}
-        aria-label={`Block Runner. ${phase === 'running' ? `Score ${score}.` : 'Press space to start.'}`}
+        aria-label={`Block Runner. ${phase === 'running' ? `Score ${score}.` : 'Press space or touch to start eating.'}`}
         role="img"
       />
 
-      {/* Touch controls: shown only on coarse pointers. Held buttons map to the
-          same held-key semantics as the keyboard. */}
-      <div className="hidden select-none gap-3 [@media(pointer:coarse)]:flex" style={{ WebkitTouchCallout: 'none' }}>
-        <TouchButton
-          label="Jump"
-          hint="tap"
-          onDown={() => {
-            sound().unlock();
-            if (gameRef.current.phase === 'dead') doRestart();
-            else doJump();
-          }}
-        />
-        <TouchButton
-          label="Shoot"
-          hint="hold"
-          onDown={() => {
-            sound().unlock();
-            if (gameRef.current.phase === 'dead') return doRestart();
-            if (gameRef.current.phase === 'ready') doFire();
-            else doFireHeld(true);
-          }}
-          onUp={() => doFireHeld(false)}
-        />
-        <TouchButton
-          label="Dash"
-          hint="hold"
-          onDown={() => {
-            sound().unlock();
-            doDash(true);
-          }}
-          onUp={() => doDash(false)}
-        />
-      </div>
-
       <Text variant="footnote" tone="muted">
         The boss on the right is the sequencer: every block it spits is a real vibenet block, pushed over WebSocket as
-        it lands, one every 200 ms. Block height follows gas used. Shoot one to read its number and slot
-        {head ? `, like ${blockLabel(head)}` : ''}. Space jumps, hold X to shoot, hold Shift to dash for double
-        score, R or Space restarts after a run, M mutes. On a phone, tap the picture to jump and use the buttons.
+        it lands, one every 200 ms. Block height follows gas used. Swallow one to read its number and slot
+        {head ? `, like ${blockLabel(head)}` : ''}. Hold Space, X, or a finger on the picture to inhale — the
+        nearest block drags in and is swallowed, and heavy walls drag slower. Every block that reaches him uneaten
+        costs a heart. Fill the belly gauge and he is FULL — for a few seconds nothing can hurt him and he rolls
+        along the top of the blocks while the gauge drains, then he is hungry again. R restarts after a run, M
+        mutes.
       </Text>
     </div>
-  );
-}
-
-function TouchButton({
-  label,
-  hint,
-  onDown,
-  onUp,
-}: {
-  label: string;
-  hint: string;
-  onDown: () => void;
-  onUp?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="flex h-16 flex-1 flex-col items-center justify-center rounded-full border border-bds-gray-15 bg-background text-foreground active:bg-bds-blue-0 dark:border-white/15 dark:active:bg-white/10"
-      style={{ touchAction: 'none' }}
-      onPointerDown={(e) => {
-        e.preventDefault();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        onDown();
-      }}
-      onPointerUp={() => onUp?.()}
-      onPointerCancel={() => onUp?.()}
-      onContextMenu={(e) => e.preventDefault()}
-      aria-label={`${label} (${hint})`}
-    >
-      <span className="text-[15px] font-medium">{label}</span>
-      <span className="text-[10px] uppercase tracking-[0.6px] text-bds-gray-60 dark:text-bds-gray-40">{hint}</span>
-    </button>
   );
 }
 
