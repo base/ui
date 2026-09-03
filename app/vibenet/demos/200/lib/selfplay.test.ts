@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createGame,
   restart,
-  setInhale,
+  tap,
   spawnBlock,
   start,
   step,
@@ -30,8 +30,8 @@ function mulberry32(seed: number): () => number {
 
 type Bot = (g: Game) => Game;
 
-/** Holds the button forever: eats, goes FULL, cruises, deflates, repeats. */
-const holdBot: Bot = (g) => setInhale(g, true);
+/** Taps on every beat the mouth is free: the intended way to play. */
+const tapBot: Bot = (g) => (g.inhaling || g.stuffed ? g : tap(g));
 
 /** Never inhales: the baseline that must die once real walls arrive. */
 const idleBot: Bot = (g) => g;
@@ -73,8 +73,8 @@ function play(bot: Bot, seconds: number, seed: number) {
 }
 
 describe('self-play balance', () => {
-  it('the eat → FULL → shrink cycle keeps a run alive and scoring', () => {
-    const r = play(holdBot, 60, 1);
+  it('tapping on the beat keeps the eat → FULL → shrink cycle alive and scoring', () => {
+    const r = play(tapBot, 60, 1);
     expect(r.longestRun).toBeGreaterThan(15);
     expect(r.bestScore).toBeGreaterThan(30);
   });
