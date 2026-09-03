@@ -9,7 +9,6 @@ import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
 import { CopyableValue } from '../../components/CopyableValue';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
-import { AnimatedAmount } from '../_components/AnimatedAmount';
 import { DemoHeader } from '../_components/DemoHeader';
 import { newCallRow } from '../account/library/calls';
 import { ActivityLog } from '../account/components/ActivityLog';
@@ -862,6 +861,11 @@ function ValidityDemoInner() {
     const need = amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad);
     return need > 0n && (usdvBalance ?? 0n) >= need;
   })();
+  const costHint = `Each ${side === 'buy' ? 'buy' : 'sell'} is ${tradeLabel} ${VIBE_SYMBOL}${
+    side === 'buy' && draft
+      ? ` · ~${formatTokenAmount(amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad), USDV_DECIMALS)} ${USDV_SYMBOL}`
+      : ''
+  }`;
 
   return (
     <AccountDemoShell
@@ -923,27 +927,6 @@ function ValidityDemoInner() {
               Spot {spot === 0n ? '—' : `$${formatPrice(spot)}`} USDV · simulated flow moves the mid
             </Text>
           </div>
-          <div className="rounded-2xl border border-bds-gray-10 bg-background px-5 py-4 dark:border-white/10 dark:bg-white/5">
-            <Text variant="caption" tone="muted">
-              Your {VIBE_SYMBOL}
-            </Text>
-            <div className="mt-1 flex items-baseline gap-2">
-              <Text as="div" variant="stats" className="tabular-nums tracking-tight">
-                {vibeBalance === null ? (
-                  '…'
-                ) : (
-                  <AnimatedAmount text={formatTokenAmount(vibeBalance)} decimals={0} group />
-                )}
-              </Text>
-              <Text variant="title3">{VIBE_SYMBOL}</Text>
-            </div>
-            <Text variant="footnote" tone="muted" className="mt-2">
-              Each {side === 'buy' ? 'buy' : 'sell'} is {tradeLabel} {VIBE_SYMBOL}
-              {side === 'buy' && draft
-                ? ` · ~${formatTokenAmount(amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad), USDV_DECIMALS)} ${USDV_SYMBOL}`
-                : null}
-            </Text>
-          </div>
           <div className="grid gap-6 lg:grid-cols-[minmax(280px,380px)_minmax(0,1fr)] lg:items-start">
             <div className="flex flex-col gap-4">
               {draft ? (
@@ -954,6 +937,8 @@ function ValidityDemoInner() {
                   expirySeconds={expirySeconds}
                   submitMode={submitMode}
                   busy={busy}
+                  vibeBalance={vibeBalance}
+                  costHint={costHint}
                   canAfford={canAffordTrade}
                   onSide={setSide}
                   onOffset={setOffsetBps}
