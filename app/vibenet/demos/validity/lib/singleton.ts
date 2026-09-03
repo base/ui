@@ -1,91 +1,22 @@
-import {
-  encodeDeployData,
-  getContractAddress,
-  keccak256,
-  toBytes,
-  zeroAddress,
-  type Address,
-  type Hex,
-  type PublicClient,
-} from 'viem';
+import type { Address, PublicClient } from 'viem';
 
 import { B20_FACTORY, factoryAbi as b20FactoryAbi } from '../../b20/lib/protocol';
 import { vibenetApi } from '../../../library/client';
-import {
-  factoryAbi,
-  factoryBytecode,
-  helperAbi,
-  helperBytecode,
-  minterAbi,
-  minterBytecode,
-  pairAbi,
-} from './constants';
+import { factoryAbi, pairAbi } from './constants';
 import type { Deployment } from './types';
 
 /**
- * Arachnid deterministic-deployment proxy. Already live on Vibenet; used here
- * only to re-derive the shared singleton CREATE2 addresses so the demo can
- * discover the pool the central actor system deployed. Address is
- * CREATE(nickSigner, nonce=0).
+ * Deterministic v2 singleton addresses — CREATE2 via the Arachnid proxy
+ * (0x4e59…4956C) with salt keccak256("vibenet.validity.<label>.v2"). Hardcoded
+ * so the client doesn't bundle the deploy bytecode just to re-derive three
+ * constants; the source that produces them lives in base/vibenet
+ * (setup/contracts/src + the bytecode manifests). VIBE and the pair are
+ * discovered from the factory (see probeSingleton) rather than hardcoded, since
+ * VIBE's address depends on the deploying faucet account.
  */
-export const CREATE2_DEPLOYER = '0x4e59b44847b379578588920cA78FbF26c0B4956C' as Address;
-
-/** Factory `feeToSetter` is fixed so the CREATE2 address does not depend on who deploys. */
-export const FACTORY_FEE_TO_SETTER = zeroAddress;
-
-export function singletonSalt(label: string): Hex {
-  return keccak256(toBytes(`vibenet.validity.${label}.v1`));
-}
-
-export const SINGLETON_SALTS = {
-  vibe: singletonSalt('vibe'),
-  minter: singletonSalt('minter'),
-  factory: singletonSalt('factory'),
-  helper: singletonSalt('helper'),
-} as const;
-
-export type PredictedSingleton = Pick<Deployment, 'factory' | 'helper' | 'minter'>;
-
-export function singletonInitCodes(): {
-  minter: Hex;
-  factory: Hex;
-  helper: Hex;
-} {
-  return {
-    minter: encodeDeployData({
-      abi: minterAbi,
-      bytecode: minterBytecode,
-    }),
-    factory: encodeDeployData({
-      abi: factoryAbi,
-      bytecode: factoryBytecode,
-      args: [FACTORY_FEE_TO_SETTER],
-    }),
-    helper: encodeDeployData({
-      abi: helperAbi,
-      bytecode: helperBytecode,
-    }),
-  };
-}
-
-function create2Address(salt: Hex, initCode: Hex): Address {
-  return getContractAddress({
-    bytecode: initCode,
-    from: CREATE2_DEPLOYER,
-    opcode: 'CREATE2',
-    salt,
-  });
-}
-
-/** CREATE2 addresses for the Uni factory, helper, and VIBE minter. USDV is the faucet token. */
-export function predictSingleton(): PredictedSingleton {
-  const init = singletonInitCodes();
-  return {
-    minter: create2Address(SINGLETON_SALTS.minter, init.minter),
-    factory: create2Address(SINGLETON_SALTS.factory, init.factory),
-    helper: create2Address(SINGLETON_SALTS.helper, init.helper),
-  };
-}
+export const VALIDITY_FACTORY = '0x8Ed0ec9883Fd0F48070f746DbA43B5A3cCA266B9' as Address;
+export const VALIDITY_SWAP_HELPER = '0xBDcAA6883F472b16E8CdbC0f9382181263bBA78d' as Address;
+export const VALIDITY_MINTER = '0x682Af40Abb62386559b7cAA2981b9cCc27Ca94d5' as Address;
 
 export async function hasCode(client: PublicClient, address: Address): Promise<boolean> {
   const code = await client.getCode({ address }).catch(() => undefined);
@@ -169,7 +100,11 @@ export async function probeSingleton(
   usdv?: Address,
 ): Promise<Deployment | null> {
   const tokenB = usdv ?? (await resolveVibenetUsdv());
-  const predicted = predictSingleton();
+  const predicted = {
+    factory: VALIDITY_FACTORY,
+    helper: VALIDITY_SWAP_HELPER,
+    minter: VALIDITY_MINTER,
+  };
   const [factory, helper, minter, usdvCode] = await Promise.all([
     hasCode(client, predicted.factory),
     hasCode(client, predicted.helper),

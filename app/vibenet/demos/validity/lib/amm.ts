@@ -214,20 +214,26 @@ export function encodeApprove(token: Address, spender: Address): { to: Address; 
   };
 }
 
-export function encodeHelperSwap(args: {
+/**
+ * Exact-in swap through the 0-fee SwapHelper: commit `amountIn`, receive the
+ * full output the helper computes on-chain (>= `minOut`). Because the output is
+ * derived from live reserves in the same tx, there is no read->mine drift, so
+ * nothing is ever left in the pool (no slippage "donation") and there is no
+ * `UniswapV2: K` revert from a stale quote.
+ */
+export function encodeHelperSwapExactIn(args: {
   helper: Address;
   tokenIn: Address;
   pair: Address;
   amountIn: bigint;
-  amount0Out: bigint;
-  amount1Out: bigint;
+  minOut: bigint;
 }): { to: Address; data: Hex } {
   return {
     to: args.helper,
     data: encodeFunctionData({
       abi: helperAbi,
-      functionName: 'swap',
-      args: [args.tokenIn, args.pair, args.amountIn, args.amount0Out, args.amount1Out],
+      functionName: 'swapExactIn',
+      args: [args.tokenIn, args.pair, args.amountIn, args.minOut],
     }),
   };
 }

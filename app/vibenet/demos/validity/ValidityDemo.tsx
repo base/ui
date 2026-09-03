@@ -24,7 +24,7 @@ import { ValidityJson } from './components/ValidityJson';
 import {
   amountInForVibe,
   amountOutAtLimit,
-  encodeHelperSwap,
+  encodeHelperSwapExactIn,
   fillQuoteFromPairLogs,
   fillQuoteFromSwapReceipt,
   getReserves,
@@ -59,7 +59,6 @@ import {
   clampToCondition,
   formatTokenAmount,
   quoteWad,
-  swapOuts,
   tokenInFor,
   USDV_DECIMALS,
   USDV_SYMBOL,
@@ -693,21 +692,20 @@ function ValidityDemoInner() {
             : `Need ${formatTokenAmount(amountIn, USDV_DECIMALS)} ${USDV_SYMBOL} to buy ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL}.`,
         );
       }
+      // Exact-in: the SwapHelper computes the fill output on-chain from live
+      // reserves, so we pass the limit-priced output as the floor (minOut). The
+      // validity predicate gates *when* this includes (price at/through the
+      // target), so the realized output is always >= this limit floor — and,
+      // unlike an exact-out quote, nothing is ever left in the pool.
       const outExact = amountOutAtLimit(amountIn, side, k, draft.priceWad);
-      const out = outExact > 1n ? outExact - 1n : outExact;
-      if (out === 0n) throw new Error('Swap size is too small.');
-      const { amount0Out, amount1Out } = swapOuts({
-        vibeToken0,
-        sellVibe: side === 'sell',
-        amountOut: out,
-      });
-      const call = encodeHelperSwap({
+      const minOut = outExact > 1n ? outExact - 1n : outExact;
+      if (minOut === 0n) throw new Error('Swap size is too small.');
+      const call = encodeHelperSwapExactIn({
         helper: state.deployment.helper,
         tokenIn,
         pair: state.deployment.pair,
         amountIn,
-        amount0Out,
-        amount1Out,
+        minOut,
       });
       const seconds =
         submitMode === 'concurrent'
