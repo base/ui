@@ -123,7 +123,7 @@ export async function sendValidityTransaction(
   tx: Hex,
   validity: ValidityPredicate[],
 ): Promise<Hex> {
-  const result = await rpcCall('base_sendRawTransactionValidity', [{ tx, validity }]);
+  const result = await rpcCall('base_sendRawTransactionValidity', [tx, { validity }]);
   if (typeof result === 'string' && result.startsWith('0x')) return result as Hex;
   throw new Error('Validity submit returned no hash.');
 }
