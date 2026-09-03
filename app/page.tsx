@@ -1,8 +1,8 @@
 import { Button } from './components/ui/Button';
 import { Card, LinkCard } from './components/ui/Card';
 import { Text } from './components/ui/Text';
-import { DemoCarousel } from './components/DemoCarousel';
 import { listedDemos } from './vibenet/demos/catalogue';
+import { DemoCard } from './vibenet/demos/DemoCard';
 import { SAMPLE_SNAPSHOTS, type Snapshot } from './snapshots/data';
 import { getSnapshots } from './snapshots/r2';
 import { SnapshotDownloadBox } from './snapshots/SnapshotDownloadBox';
@@ -55,7 +55,9 @@ async function loadMainnetSnapshot(): Promise<Snapshot | null> {
 }
 
 export default async function Home() {
-  const demos = listedDemos();
+  // The two most recently added demos, newest first (catalogue order is
+  // chronological); the full set lives on /vibenet.
+  const recentDemos = listedDemos().slice(-2).reverse();
   const mainnetSnapshot = await loadMainnetSnapshot();
 
   return (
@@ -70,7 +72,7 @@ export default async function Home() {
       <section className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <Text variant="headline">Live demos</Text>
+            <Text variant="headline">Featured Demos</Text>
             <Text variant="label.regular" tone="muted">
               Interactive walkthroughs running on Vibenet right now.
             </Text>
@@ -79,13 +81,17 @@ export default async function Home() {
             All demos
           </Button>
         </div>
-        <DemoCarousel demos={demos} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {recentDemos.map((demo) => (
+            <DemoCard key={demo.href} demo={demo} />
+          ))}
+        </div>
       </section>
 
       {mainnetSnapshot ? (
         <section className="flex flex-col gap-6">
           <div className="flex flex-col gap-1">
-            <Text variant="headline">Sync a node faster</Text>
+            <Text variant="headline">Sync a Node Faster</Text>
             <Text variant="label.regular" tone="muted">
               Grab the latest Base Mainnet archive snapshot, or customize your own.
             </Text>

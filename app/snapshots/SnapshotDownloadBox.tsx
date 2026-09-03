@@ -15,7 +15,7 @@ const ARCHIVE_COMMAND = 'base-reth-node download --chain base --archive --resuma
 // anything smaller than a full archive.
 export function SnapshotDownloadBox({ snapshot }: { snapshot: Snapshot }) {
   const stats = [
-    { label: 'Total size', value: formatBytes(snapshot.size) },
+    { label: 'Total Size', value: formatBytes(snapshot.size) },
     { label: 'Block', value: formatNumber(snapshot.block) },
     { label: 'Version', value: snapshot.rethVersion },
     { label: 'Updated', value: formatDate(snapshot.date) },
@@ -24,7 +24,7 @@ export function SnapshotDownloadBox({ snapshot }: { snapshot: Snapshot }) {
   return (
     <Card className="flex flex-col gap-5 bg-background p-6 dark:bg-white/5">
       <div className="flex flex-wrap items-center gap-2">
-        <Text variant="headline">Mainnet archive</Text>
+        <Text variant="headline">Mainnet Archive</Text>
         <span className="rounded-full border border-bds-gray-15 px-2.5 py-0.5 text-[13px] text-bds-gray-60 dark:border-white/15">
           Full historical data
         </span>
