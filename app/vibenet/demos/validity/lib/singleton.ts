@@ -68,7 +68,7 @@ export function singletonInitCodes(): {
   };
 }
 
-function create2Address(salt: Hex, initCode: Hex): Address {
+export function create2Address(salt: Hex, initCode: Hex): Address {
   return getContractAddress({
     bytecode: initCode,
     from: CREATE2_DEPLOYER,

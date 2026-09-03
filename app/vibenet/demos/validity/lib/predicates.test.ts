@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { RESERVE0_MASK, RESERVE1_MASK, RESERVE_BITS, WAD } from './constants';
 import {
   applyOffsetBps,
+  blockExpiryPredicate,
+  blockNumberPredicate,
   formatPrice,
   prettyValidity,
   priceValidity,
@@ -84,6 +86,17 @@ describe('predicates', () => {
     const pretty = prettyValidity(predicates);
     expect(pretty).toContain('"slot": "0x8"');
     expect(pretty).not.toContain('0x00000000');
+  });
+
+  it('builds generic block predicates without changing block expiry behavior', () => {
+    expect(blockNumberPredicate('>=', 42n)).toEqual({
+      type: 'block_number',
+      params: { op: '>=', value: toWord(42n) },
+    });
+    expect(blockExpiryPredicate(42n)).toEqual({
+      type: 'block_number',
+      params: { op: '<=', value: toWord(42n) },
+    });
   });
 
 });

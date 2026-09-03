@@ -154,9 +154,13 @@ export function priceValidity(
   return { rectangle, predicates };
 }
 
-export function blockExpiryPredicate(maxBlock: bigint): ValidityPredicate {
+export function blockNumberPredicate(op: ValidityOperator, block: bigint): ValidityPredicate {
   return {
     type: 'block_number',
-    params: { op: '<=', value: toWord(maxBlock) },
+    params: { op, value: toWord(block) },
   };
+}
+
+export function blockExpiryPredicate(maxBlock: bigint): ValidityPredicate {
+  return blockNumberPredicate('<=', maxBlock);
 }
