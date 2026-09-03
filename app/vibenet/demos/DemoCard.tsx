@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 import { Card, LinkCard } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
@@ -33,6 +35,9 @@ export function DemoCard({ demo, className }: { demo: DemoEntry; className?: str
 function DemoCardBody({ demo }: { demo: DemoEntry }) {
   return (
     <>
+      {demo.icon && (
+        <Image src={demo.icon} alt="" width={48} height={48} />
+      )}
       <div>
         <div className="flex items-center gap-2">
           <Text variant="headline">{demo.title}</Text>
@@ -42,7 +47,7 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
             </span>
           ) : null}
         </div>
-        <Text variant="body" tone="muted" className="mt-2">
+        <Text variant="label.regular" tone="muted" className="mt-2">
           {demo.summary}
         </Text>
       </div>

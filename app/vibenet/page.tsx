@@ -42,7 +42,7 @@ export default function VibenetHomePage() {
 
   return (
     <div className="animate-in -mb-20 flex min-w-0 flex-1 flex-col gap-16 pb-4 text-foreground">
-      <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:justify-between md:gap-8">
+      <header className="flex flex-col gap-4 pb-4 md:flex-row md:items-end md:justify-between md:gap-8">
         <div className="flex max-w-xl flex-1 flex-col gap-6">
           <Image src="/vibenet-illo.svg" alt="" width={48} height={48} className="mt-8" />
           <Text variant="title2" tone="muted">
@@ -71,7 +71,7 @@ export default function VibenetHomePage() {
         </Card>
       </header>
 
-      <section className="flex flex-col gap-6">
+      <section className="flex flex-col gap-4">
         <Text variant="headline">Demos</Text>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {listedDemos().map((demo) => (

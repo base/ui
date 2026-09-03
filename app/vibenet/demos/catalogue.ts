@@ -19,6 +19,8 @@ export type DemoEntry = {
   available: boolean;
   /** When false, the route stays live but is omitted from the Vibenet demos grid. */
   listed?: boolean;
+  /** Path to an icon image in /public, shown at the top of the demo card. */
+  icon?: string;
 };
 
 /** Demos shown on the Vibenet index. Unlisted entries stay reachable by URL. */
@@ -31,6 +33,7 @@ export const DEMOS: DemoEntry[] = [
     href: '/vibenet/demos/account',
     title: 'Accounts',
     shortTitle: 'Account',
+    icon: '/account-illo.svg',
     summary:
       'Create portable account-abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances across networks.',
     points: [
@@ -44,6 +47,7 @@ export const DEMOS: DemoEntry[] = [
     href: '/vibenet/demos/b20',
     title: 'Tokens',
     shortTitle: 'Tokens',
+    icon: '/token-illo.svg',
     summary:
       "Create tokens with B20 — Base's enshrined, ERC-20-compatible token standard — then attach transfer policies, transaction memos, and Asset announcements with no custom contracts.",
     points: [

@@ -93,7 +93,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     padding: '1px 6px',
   },
-  // Pinned below the sliding panes so Status/Support/Docs/Upgrades/Blog stay put
+  // Pinned below the sliding panes so Upgrades/Docs/Status/Support/Blog stay put
   // when a section sub-nav slides in. The switch sits on the last row beside Blog.
   sidebarFooter: {
     display: 'flex',
@@ -574,6 +574,16 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
             <span className={TEXT_TRIM}>Upgrades</span>
           </span>
         </a>
+        <a href="https://docs.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+          <span className={SIDEBAR_FOOTER_LINK_LABEL}>
+            <span style={styles.footerIcon}>
+              <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+              </svg>
+            </span>
+            <span className={TEXT_TRIM}>Docs</span>
+          </span>
+        </a>
         <a href="https://status.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
           <span className={SIDEBAR_FOOTER_LINK_LABEL}>
             <span style={styles.footerIcon}>
@@ -594,32 +604,18 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
             <span className={TEXT_TRIM}>Support</span>
           </span>
         </a>
-        <a href="https://docs.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
+        <a href="https://blog.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={styles.footerLink}>
           <span className={SIDEBAR_FOOTER_LINK_LABEL}>
             <span style={styles.footerIcon}>
-              <svg width={18} height={18} viewBox="6 6 28 28" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 15H19.5M15 25H19.5M15 20H16M24 15L25 15M24 25H25M21 20H25M13 31H27C29.2091 31 31 29.2091 31 27V13C31 10.7909 29.2091 9 27 9H13C10.7909 9 9 10.7909 9 13V27C9 29.2091 10.7909 31 13 31Z" />
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
               </svg>
             </span>
-            <span className={TEXT_TRIM}>Docs</span>
+            <span className={TEXT_TRIM}>Blog</span>
           </span>
         </a>
-        <div style={styles.footerLastRow}>
-          <a href="https://blog.base.org" target="_blank" rel="noreferrer" className={SIDEBAR_FOOTER_LINK} style={{ ...styles.footerLink, flex: 1 }}>
-            <span className={SIDEBAR_FOOTER_LINK_LABEL}>
-              <span style={styles.footerIcon}>
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12.75 19.5V18.75C12.75 16.76 11.96 14.85 10.55 13.45C9.15 12.04 7.24 11.25 5.25 11.25H4.5M4.5 4.5H5.25C13.12 4.5 19.5 10.88 19.5 18.75V19.5M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-                </svg>
-              </span>
-              <span className={TEXT_TRIM}>Blog</span>
-            </span>
-          </a>
-          {/* `role="switch"` rather than a plain button: the control reports a state
-              rather than firing an action, so screen readers announce "on"/"off"
-              against a stable label instead of the label itself changing. The switch
-              renders bare, so that name comes from `aria-label` — the visible track
-              is decorative and hidden from the tree. */}
+        <div style={styles.footerLastRow} className="justify-between -mb-1.5">
+          <span className="pl-2.5 text-[12px] font-medium text-bds-gray-20 dark:text-bds-gray-40">Developer Console</span>
           <button
             type="button"
             role="switch"
@@ -631,11 +627,11 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
           >
             <span
               aria-hidden
-              className={`${THEME_SWITCH_ANIM} bg-bds-gray-50 transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-bds-gray-70 dark:bg-brand-blue dark:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue`}
+              className={`${THEME_SWITCH_ANIM} bg-brand-blue transition-colors duration-[180ms] motion-reduce:transition-none group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,black)] dark:bg-brand-blue dark:group-hover:bg-[color-mix(in_srgb,var(--bds-brand)_82%,white)] group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-brand-blue`}
               style={styles.switchTrack}
             >
               <span
-                className={`${THEME_SWITCH_ANIM} text-bds-gray-50 transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none dark:translate-x-[14px] dark:text-brand-blue`}
+                className={`${THEME_SWITCH_ANIM} text-brand-blue transition-[transform,color] duration-[180ms] ease-out motion-reduce:transition-none dark:translate-x-[14px] dark:text-brand-blue`}
                 style={styles.switchThumb}
               >
                 <ThemeIcon />
