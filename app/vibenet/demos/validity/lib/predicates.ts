@@ -93,17 +93,33 @@ export function prettyValidity(predicates: ValidityPredicate[]): string {
  * sell (price ≥ P): A/s ≤ r0 ≤ A ∧ B ≤ r1 ≤ B·s  with B/A ≥ P
  *
  * Four storage predicates, so a drained or wildly expanded pool cannot fill.
+ *
+ * When `currentPriceWad` already satisfies the condition (a buy priced above
+ * the mid, a sell priced below it), the box stretches along the hyperbola to
+ * the current point so the order fills without the mid retracing to target.
  */
-export function rectangleForTarget(k: bigint, targetPriceWad: bigint, side: Side): Rectangle {
+export function rectangleForTarget(
+  k: bigint,
+  targetPriceWad: bigint,
+  side: Side,
+  currentPriceWad?: bigint,
+): Rectangle {
   if (k === 0n || targetPriceWad <= 0n) {
     throw new Error('Need a live pool and a positive target price.');
   }
   const a = sqrt((k * WAD) / targetPriceWad);
   if (a === 0n) throw new Error('Degenerate reserve bound.');
+  const aCur =
+    currentPriceWad !== undefined && currentPriceWad > 0n
+      ? sqrt((k * WAD) / currentPriceWad)
+      : a;
   if (side === 'buy') {
     const b = (a * targetPriceWad) / WAD || 1n;
-    const r0Max = (a * BOX_SPAN_NUM) / BOX_SPAN_DEN;
-    const r1Min = (b * BOX_SPAN_DEN) / BOX_SPAN_NUM;
+    // Larger r0 means lower price; a satisfied buy sits at aOut > a.
+    const aOut = aCur > a ? aCur : a;
+    const bOut = k / aOut || 1n;
+    const r0Max = (aOut * BOX_SPAN_NUM) / BOX_SPAN_DEN;
+    const r1Min = (bOut * BOX_SPAN_DEN) / BOX_SPAN_NUM;
     return {
       r0Min: a,
       r0Max: r0Max > a ? r0Max : a + 1n,
@@ -113,8 +129,11 @@ export function rectangleForTarget(k: bigint, targetPriceWad: bigint, side: Side
     };
   }
   const b = (a * targetPriceWad + WAD - 1n) / WAD;
-  const r0Min = (a * BOX_SPAN_DEN) / BOX_SPAN_NUM;
-  const r1Max = (b * BOX_SPAN_NUM) / BOX_SPAN_DEN;
+  // Smaller r0 means higher price; a satisfied sell sits at aOut < a.
+  const aOut = aCur < a && aCur > 0n ? aCur : a;
+  const bOut = (k + aOut - 1n) / aOut;
+  const r0Min = (aOut * BOX_SPAN_DEN) / BOX_SPAN_NUM;
+  const r1Max = (bOut * BOX_SPAN_NUM) / BOX_SPAN_DEN;
   return {
     r0Min: r0Min < a ? r0Min : 1n,
     r0Max: a,
@@ -151,8 +170,9 @@ export function priceValidity(
   k: bigint,
   targetPriceWad: bigint,
   side: Side,
+  currentPriceWad?: bigint,
 ): { rectangle: Rectangle; predicates: ValidityPredicate[] } {
-  const rectangle = rectangleForTarget(k, targetPriceWad, side);
+  const rectangle = rectangleForTarget(k, targetPriceWad, side, currentPriceWad);
   const r1MinValue = rectangle.r1Min << RESERVE_BITS;
   const r1MaxValue = rectangle.r1Max << RESERVE_BITS;
   const predicates: ValidityPredicate[] = [

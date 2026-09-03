@@ -58,6 +58,44 @@ describe('predicates', () => {
     expect(applyOffsetBps(WAD, 'sell', 0)).toBe(WAD);
   });
 
+  it('stretches a satisfied buy box to the current point', () => {
+    const k = 1_000n * WAD * (1_000n * WAD); // mid 1.0
+    const current = WAD;
+    const target = 2n * WAD; // buy at ≤ 2 with mid at 1: already satisfied
+    const box = rectangleForTarget(k, target, 'buy', current);
+    const r0Now = sqrt((k * WAD) / current);
+    const r1Now = k / r0Now;
+    expect(box.r0Min <= r0Now && r0Now <= box.r0Max).toBe(true);
+    expect(box.r1Min <= r1Now && r1Now <= box.r1Max).toBe(true);
+    // Corners still respect price ≤ P.
+    expect((box.r1Max * WAD) / box.r0Min <= target).toBe(true);
+  });
+
+  it('stretches a satisfied sell box to the current point', () => {
+    const k = 1_000n * WAD * (1_000n * WAD); // mid 1.0
+    const current = WAD;
+    const target = WAD / 2n; // sell at ≥ 0.5 with mid at 1: already satisfied
+    const box = rectangleForTarget(k, target, 'sell', current);
+    const r0Now = sqrt((k * WAD) / current);
+    const r1Now = k / r0Now;
+    expect(box.r0Min <= r0Now && r0Now <= box.r0Max).toBe(true);
+    expect(box.r1Min <= r1Now && r1Now <= box.r1Max).toBe(true);
+    // Corners still respect price ≥ P.
+    expect((box.r1Min * WAD) / box.r0Max >= target).toBe(true);
+  });
+
+  it('keeps the resting box when the condition is not yet met', () => {
+    const k = 1_000n * WAD * (1_000n * WAD); // mid 1.0
+    const buyTarget = (99n * WAD) / 100n; // buy below mid rests as before
+    expect(rectangleForTarget(k, buyTarget, 'buy', WAD)).toEqual(
+      rectangleForTarget(k, buyTarget, 'buy'),
+    );
+    const sellTarget = (101n * WAD) / 100n; // sell above mid rests as before
+    expect(rectangleForTarget(k, sellTarget, 'sell', WAD)).toEqual(
+      rectangleForTarget(k, sellTarget, 'sell'),
+    );
+  });
+
   it('buy box implies every corner has price ≤ P', () => {
     const k = 1_000n * WAD * (1_000n * WAD);
     const target = (99n * WAD) / 100n;
