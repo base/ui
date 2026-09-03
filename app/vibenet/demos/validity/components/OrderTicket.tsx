@@ -248,9 +248,15 @@ export function OrderTicket({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
-          <Text variant="caption" tone="muted">
-            Expiry
-          </Text>
+          <div className="flex items-center gap-1.5">
+            <Text variant="caption" tone="muted">
+              Expiry
+            </Text>
+            <InfoTooltip label="About expiry">
+              Drops the swap from the mempool once this much time has passed — the ceiling paired
+              with delay's floor.
+            </InfoTooltip>
+          </div>
           <div className="flex flex-wrap gap-2">
             {EXPIRIES.map((seconds) => {
               const blocked = submitMode === 'concurrent' && seconds > MAX_NONCELESS_SECONDS;
@@ -281,8 +287,8 @@ export function OrderTicket({
               Delay
             </Text>
             <InfoTooltip label="About delay">
-              Adds a minimum wait before the swap can be included — a floor to pair with the expiry
-              ceiling above.
+              Holds the swap until this much time has passed — the floor paired with expiry's
+              ceiling.
             </InfoTooltip>
           </div>
           <div className="flex flex-wrap gap-2">
