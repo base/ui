@@ -34,7 +34,6 @@ import {
   readConditionalWithdrawalState,
 } from '../lib/conditionalWithdrawal';
 import { noncelessFields } from '../../../library/aa';
-import { rootAccount } from '../lib/makers';
 import {
   describeValidityError,
   makePublicClient,
@@ -43,7 +42,7 @@ import {
   VIBENET_CHAIN,
   type RpcSend,
 } from '../lib/rpc';
-import { ensureSingleton, probeSingleton } from '../lib/singleton';
+import { probeSingleton } from '../lib/singleton';
 import { connectJsonRpcStream, headNumber, type StreamHead } from '../lib/stream';
 import {
   attemptHistoryRows,
@@ -77,6 +76,18 @@ type Observation = { enabled: boolean; block: bigint; at: number };
 type AgentPhase = 'Waiting' | 'Scheduling' | 'Opening' | 'Closing' | 'Retrying';
 
 const EMPTY_ATTEMPT: Attempt = { status: 'idle' };
+
+function rootAccount(account: StoredAccount, accounts: StoredAccount[]): StoredAccount {
+  let current = account;
+  const seen = new Set<string>([current.id]);
+  while (current.parentId) {
+    const parent = accounts.find((item) => item.id === current.parentId);
+    if (!parent || seen.has(parent.id)) break;
+    seen.add(parent.id);
+    current = parent;
+  }
+  return current;
+}
 
 export function RaceTheAgentDemo() {
   return (
@@ -378,10 +389,9 @@ function RaceTheAgentDemoInner() {
         if (!k1?.privateKey) throw new Error('Setup needs a K1 owner key on this account. Add one in Accounts.');
 
         if (isCurrent()) setProgress('Checking shared contracts');
-        let deployment = await probeSingleton(client);
-        let contract = deployment
-          ? await probeConditionalWithdrawal(client, deployment.tokenA)
-          : null;
+        const deployment = await probeSingleton(client);
+        if (!deployment) throw new Error('The shared VIBE/USDV market is not ready yet.');
+        let contract = await probeConditionalWithdrawal(client, deployment.tokenA);
 
         let activeBalance = await client.getBalance({ address: acct.address });
         if (activeBalance < ACTIVE_ACCOUNT_FUNDING_FLOOR) {
@@ -411,10 +421,6 @@ function RaceTheAgentDemoInner() {
         const reportProgress = (label: string) => {
           if (isCurrent()) setProgress(label);
         };
-        if (!deployment) {
-          reportProgress('Deploying shared VIBE contracts');
-          deployment = await ensureSingleton({ wallet, publicClient: client, account: owner, onProgress: reportProgress });
-        }
         if (!isCurrent()) return;
         setVibe(deployment.tokenA);
 

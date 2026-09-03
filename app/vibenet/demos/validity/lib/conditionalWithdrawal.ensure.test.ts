@@ -1,15 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  ensureCreate2Contract: vi.fn(),
-  ensureCreate2Deployer: vi.fn(),
   hasCode: vi.fn(),
 }));
 
 vi.mock('./singleton', () => ({
+  CREATE2_DEPLOYER: '0x3333333333333333333333333333333333333333',
   create2Address: () => '0x2222222222222222222222222222222222222222',
-  ensureCreate2Contract: mocks.ensureCreate2Contract,
-  ensureCreate2Deployer: mocks.ensureCreate2Deployer,
   hasCode: mocks.hasCode,
   singletonSalt: () => `0x${'11'.repeat(32)}`,
 }));
@@ -22,18 +19,20 @@ const WITHDRAWAL = '0x2222222222222222222222222222222222222222';
 describe('ensureConditionalWithdrawal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.ensureCreate2Deployer.mockResolvedValue(undefined);
   });
 
   it('accepts a correctly configured deployment created concurrently by another visitor', async () => {
-    mocks.hasCode.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-    mocks.ensureCreate2Contract.mockRejectedValue(new Error('CREATE2 duplicate'));
+    mocks.hasCode.mockResolvedValueOnce(false).mockResolvedValueOnce(true).mockResolvedValueOnce(true);
     const publicClient = {
       readContract: vi.fn().mockResolvedValue(VIBE),
     };
+    const wallet = {
+      chain: {},
+      sendTransaction: vi.fn().mockRejectedValue(new Error('CREATE2 duplicate')),
+    };
 
     await expect(ensureConditionalWithdrawal({
-      wallet: {} as never,
+      wallet: wallet as never,
       publicClient: publicClient as never,
       account: {} as never,
       vibe: VIBE,
@@ -42,5 +41,6 @@ describe('ensureConditionalWithdrawal', () => {
       address: WITHDRAWAL,
       functionName: 'VIBE',
     }));
+    expect(wallet.sendTransaction).toHaveBeenCalled();
   });
 });

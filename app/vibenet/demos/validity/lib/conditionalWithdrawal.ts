@@ -1,4 +1,5 @@
 import {
+  concat,
   encodeDeployData,
   encodeFunctionData,
   type Abi,
@@ -13,9 +14,8 @@ import artifact from './artifacts/ConditionalWithdrawal.json';
 import { erc20Abi, minterAbi, WAD } from './constants';
 import { storagePredicate } from './predicates';
 import {
+  CREATE2_DEPLOYER,
   create2Address,
-  ensureCreate2Contract,
-  ensureCreate2Deployer,
   hasCode,
   singletonSalt,
 } from './singleton';
@@ -69,18 +69,20 @@ export async function ensureConditionalWithdrawal(args: {
   const live = await probeConditionalWithdrawal(publicClient, vibe);
   if (live) return live;
 
-  await ensureCreate2Deployer(wallet, publicClient, account, onProgress);
+  if (!(await hasCode(publicClient, CREATE2_DEPLOYER))) {
+    throw new Error('Vibenet CREATE2 deployer is not available.');
+  }
   onProgress?.('Deploying conditional withdrawal');
   try {
-    await ensureCreate2Contract(
-      wallet,
-      publicClient,
+    const hash = await wallet.sendTransaction({
       account,
-      CONDITIONAL_WITHDRAWAL_SALT,
-      conditionalWithdrawalInitCode(vibe),
-      'Conditional withdrawal',
-      750_000n,
-    );
+      chain: wallet.chain,
+      to: CREATE2_DEPLOYER,
+      data: concat([CONDITIONAL_WITHDRAWAL_SALT, conditionalWithdrawalInitCode(vibe)]),
+      gas: 750_000n,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 500 });
+    if (receipt.status === 'reverted') throw new Error('Conditional withdrawal deployment reverted.');
   } catch (error) {
     // Another visitor may win the same CREATE2 deployment between our probe and send.
     const deadline = Date.now() + 6_000;
