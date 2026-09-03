@@ -1,15 +1,13 @@
 'use client';
 
 import { getTransactionReceipt as getAaTransactionReceipt } from '@aa';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   formatUnits,
-  parseEther,
   type Address,
   type Hex,
   type PublicClient,
 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 
 import { trackValidityRace } from '../../../../analytics/events';
 import { Button } from '../../../../components/ui/Button';
@@ -22,15 +20,11 @@ import { AccountDemoShell } from '../../_components/AccountDemoShell';
 import { DemoHeader } from '../../_components/DemoHeader';
 import { ChevronIcon } from '../../_shared/dropdown';
 import { newCallRow } from '../../account/library/calls';
-import type { StoredAccount } from '../../account/library/model';
 import { aaReceiptSucceeded, type AaReceiptLike } from '../../account/library/receipt';
 import { AccountEngineProvider, TxPendingError, useAccountEngine } from '../../account/useAccountEngine';
 import {
   conditionalWithdrawalEnabledPredicate,
   encodeConditionalWithdraw,
-  encodeSetConditionalWithdrawalEnabled,
-  ensureConditionalWithdrawal,
-  prepareConditionalWithdrawalFunding,
   probeConditionalWithdrawal,
   readConditionalWithdrawalState,
 } from '../lib/conditionalWithdrawal';
@@ -38,9 +32,7 @@ import { noncelessFields } from '../../../library/aa';
 import {
   describeValidityError,
   makePublicClient,
-  makeWalletClient,
   sendValidityTransaction,
-  VIBENET_CHAIN,
   type RpcSend,
 } from '../lib/rpc';
 import { probeSingleton } from '../lib/singleton';
@@ -51,28 +43,16 @@ import {
   canSubmitValidity,
   isAttemptTerminal,
   preserveCompletedAttempt,
-  randomAgentDwellMs,
   RACE_VALIDITY_SECONDS,
-  scheduledAgentOpenBlock,
-  scheduledAgentPredicates,
-  shouldRestartConditionAgent,
-  shouldRunConditionAgent,
   shortHash,
   type Attempt,
 } from './comparison';
 
-const AGENT_LABEL = 'Validity condition agent';
-const OWNER_DEPLOY_GAS = parseEther('0.08');
-const OWNER_DEPLOY_SEND = '0.1';
-const AGENT_GAS_FLOOR = parseEther('0.01');
-const AGENT_GAS_SEND = '0.02';
-const ACTIVE_ACCOUNT_FUNDING_FLOOR = parseEther('0.2');
 const RECEIPT_POLL_MS = 1_000;
 const STATE_FALLBACK_POLL_MS = 1_000;
-const AGENT_RETRY_MS = 750;
+const SHARED_INFRA_RETRY_MS = 1_000;
 
 type Observation = { enabled: boolean; block: bigint; at: number };
-type AgentPhase = 'Waiting' | 'Scheduling' | 'Opening' | 'Closing' | 'Retrying';
 
 const EMPTY_ATTEMPT: Attempt = { status: 'idle' };
 const CONTRACT_SNIPPET = `interface IERC20 {
@@ -98,18 +78,6 @@ contract ConditionalWithdrawal {
     }
 }`;
 
-function rootAccount(account: StoredAccount, accounts: StoredAccount[]): StoredAccount {
-  let current = account;
-  const seen = new Set<string>([current.id]);
-  while (current.parentId) {
-    const parent = accounts.find((item) => item.id === current.parentId);
-    if (!parent || seen.has(parent.id)) break;
-    seen.add(parent.id);
-    current = parent;
-  }
-  return current;
-}
-
 export function RaceTheAgentDemo() {
   return (
     <AccountEngineProvider>
@@ -121,28 +89,16 @@ export function RaceTheAgentDemo() {
 function RaceTheAgentDemoInner() {
   const engine = useAccountEngine();
   const acct = engine.acct;
-  const parent = useMemo(
-    () => (acct ? rootAccount(acct, engine.accounts) : null),
-    [acct, engine.accounts],
-  );
-  const [genesisHash, setGenesisHash] = useState<Hex | null>(null);
   const [client, setClient] = useState<PublicClient | null>(null);
   const [withdrawal, setWithdrawal] = useState<Address | null>(null);
   const [vibe, setVibe] = useState<Address | null>(null);
   const [contractBalance, setContractBalance] = useState<bigint | null>(null);
   const [observed, setObserved] = useState<Observation | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
-  const [agent, setAgent] = useState<StoredAccount | null>(null);
-  const [agentRunning, setAgentRunning] = useState(false);
-  const [agentPhase, setAgentPhase] = useState<AgentPhase>('Waiting');
-  const [agentRestartToken, setAgentRestartToken] = useState(0);
-  const [agentError, setAgentError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState(false);
   const [setupRunning, setSetupRunning] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
-  const [setupRetry, setSetupRetry] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [validity, setValidity] = useState<Attempt>(EMPTY_ATTEMPT);
   const [validityHistory, setValidityHistory] = useState<Attempt[]>([]);
@@ -152,38 +108,20 @@ function RaceTheAgentDemoInner() {
   const [manualAttemptCount, setManualAttemptCount] = useState(0);
   const [validBefore, setValidBefore] = useState<number | null>(null);
 
-  const generationRef = useRef(0);
   const observedRef = useRef<Observation | null>(null);
   const accountKeyRef = useRef<string | null>(null);
-  const setupInFlightKeyRef = useRef<string | null>(null);
-  const setupReadyKeyRef = useRef<string | null>(null);
-  const setupFailedKeyRef = useRef<string | null>(null);
-  const setupGenerationRef = useRef(0);
   const observationsScrollRef = useRef<HTMLDivElement | null>(null);
   const rpcSendRef = useRef<RpcSend | null>(null);
-  const engineRef = useRef(engine);
-  engineRef.current = engine;
   observedRef.current = observed;
 
   useEffect(() => {
-    const accountKey = acct && parent ? `${acct.id}:${parent.id}` : null;
+    const accountKey = acct?.id ?? null;
     if (accountKeyRef.current === null) {
       accountKeyRef.current = accountKey;
       return;
     }
     if (accountKeyRef.current === accountKey) return;
     accountKeyRef.current = accountKey;
-    generationRef.current += 1;
-    setAgentRunning(false);
-    setAgentPhase('Waiting');
-    setupGenerationRef.current += 1;
-    setupInFlightKeyRef.current = null;
-    setupReadyKeyRef.current = null;
-    setupFailedKeyRef.current = null;
-    setAgent(null);
-    setPrepared(false);
-    setSetupRunning(false);
-    setSetupError(null);
     setValidity(EMPTY_ATTEMPT);
     setValidityHistory([]);
     setValidityAttemptCount(0);
@@ -192,9 +130,8 @@ function RaceTheAgentDemoInner() {
     setManualAttemptCount(0);
     setValidBefore(null);
     setError(null);
-    setAgentError(null);
     setObservations(observedRef.current ? [observedRef.current] : []);
-  }, [acct, parent]);
+  }, [acct]);
 
   const applyObservation = useCallback((next: Observation) => {
     observedRef.current = next;
@@ -214,33 +151,45 @@ function RaceTheAgentDemoInner() {
 
   useEffect(() => {
     let cancelled = false;
+    let retryId: number | undefined;
     const nextClient = makePublicClient(() => rpcSendRef.current);
-    void (async () => {
-      const genesis = await nextClient.getBlock({ blockNumber: 0n });
-      if (!genesis.hash) throw new Error('RPC did not return a genesis hash.');
-      if (cancelled) return;
-      setGenesisHash(genesis.hash);
-      setClient(nextClient);
-      const deployment = await probeSingleton(nextClient).catch(() => null);
-      if (cancelled || !deployment) return;
-      setVibe(deployment.tokenA);
-      const live = await probeConditionalWithdrawal(nextClient, deployment.tokenA).catch(() => null);
-      if (cancelled || !live) return;
-      setWithdrawal(live);
-      const [state, block] = await Promise.all([
-        readConditionalWithdrawalState(nextClient, deployment.tokenA),
-        nextClient.getBlockNumber({ cacheTime: 0 }),
-      ]);
-      if (cancelled) return;
-      setContractBalance(state.balance);
-      applyObservation({ enabled: state.enabled, block, at: Date.now() });
-    })()
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not reach Vibenet.');
-      });
+    setClient(nextClient);
+
+    const discover = async () => {
+      setSetupRunning(true);
+      try {
+        const deployment = await probeSingleton(nextClient);
+        const live = deployment
+          ? await probeConditionalWithdrawal(nextClient, deployment.tokenA)
+          : null;
+        if (cancelled) return;
+        if (!deployment || !live) {
+          setSetupError(null);
+          retryId = window.setTimeout(() => void discover(), SHARED_INFRA_RETRY_MS);
+          return;
+        }
+        const [state, block] = await Promise.all([
+          readConditionalWithdrawalState(nextClient, deployment.tokenA),
+          nextClient.getBlockNumber({ cacheTime: 0 }),
+        ]);
+        if (cancelled) return;
+        setVibe(deployment.tokenA);
+        setWithdrawal(live);
+        setContractBalance(state.balance);
+        applyObservation({ enabled: state.enabled, block, at: Date.now() });
+        setPrepared(true);
+        setSetupError(null);
+        setSetupRunning(false);
+      } catch (err) {
+        if (cancelled) return;
+        setSetupError(err instanceof Error ? err.message : 'Could not reach shared Vibenet infrastructure.');
+        retryId = window.setTimeout(() => void discover(), SHARED_INFRA_RETRY_MS);
+      }
+    };
+    void discover();
     return () => {
       cancelled = true;
-      generationRef.current += 1;
+      if (retryId !== undefined) window.clearTimeout(retryId);
     };
   }, [applyObservation]);
 
@@ -382,178 +331,6 @@ function RaceTheAgentDemoInner() {
     };
   }, [client, manual.hash, manual.status, settleFromReceipt]);
 
-  useEffect(() => {
-    if (!engine.hydrated || !acct || !parent || !genesisHash || !client) return;
-    const setupKey = `${VIBENET_CHAIN.id}:${genesisHash}:${acct.id}:${parent.id}`;
-    if (setupReadyKeyRef.current === setupKey || setupInFlightKeyRef.current === setupKey) return;
-    if (setupFailedKeyRef.current === setupKey) return;
-
-    const generation = setupGenerationRef.current + 1;
-    setupGenerationRef.current = generation;
-    setupInFlightKeyRef.current = setupKey;
-    setPrepared(false);
-    setSetupRunning(true);
-    setSetupError(null);
-    setProgress('Checking shared contracts');
-
-    const isCurrent = () => setupGenerationRef.current === generation;
-    void (async () => {
-      try {
-        const currentEngine = engineRef.current;
-        const k1 = currentEngine.ownerSigners.find((signer) => signer.kind === 'k1' && signer.privateKey);
-        if (!k1?.privateKey) throw new Error('Setup needs a K1 owner key on this account. Add one in Accounts.');
-
-        if (isCurrent()) setProgress('Checking shared contracts');
-        const deployment = await probeSingleton(client);
-        if (!deployment) throw new Error('The shared VIBE/USDV market is not ready yet.');
-        let contract = await probeConditionalWithdrawal(client, deployment.tokenA);
-
-        let activeBalance = await client.getBalance({ address: acct.address });
-        if (activeBalance < ACTIVE_ACCOUNT_FUNDING_FLOOR) {
-          if (isCurrent()) setProgress('Waiting for account funding');
-          activeBalance = await waitForBalance(client, acct.address, ACTIVE_ACCOUNT_FUNDING_FLOOR, 4_000);
-        }
-        if (activeBalance < ACTIVE_ACCOUNT_FUNDING_FLOOR) {
-          if (isCurrent()) setProgress('Funding the active account');
-          await currentEngine.requestFaucet();
-          const fundedBalance = await waitForBalance(client, acct.address, ACTIVE_ACCOUNT_FUNDING_FLOOR, 8_000);
-          if (fundedBalance < ACTIVE_ACCOUNT_FUNDING_FLOOR) {
-            throw new Error('The active account needs at least 0.2 ETH of setup and gas headroom. Top it up and retry.');
-          }
-        }
-
-        const owner = privateKeyToAccount(k1.privateKey);
-        const ownerBalance = await client.getBalance({ address: owner.address });
-        if (ownerBalance < OWNER_DEPLOY_GAS) {
-          if (isCurrent()) setProgress('Funding the deploy key');
-          await currentEngine.sendActiveCalls({
-            calls: [{ to: owner.address, data: '0x', value: OWNER_DEPLOY_SEND }],
-            metadata: 'Race the Agent bootstrap',
-          });
-        }
-
-        const wallet = makeWalletClient(owner);
-        const reportProgress = (label: string) => {
-          if (isCurrent()) setProgress(label);
-        };
-        if (!isCurrent()) return;
-        setVibe(deployment.tokenA);
-
-        if (!contract) {
-          reportProgress('Preparing conditional withdrawal');
-          contract = await ensureConditionalWithdrawal({
-            wallet,
-            publicClient: client,
-            account: owner,
-            vibe: deployment.tokenA,
-            onProgress: reportProgress,
-          });
-        }
-        if (!isCurrent()) return;
-        setWithdrawal(contract);
-
-        const funding = await prepareConditionalWithdrawalFunding(client, {
-          minter: deployment.minter,
-          vibe: deployment.tokenA,
-          withdrawal: contract,
-        });
-        if (funding) {
-          setProgress('Funding conditional withdrawal');
-          const hash = await wallet.sendTransaction({
-            account: owner,
-            chain: wallet.chain,
-            to: funding.to,
-            data: funding.data,
-          });
-          const receipt = await client.waitForTransactionReceipt({ hash, pollingInterval: RECEIPT_POLL_MS });
-          if (receipt.status === 'reverted') throw new Error('Singleton funding reverted.');
-        }
-        if (!isCurrent()) return;
-
-        let latestEngine = engineRef.current;
-        let conditionAgent = latestEngine.accounts.find(
-          (item) => item.parentId === parent.id && item.label === AGENT_LABEL,
-        );
-        if (!conditionAgent) {
-          conditionAgent = latestEngine.doCreateSubAccount(AGENT_LABEL, {
-            withSpareKey: true,
-            parent,
-          })?.account;
-        }
-        if (!conditionAgent) throw new Error('Could not create the condition agent subaccount.');
-        setAgent(conditionAgent);
-
-        const agentSignerIds = new Set(
-          conditionAgent.owners.flatMap((ownerActor) => ownerActor.signerId ? [ownerActor.signerId] : []),
-        );
-        const signerDeadline = Date.now() + 2_000;
-        while (
-          isCurrent() &&
-          !engineRef.current.signers.some((signer) => agentSignerIds.has(signer.id)) &&
-          Date.now() < signerDeadline
-        ) {
-          await delay(50);
-        }
-        latestEngine = engineRef.current;
-        if (!latestEngine.signers.some((signer) => agentSignerIds.has(signer.id))) {
-          throw new Error('Could not load the condition agent signing key.');
-        }
-
-        let agentBalance = await client.getBalance({ address: conditionAgent.address });
-        if (agentBalance < AGENT_GAS_FLOOR) {
-          setProgress('Waiting for condition agent funding');
-          agentBalance = await waitForBalance(client, conditionAgent.address, AGENT_GAS_FLOOR, 4_000);
-        }
-        if (agentBalance < AGENT_GAS_FLOOR) {
-          setProgress('Funding the condition agent');
-          latestEngine.autoFundNewAccount(conditionAgent.address);
-          agentBalance = await waitForBalance(client, conditionAgent.address, AGENT_GAS_FLOOR, 8_000);
-        }
-        if (agentBalance < AGENT_GAS_FLOOR) {
-          setProgress('Funding the condition agent from the active account');
-          await latestEngine.sendActiveCalls({
-            calls: [{ to: conditionAgent.address, data: '0x', value: AGENT_GAS_SEND }],
-            metadata: 'Race the Agent funding fallback',
-          });
-          agentBalance = await waitForBalance(client, conditionAgent.address, AGENT_GAS_FLOOR, 8_000);
-        }
-        if (agentBalance < AGENT_GAS_FLOOR) {
-          throw new Error('The condition agent needs ETH for deployment and gas.');
-        }
-
-        setProgress('Deploying condition agent and disabling condition');
-        const disable = encodeSetConditionalWithdrawalEnabled(contract, false);
-        await latestEngine.sendAccountCalls({
-          account: conditionAgent,
-          calls: [{ to: disable.to, data: disable.data, value: '0' }],
-          metadata: 'Race the Agent setup',
-        });
-
-        await refreshPreparedState(client, deployment.tokenA, contract, applyObservation, setContractBalance);
-        if (!isCurrent()) return;
-        setupReadyKeyRef.current = setupKey;
-        setupFailedKeyRef.current = null;
-        setPrepared(true);
-      } catch (err) {
-        if (!isCurrent()) return;
-        setupFailedKeyRef.current = setupKey;
-        setSetupError(err instanceof Error ? err.message : 'Setup failed.');
-      } finally {
-        if (setupInFlightKeyRef.current === setupKey) setupInFlightKeyRef.current = null;
-        if (isCurrent()) {
-          setSetupRunning(false);
-          setProgress(null);
-        }
-      }
-    })();
-  }, [acct, applyObservation, client, engine.hydrated, genesisHash, parent, setupRetry]);
-
-  const retrySetup = () => {
-    setupFailedKeyRef.current = null;
-    setSetupError(null);
-    setSetupRetry((attempt) => attempt + 1);
-  };
-
   const submitValidity = async () => {
     if (
       !acct ||
@@ -632,94 +409,6 @@ function RaceTheAgentDemoInner() {
       setBusy(false);
     }
   };
-
-  useEffect(() => {
-    if (!shouldRunConditionAgent({
-      prepared,
-      hasAgent: Boolean(agent),
-      hasClient: Boolean(client),
-      hasContract: Boolean(withdrawal),
-    }) || !agent || !client || !withdrawal || !vibe) return;
-
-    const generation = generationRef.current + 1;
-    generationRef.current = generation;
-    setAgentRunning(true);
-    setAgentPhase('Waiting');
-    setAgentError(null);
-    trackValidityRace('agent', 'started');
-    const active = () => generationRef.current === generation;
-
-    const ensureAgentFunding = async () => {
-      const agentBalance = await client.getBalance({ address: agent.address });
-      if (agentBalance >= AGENT_GAS_FLOOR) return;
-      setAgentPhase('Retrying');
-      engineRef.current.autoFundNewAccount(agent.address);
-      const funded = await waitForBalance(client, agent.address, AGENT_GAS_FLOOR, 8_000);
-      if (funded < AGENT_GAS_FLOOR) throw new Error('Condition agent needs ETH for gas.');
-    };
-
-    const run = async () => {
-      while (active()) {
-        try {
-          await ensureAgentFunding();
-          const block = await client.getBlockNumber({ cacheTime: 0 });
-          if (!active()) break;
-          const openBlock = scheduledAgentOpenBlock(block, randomAgentDwellMs());
-          const validity = scheduledAgentPredicates(withdrawal, openBlock);
-          const fields = noncelessFields(RACE_VALIDITY_SECONDS);
-          const open = encodeSetConditionalWithdrawalEnabled(withdrawal, true);
-          const close = encodeSetConditionalWithdrawalEnabled(withdrawal, false);
-          const seqOpt = { ...fields, assumeDeployed: true };
-
-          setAgentPhase('Scheduling');
-          // The same signer cannot service two composition requests concurrently.
-          // Sign sequentially, then submit both scheduled transactions together.
-          const signedOpen = await engineRef.current.signAccountCalls({
-            account: agent,
-            calls: [{ to: open.to, data: open.data, value: '0' }],
-            seqOpt,
-            metadata: `${AGENT_LABEL} open`,
-          });
-          const signedClose = await engineRef.current.signAccountCalls({
-            account: agent,
-            calls: [{ to: close.to, data: close.data, value: '0' }],
-            seqOpt,
-            metadata: `${AGENT_LABEL} close`,
-          });
-          const closeSubmission = sendValidityTransaction(signedClose.serialized, validity.close);
-          const openSubmission = sendValidityTransaction(signedOpen.serialized, validity.open);
-          await Promise.all([closeSubmission, openSubmission]);
-          setAgentError(null);
-          setAgentPhase('Opening');
-          await waitForScheduledClose(
-            openBlock,
-            active,
-            () => observedRef.current,
-            () => setAgentPhase('Closing'),
-          );
-          if (active()) setAgentPhase('Waiting');
-        } catch (err) {
-          if (!active()) break;
-          setAgentPhase('Retrying');
-          setAgentError(err instanceof Error ? err.message : 'Condition update failed.');
-          await delay(AGENT_RETRY_MS);
-        }
-      }
-    };
-    void run().finally(() => {
-      if (!shouldRestartConditionAgent(prepared, active())) return;
-      setAgentRunning(false);
-      setAgentPhase('Retrying');
-      setAgentRestartToken((token) => token + 1);
-    });
-
-    return () => {
-      if (generationRef.current === generation) generationRef.current += 1;
-      setAgentRunning(false);
-      setAgentPhase('Waiting');
-      trackValidityRace('agent', 'stopped');
-    };
-  }, [agent, agentRestartToken, client, prepared, vibe, withdrawal]);
 
   const withdrawNow = async () => {
     if (!withdrawal || !client || !observed || !canSubmitManual({
@@ -839,21 +528,20 @@ function RaceTheAgentDemoInner() {
           <div className="grid min-h-0 flex-1 grid-rows-3 gap-px bg-bds-gray-10 dark:bg-white/10">
             <RaceStep
               number="01"
-              title="Automatic condition agent"
-              detail="Always running after setup. It pre-submits an exact-block open and an exact next-block close guarded by the enabled state, then schedules the next pair."
-              active={prepared && !agentRunning}
-              complete={agentRunning}
+              title="Shared background agent"
+              detail="Shared Vibenet infrastructure drives this onchain switch in the background. This page only discovers the singleton and observes its current state."
+              active={!prepared}
+              complete={prepared}
             >
-              {setupError ? (
-                <div className="flex flex-col items-start gap-2">
-                  <Text variant="footnote" className="text-red-600 dark:text-red-300">{setupError}</Text>
-                  <Button variant="outline" size="sm" onClick={retrySetup}>Retry setup</Button>
-                </div>
-              ) : (
-                <Text variant="footnote" tone="muted">
-                  {progress ?? (agentRunning ? agentPhase : setupRunning ? 'Starting after setup' : 'Waiting for setup')}
-                </Text>
-              )}
+              <Text variant="footnote" tone={setupError ? 'default' : 'muted'} className={setupError ? 'text-red-600 dark:text-red-300' : undefined}>
+                {prepared
+                  ? 'Connected to the shared agent switch'
+                  : setupError
+                    ? `Shared infrastructure is not ready; retrying automatically. ${setupError}`
+                    : setupRunning
+                      ? 'Waiting for shared Vibenet infrastructure'
+                      : 'Discovering shared Vibenet infrastructure'}
+              </Text>
             </RaceStep>
             <RaceStep
               number="02"
@@ -878,10 +566,9 @@ function RaceTheAgentDemoInner() {
               </Button>
             </RaceStep>
           </div>
-          {(error || agentError) ? (
+          {error ? (
             <div className="space-y-1 border-t border-red-200 bg-red-50 px-5 py-4 text-[13px] text-red-700 sm:px-6 dark:border-white/10 dark:bg-red-500/10 dark:text-red-200">
-              {error ? <p>{error}</p> : null}
-              {agentError ? <p>Agent retrying: {agentError}</p> : null}
+              <p>{error}</p>
             </div>
           ) : null}
         </Card>
@@ -935,7 +622,7 @@ function RaceTheAgentDemoInner() {
           <div ref={observationsScrollRef} className="mt-5 max-w-full overflow-x-auto overscroll-x-contain">
             <div className="flex min-w-max items-center gap-2 pb-2">
               {observations.length === 0 ? (
-                <Text variant="label.regular" tone="muted">State observations appear after automatic setup.</Text>
+                <Text variant="label.regular" tone="muted">State observations appear when the shared agent singleton is ready.</Text>
               ) : observations.map((item, index) => (
                 <div key={`${item.block}-${item.at}-${index}`} className="flex items-center gap-2">
                   <div className={cn(
@@ -960,61 +647,6 @@ function RaceTheAgentDemoInner() {
       </div>
     </AccountDemoShell>
   );
-}
-
-async function refreshPreparedState(
-  client: PublicClient,
-  vibe: Address,
-  withdrawal: Address,
-  applyObservation: (observation: Observation) => void,
-  setBalance: (balance: bigint) => void,
-): Promise<void> {
-  const [state, block] = await Promise.all([
-    readConditionalWithdrawalState(client, vibe),
-    client.getBlockNumber({ cacheTime: 0 }),
-  ]);
-  setBalance(state.balance);
-  applyObservation({ enabled: state.enabled, block, at: Date.now() });
-}
-
-async function waitForBalance(
-  client: PublicClient,
-  address: Address,
-  minimum: bigint,
-  timeoutMs = 5_000,
-): Promise<bigint> {
-  const deadline = Date.now() + timeoutMs;
-  let balance = 0n;
-  while (Date.now() < deadline) {
-    balance = await client.getBalance({ address });
-    if (balance >= minimum) return balance;
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  }
-  return balance;
-}
-
-async function waitForScheduledClose(
-  openBlock: bigint,
-  active: () => boolean,
-  observation: () => Observation | null,
-  onClosing: () => void,
-): Promise<void> {
-  let closing = false;
-  const deadline = Date.now() + (RACE_VALIDITY_SECONDS + 2) * 1_000;
-  while (active()) {
-    const current = observation();
-    if (current && current.block >= openBlock && !closing) {
-      closing = true;
-      onClosing();
-    }
-    if (current && current.block >= openBlock + 1n && !current.enabled) return;
-    if (Date.now() >= deadline) throw new Error('Scheduled close was not observed before expiry.');
-    await delay(100);
-  }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function extractHash(message: string): Hex | undefined {

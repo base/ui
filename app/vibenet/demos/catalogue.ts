@@ -76,7 +76,7 @@ export const DEMOS: DemoEntry[] = [
           'Submit a withdrawal before it is valid, then race a randomized onchain condition with an ordinary transaction sent by hand.',
         points: [
           'Compare the same permissionless withdrawal call two ways',
-          'Watch a dedicated agent subaccount flip shared chain state',
+          'Watch a shared background Vibenet agent flip chain state',
           'Judge the result by inclusion blocks, not browser timing',
         ],
         available: true,

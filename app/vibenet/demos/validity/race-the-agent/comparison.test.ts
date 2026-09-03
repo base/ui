@@ -1,26 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  AGENT_DISABLED_DWELL_MAX_MS,
-  AGENT_DISABLED_DWELL_MIN_MS,
   attemptHistoryRows,
   canSubmitManual,
   canSubmitValidity,
   isAttemptTerminal,
   preserveCompletedAttempt,
-  randomAgentDwellMs,
   RACE_VALIDITY_SECONDS,
-  scheduledAgentOpenBlock,
-  scheduledAgentPredicates,
-  shouldRunConditionAgent,
-  shouldRestartConditionAgent,
   type Attempt,
 } from './comparison';
 import { noncelessFields } from '../../../library/aa';
-import { conditionalWithdrawalEnabledPredicate } from '../lib/conditionalWithdrawal';
-import { blockNumberPredicate } from '../lib/predicates';
-
-const WITHDRAWAL = '0x1111111111111111111111111111111111111111';
 
 describe('isAttemptTerminal', () => {
   it('only stops on final receipt or expiry states', () => {
@@ -38,38 +27,6 @@ describe('race lifecycle predicates', () => {
     const fields = noncelessFields(RACE_VALIDITY_SECONDS, now);
     expect(RACE_VALIDITY_SECONDS).toBe(15);
     expect(fields.validBefore).toBe(BigInt(now + 15_000));
-  });
-
-  it('runs the condition agent only when automatic setup resources are ready', () => {
-    expect(shouldRunConditionAgent({ prepared: true, hasAgent: true, hasClient: true, hasContract: true })).toBe(true);
-    expect(shouldRunConditionAgent({ prepared: false, hasAgent: true, hasClient: true, hasContract: true })).toBe(false);
-    expect(shouldRunConditionAgent({ prepared: true, hasAgent: false, hasClient: true, hasContract: true })).toBe(false);
-    expect(shouldRestartConditionAgent(true, true)).toBe(true);
-    expect(shouldRestartConditionAgent(false, true)).toBe(false);
-    expect(shouldRestartConditionAgent(true, false)).toBe(false);
-  });
-
-  it('converts bounded disabled dwell times to 200ms Vibenet schedule blocks', () => {
-    expect(AGENT_DISABLED_DWELL_MIN_MS).toBe(2_000);
-    expect(AGENT_DISABLED_DWELL_MAX_MS).toBe(10_000);
-    expect(randomAgentDwellMs(0)).toBe(AGENT_DISABLED_DWELL_MIN_MS);
-    expect(randomAgentDwellMs(0.999999)).toBe(AGENT_DISABLED_DWELL_MAX_MS);
-    expect(scheduledAgentOpenBlock(100n, 2_000)).toBe(110n);
-    expect(scheduledAgentOpenBlock(100n, 10_000)).toBe(150n);
-    expect(scheduledAgentOpenBlock(100n, 2_001)).toBe(111n);
-  });
-
-  it('opens only at the exact scheduled block and closes afterward when enabled', () => {
-    const predicates = scheduledAgentPredicates(WITHDRAWAL, 110n);
-    expect(predicates.open).toEqual([
-      blockNumberPredicate('>=', 110n),
-      blockNumberPredicate('<=', 110n),
-    ]);
-    expect(predicates.close).toEqual([
-      blockNumberPredicate('>=', 111n),
-      blockNumberPredicate('<=', 111n),
-      conditionalWithdrawalEnabledPredicate(WITHDRAWAL),
-    ]);
   });
 
   it('allows retries after terminal attempts and preserves every completed attempt', () => {
