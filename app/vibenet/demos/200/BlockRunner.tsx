@@ -253,7 +253,7 @@ function drawNeonSign(ctx: CanvasRenderingContext2D, cx: number, roofY: number):
   ctx.globalAlpha = 0.35;
   ctx.fillRect(x - 4, y - 4, w + 8, h + 8); // glow
   ctx.globalAlpha = 1;
-  ctx.font = 'bold 11px var(--font-mono, ui-monospace, monospace)';
+  ctx.font = `bold 11px ${dotoFamily()}`;
   ctx.textAlign = 'center';
   ctx.fillStyle = P.B;
   ctx.fillText('BASE', cx, y + 12);
@@ -312,40 +312,24 @@ function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   drawSprite(ctx, CRATE_TOP.slice(0, 1), x, y + h - scale, scale, P);
 }
 
-/** Chunky pixel text: rendered small offscreen with an outline, scaled up
- * with smoothing off. Cached per string+style. */
-const chunkyCache = new Map<string, HTMLCanvasElement>();
-function chunkyText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  cx: number,
-  top: number,
-  scale: number,
-  fill: string,
-  outline: string,
-): number {
-  const key = `${text}|${fill}|${outline}`;
-  let off = chunkyCache.get(key);
-  if (!off) {
-    const measure = document.createElement('canvas').getContext('2d')!;
-    measure.font = 'bold 11px ui-monospace, monospace';
-    const tw = Math.ceil(measure.measureText(text).width);
-    off = document.createElement('canvas');
-    off.width = tw + 4;
-    off.height = 16;
-    const o = off.getContext('2d')!;
-    o.font = 'bold 11px ui-monospace, monospace';
-    o.textBaseline = 'top';
-    o.fillStyle = outline;
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1], [-1, 1]] as const) o.fillText(text, 2 + dx, 2 + dy);
-    o.fillStyle = fill;
-    o.fillText(text, 2, 2);
-    chunkyCache.set(key, off);
+// Canvas font strings cannot resolve CSS var()s, so the real families are
+// read off the document once and cached. Doto is the game-UI face; the mono
+// stays for the dialog's longer sentences.
+let dotoCache: string | null = null;
+function dotoFamily(): string {
+  if (dotoCache === null) {
+    const v = window.getComputedStyle(document.documentElement).getPropertyValue('--font-doto').trim();
+    dotoCache = v ? `${v}, monospace` : 'ui-monospace, monospace';
   }
-  const w = off.width * scale;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, Math.round(cx - w / 2), Math.round(top), w, off.height * scale);
-  return w;
+  return dotoCache;
+}
+let monoCache: string | null = null;
+function monoFamily(): string {
+  if (monoCache === null) {
+    const v = window.getComputedStyle(document.documentElement).getPropertyValue('--font-roboto-mono').trim();
+    monoCache = v ? `${v}, monospace` : 'ui-monospace, monospace';
+  }
+  return monoCache;
 }
 
 /** A row of colored key hints ("R restart · M mute…"), centered. */
@@ -358,7 +342,7 @@ function keysLine(ctx: CanvasRenderingContext2D, cx: number, y: number): void {
     ['F', P.b],
     [' full screen', P.g],
   ];
-  ctx.font = 'bold 12px var(--font-mono, ui-monospace, monospace)';
+  ctx.font = `bold 12px ${dotoFamily()}`;
   ctx.textAlign = 'left';
   const total = parts.reduce((n, [t]) => n + ctx.measureText(t).width, 0);
   let x = cx - total / 2;
@@ -376,7 +360,7 @@ function drawDialog(ctx: CanvasRenderingContext2D, game: Game, frame: number): v
   const w = 660;
   const h = dead ? 190 : 232;
   const x = Math.round((WIDTH - w) / 2);
-  const y = 34;
+  const y = 62;
   const METAL = '#8d95a6';
   const METAL_DARK = '#4a5164';
   const METAL_LIGHT = '#c3cad9';
@@ -420,7 +404,12 @@ function drawDialog(ctx: CanvasRenderingContext2D, game: Game, frame: number): v
 
   // Title with arrow flourishes.
   const titleY = y + 14;
-  const tw = chunkyText(ctx, dead ? 'GAME OVER' : 'BLOCK RUNNER', WIDTH / 2, titleY, 3, P.w, '#1a3fb8');
+  const title = dead ? 'GAME OVER' : 'BLOCK RUNNER';
+  ctx.font = `40px ${dotoFamily()}`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = P.w;
+  ctx.fillText(title, WIDTH / 2, titleY + 34);
+  const tw = ctx.measureText(title).width;
   ctx.fillStyle = P.b;
   const gap = tw / 2 + 16;
   ctx.fillRect(WIDTH / 2 - gap - 30, titleY + 20, 24, 3);
@@ -430,7 +419,9 @@ function drawDialog(ctx: CanvasRenderingContext2D, game: Game, frame: number): v
 
   ctx.textAlign = 'center';
   if (dead) {
-    chunkyText(ctx, `${game.score} BLOCKS EATEN`, WIDTH / 2, y + 74, 2, P.y, '#5c4a00');
+    ctx.font = `26px ${dotoFamily()}`;
+    ctx.fillStyle = P.y;
+    ctx.fillText(`${game.score} BLOCKS EATEN`, WIDTH / 2, y + 96);
     keysLine(ctx, WIDTH / 2, y + 122);
   } else {
     // Icon bullets: real game sprites next to each line.
@@ -439,7 +430,7 @@ function drawDialog(ctx: CanvasRenderingContext2D, game: Game, frame: number): v
       [() => drawGlutton(ctx, GLUTTON.happy, x + 30, y + 84, 1, 1.5), 'Tap to bite: one tap, one block. Uneaten blocks cost a heart.'],
       [() => drawSprite(ctx, HEART, x + 34, y + 118, 2, P), 'Fill the belly for FULL mode — briefly unstoppable, then hungry again.'],
     ];
-    ctx.font = '12px var(--font-mono, ui-monospace, monospace)';
+    ctx.font = `12px ${monoFamily()}`;
     ctx.textAlign = 'left';
     lines.forEach(([icon, text], i) => {
       icon();
@@ -471,7 +462,10 @@ function drawDialog(ctx: CanvasRenderingContext2D, game: Game, frame: number): v
   ctx.fillRect(bx - 4, by + bh / 2 - 4, 3, 8);
   ctx.fillRect(bx + bw + 1, by + bh / 2 - 4, 3, 8);
   if (Math.floor(frame / 24) % 2 === 0) {
-    chunkyText(ctx, dead ? '\u25b6 TAP TO RUN AGAIN' : '\u25b6 TAP TO START', WIDTH / 2, by + 5, 2, P.y, '#5c4a00');
+    ctx.font = `20px ${dotoFamily()}`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = P.y;
+    ctx.fillText(dead ? '\u25b6 TAP TO RUN AGAIN' : '\u25b6 TAP TO START', WIDTH / 2, by + 21);
   }
 
   // Bottom-left hearts + belly chip; bottom-right crate stack (ready only).
@@ -515,7 +509,7 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
   drawSprite(ctx, game.bossMouth > 0 ? BOSS_OPEN : BOSS_CLOSED, BOSS_X, bossY, SCALE, P);
   if (feedQuiet) {
     ctx.fillStyle = P.w;
-    ctx.font = 'bold 12px var(--font-mono, ui-monospace, monospace)';
+    ctx.font = `bold 12px ${dotoFamily()}`;
     ctx.textAlign = 'center';
     ctx.fillText('zzz', BOSS_X + 48, bossY - 8);
   }
@@ -588,7 +582,7 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
   ctx.globalAlpha = 1;
 
   // Revealed labels, with a dark plate so they read over anything.
-  ctx.font = 'bold 13px var(--font-mono, ui-monospace, monospace)';
+  ctx.font = `bold 13px ${dotoFamily()}`;
   ctx.textAlign = 'center';
   for (const l of game.labels) {
     ctx.globalAlpha = Math.max(0, 1 - l.age / 1.2);
@@ -610,19 +604,19 @@ function render(ctx: CanvasRenderingContext2D, game: Game, frame: number, feedQu
   const meterW = 120;
   const fillFrac = game.stuffed ? fullMeter(game) : game.fullness;
   ctx.fillStyle = P.railEdge;
-  ctx.fillRect(16, 16, meterW + 6, 14);
+  ctx.fillRect(16, 322, meterW + 6, 14);
   ctx.fillStyle = P.rail;
-  ctx.fillRect(19, 19, meterW, 8);
+  ctx.fillRect(19, 325, meterW, 8);
   ctx.fillStyle = game.stuffed ? P.y : P.b;
-  ctx.fillRect(19, 19, Math.round(meterW * Math.max(0, Math.min(1, fillFrac))), 8);
+  ctx.fillRect(19, 325, Math.round(meterW * Math.max(0, Math.min(1, fillFrac))), 8);
   ctx.fillStyle = P.hud;
-  ctx.font = 'bold 10px var(--font-mono, ui-monospace, monospace)';
+  ctx.font = `bold 10px ${dotoFamily()}`;
   ctx.textAlign = 'left';
-  ctx.fillText(game.stuffed ? 'FULL!' : 'BELLY', 16, 44);
+  ctx.fillText(game.stuffed ? 'FULL!' : 'BELLY', 16, 350);
 
   // Hearts: pixel hearts next to the meter; empty ones are outlined.
   for (let i = 0; i < MAX_HEARTS; i += 1) {
-    drawSprite(ctx, i < game.hearts ? HEART : HEART_EMPTY, 150 + i * 22, 14, 2, P);
+    drawSprite(ctx, i < game.hearts ? HEART : HEART_EMPTY, 150 + i * 22, 320, 2, P);
   }
   }
 
@@ -823,7 +817,10 @@ export function BlockRunner() {
 
   // Input.
   const doTap = useCallback(() => apply(tap(gameRef.current)), [apply]);
-  const doRestart = useCallback(() => apply(restart(gameRef.current)), [apply]);
+  const doRestart = useCallback(() => {
+    setSubmitState((st) => (st === 'done' || st === 'error' ? '' : st));
+    apply(restart(gameRef.current));
+  }, [apply]);
 
   useEffect(() => {
     const isTyping = (e: KeyboardEvent) => {
@@ -958,19 +955,7 @@ export function BlockRunner() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div className="flex flex-col gap-0.5">
-          <Text variant="caption" tone="muted">
-            Latest block
-          </Text>
-          <div className="font-doto text-[28px] leading-none tabular-nums text-foreground">
-            {head ? head.number.toLocaleString() : '———'}
-            {slot ? <span className="text-base-blue"> {slot}</span> : null}
-          </div>
-        </div>
-        <Stat label="Blocks / s" value={rate.toFixed(1)} />
-        <Stat label="Eaten" value={String(score)} />
-        <Stat label="Best" value={String(best)} />
+      <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2">
         <div className="flex items-center gap-3">
           <span
             className={`inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.6px] ${
@@ -1007,10 +992,10 @@ export function BlockRunner() {
         ref={stageRef}
         className={
           isFullscreen
-            ? 'flex h-full w-full items-center justify-center bg-[#12093a]'
+            ? 'relative flex h-full w-full items-center justify-center bg-[#12093a]'
             : immersive
               ? 'fixed inset-0 z-[115] flex items-center justify-center bg-[#12093a]'
-              : 'contents'
+              : 'relative mx-auto w-full max-w-[800px]'
         }
       >
       <canvas
@@ -1026,8 +1011,57 @@ export function BlockRunner() {
         aria-label={`Block Runner. ${phase === 'running' ? `Score ${score}.` : 'Tap space or the screen to start eating.'}`}
         role="img"
       />
+      {/* Once a submit starts, the board's own poll can raise chainBest past
+          the score mid-flight — keep the prompt mounted on submitState so the
+          progress and the success line survive their own success. */}
+      <div className="pointer-events-none absolute inset-x-0 top-2 flex items-start justify-between px-4">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[10px] uppercase tracking-[0.6px] text-white/60">Latest block</span>
+          <div className="font-doto text-[22px] leading-none tabular-nums text-white">
+            {head ? head.number.toLocaleString() : '———'}
+            {slot ? <span className="text-bds-blue-30"> {slot}</span> : null}
+          </div>
+        </div>
+        <div className="flex items-start gap-6">
+          <GameStat label="Blocks / s" value={rate.toFixed(1)} />
+          <GameStat label="Eaten" value={String(score)} />
+          <GameStat label="Best" value={String(best)} />
+        </div>
+      </div>
+      {phase === 'dead' && score > 0 && (score > chainBest || submitState !== '') ? (
+        <div className="absolute inset-x-0 bottom-[7%] flex justify-center">
+          <div className="flex items-center gap-3 rounded-xl border border-bds-blue-60 bg-[#0b1030]/95 px-4 py-3 shadow-lg">
+            {submitState === 'done' ? (
+              <Text variant="label.regular" className="text-bds-blue-15">
+                On the board — tap the game to run again.
+              </Text>
+            ) : (
+              <>
+                <Text variant="label.regular" className="text-bds-blue-15">
+                  New onchain best!
+                </Text>
+                <Button
+                  size="sm"
+                  onClick={() => void postScore()}
+                  disabled={submitState === 'funding' || submitState === 'submitting' || submitState === 'confirming'}
+                >
+                  {submitState === 'funding'
+                    ? 'Funding wallet…'
+                    : submitState === 'submitting'
+                      ? 'Submitting…'
+                      : submitState === 'confirming'
+                        ? 'Confirming…'
+                        : submitState === 'error'
+                          ? 'Retry post'
+                          : `Post ${score} onchain`}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
       {immersive && !isFullscreen ? (
-        <div className="absolute right-4 top-4 flex items-center gap-2">
+        <div className="absolute bottom-4 right-4 flex items-center gap-2">
           <Button
             variant="secondary"
             size="sm"
@@ -1053,7 +1087,24 @@ export function BlockRunner() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Text variant="headline">Onchain high scores</Text>
           <div className="flex items-center gap-3">
-            {phase === 'dead' && score > 0 && score > chainBest ? (
+            {/* Once a submit starts, the board's own poll can raise chainBest past
+          the score mid-flight — keep the prompt mounted on submitState so the
+          progress and the success line survive their own success. */}
+      <div className="pointer-events-none absolute inset-x-0 top-2 flex items-start justify-between px-4">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[10px] uppercase tracking-[0.6px] text-white/60">Latest block</span>
+          <div className="font-doto text-[22px] leading-none tabular-nums text-white">
+            {head ? head.number.toLocaleString() : '———'}
+            {slot ? <span className="text-bds-blue-30"> {slot}</span> : null}
+          </div>
+        </div>
+        <div className="flex items-start gap-6">
+          <GameStat label="Blocks / s" value={rate.toFixed(1)} />
+          <GameStat label="Eaten" value={String(score)} />
+          <GameStat label="Best" value={String(best)} />
+        </div>
+      </div>
+      {phase === 'dead' && score > 0 && (score > chainBest || submitState !== '') ? (
               <Button
                 variant="secondary"
                 size="sm"
@@ -1128,13 +1179,12 @@ export function BlockRunner() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function GameStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <Text variant="caption" tone="muted">
-        {label}
-      </Text>
-      <span className="font-doto text-[28px] leading-none tabular-nums text-foreground">{value}</span>
+    <div className="flex flex-col items-end gap-0.5">
+      <span className="text-[10px] uppercase tracking-[0.6px] text-white/60">{label}</span>
+      <span className="font-doto text-[22px] leading-none tabular-nums text-white">{value}</span>
     </div>
   );
 }
+
