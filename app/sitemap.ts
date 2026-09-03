@@ -17,9 +17,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/upgrades', priority: 0.8, changeFrequency: 'weekly' },
     { path: '/upgrades/changelog', priority: 0.7, changeFrequency: 'weekly' },
     { path: '/snapshots', priority: 0.7, changeFrequency: 'daily' },
-    // Internal Explorer and Benchmark are internal-only and never on the public
-    // chain.base.org, so they are deliberately absent from this public SEO
-    // sitemap.
+    // Internal Explorer, Benchmark, and Performance are internal-only and
+    // never on the public chain.base.org, so they are deliberately absent from
+    // this public SEO sitemap.
     { path: '/vibenet', priority: 0.8, changeFrequency: 'weekly' },
     { path: '/vibenet/explorer', priority: 0.6, changeFrequency: 'daily' },
     { path: '/vibenet/faucet', priority: 0.5, changeFrequency: 'monthly' },

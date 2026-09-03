@@ -165,7 +165,7 @@ jobs:
                        /internal-explorer/bundles/0x1 /api/internal-explorer/blocks \
                        /tips /tips/block/0x1 /tips/bundles/0x1 /api/tips/blocks \
                        /benchmark /benchmark/run/latest /benchmark/run-comparison/1 \
-                       /benchmark/load-tests/sepolia; do
+                       /benchmark/load-tests/sepolia /performance; do
             code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000${route}")
             if [ "${code}" != "404" ]; then
               echo "FAIL: ${route} returned ${code}, expected 404"
@@ -183,7 +183,7 @@ jobs:
           done
 
           # No nav link to, or sitemap entry for, an internal-only section.
-          for section in /internal-explorer /tips /benchmark; do
+          for section in /internal-explorer /tips /benchmark /performance; do
             if curl -s http://localhost:3000/ | grep -q "href=\"${section}\""; then
               echo "FAIL: public homepage links to ${section}"
               fail=1

@@ -281,6 +281,13 @@ function NavGlyph({ name }: NavGlyphProps) {
           <path d="M3 12h3.5l2.5-6 4 12 2.5-6H21" />
         </svg>
       );
+    case 'performance':
+      return (
+        <svg {...common} className="nav-performance-icon">
+          <path d="M3.34 17a10 10 0 1 1 17.32 0" />
+          <path d="m12 14 4-4" />
+        </svg>
+      );
     default:
       return null;
   }

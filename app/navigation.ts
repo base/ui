@@ -1,8 +1,9 @@
 import { BENCHMARK_ENABLED } from './benchmark/flag';
 import { EXPLORER_ENABLED, EXPLORER_LABEL } from './internal-explorer/flag';
 import { demoBreadcrumb } from './vibenet/demos/catalogue';
+import { PERFORMANCE_ENABLED } from './performance/flag';
 
-export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
+export type NavIcon = 'home' | 'snapshots' | 'upgrades' | 'changelog' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest' | 'performance';
 
 export type NavChild = {
   label: string;
@@ -56,6 +57,11 @@ export const NAV_ITEMS: NavItem[] = [
           ],
         } as NavItem,
       ]
+    : []),
+  // Performance is internal-only; present only in the internal build target
+  // (deploy.config.mjs). See app/performance/flag.ts.
+  ...(PERFORMANCE_ENABLED
+    ? [{ label: 'Performance', href: '/performance', icon: 'performance', enabled: true } as NavItem]
     : []),
 ];
 

@@ -90,4 +90,10 @@ export function trackValidityRace(
   status: 'started' | 'submitted' | 'success' | 'reverted' | 'expired' | 'stopped' | 'error',
 ): void {
   track('validity_race', { attempt, status });
+// --- Performance: swaps vs transfers load-test summary ---
+}
+export type PerformanceTestType = 'swaps' | 'transfers';
+
+export function trackPerformanceTestTypeSelect(kind: PerformanceTestType): void {
+  track('performance_test_type_select', { kind });
 }

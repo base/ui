@@ -42,6 +42,12 @@ export const SURFACES = {
     routePrefixes: ['/benchmark'],
     targets: ['internal'],
   },
+  // Same as Benchmark: the UI reads NEXT_PUBLIC_BENCHMARK_API_BASE_URL from
+  // the browser, so this app serves no /api path for it.
+  performance: {
+    routePrefixes: ['/performance'],
+    targets: ['internal'],
+  },
 };
 
 /** Is a surface included in the current build target? Unknown key => yes. */

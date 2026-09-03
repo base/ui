@@ -28,13 +28,20 @@ describe('deploy.config', () => {
       const c = await loadWithTarget('external');
       expect(c.surfaceEnabled('internal-explorer')).toBe(false);
       expect(c.surfaceEnabled('benchmark')).toBe(false);
+      expect(c.surfaceEnabled('performance')).toBe(false);
     });
 
     it('reports the disabled route + api prefixes and subtree globs', async () => {
       const c = await loadWithTarget('external');
-      expect(c.disabledRoutePrefixes()).toEqual(['/internal-explorer', '/tips', '/benchmark']);
-      // Benchmark contributes no api prefix: it calls the report API directly
-      // from the browser rather than through a route handler in this app.
+      expect(c.disabledRoutePrefixes()).toEqual([
+        '/internal-explorer',
+        '/tips',
+        '/benchmark',
+        '/performance',
+      ]);
+      // Benchmark and Performance contribute no api prefix: they call the
+      // report API directly from the browser rather than through a route handler
+      // in this app.
       expect(c.disabledApiPrefixes()).toEqual(['/api/internal-explorer', '/api/tips']);
       expect(c.disabledRouteGlobs()).toEqual([
         '/internal-explorer',
@@ -43,6 +50,8 @@ describe('deploy.config', () => {
         '/tips/**',
         '/benchmark',
         '/benchmark/**',
+        '/performance',
+        '/performance/**',
       ]);
     });
   });
@@ -53,6 +62,7 @@ describe('deploy.config', () => {
       expect(c.TARGET).toBe('internal');
       expect(c.surfaceEnabled('internal-explorer')).toBe(true);
       expect(c.surfaceEnabled('benchmark')).toBe(true);
+      expect(c.surfaceEnabled('performance')).toBe(true);
     });
 
     it('disables nothing', async () => {
