@@ -15,10 +15,13 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { Spinner } from '../../../components/ui/Spinner';
 import { Text } from '../../../components/ui/Text';
+import type { Inclusion } from './inclusion';
+import { InclusionBadge } from './InclusionBadge';
 import { ViewTransactionButton } from './ViewTransactionButton';
 
 export type TxStep = 'build' | 'review' | 'submitted';
-export type TxResult = { txHash?: string } | null;
+/** `inclusion` is set once the tx landed — which 200 ms block, and how fast. */
+export type TxResult = { txHash?: string; inclusion?: Inclusion } | null;
 
 const DEFAULT_TITLES: Record<TxStep, string> = {
   build: 'Create Transaction',
@@ -104,6 +107,7 @@ function DefaultSubmitted({
         ✓
       </span>
       {renderSuccess ? renderSuccess() : <Text variant="title3">Transaction submitted</Text>}
+      {result?.inclusion ? <InclusionBadge inclusion={result.inclusion} /> : null}
     </div>
   );
 }

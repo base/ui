@@ -41,7 +41,7 @@ export const DEMOS: DemoEntry[] = [
     points: [
       'Smart & EOA accounts — deterministic addresses',
       'K1 / P-256 / passkey signers',
-      'Live balances on Vibenet',
+      'Transactions land in the next 200 ms block',
     ],
     available: true,
   },
@@ -56,6 +56,7 @@ export const DEMOS: DemoEntry[] = [
       'Pay gas with your own stablecoin (ERC-8168 token payment)',
       'Transaction memos for payment tracking and reconciliation',
       'Policies and Asset announcements',
+      'Every send confirms in a 200 ms block',
     ],
     available: true,
   },

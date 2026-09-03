@@ -8,10 +8,18 @@ import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { type ActivityEntry, type StoredAccount, formatTime } from '../library/model';
 import { short } from '../shared';
+import type { Inclusion } from '../../_shared/inclusion';
+import { InclusionBadge } from '../../_shared/InclusionBadge';
 import { AccountIdentity, Badge } from '../../_shared/primitives';
 import { ViewTransactionButton } from '../../_shared/ViewTransactionButton';
 
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
+
+/** Inclusion timing stored on the entry, when the engine observed it land. */
+function inclusionOf(e: ActivityEntry): Inclusion | null {
+  if (typeof e.blockNumber !== 'number' || typeof e.inclusionMs !== 'number') return null;
+  return { blockNumber: e.blockNumber, blockTimestampMs: e.blockTimestampMs ?? null, inclusionMs: e.inclusionMs };
+}
 
 export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[]; accounts: StoredAccount[] }) {
   const reducedMotion = useReducedMotion();
@@ -57,6 +65,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
         <tbody>
           {activity.map((e, i) => {
             const txHash = e.txHash && TX_HASH_RE.test(e.txHash) ? e.txHash : null;
+            const inclusion = inclusionOf(e);
             const acct = e.account
               ? accounts.find((a) => a.address.toLowerCase() === e.account!.toLowerCase())
               : undefined;
@@ -106,6 +115,11 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                         ))}
                       </div>
                     ) : null}
+                    {inclusion ? (
+                      <div>
+                        <InclusionBadge inclusion={inclusion} />
+                      </div>
+                    ) : null}
                   </div>
                 </td>
                 <td className="px-4 py-3.5 align-top text-right">
@@ -123,6 +137,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
       <div className="flex flex-col sm:hidden">
         {activity.map((e, i) => {
           const txHash = e.txHash && TX_HASH_RE.test(e.txHash) ? e.txHash : null;
+          const inclusion = inclusionOf(e);
           const acct = e.account
             ? accounts.find((a) => a.address.toLowerCase() === e.account!.toLowerCase())
             : undefined;
@@ -168,6 +183,12 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                   {e.changes.map((c, ci) => (
                     <Badge key={`${e.id}-${ci}`}>{c}</Badge>
                   ))}
+                </div>
+              ) : null}
+
+              {inclusion ? (
+                <div>
+                  <InclusionBadge inclusion={inclusion} />
                 </div>
               ) : null}
 
