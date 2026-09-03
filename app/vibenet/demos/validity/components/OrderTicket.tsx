@@ -254,7 +254,7 @@ export function OrderTicket({
             </Text>
             <InfoTooltip label="About expiry">
               Drops the swap from the mempool once this much time has passed — the ceiling paired
-              with delay's floor.
+              with the delay floor.
             </InfoTooltip>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -287,7 +287,7 @@ export function OrderTicket({
               Delay
             </Text>
             <InfoTooltip label="About delay">
-              Holds the swap until this much time has passed — the floor paired with expiry's
+              Holds the swap until this much time has passed — the floor paired with the expiry
               ceiling.
             </InfoTooltip>
           </div>
