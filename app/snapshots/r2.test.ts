@@ -1,4 +1,4 @@
-import { decodeXml, isNetworkVisibleInUi, NETWORK_IDS } from './r2';
+import { decodeXml, isNetworkVisibleInUi, NETWORK_IDS, tailChunkSize } from './r2';
 
 describe('network visibility', () => {
   // Zeronet was removed outright in "Cobalt and fixes" (#14) to hide it from the
@@ -48,5 +48,19 @@ describe('decodeXml', () => {
 
   it('decodes entities mixed into surrounding text', () => {
     expect(decodeXml('a&amp;b&lt;c&gt;d')).toBe('a&b<c>d');
+  });
+});
+
+describe('tailChunkSize', () => {
+  it('sums the final three compressed chunks', () => {
+    expect(tailChunkSize([10, 20, 30, 40, 50])).toBe(120);
+  });
+
+  it('uses every chunk when fewer than three exist', () => {
+    expect(tailChunkSize([10, 20])).toBe(30);
+  });
+
+  it('is absent for components that are not chunked', () => {
+    expect(tailChunkSize(undefined)).toBeUndefined();
   });
 });

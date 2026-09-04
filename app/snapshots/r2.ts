@@ -359,7 +359,13 @@ function buildSnapshot(network: NetworkConfig, prefix: string, manifest: R2Manif
 
 function buildComponent(name: string, component: R2ManifestComponent): SnapshotComponent {
   const metadata = COMPONENT_META[name] ?? { displayName: titleize(name), description: titleize(name) };
-  return { name, ...metadata, size: componentSize(component) };
+  const tailSize = tailChunkSize(component.chunk_sizes);
+  return {
+    name,
+    ...metadata,
+    size: componentSize(component),
+    ...(tailSize === undefined ? {} : { tailSize }),
+  };
 }
 
 function componentSize(component: R2ManifestComponent): number {
@@ -369,6 +375,10 @@ function componentSize(component: R2ManifestComponent): number {
   if (component.chunk_output_files)
     return component.chunk_output_files.flat().reduce((sum, file) => sum + (file.size ?? 0), 0);
   return 0;
+}
+
+export function tailChunkSize(chunkSizes: number[] | undefined): number | undefined {
+  return chunkSizes?.slice(-3).reduce((sum, size) => sum + size, 0);
 }
 
 function componentSortIndex(name: string): number {
