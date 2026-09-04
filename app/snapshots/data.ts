@@ -6,6 +6,7 @@ export type SnapshotComponent = {
   displayName: string;
   description: string;
   size: number; // bytes
+  fullSize?: number; // bytes downloaded for this component by the Full preset
 };
 
 export type Snapshot = {
@@ -71,6 +72,26 @@ export const PRESETS: Preset[] = [
   },
 ];
 
+const FULL_HISTORY_COMPONENTS = new Set([
+  'transactions',
+  'receipts',
+  'account_changesets',
+  'storage_changesets',
+]);
+
+export function presetSize(components: SnapshotComponent[], preset: Preset): number {
+  return components
+    .filter((component) => preset.components.includes(component.name))
+    .reduce(
+      (sum, component) =>
+        sum +
+        (preset.name === 'full' && FULL_HISTORY_COMPONENTS.has(component.name)
+          ? (component.fullSize ?? component.size)
+          : component.size),
+      0,
+    );
+}
+
 export const CHAIN_NAME_BY_NETWORK: Record<string, string> = {
   mainnet: 'base',
   sepolia: 'base-sepolia',
@@ -122,11 +143,15 @@ export const COMPONENT_META: Record<string, { displayName: string; description: 
 
 export const COMPONENT_ORDER = Object.keys(COMPONENT_META);
 
-function buildComponents(sizesGB: Record<string, number>): SnapshotComponent[] {
+function buildComponents(
+  sizesGB: Record<string, number>,
+  fullSizesGB: Record<string, number>,
+): SnapshotComponent[] {
   return COMPONENT_ORDER.map((name) => ({
     name,
     ...COMPONENT_META[name],
     size: (sizesGB[name] ?? 0) * GB,
+    ...(fullSizesGB[name] === undefined ? {} : { fullSize: fullSizesGB[name] * GB }),
   }));
 }
 
@@ -136,8 +161,9 @@ function sampleSnapshot(
   chainId: string,
   block: number,
   sizesGB: Record<string, number>,
+  fullSizesGB: Record<string, number>,
 ): Snapshot {
-  const components = buildComponents(sizesGB);
+  const components = buildComponents(sizesGB, fullSizesGB);
   return {
     chainId,
     chainName,
@@ -156,36 +182,72 @@ function sampleSnapshot(
 }
 
 export const SAMPLE_SNAPSHOTS: Snapshot[] = [
-  sampleSnapshot('mainnet', 'Base Mainnet', '8453', 34200000, {
-    state: 900,
-    headers: 9,
-    transactions: 420,
-    transaction_senders: 55,
-    receipts: 520,
-    account_changesets: 310,
-    storage_changesets: 680,
-    rocksdb_indices: 240,
-  }),
-  sampleSnapshot('sepolia', 'Base Sepolia', '84532', 19800000, {
-    state: 140,
-    headers: 3,
-    transactions: 60,
-    transaction_senders: 9,
-    receipts: 70,
-    account_changesets: 40,
-    storage_changesets: 90,
-    rocksdb_indices: 35,
-  }),
+  sampleSnapshot(
+    'mainnet',
+    'Base Mainnet',
+    '8453',
+    34200000,
+    {
+      state: 900,
+      headers: 9,
+      transactions: 420,
+      transaction_senders: 55,
+      receipts: 520,
+      account_changesets: 310,
+      storage_changesets: 680,
+      rocksdb_indices: 240,
+    },
+    {
+      transactions: 42,
+      receipts: 21,
+      account_changesets: 4,
+      storage_changesets: 21,
+    },
+  ),
+  sampleSnapshot(
+    'sepolia',
+    'Base Sepolia',
+    '84532',
+    19800000,
+    {
+      state: 140,
+      headers: 3,
+      transactions: 60,
+      transaction_senders: 9,
+      receipts: 70,
+      account_changesets: 40,
+      storage_changesets: 90,
+      rocksdb_indices: 35,
+    },
+    {
+      transactions: 9,
+      receipts: 10,
+      account_changesets: 1,
+      storage_changesets: 8,
+    },
+  ),
   // Hidden from the page (see isNetworkVisibleInUi) but still served by the API,
   // so the dev fallback mirrors what /api/snapshots returns.
-  sampleSnapshot('zeronet', 'Base Zeronet', '84530', 512000, {
-    state: 12,
-    headers: 1,
-    transactions: 3,
-    transaction_senders: 1,
-    receipts: 4,
-    account_changesets: 2,
-    storage_changesets: 5,
-    rocksdb_indices: 2,
-  }),
+  sampleSnapshot(
+    'zeronet',
+    'Base Zeronet',
+    '84530',
+    512000,
+    {
+      state: 12,
+      headers: 1,
+      transactions: 3,
+      transaction_senders: 1,
+      receipts: 4,
+      account_changesets: 2,
+      storage_changesets: 5,
+      rocksdb_indices: 2,
+    },
+    {
+      transactions: 1,
+      receipts: 1,
+      account_changesets: 1,
+      storage_changesets: 2,
+    },
+  ),
 ];

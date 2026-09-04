@@ -1,4 +1,4 @@
-import { decodeXml, isNetworkVisibleInUi, NETWORK_IDS } from './r2';
+import { decodeXml, historyChunkSize, isNetworkVisibleInUi, NETWORK_IDS } from './r2';
 
 describe('network visibility', () => {
   // Zeronet was removed outright in "Cobalt and fixes" (#14) to hide it from the
@@ -48,5 +48,32 @@ describe('decodeXml', () => {
 
   it('decodes entities mixed into surrounding text', () => {
     expect(decodeXml('a&amp;b&lt;c&gt;d')).toBe('a&b<c>d');
+  });
+});
+
+describe('historyChunkSize', () => {
+  const chunkFiles = [
+    'static_files/transactions-48500000-48999999.tar.zst',
+    'static_files/transactions-49000000-49499999.tar.zst',
+    'static_files/transactions-49500000-49999999.tar.zst',
+    'static_files/transactions-50000000-50499999.tar.zst',
+    'snapshot/transactions-50500000-50999999.tar.zst',
+  ];
+  const chunkSizes = [10, 20, 30, 40, 50];
+
+  it('includes four files when a partial tail chunk puts the 1,339,200-block cutoff in the fourth file', () => {
+    expect(historyChunkSize(50_800_000, chunkSizes, chunkFiles)).toBe(20 + 30 + 40 + 50);
+  });
+
+  it('includes three files when they cover the entire 1,339,200-block window', () => {
+    expect(historyChunkSize(50_900_000, chunkSizes, chunkFiles)).toBe(30 + 40 + 50);
+  });
+
+  it('is absent for components that are not chunked', () => {
+    expect(historyChunkSize(50_758_927, undefined, undefined)).toBeUndefined();
+  });
+
+  it('is absent when chunk files cannot be matched safely to their sizes', () => {
+    expect(historyChunkSize(50_758_927, [10], ['transactions.tar.zst'])).toBeUndefined();
   });
 });

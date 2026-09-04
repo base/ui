@@ -21,6 +21,7 @@ import {
   formatBytes,
   formatDate,
   formatNumber,
+  presetSize,
   PresetName,
   PRESETS,
   Snapshot,
@@ -393,9 +394,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                   className="grid grid-cols-1 gap-3 lg:grid-cols-3"
                 >
                   {PRESETS.map((p) => {
-                    const size = activeSnapshot.components
-                      .filter((c) => p.components.includes(c.name))
-                      .reduce((sum, c) => sum + c.size, 0);
+                    const size = presetSize(activeSnapshot.components, p);
                     const selected = preset === p.name;
                     const includedComponents = displayComponents.filter((c) => {
                       if (c.name === 'state_history') return p.components.includes('account_changesets');

@@ -45,6 +45,7 @@ class R2RequestError extends Error {
 type R2ManifestComponent = {
   size?: number;
   chunk_sizes?: number[];
+  chunk_files?: string[];
   output_files?: { size?: number }[];
   chunk_output_files?: { size?: number }[][];
 };
@@ -329,7 +330,7 @@ function signR2Request(url: URL, r2Config: R2Config): Headers {
 
 function buildSnapshot(network: NetworkConfig, prefix: string, manifest: R2Manifest): Snapshot {
   const components = Object.entries(manifest.components)
-    .map(([name, component]) => buildComponent(name, component))
+    .map(([name, component]) => buildComponent(name, component, manifest.block))
     .sort((a, b) => componentSortIndex(a.name) - componentSortIndex(b.name));
   const size = components.reduce((sum, component) => sum + component.size, 0);
   const timestamp = String(manifest.timestamp);
@@ -357,9 +358,19 @@ function buildSnapshot(network: NetworkConfig, prefix: string, manifest: R2Manif
   };
 }
 
-function buildComponent(name: string, component: R2ManifestComponent): SnapshotComponent {
+function buildComponent(
+  name: string,
+  component: R2ManifestComponent,
+  snapshotBlock: number,
+): SnapshotComponent {
   const metadata = COMPONENT_META[name] ?? { displayName: titleize(name), description: titleize(name) };
-  return { name, ...metadata, size: componentSize(component) };
+  const fullSize = historyChunkSize(snapshotBlock, component.chunk_sizes, component.chunk_files);
+  return {
+    name,
+    ...metadata,
+    size: componentSize(component),
+    ...(fullSize === undefined ? {} : { fullSize }),
+  };
 }
 
 function componentSize(component: R2ManifestComponent): number {
@@ -369,6 +380,31 @@ function componentSize(component: R2ManifestComponent): number {
   if (component.chunk_output_files)
     return component.chunk_output_files.flat().reduce((sum, file) => sum + (file.size ?? 0), 0);
   return 0;
+}
+
+const FULL_HISTORY_BLOCKS = 1_339_200;
+
+export function historyChunkSize(
+  snapshotBlock: number,
+  chunkSizes: number[] | undefined,
+  chunkFiles: string[] | undefined,
+): number | undefined {
+  if (!chunkSizes || !chunkFiles || chunkSizes.length !== chunkFiles.length) return undefined;
+
+  const ranges = chunkFiles.map((file) => file.match(/-(\d+)-(\d+)\.tar\.zst$/));
+  if (ranges.some((range) => !range)) return undefined;
+
+  const earliestBlock = Math.max(0, snapshotBlock - FULL_HISTORY_BLOCKS);
+  const includedSizes = chunkSizes.filter((_, index) => {
+    const range = ranges[index]!;
+    const startBlock = Number(range[1]);
+    const endBlock = Number(range[2]);
+    return startBlock <= snapshotBlock && endBlock >= earliestBlock;
+  });
+
+  return includedSizes.length > 0
+    ? includedSizes.reduce((sum, size) => sum + size, 0)
+    : undefined;
 }
 
 function componentSortIndex(name: string): number {
