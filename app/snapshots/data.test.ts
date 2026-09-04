@@ -1,11 +1,11 @@
 import { PRESETS, presetSize, type SnapshotComponent } from './data';
 
-const component = (name: string, size: number, tailSize?: number): SnapshotComponent => ({
+const component = (name: string, size: number, fullSize?: number): SnapshotComponent => ({
   name,
   displayName: name,
   description: name,
   size,
-  ...(tailSize === undefined ? {} : { tailSize }),
+  ...(fullSize === undefined ? {} : { fullSize }),
 });
 
 describe('presetSize', () => {
@@ -20,7 +20,7 @@ describe('presetSize', () => {
     component('rocksdb_indices', 40),
   ];
 
-  it('uses all state and headers plus the final three chunks of full static-file components', () => {
+  it('uses all state and headers plus the history window of full static-file components', () => {
     const full = PRESETS.find((preset) => preset.name === 'full')!;
 
     expect(presetSize(components, full)).toBe(100 + 20 + 8 + 7 + 6 + 5);

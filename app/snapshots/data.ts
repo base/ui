@@ -6,7 +6,7 @@ export type SnapshotComponent = {
   displayName: string;
   description: string;
   size: number; // bytes
-  tailSize?: number; // compressed size of the final three chunks
+  fullSize?: number; // bytes downloaded for this component by the Full preset
 };
 
 export type Snapshot = {
@@ -72,7 +72,7 @@ export const PRESETS: Preset[] = [
   },
 ];
 
-const FULL_TAIL_COMPONENTS = new Set([
+const FULL_HISTORY_COMPONENTS = new Set([
   'transactions',
   'receipts',
   'account_changesets',
@@ -85,8 +85,8 @@ export function presetSize(components: SnapshotComponent[], preset: Preset): num
     .reduce(
       (sum, component) =>
         sum +
-        (preset.name === 'full' && FULL_TAIL_COMPONENTS.has(component.name)
-          ? (component.tailSize ?? component.size)
+        (preset.name === 'full' && FULL_HISTORY_COMPONENTS.has(component.name)
+          ? (component.fullSize ?? component.size)
           : component.size),
       0,
     );
@@ -145,13 +145,13 @@ export const COMPONENT_ORDER = Object.keys(COMPONENT_META);
 
 function buildComponents(
   sizesGB: Record<string, number>,
-  tailSizesGB: Record<string, number>,
+  fullSizesGB: Record<string, number>,
 ): SnapshotComponent[] {
   return COMPONENT_ORDER.map((name) => ({
     name,
     ...COMPONENT_META[name],
     size: (sizesGB[name] ?? 0) * GB,
-    ...(tailSizesGB[name] === undefined ? {} : { tailSize: tailSizesGB[name] * GB }),
+    ...(fullSizesGB[name] === undefined ? {} : { fullSize: fullSizesGB[name] * GB }),
   }));
 }
 
@@ -161,9 +161,9 @@ function sampleSnapshot(
   chainId: string,
   block: number,
   sizesGB: Record<string, number>,
-  tailSizesGB: Record<string, number>,
+  fullSizesGB: Record<string, number>,
 ): Snapshot {
-  const components = buildComponents(sizesGB, tailSizesGB);
+  const components = buildComponents(sizesGB, fullSizesGB);
   return {
     chainId,
     chainName,
