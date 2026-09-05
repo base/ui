@@ -15,24 +15,31 @@ import type { TokenAccess, TokenInfo } from '../lib/types';
 import { CopyPromptButton } from './CopyPromptButton';
 import { ErrorNote, Field, Input, Notice } from './primitives';
 
-// Disclosure-only announcement flow, presented through the shared TransactionModal.
-// Publishing requires OPERATOR_ROLE and an Asset token (Stablecoins do not support
-// announcements).
-export function AnnouncementModule({
-  open,
-  onClose,
-  token,
-  tokenAccess,
-  wallet,
-  onSend,
-}: {
+type AnnouncementModuleProps = {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
   tokenAccess: TokenAccess;
   wallet: Address | null;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
-}) {
+};
+
+// Disclosure-only announcement flow, presented through the shared TransactionModal.
+// Publishing requires OPERATOR_ROLE and an Asset token (Stablecoins do not support
+// announcements).
+export function AnnouncementModule(props: AnnouncementModuleProps) {
+  if (!props.open) return null;
+  return <AnnouncementModuleInner {...props} />;
+}
+
+function AnnouncementModuleInner({
+  open,
+  onClose,
+  token,
+  tokenAccess,
+  wallet,
+  onSend,
+}: AnnouncementModuleProps) {
   const [id, setId] = useState('');
   const [description, setDescription] = useState('');
   const [uri, setUri] = useState('');
@@ -41,19 +48,8 @@ export function AnnouncementModule({
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<Hex | null>(null);
 
-  const reset = () => {
-    setStep('build');
-    setFinalizing(false);
-    setError(null);
-    setTxHash(null);
-    setId('');
-    setDescription('');
-    setUri('');
-  };
-
   const handleClose = () => {
     if (finalizing) return;
-    reset();
     onClose();
   };
 
