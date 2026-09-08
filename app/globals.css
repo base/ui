@@ -628,6 +628,15 @@ button {
   to { transform: translateY(0); }
 }
 
+/* Illustration color tokens — inline SVG components read these. */
+:root {
+  --illo-accent: #0000FF;
+  --illo-muted: #DDE3E9;
+}
+[data-theme='dark'] {
+  --illo-accent: #73A2FF;
+}
+
 .animate-in { animation: fade-in-up 0.35s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .animate-in-delay-1 { animation-delay: 50ms; }
 .animate-in-delay-2 { animation-delay: 100ms; }

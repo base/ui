@@ -1,5 +1,4 @@
-import Image from 'next/image';
-
+import { IlloImage } from '../../components/illustrations';
 import { Card, LinkCard } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
@@ -36,7 +35,7 @@ function DemoCardBody({ demo }: { demo: DemoEntry }) {
   return (
     <>
       {demo.icon && (
-        <Image src={demo.icon} alt="" width={48} height={48} />
+        <IlloImage src={demo.icon} width={48} height={48} />
       )}
       <div>
         <div className="flex items-center gap-2">

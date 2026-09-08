@@ -7,8 +7,7 @@
 // useAccounts instance) and the create action, so there's no duplicate store.
 
 import type { ReactNode } from 'react';
-import Image from 'next/image';
-
+import { AccountIllo } from '../../../components/illustrations';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
@@ -44,7 +43,7 @@ export function DemoGate({
     return (
       <div className="flex flex-1 items-center justify-center py-16">
         <Card className="flex max-w-md flex-col items-center gap-4 bg-background px-8 py-14 text-center dark:bg-white/5">
-          <Image src="/account-illo.svg" alt="" width={44} height={44} />
+          <AccountIllo width={44} height={44} />
           <Text variant="headline" className="mt-2">{title}</Text>
           <Text variant="body" tone="muted" className="-mt-2 max-w-sm">
             {description}

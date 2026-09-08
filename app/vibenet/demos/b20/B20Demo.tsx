@@ -1,11 +1,11 @@
 'use client';
 
-import Image from 'next/image';
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Address, Hex } from 'viem';
 
 import { trackB20Action, trackB20ModuleSelect } from '../../../analytics/events';
+import { VibenetIllo } from '../../../components/illustrations';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
@@ -607,7 +607,7 @@ function B20DemoInner() {
         </Card>
       ) : (
         <Card className="flex flex-col items-center gap-4 bg-background px-8 py-16 text-center dark:bg-white/5">
-          <Image src="/vibenet-illo.svg" alt="" width={44} height={44} />
+          <VibenetIllo width={44} height={44} />
           <Text variant="title2">Create your first token</Text>
           <Text variant="label.regular" tone="muted" className="max-w-md">
             Deploy a B20 Asset or Stablecoin to try policies, memos, and announcements.
