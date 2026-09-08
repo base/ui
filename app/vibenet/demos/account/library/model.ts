@@ -238,12 +238,14 @@ export type ActivityEntry = {
   serialized?: Hex;
   txHash?: Hex;
   account?: Address;
-  /** Block the tx landed in (Denim: one every 200 ms on vibenet). */
+  /** Block the tx landed in (Cobalt: one every 200 ms on vibenet). */
   blockNumber?: number;
-  /** Block time in unix ms from Denim's `timestampMs`; null on chains without it. */
+  /** Block time in unix ms from Cobalt's `timestampMs`; null on chains without it. */
   blockTimestampMs?: number | null;
-  /** Wall-clock ms from broadcast to the receipt being observed. */
-  inclusionMs?: number;
+  /** Chain time from the block seen at broadcast to the inclusion block; null without an anchor. */
+  chainMs?: number | null;
+  /** The same in blocks. */
+  blocksAfterSend?: number | null;
 };
 
 // ---------------------------------------------------------------------------

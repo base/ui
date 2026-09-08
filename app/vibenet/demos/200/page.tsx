@@ -12,7 +12,7 @@ export default function BlockRunnerPage() {
           Block Runner
         </Text>
         <Text variant="body" tone="muted" className="max-w-2xl">
-          Base&apos;s Denim upgrade mints a block every 200 ms. This is what that cadence feels like: the chain sets the
+          Base&apos;s Cobalt upgrade mints a block every 200 ms. This is what that cadence feels like: the chain sets the
           pace, and every obstacle is a block that just landed.
         </Text>
       </header>

@@ -2,7 +2,7 @@
 // be unit-tested and rendered by anything.
 //
 // The chain is the spawner: every new vibenet head (one per 200 ms under
-// Denim) becomes one block that the boss on the right edge spits out. The
+// Cobalt) becomes one block that the boss on the right edge spits out. The
 // player is a round little glutton who auto-runs and holds ONE button to
 // inhale: the nearest block in range is dragged into its mouth and swallowed —
 // one eaten — revealing its number and 200 ms slot. Busy walls are
@@ -76,7 +76,7 @@ export const RESTART_GRACE = 0.4;
 
 export type Head = {
   number: number;
-  /** Denim millisecond timestamp, or null on chains without it. */
+  /** Cobalt millisecond timestamp, or null on chains without it. */
   timestampMs: number | null;
   gasUsed: number;
 };
@@ -224,7 +224,7 @@ export function weightFor(w: number): number {
   return Math.min(2, Math.max(1, Math.round(w / 16) - 1));
 }
 
-/** The 200 ms slot inside the second, `.000` … `.800`, or null pre-Denim. */
+/** The 200 ms slot inside the second, `.000` … `.800`, or null pre-Cobalt. */
 export function slotOf(timestampMs: number | null): string | null {
   if (timestampMs === null) return null;
   return `.${String(timestampMs % 1000).padStart(3, '0')}`;

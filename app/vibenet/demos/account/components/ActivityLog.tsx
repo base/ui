@@ -15,10 +15,15 @@ import { ViewTransactionButton } from '../../_shared/ViewTransactionButton';
 
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 
-/** Inclusion timing stored on the entry, when the engine observed it land. */
+/** Inclusion stored on the entry, when the engine observed it land. */
 function inclusionOf(e: ActivityEntry): Inclusion | null {
-  if (typeof e.blockNumber !== 'number' || typeof e.inclusionMs !== 'number') return null;
-  return { blockNumber: e.blockNumber, blockTimestampMs: e.blockTimestampMs ?? null, inclusionMs: e.inclusionMs };
+  if (typeof e.blockNumber !== 'number') return null;
+  return {
+    blockNumber: e.blockNumber,
+    blockTimestampMs: e.blockTimestampMs ?? null,
+    chainMs: e.chainMs ?? null,
+    blocksAfterSend: e.blocksAfterSend ?? null,
+  };
 }
 
 export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[]; accounts: StoredAccount[] }) {

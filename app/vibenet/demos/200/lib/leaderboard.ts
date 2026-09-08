@@ -108,6 +108,8 @@ export async function submitScore(score: number, onStatus?: (s: 'funding' | 'sub
     args: [BigInt(score)],
   });
   onStatus?.('confirming');
-  await client.waitForTransactionReceipt({ hash, pollingInterval: 200, timeout: 30_000 });
+  // Replacement detection would cost an extra round trip per poll; a fresh
+  // throwaway key never replaces anything.
+  await client.waitForTransactionReceipt({ hash, pollingInterval: 200, timeout: 30_000, checkReplacement: false });
   return hash;
 }
