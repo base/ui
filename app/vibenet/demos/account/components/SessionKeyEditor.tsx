@@ -10,7 +10,9 @@ import { useState } from 'react';
 
 import { Button } from '../../../../components/ui/Button';
 import { cn } from '../../../../components/ui/cn';
+import { Field } from '../../../../components/ui/Field';
 import { CloseIcon } from '../../../../components/ui/icons';
+import { Input } from '../../../../components/ui/Input';
 import { Select } from '../../../../components/ui/Select';
 import { Text } from '../../../../components/ui/Text';
 import { getDemoChain, DEMO_CHAINS } from '../library/chains';
@@ -29,8 +31,6 @@ import { short } from '../shared';
 import { useAccountEngine } from '../useAccountEngine';
 
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
-const INPUT_CLS =
-  'w-full rounded-lg border border-bds-gray-10 bg-bds-gray-0 px-3 py-2 text-[13px] outline-none transition-colors placeholder:text-bds-gray-40 focus:border-foreground dark:border-white/10 dark:bg-white/5 dark:focus:border-white/40';
 const CHIP_CLS =
   'rounded-full border border-bds-gray-10 px-2.5 py-1 text-[12px] text-bds-gray-60 transition-colors hover:border-bds-gray-15 dark:border-white/10 dark:text-bds-gray-40';
 const CHIP_ON = 'border-base-blue bg-bds-blue-0 text-base-blue';
@@ -154,8 +154,8 @@ export function SessionKeyEditor({
         Register a Session Key
       </Text>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <label className="flex flex-col gap-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-          Signer
+        <Field.Root>
+          <Field.Label>Signer</Field.Label>
           <Select
             value={skSignerId}
             onValueChange={setSkSignerId}
@@ -170,23 +170,23 @@ export function SessionKeyEditor({
               };
             })}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-          Chain
+        </Field.Root>
+        <Field.Root>
+          <Field.Label>Chain</Field.Label>
           <Select
             value={skChainShort}
             onValueChange={setSkChainShort}
             options={DEMO_CHAINS.map((c) => ({ value: c.shortName, label: c.name }))}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-          Expiry
+        </Field.Root>
+        <Field.Root>
+          <Field.Label>Expiry</Field.Label>
           <Select
             value={skExpiryId}
             onValueChange={setSkExpiryId}
             options={EXPIRY_PRESETS.map((e) => ({ value: e.id, label: e.label }))}
           />
-        </label>
+        </Field.Root>
       </div>
 
       {/* Spend Limits */}
@@ -211,20 +211,20 @@ export function SessionKeyEditor({
                 />
               </div>
               {l.token === 'custom' ? (
-                <input
-                  className={cn(INPUT_CLS, 'flex-1', !customOk && 'border-bds-red-40')}
+                <Input
+                  className={cn('flex-1', !customOk && 'ring-bds-red-40')}
                   value={l.custom}
                   spellCheck={false}
                   placeholder="0x token address (18 dec)"
-                  onChange={(e) => patchLimit(l.id, { custom: e.target.value })}
+                  onValueChange={(custom) => patchLimit(l.id, { custom })}
                 />
               ) : null}
-              <input
-                className={cn(INPUT_CLS, 'flex-1')}
+              <Input
+                className="flex-1"
                 value={l.amount}
                 inputMode="decimal"
                 placeholder={l.token === 'eth' ? '0.1' : '100'}
-                onChange={(e) => patchLimit(l.id, { amount: e.target.value })}
+                onValueChange={(amount) => patchLimit(l.id, { amount })}
               />
               <div className="flex-1">
                 <Select
@@ -273,12 +273,12 @@ export function SessionKeyEditor({
           return (
             <div key={s.id} className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <input
-                  className={cn(INPUT_CLS, 'flex-1', !addrOk && 'border-bds-red-40')}
+                <Input
+                  className={cn('flex-1', !addrOk && 'ring-bds-red-40')}
                   value={s.target}
                   spellCheck={false}
                   placeholder="0x target contract"
-                  onChange={(e) => patchScope(s.id, { target: e.target.value })}
+                  onValueChange={(target) => patchScope(s.id, { target })}
                 />
                 <button
                   type="button"

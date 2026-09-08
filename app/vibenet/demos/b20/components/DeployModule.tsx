@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { encodeFunctionData, type Address, type Hex } from 'viem';
 
 import { Button } from '../../../../components/ui/Button';
-import { cn } from '../../../../components/ui/cn';
+import { Radio } from '../../../../components/ui/Radio';
+import { RadioGroup } from '../../../../components/ui/RadioGroup';
 import { Text } from '../../../../components/ui/Text';
 import { CopyableValue } from '../../../components/CopyableValue';
 import { formatTokenAmount, short } from '../../account/shared';
@@ -239,71 +240,59 @@ export function DeployModule({
             </Field>
           </div>
           <div className="mt-5">
-            <Text as="span" variant="label" tone="muted" className="mb-2 block">
-              Token type
-            </Text>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {(
-                [
-                  ['asset', 'Asset', 'Flexible decimals, announcements, and displayed-balance changes.'],
-                  ['stablecoin', 'Stablecoin', 'A currency-linked token: always six decimals and a currency code.'],
-                  ['advanced', 'Advanced', 'Set a supply cap, salt, and a token info link.'],
-                ] as const
-              ).map(([value, title, body]) => {
-                const selected = value === 'advanced' ? advanced : !advanced && variant === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => {
-                      if (value === 'advanced') {
-                        setAdvanced(true);
-                      } else {
-                        setAdvanced(false);
-                        setVariant(value);
-                      }
-                    }}
-                    className={cn(
-                      'flex flex-col gap-1 rounded-xl border p-4 text-left',
-                      selected ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10',
-                    )}
-                  >
-                    <strong className="text-[13px]">{title}</strong>
-                    <span className="text-[12px] text-bds-gray-60">{body}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <Field label="Token type">
+              <RadioGroup
+                value={advanced ? 'advanced' : variant}
+                onValueChange={(next) => {
+                  if (next === 'advanced') {
+                    setAdvanced(true);
+                  } else {
+                    setAdvanced(false);
+                    setVariant(next as 'asset' | 'stablecoin');
+                  }
+                }}
+                className="grid-cols-1 sm:grid-cols-3"
+              >
+                {(
+                  [
+                    ['asset', 'Asset', 'Flexible decimals, announcements, and displayed-balance changes.'],
+                    ['stablecoin', 'Stablecoin', 'A currency-linked token: always six decimals and a currency code.'],
+                    ['advanced', 'Advanced', 'Set a supply cap, salt, and a token info link.'],
+                  ] as const
+                ).map(([value, title, body]) => (
+                  <Radio.Root key={value} value={value}>
+                    <Text as="span" variant="label.regular">
+                      {title}
+                    </Text>
+                    <Text as="span" variant="footnote" tone="muted">
+                      {body}
+                    </Text>
+                  </Radio.Root>
+                ))}
+              </RadioGroup>
+            </Field>
           </div>
           {advanced ? (
             <div className="mt-5">
-              <Text as="span" variant="label" tone="muted" className="mb-2 block">
-                Token variant
-              </Text>
-              <div role="radiogroup" aria-label="Token variant" className="grid gap-3 sm:grid-cols-2">
-                {(
-                  [
-                    ['asset', 'Asset', 'Configurable decimals and announcements.'],
-                    ['stablecoin', 'Stablecoin', 'Fixed six decimals and a currency code.'],
-                  ] as const
-                ).map(([value, title, body]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={variant === value}
-                    onClick={() => setVariant(value)}
-                    className={cn(
-                      'flex flex-col gap-1 rounded-xl border p-4 text-left transition-colors',
-                      variant === value ? 'border-base-blue bg-bds-blue-0' : 'border-bds-gray-10 dark:border-white/10',
-                    )}
-                  >
-                    <strong className="text-[13px]">{title}</strong>
-                    <span className="text-[12px] text-bds-gray-60">{body}</span>
-                  </button>
-                ))}
-              </div>
+              <Field label="Token variant">
+                <RadioGroup value={variant} onValueChange={setVariant} className="grid-cols-1 sm:grid-cols-2">
+                  {(
+                    [
+                      ['asset', 'Asset', 'Configurable decimals and announcements.'],
+                      ['stablecoin', 'Stablecoin', 'Fixed six decimals and a currency code.'],
+                    ] as const
+                  ).map(([value, title, body]) => (
+                    <Radio.Root key={value} value={value}>
+                      <Text as="span" variant="label.regular">
+                        {title}
+                      </Text>
+                      <Text as="span" variant="footnote" tone="muted">
+                        {body}
+                      </Text>
+                    </Radio.Root>
+                  ))}
+                </RadioGroup>
+              </Field>
             </div>
           ) : null}
           <div className="mt-5 grid gap-4 md:grid-cols-2">

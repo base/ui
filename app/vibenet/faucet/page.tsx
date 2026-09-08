@@ -243,7 +243,6 @@ export default function FaucetPage() {
               onChange={setAddressOverride}
               accounts={addressBook}
               placeholder="0x… recipient address or account name"
-              className="px-3.5 py-2.5 text-[14px] font-normal text-foreground focus:border-foreground dark:text-white dark:focus:border-white/40"
             />
           </label>
           <div className="flex flex-wrap gap-3">

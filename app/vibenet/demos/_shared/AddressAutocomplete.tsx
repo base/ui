@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { cn } from '../../../components/ui/cn';
+import { InputGroup } from '../../../components/ui/InputGroup';
 import { short } from '../account/shared';
 
 export type AddressBookEntry = { label: string; address: string };
@@ -74,15 +75,15 @@ export function AddressAutocomplete({
 
   return (
     <div ref={ref} className={cn('relative flex-1')}>
-      <div className="flex items-center overflow-hidden rounded-lg border border-bds-gray-10 bg-background transition-colors focus-within:border-base-blue dark:border-white/10 dark:bg-white/5">
-        {tag ? <span className="shrink-0 pl-3 text-[11px] text-bds-gray-40">{tag}</span> : null}
-        <input
-          className={cn('w-full bg-transparent px-2 py-2 text-[13px] outline-none placeholder:text-bds-gray-40', className)}
+      <InputGroup.Root>
+        {tag ? <span className="shrink-0 ps-2.5 text-[11px] text-bds-gray-40">{tag}</span> : null}
+        <InputGroup.Control
+          className={className}
           value={value}
           spellCheck={false}
           placeholder={placeholder}
-          onChange={(e) => {
-            onChange(e.target.value);
+          onValueChange={(next) => {
+            onChange(next);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -90,7 +91,7 @@ export function AddressAutocomplete({
             if (e.key === 'Escape') setOpen(false);
           }}
         />
-      </div>
+      </InputGroup.Root>
       {open && matches.length > 0 && rect && typeof document !== 'undefined'
         ? createPortal(
             <div
