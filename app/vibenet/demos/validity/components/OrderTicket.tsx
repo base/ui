@@ -207,7 +207,7 @@ export function OrderTicket({
           Nonce behavior
         </Text>
         <Text variant="footnote" tone="muted">
-          One EIP-1559 order can rest at a time. A new swap uses the same nonce with a fee bump and replaces the current order.
+          One order can rest at a time. A new swap uses the same nonce with a fee bump and replaces the current order.
         </Text>
       </div>
       <div className="grid grid-cols-2 gap-3">
