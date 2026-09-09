@@ -1,13 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatEther, type Hex, type PublicClient } from 'viem';
+import type { Hex, PublicClient } from 'viem';
 
 import { trackValidityOrder } from '../../../analytics/events';
-import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
-import { CopyableValue } from '../../components/CopyableValue';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { DemoHeader } from '../_components/DemoHeader';
 import { newCallRow } from '../account/library/calls';
@@ -41,7 +39,6 @@ import {
   MAX_NONCELESS_SECONDS,
   TRADE_VIBE,
 } from './lib/constants';
-import { VibenetApiError } from '../../library/client';
 import { VIBENET_WS_URL } from '../../library/config';
 import {
   ageRestoredOrders,
@@ -621,26 +618,6 @@ function ValidityDemoInner() {
     return marks;
   }, [hoveredOrderId, orders]);
 
-  const fund = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      setProgress('Requesting ETH from the faucet');
-      await engine.requestFaucet();
-    } catch (err) {
-      setError(
-        err instanceof VibenetApiError && err.status === 429
-          ? 'Faucet rate limited — wait a minute and try again.'
-          : err instanceof Error
-            ? err.message
-            : 'Faucet request failed.',
-      );
-    } finally {
-      setBusy(false);
-      setProgress(null);
-    }
-  }, [engine]);
-
   const inventoryKeyRef = useRef('');
 
   // Mint USDV inventory + approve the helper for the user's own account so
@@ -875,8 +852,6 @@ function ValidityDemoInner() {
     }
   };
 
-  const address = acct?.address;
-  const deployed = Boolean(state?.deployment);
   const tradeLabel = formatTokenAmount(TRADE_VIBE);
   const canAffordTrade = (() => {
     if (!draft) return false;
@@ -912,97 +887,63 @@ function ValidityDemoInner() {
         <Card className="bg-background p-4 text-bds-orange-50 dark:bg-white/5">{statusError}</Card>
       ) : null}
 
-      {!deployed ? (
-        <Card className="flex flex-col gap-4 bg-background p-6 dark:bg-white/5">
-          <Text variant="title3">Shared pool</Text>
-          <Text variant="label.regular" tone="muted">
-            The shared VIBE/USDV pool (VIBE is a B20, USDV is the faucet
-            stablecoin) runs on Vibenet infrastructure — a central actor system
-            keeps a live market moving. It’s coming online; this page will fill
-            in automatically. Meanwhile, top up your account so you’re ready to
-            place a conditional order.
-          </Text>
-          {address ? (
-            <div className="flex items-center justify-between gap-3">
-              <Text variant="label" tone="muted">
-                Address
-              </Text>
-              <CopyableValue value={address} />
-            </div>
-          ) : null}
-          <div className="flex items-center justify-between gap-3">
-            <Text variant="label" tone="muted">
-              ETH
-            </Text>
-            <Text variant="label.mono">{ethBalance === null ? '…' : formatEther(ethBalance)}</Text>
+      <div className="flex flex-col gap-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+          <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
+          <div className="flex min-w-0 flex-col gap-4">
+            {draft ? (
+              <OrderTicket
+                spotWad={spot}
+                side={side}
+                offsetBps={offsetBps}
+                expirySeconds={expirySeconds}
+                submitMode={submitMode}
+                busy={busy}
+                vibeBalance={vibeBalance}
+                costHint={costHint}
+                priceOverrideWad={priceOverrideWad}
+                canAfford={canAffordTrade}
+                onSide={(next) => {
+                  setSide(next);
+                  setPriceOverrideWad(null);
+                }}
+                onOffset={(bps) => {
+                  setOffsetBps(bps);
+                  setPriceOverrideWad(null);
+                }}
+                onPriceOverride={setPriceOverrideWad}
+                onExpiry={setExpirySeconds}
+                onSubmitMode={(mode) => {
+                  setSubmitMode(mode);
+                  if (mode === 'concurrent' && expirySeconds > MAX_NONCELESS_SECONDS) {
+                    setExpirySeconds(15);
+                  }
+                }}
+                onSubmit={() => {
+                  setError(null);
+                  setTxHash(null);
+                  setTxStep('review');
+                  setTxOpen(true);
+                }}
+              />
+            ) : (
+              <Card className="bg-background p-5 dark:bg-white/5">
+                <Text variant="title3">Conditional swap</Text>
+                <Text variant="footnote" tone="muted" className="mt-2">
+                  Waiting for a live mid from the simulated pool.
+                </Text>
+              </Card>
+            )}
+            {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
+            {error && !txOpen ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
           </div>
-          {error ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
-          {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void fund()} disabled={busy || !address || engine.faucetBusy !== null}>
-              {engine.faucetBusy ? 'Topping up…' : 'Top up'}
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <div className="flex flex-col gap-6">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
-            <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
-            <div className="flex min-w-0 flex-col gap-4">
-              {draft ? (
-                <OrderTicket
-                  spotWad={spot}
-                  side={side}
-                  offsetBps={offsetBps}
-                  expirySeconds={expirySeconds}
-                  submitMode={submitMode}
-                  busy={busy}
-                  vibeBalance={vibeBalance}
-                  costHint={costHint}
-                  priceOverrideWad={priceOverrideWad}
-                  canAfford={canAffordTrade}
-                  onSide={(next) => {
-                    setSide(next);
-                    setPriceOverrideWad(null);
-                  }}
-                  onOffset={(bps) => {
-                    setOffsetBps(bps);
-                    setPriceOverrideWad(null);
-                  }}
-                  onPriceOverride={setPriceOverrideWad}
-                  onExpiry={setExpirySeconds}
-                  onSubmitMode={(mode) => {
-                    setSubmitMode(mode);
-                    if (mode === 'concurrent' && expirySeconds > MAX_NONCELESS_SECONDS) {
-                      setExpirySeconds(15);
-                    }
-                  }}
-                  onSubmit={() => {
-                    setError(null);
-                    setTxHash(null);
-                    setTxStep('review');
-                    setTxOpen(true);
-                  }}
-                />
-              ) : (
-                <Card className="bg-background p-5 dark:bg-white/5">
-                  <Text variant="title3">Conditional swap</Text>
-                  <Text variant="footnote" tone="muted" className="mt-2">
-                    Waiting for a live mid from the simulated pool.
-                  </Text>
-                </Card>
-              )}
-              {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
-              {error && !txOpen ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
-            </div>
-          </div>
-          <OrderList
-            orders={orders}
-            highlightedOrderId={hoveredOrderId}
-            onHighlight={setHoveredOrderId}
-          />
         </div>
-      )}
+        <OrderList
+          orders={orders}
+          highlightedOrderId={hoveredOrderId}
+          onHighlight={setHoveredOrderId}
+        />
+      </div>
         </div>
       )}
       {draft ? (
