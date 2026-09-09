@@ -525,7 +525,7 @@ function RaceTheAgentDemoInner() {
             <Text variant="caption" tone="muted">Guided race</Text>
             <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
           </div>
-          <div className="grid min-h-0 flex-1 grid-rows-3 gap-px bg-bds-gray-10 dark:bg-white/10">
+          <div className="grid min-h-0 flex-1 auto-rows-[minmax(auto,1fr)] gap-px overflow-y-auto bg-bds-gray-10 dark:bg-white/10">
             <RaceStep
               number="01"
               title="Shared background agent"
@@ -779,7 +779,7 @@ function RaceStep({
   return (
     <div
       className={cn(
-        'flex h-full min-h-0 flex-col bg-background p-4 dark:bg-[#090b12]',
+        'flex h-full flex-col bg-background p-4 dark:bg-[#090b12]',
         active && 'bg-bds-blue-0 dark:bg-[#0c1222]',
       )}
     >
