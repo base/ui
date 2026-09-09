@@ -479,7 +479,7 @@ function RaceTheAgentDemoInner() {
         description="The same permissionless withdrawal pays exactly 1 VIBE. One transaction waits in advance for storage to equal 1; the other can be fired at any time and succeeds or reverts against the state it reaches onchain."
       />
 
-      <section className="grid min-w-0 gap-4 xl:h-[calc(100dvh-19rem)] xl:min-h-[38rem] xl:max-h-[46rem] xl:grid-cols-2">
+      <section className="grid min-w-0 gap-4 xl:h-[calc(100dvh-19rem)] xl:min-h-[45.5rem] xl:max-h-[46rem] xl:grid-cols-2">
         <Card className="flex min-h-0 flex-col overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <div className="min-w-0">
             <Text variant="caption" tone="muted">Shared onchain switch</Text>
@@ -525,7 +525,7 @@ function RaceTheAgentDemoInner() {
             <Text variant="caption" tone="muted">Guided race</Text>
             <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
           </div>
-          <div className="grid min-h-0 flex-1 auto-rows-[minmax(auto,1fr)] gap-px overflow-y-auto bg-bds-gray-10 dark:bg-white/10">
+          <div className="grid min-h-0 flex-1 auto-rows-[minmax(auto,1fr)] gap-px bg-bds-gray-10 dark:bg-white/10">
             <RaceStep
               number="01"
               title="Shared background agent"
