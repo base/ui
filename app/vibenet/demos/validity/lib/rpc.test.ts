@@ -48,7 +48,12 @@ describe('sendValidityTransaction', () => {
       VIBENET_RPC_URL,
       expect.objectContaining({
         method: 'POST',
-        body: expect.stringContaining('base_sendRawTransactionValidity'),
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'base_sendRawTransactionValidity',
+          params: [{ tx: '0x01', validity: [] }],
+        }),
       }),
     );
   });

@@ -78,7 +78,7 @@ export function encodeConditionalWithdraw(withdrawal: Address): { to: Address; d
   };
 }
 
-/** EIP-8130 condition requiring `bool public enabled` in storage slot 0 to be true. */
+/** Condition requiring `bool public enabled` in storage slot 0 to be true. */
 export function conditionalWithdrawalEnabledPredicate(withdrawal: Address): StoragePredicate {
   return {
     type: 'storage',
