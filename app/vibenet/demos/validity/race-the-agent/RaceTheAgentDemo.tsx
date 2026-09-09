@@ -8,7 +8,6 @@ import {
   type PublicClient,
   type TransactionReceipt,
 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 
 import { trackValidityRace } from '../../../../analytics/events';
 import { Button } from '../../../../components/ui/Button';
@@ -28,7 +27,7 @@ import {
   probeConditionalWithdrawal,
   readConditionalWithdrawalState,
 } from '../lib/conditionalWithdrawal';
-import { padFees } from '../lib/fees';
+import { signK1Eip1559Call } from '../lib/eip1559';
 import { maxBlockForExpiry } from '../lib/orders';
 import { blockExpiryPredicate } from '../lib/predicates';
 import {
@@ -36,7 +35,6 @@ import {
   makePublicClient,
   sendValidityTransaction,
   type RpcSend,
-  VIBENET_CHAIN,
 } from '../lib/rpc';
 import { probeSingleton } from '../lib/singleton';
 import { connectJsonRpcStream, headNumber, type StreamHead } from '../lib/stream';
@@ -377,28 +375,12 @@ function RaceTheAgentDemoInner() {
   }, [client, manual.hash, manual.status, settleFromReceipt]);
 
   const signWithdrawal = async (contract: Address): Promise<Hex> => {
-    const signer = engine.activeSigner;
-    if (signer?.kind !== 'k1' || !signer.privateKey || !signer.address) {
-      throw new Error('A K1 owner is required to sign EIP-1559 transactions.');
-    }
     if (!client) throw new Error('The Vibenet RPC is not ready.');
-    const [nonce, estimated] = await Promise.all([
-      client.getTransactionCount({ address: signer.address, blockTag: 'latest' }),
-      client.estimateFeesPerGas().catch(() => null),
-    ]);
-    const fees = estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
-      ? padFees(estimated)
-      : { maxFeePerGas: 1_000_000_000n, maxPriorityFeePerGas: 1_000_000n };
-    const call = encodeConditionalWithdraw(contract);
-    return privateKeyToAccount(signer.privateKey).signTransaction({
-      chainId: VIBENET_CHAIN.id,
-      type: 'eip1559',
-      nonce,
-      to: call.to,
-      data: call.data,
-      value: 0n,
+    return signK1Eip1559Call({
+      client,
+      signer: engine.activeSigner,
+      call: encodeConditionalWithdraw(contract),
       gas: WITHDRAWAL_GAS_LIMIT,
-      ...fees,
     });
   };
 
@@ -533,7 +515,7 @@ function RaceTheAgentDemoInner() {
   return (
     <AccountDemoShell
       gateTitle="Create an account to race the agent"
-      gateDescription="Both comparison attempts use the K1 owner of your active account to sign regular EIP-1559 transactions."
+      gateDescription="Both attempts use your active account."
       className="gap-6 pb-24"
     >
       <DemoHeader
