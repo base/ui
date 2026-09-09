@@ -9,7 +9,7 @@ import {
   RACE_VALIDITY_SECONDS,
   type Attempt,
 } from './comparison';
-import { noncelessFields } from '../../../library/aa';
+import { maxBlockForExpiry } from '../lib/orders';
 
 describe('isAttemptTerminal', () => {
   it('only stops on final receipt or expiry states', () => {
@@ -22,11 +22,9 @@ describe('isAttemptTerminal', () => {
 });
 
 describe('race lifecycle predicates', () => {
-  it('uses a conservative nonce-free validity window below the protocol maximum', () => {
-    const now = 1_700_000_000_000;
-    const fields = noncelessFields(RACE_VALIDITY_SECONDS, now);
+  it('converts the validity window to an inclusive Denim block expiry', () => {
     expect(RACE_VALIDITY_SECONDS).toBe(15);
-    expect(fields.validBefore).toBe(BigInt(now + 15_000));
+    expect(maxBlockForExpiry(1_000n, RACE_VALIDITY_SECONDS)).toBe(1_075n);
   });
 
   it('allows retries after terminal attempts and preserves every completed attempt', () => {

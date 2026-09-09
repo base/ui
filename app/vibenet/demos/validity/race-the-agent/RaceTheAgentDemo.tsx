@@ -1,44 +1,48 @@
 'use client';
 
-import { getTransactionReceipt as getAaTransactionReceipt } from '@aa';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   formatUnits,
   type Address,
   type Hex,
   type PublicClient,
+  type TransactionReceipt,
 } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import { trackValidityRace } from '../../../../analytics/events';
 import { Button } from '../../../../components/ui/Button';
 import { Card } from '../../../../components/ui/Card';
 import { cn } from '../../../../components/ui/cn';
 import { Text } from '../../../../components/ui/Text';
+import { vibenetApi } from '../../../library/client';
 import { VIBENET_EXPLORER_PATH, VIBENET_WS_URL } from '../../../library/config';
 import { CopyableValue } from '../../../components/CopyableValue';
 import { AccountDemoShell } from '../../_components/AccountDemoShell';
 import { DemoHeader } from '../../_components/DemoHeader';
 import { ChevronIcon } from '../../_shared/dropdown';
-import { newCallRow } from '../../account/library/calls';
-import { aaReceiptSucceeded, type AaReceiptLike } from '../../account/library/receipt';
-import { AccountEngineProvider, TxPendingError, useAccountEngine } from '../../account/useAccountEngine';
+import { AccountEngineProvider, useAccountEngine } from '../../account/useAccountEngine';
 import {
   conditionalWithdrawalEnabledPredicate,
   encodeConditionalWithdraw,
   probeConditionalWithdrawal,
   readConditionalWithdrawalState,
 } from '../lib/conditionalWithdrawal';
-import { noncelessFields } from '../../../library/aa';
+import { padFees } from '../lib/fees';
+import { maxBlockForExpiry } from '../lib/orders';
+import { blockExpiryPredicate } from '../lib/predicates';
 import {
   describeValidityError,
   makePublicClient,
   sendValidityTransaction,
   type RpcSend,
+  VIBENET_CHAIN,
 } from '../lib/rpc';
 import { probeSingleton } from '../lib/singleton';
 import { connectJsonRpcStream, headNumber, type StreamHead } from '../lib/stream';
 import {
   attemptHistoryRows,
+  canSubmitAttempt,
   canSubmitManual,
   canSubmitValidity,
   isAttemptTerminal,
@@ -51,6 +55,7 @@ import {
 const RECEIPT_POLL_MS = 1_000;
 const STATE_FALLBACK_POLL_MS = 1_000;
 const SHARED_INFRA_RETRY_MS = 1_000;
+const WITHDRAWAL_GAS_LIMIT = 100_000n;
 
 type Observation = { enabled: boolean; block: bigint; at: number };
 
@@ -98,6 +103,8 @@ function RaceTheAgentDemoInner() {
   const [prepared, setPrepared] = useState(false);
   const [setupRunning, setSetupRunning] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [signerReady, setSignerReady] = useState(false);
+  const [signerError, setSignerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validity, setValidity] = useState<Attempt>(EMPTY_ATTEMPT);
@@ -106,12 +113,13 @@ function RaceTheAgentDemoInner() {
   const [manual, setManual] = useState<Attempt>(EMPTY_ATTEMPT);
   const [manualHistory, setManualHistory] = useState<Attempt[]>([]);
   const [manualAttemptCount, setManualAttemptCount] = useState(0);
-  const [validBefore, setValidBefore] = useState<number | null>(null);
+  const [validityMaxBlock, setValidityMaxBlock] = useState<bigint | null>(null);
 
   const observedRef = useRef<Observation | null>(null);
   const accountKeyRef = useRef<string | null>(null);
   const observationsScrollRef = useRef<HTMLDivElement | null>(null);
   const rpcSendRef = useRef<RpcSend | null>(null);
+  const submissionInFlightRef = useRef(false);
   observedRef.current = observed;
 
   useEffect(() => {
@@ -128,7 +136,7 @@ function RaceTheAgentDemoInner() {
     setManual(EMPTY_ATTEMPT);
     setManualHistory([]);
     setManualAttemptCount(0);
-    setValidBefore(null);
+    setValidityMaxBlock(null);
     setError(null);
     setObservations(observedRef.current ? [observedRef.current] : []);
   }, [acct]);
@@ -192,6 +200,47 @@ function RaceTheAgentDemoInner() {
       if (retryId !== undefined) window.clearTimeout(retryId);
     };
   }, [applyObservation]);
+
+  const signerAddress = engine.activeSigner?.kind === 'k1'
+    ? (engine.activeSigner.address ?? null)
+    : null;
+
+  useEffect(() => {
+    if (!client || !signerAddress) {
+      setSignerReady(false);
+      setSignerError(signerAddress ? null : 'A K1 owner is required to sign EIP-1559 transactions.');
+      return;
+    }
+    let cancelled = false;
+    const prepareSigner = async () => {
+      setSignerReady(false);
+      setSignerError(null);
+      try {
+        let balance = await client.getBalance({ address: signerAddress });
+        if (balance === 0n) {
+          // Account creation may already have started the same top-up. A
+          // rate-limit response here does not mean that funding failed.
+          await vibenetApi.faucet.drip({ address: signerAddress }).catch(() => undefined);
+          const deadline = Date.now() + 10_000;
+          while (balance === 0n && Date.now() < deadline) {
+            await new Promise((resolve) => window.setTimeout(resolve, 500));
+            balance = await client.getBalance({ address: signerAddress });
+          }
+        }
+        if (cancelled) return;
+        if (balance === 0n) throw new Error('The EIP-1559 signer faucet top-up did not land.');
+        setSignerReady(true);
+      } catch (err) {
+        if (!cancelled) {
+          setSignerError(err instanceof Error ? err.message : 'Could not prepare the EIP-1559 signer.');
+        }
+      }
+    };
+    void prepareSigner();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, signerAddress]);
 
   useEffect(() => {
     if (!client || !vibe || !withdrawal) return;
@@ -266,14 +315,14 @@ function RaceTheAgentDemoInner() {
 
   const settleFromReceipt = useCallback((
     attempt: 'validity' | 'manual',
-    receipt: AaReceiptLike & { blockNumber: bigint | Hex },
+    receipt: TransactionReceipt,
   ) => {
-    const nextStatus = aaReceiptSucceeded(receipt) ? 'success' : 'reverted';
+    const nextStatus = receipt.status === 'success' ? 'success' : 'reverted';
     const patch = (current: Attempt): Attempt => ({
       ...current,
       status: nextStatus,
       includedAt: Date.now(),
-      includedBlock: BigInt(receipt.blockNumber),
+      includedBlock: receipt.blockNumber,
       error: nextStatus === 'success' ? undefined : current.error,
     });
     if (attempt === 'validity') {
@@ -287,17 +336,15 @@ function RaceTheAgentDemoInner() {
     if (!client || !validity.hash || isAttemptTerminal(validity.status)) return;
     let cancelled = false;
     const poll = () => {
-      void getAaTransactionReceipt(client as never, { hash: validity.hash! })
+      void client.getTransactionReceipt({ hash: validity.hash! })
         .then((receipt) => {
           if (cancelled) return;
-          if (receipt) settleFromReceipt('validity', receipt as AaReceiptLike & { blockNumber: bigint | Hex });
-          else if (validBefore !== null && Date.now() > validBefore + RECEIPT_POLL_MS) {
-            setValidity((current) => ({ ...current, status: 'expired' }));
-            trackValidityRace('validity', 'expired');
-          }
+          settleFromReceipt('validity', receipt);
         })
-        .catch(() => {
-          if (!cancelled && validBefore !== null && Date.now() > validBefore + RECEIPT_POLL_MS) {
+        .catch(async () => {
+          if (cancelled || validityMaxBlock === null) return;
+          const block = await client.getBlockNumber({ cacheTime: 0 }).catch(() => null);
+          if (!cancelled && block !== null && block > validityMaxBlock) {
             setValidity((current) => ({ ...current, status: 'expired' }));
             trackValidityRace('validity', 'expired');
           }
@@ -309,17 +356,15 @@ function RaceTheAgentDemoInner() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [client, settleFromReceipt, validBefore, validity.hash, validity.status]);
+  }, [client, settleFromReceipt, validity.hash, validity.status, validityMaxBlock]);
 
   useEffect(() => {
     if (!client || !manual.hash || isAttemptTerminal(manual.status)) return;
     let cancelled = false;
     const poll = () => {
-      void getAaTransactionReceipt(client as never, { hash: manual.hash! })
+      void client.getTransactionReceipt({ hash: manual.hash! })
         .then((receipt) => {
-          if (!cancelled && receipt) {
-            settleFromReceipt('manual', receipt as AaReceiptLike & { blockNumber: bigint | Hex });
-          }
+          if (!cancelled) settleFromReceipt('manual', receipt);
         })
         .catch(() => {});
     };
@@ -331,8 +376,35 @@ function RaceTheAgentDemoInner() {
     };
   }, [client, manual.hash, manual.status, settleFromReceipt]);
 
+  const signWithdrawal = async (contract: Address): Promise<Hex> => {
+    const signer = engine.activeSigner;
+    if (signer?.kind !== 'k1' || !signer.privateKey || !signer.address) {
+      throw new Error('A K1 owner is required to sign EIP-1559 transactions.');
+    }
+    if (!client) throw new Error('The Vibenet RPC is not ready.');
+    const [nonce, estimated] = await Promise.all([
+      client.getTransactionCount({ address: signer.address, blockTag: 'latest' }),
+      client.estimateFeesPerGas().catch(() => null),
+    ]);
+    const fees = estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
+      ? padFees(estimated)
+      : { maxFeePerGas: 1_000_000_000n, maxPriorityFeePerGas: 1_000_000n };
+    const call = encodeConditionalWithdraw(contract);
+    return privateKeyToAccount(signer.privateKey).signTransaction({
+      chainId: VIBENET_CHAIN.id,
+      type: 'eip1559',
+      nonce,
+      to: call.to,
+      data: call.data,
+      value: 0n,
+      gas: WITHDRAWAL_GAS_LIMIT,
+      ...fees,
+    });
+  };
+
   const submitValidity = async () => {
     if (
+      submissionInFlightRef.current ||
       !acct ||
       !engine.activeSigner ||
       !client ||
@@ -340,8 +412,11 @@ function RaceTheAgentDemoInner() {
       !withdrawal ||
       observed?.enabled ||
       !prepared ||
+      !signerReady ||
+      !canSubmitAttempt(manual.status) ||
       !canSubmitValidity(validity.status)
     ) return;
+    submissionInFlightRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -357,26 +432,10 @@ function RaceTheAgentDemoInner() {
       const attemptNumber = validityAttemptCount + 1;
       setValidityHistory((history) => preserveCompletedAttempt(history, validity));
       setValidityAttemptCount(attemptNumber);
-      const fields = noncelessFields(RACE_VALIDITY_SECONDS);
-      const expiresAt = Number(fields.validBefore);
-      setValidBefore(expiresAt);
+      const maxBlock = maxBlockForExpiry(block, RACE_VALIDITY_SECONDS);
+      setValidityMaxBlock(maxBlock);
       setValidity({ number: attemptNumber, status: 'submitting', submittedAt: Date.now(), submittedBlock: block });
-      const call = encodeConditionalWithdraw(withdrawal);
-      const { serialized } = await engine.signComposed(
-        acct,
-        engine.activeSigner,
-        [newCallRow({ to: call.to, data: call.data, value: '0' })],
-        [],
-        null,
-        undefined,
-        undefined,
-        undefined,
-        {
-          nonceKey: fields.nonceKey,
-          nonceSequence: fields.nonceSequence,
-          validBefore: fields.validBefore,
-        },
-      );
+      const serialized = await signWithdrawal(withdrawal);
       const [beforeSend, beforeSendBlock] = await Promise.all([
         readConditionalWithdrawalState(client, vibe),
         client.getBlockNumber({ cacheTime: 0 }),
@@ -388,12 +447,13 @@ function RaceTheAgentDemoInner() {
           status: 'error',
           error: 'Condition enabled after signing; transaction was not sent.',
         }));
-        setValidBefore(null);
+        setValidityMaxBlock(null);
         setError('The condition became enabled after signing, so this transaction was not sent. Wait for disabled and submit again.');
         return;
       }
       const hash = await sendValidityTransaction(serialized, [
         conditionalWithdrawalEnabledPredicate(withdrawal),
+        blockExpiryPredicate(maxBlock),
       ]);
       setValidity((current) => ({ ...current, status: 'pending', hash }));
       trackValidityRace('validity', 'submitted');
@@ -406,19 +466,21 @@ function RaceTheAgentDemoInner() {
       trackValidityRace('validity', 'error');
       setError(describeValidityError(err));
     } finally {
+      submissionInFlightRef.current = false;
       setBusy(false);
     }
   };
 
   const withdrawNow = async () => {
-    if (!withdrawal || !client || !observed || !canSubmitManual({
+    if (submissionInFlightRef.current || !withdrawal || !client || !observed || !canSubmitManual({
       status: manual.status,
       prepared,
       hasAccount: Boolean(acct),
       hasClient: Boolean(client),
       hasContract: Boolean(withdrawal),
       observedEnabled: observed?.enabled ?? null,
-    })) return;
+    }) || !signerReady || !canSubmitAttempt(validity.status)) return;
+    submissionInFlightRef.current = true;
     const attemptNumber = manualAttemptCount + 1;
     setManualHistory((history) => preserveCompletedAttempt(history, manual));
     setManualAttemptCount(attemptNumber);
@@ -430,29 +492,24 @@ function RaceTheAgentDemoInner() {
     });
     trackValidityRace('manual', 'submitted');
     try {
-      const call = encodeConditionalWithdraw(withdrawal);
-      const result = await engine.sendActiveCalls({
-        calls: [{ to: call.to, data: call.data, value: '0' }],
-        metadata: 'Race the Agent manual withdrawal',
-      });
-      setManual((current) => ({ ...current, status: 'pending', hash: result.hash }));
+      const serialized = await signWithdrawal(withdrawal);
+      const hash = await client.sendRawTransaction({ serializedTransaction: serialized });
+      setManual((current) => ({ ...current, status: 'pending', hash }));
     } catch (err) {
-      if (err instanceof TxPendingError) {
-        setManual((current) => ({ ...current, status: 'pending', hash: err.txHash }));
+      const message = err instanceof Error ? err.message : 'Manual withdrawal failed.';
+      const hash = extractHash(message);
+      if (hash) {
+        setManual((current) => ({ ...current, status: 'pending', hash, error: message }));
       } else {
-        const message = err instanceof Error ? err.message : 'Manual withdrawal failed.';
-        const hash = extractHash(message);
-        if (hash) {
-          setManual((current) => ({ ...current, status: 'pending', hash, error: message }));
-        } else {
-          setManual((current) => ({ ...current, status: 'error', error: message }));
-          trackValidityRace('manual', 'error');
-        }
+        setManual((current) => ({ ...current, status: 'error', error: message }));
+        trackValidityRace('manual', 'error');
       }
+    } finally {
+      submissionInFlightRef.current = false;
     }
   };
 
-  const readyToSubmit = prepared && observed?.enabled === false && canSubmitValidity(validity.status);
+  const readyToSubmit = prepared && signerReady && observed?.enabled === false && canSubmitValidity(validity.status) && canSubmitAttempt(manual.status);
   const readyToWithdraw = canSubmitManual({
     status: manual.status,
     prepared,
@@ -460,17 +517,23 @@ function RaceTheAgentDemoInner() {
     hasClient: Boolean(client),
     hasContract: Boolean(withdrawal),
     observedEnabled: observed?.enabled ?? null,
-  });
+  }) && signerReady && canSubmitAttempt(validity.status);
   const validityAttempts = attemptHistoryRows(validity, validityHistory);
   const manualAttempts = attemptHistoryRows(manual, manualHistory);
-  const predicateSnippet = withdrawal
-    ? JSON.stringify(conditionalWithdrawalEnabledPredicate(withdrawal), null, 2)
+  const displayedMaxBlock = validityMaxBlock ?? (observed
+    ? maxBlockForExpiry(observed.block, RACE_VALIDITY_SECONDS)
+    : null);
+  const predicateSnippet = withdrawal && displayedMaxBlock !== null
+    ? JSON.stringify([
+        conditionalWithdrawalEnabledPredicate(withdrawal),
+        blockExpiryPredicate(displayedMaxBlock),
+      ], null, 2)
     : 'Resolving the conditional withdrawal address…';
 
   return (
     <AccountDemoShell
       gateTitle="Create an account to race the agent"
-      gateDescription="Both comparison attempts use your active EIP-8130 account."
+      gateDescription="Both comparison attempts use the K1 owner of your active account to sign regular EIP-1559 transactions."
       className="gap-6 pb-24"
     >
       <DemoHeader
@@ -530,12 +593,14 @@ function RaceTheAgentDemoInner() {
               number="01"
               title="Shared background agent"
               detail="Shared Vibenet infrastructure drives this onchain switch in the background. This page only discovers the singleton and observes its current state."
-              active={!prepared}
-              complete={prepared}
+              active={!prepared || !signerReady}
+              complete={prepared && signerReady}
             >
-              <Text variant="footnote" tone={setupError ? 'default' : 'muted'} className={setupError ? 'text-red-600 dark:text-red-300' : undefined}>
+              <Text variant="footnote" tone={setupError || signerError ? 'default' : 'muted'} className={setupError || signerError ? 'text-red-600 dark:text-red-300' : undefined}>
                 {prepared
-                  ? 'Connected to the shared agent switch'
+                  ? signerReady
+                    ? 'Connected to the shared agent switch · EIP-1559 signer funded'
+                    : signerError ?? 'Preparing the EIP-1559 signer'
                   : setupError
                     ? `Shared infrastructure is not ready; retrying automatically. ${setupError}`
                     : setupRunning
@@ -580,7 +645,7 @@ function RaceTheAgentDemoInner() {
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none sm:px-6 [&::-webkit-details-marker]:hidden">
           <div>
             <Text variant="caption" tone="muted">Advanced details</Text>
-            <Text variant="headline" className="mt-1">Contract and validity predicate</Text>
+            <Text variant="headline" className="mt-1">Contract and validity predicates</Text>
           </div>
           <ChevronIcon className="shrink-0 duration-150 group-open:rotate-180" />
         </summary>
@@ -588,7 +653,7 @@ function RaceTheAgentDemoInner() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <Text variant="label.regular" tone="muted" className="max-w-2xl">
               The contract stores the first state variable, <code className="font-mono text-foreground">enabled</code>,
-              in slot 0. The validity transaction reads that slot directly and becomes eligible only when the boolean is true.
+              in slot 0. The validity transaction becomes eligible only when that boolean is true and expires at its displayed block bound.
             </Text>
             {withdrawal ? (
               <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -611,7 +676,7 @@ function RaceTheAgentDemoInner() {
           </div>
           <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-2">
             <CodeSnippet label="ConditionalWithdrawal.sol" code={CONTRACT_SNIPPET} language="solidity" />
-            <CodeSnippet label="Withdrawal validity predicate" code={predicateSnippet} language="json" />
+            <CodeSnippet label="Withdrawal validity predicates" code={predicateSnippet} language="json" />
           </div>
         </div>
       </details>
