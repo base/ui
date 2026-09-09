@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { annotatedValidity, reviewClauses } from './annotate';
+import { conditionalWithdrawalEnabledPredicate } from './conditionalWithdrawal';
 import { WAD } from './constants';
 import { blockDelayPredicate, blockExpiryPredicate, priceValidity, storagePredicate } from './predicates';
 
@@ -57,6 +58,16 @@ describe('annotatedValidity', () => {
     expect(notes).toContain('Contract whose storage is read');
     expect(notes).toContain('Keep the selected bits');
     expect(notes.some((note) => /reserve/i.test(note ?? ''))).toBe(false);
+    expect(reviewClauses([predicate])).toEqual([
+      {
+        title: 'Storage condition',
+        detail: 'Include only if the selected value is exactly — 1',
+      },
+    ]);
+  });
+
+  it('treats an omitted storage mask as a full-word comparison', () => {
+    const predicate = conditionalWithdrawalEnabledPredicate(PAIR);
     expect(reviewClauses([predicate])).toEqual([
       {
         title: 'Storage condition',

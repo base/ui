@@ -9,7 +9,6 @@ import {
 
 import artifact from './artifacts/ConditionalWithdrawal.json';
 import { erc20Abi, WAD } from './constants';
-import { storagePredicate } from './predicates';
 import {
   create2Address,
   hasCode,
@@ -21,8 +20,7 @@ export const conditionalWithdrawalAbi = artifact.abi as Abi;
 export const conditionalWithdrawalBytecode = artifact.bytecode as Hex;
 
 /** `bool public enabled` is the contract's first storage variable. */
-export const CONDITIONAL_WITHDRAWAL_ENABLED_SLOT = 0n;
-export const CONDITIONAL_WITHDRAWAL_ENABLED_MASK = 0xffn;
+export const CONDITIONAL_WITHDRAWAL_ENABLED_SLOT = '0x0' as Hex;
 export const CONDITIONAL_WITHDRAWAL_AMOUNT = WAD;
 export const CONDITIONAL_WITHDRAWAL_SALT = singletonSalt('conditional-withdrawal');
 
@@ -82,11 +80,13 @@ export function encodeConditionalWithdraw(withdrawal: Address): { to: Address; d
 
 /** EIP-8130 condition requiring `bool public enabled` in storage slot 0 to be true. */
 export function conditionalWithdrawalEnabledPredicate(withdrawal: Address): StoragePredicate {
-  return storagePredicate(
-    withdrawal,
-    CONDITIONAL_WITHDRAWAL_ENABLED_SLOT,
-    CONDITIONAL_WITHDRAWAL_ENABLED_MASK,
-    '=',
-    1n,
-  );
+  return {
+    type: 'storage',
+    params: {
+      address: withdrawal,
+      slot: CONDITIONAL_WITHDRAWAL_ENABLED_SLOT,
+      op: '=',
+      value: '0x1',
+    },
+  };
 }

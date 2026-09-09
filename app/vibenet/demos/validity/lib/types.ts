@@ -7,7 +7,7 @@ export type StoragePredicate = {
   params: {
     address: Address;
     slot: Hex;
-    mask: Hex;
+    mask?: Hex;
     op: ValidityOperator;
     value: Hex;
   };
@@ -78,4 +78,3 @@ export type PlacedOrder = {
   /** Mid when the condition matched (pre-swap), never worse than the named price. */
   fillPriceWad?: bigint;
 };
-
