@@ -4,11 +4,12 @@ import type { PlacedOrder } from './types';
 const WALL_CLOCK_GRACE_MS = 400;
 
 export function orderWallClockExpired(
-  order: Pick<PlacedOrder, 'status' | 'submittedAt' | 'expirySeconds'>,
+  order: Pick<PlacedOrder, 'status' | 'submittedAt' | 'expirySeconds' | 'delaySeconds'>,
   now = Date.now(),
 ): boolean {
   if (order.status !== 'pending') return false;
-  return now > order.submittedAt + order.expirySeconds * 1000 + WALL_CLOCK_GRACE_MS;
+  const totalSeconds = (order.delaySeconds ?? 0) + order.expirySeconds;
+  return now > order.submittedAt + totalSeconds * 1000 + WALL_CLOCK_GRACE_MS;
 }
 
 export function orderBlockExpired(
@@ -22,6 +23,13 @@ export function orderBlockExpired(
 export function maxBlockForExpiry(currentBlock: bigint, expirySeconds: number): bigint {
   const seconds = Math.max(1, expirySeconds);
   const blocks = Math.max(1, Math.ceil(seconds / BLOCK_SECONDS));
+  return currentBlock + BigInt(blocks);
+}
+
+/** Inclusive first L2 block a delayed validity tx may land in. */
+export function minBlockForDelay(currentBlock: bigint, delaySeconds: number): bigint {
+  if (delaySeconds <= 0) return currentBlock;
+  const blocks = Math.max(1, Math.ceil(delaySeconds / BLOCK_SECONDS));
   return currentBlock + BigInt(blocks);
 }
 

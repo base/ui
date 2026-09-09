@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { annotatedValidity, reviewClauses } from './annotate';
 import { WAD } from './constants';
-import { blockExpiryPredicate, priceValidity, storagePredicate } from './predicates';
+import { blockDelayPredicate, blockExpiryPredicate, priceValidity, storagePredicate } from './predicates';
 
 const PAIR = '0x1111111111111111111111111111111111111111';
 
@@ -40,6 +40,14 @@ describe('annotatedValidity', () => {
     expect(notes).toContain('Block-number expiry');
     expect(notes).toContain('L2 block 18422105');
     expect(notes.some((note) => note?.includes('at most'))).toBe(true);
+  });
+
+  it('decodes a block-number delay as a not-before bound', () => {
+    const rows = annotatedValidity([blockDelayPredicate(18_422_105n)]);
+    const notes = rows.map((row) => row.note).filter(Boolean);
+    expect(notes).toContain('Block-number delay');
+    expect(notes).toContain('L2 block 18422105');
+    expect(notes.some((note) => note?.includes('once') && note.includes('at least'))).toBe(true);
   });
 
   it('uses neutral labels for a full-mask non-AMM storage slot', () => {
