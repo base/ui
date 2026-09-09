@@ -30,6 +30,7 @@ describe('parseStored', () => {
           {
             id: 'ord-1',
             side: 'buy',
+            sender: '0x00000000000000000000000000000000000000aa',
             targetPriceWad: { $bn: '70000000000000000' },
             size: { $bn: '100000000000000000000' },
             expirySeconds: 15,
@@ -52,6 +53,7 @@ describe('parseStored', () => {
     expect(parsed?.orders).toHaveLength(1);
     expect(parsed?.orders?.[0]?.targetPriceWad).toBe(70000000000000000n);
     expect(parsed?.orders?.[0]?.size).toBe(100000000000000000000n);
+    expect(parsed?.orders?.[0]?.sender).toBe('0x00000000000000000000000000000000000000aa');
     expect(parsed?.orders?.[0]?.txHash).toMatch(/^0xab/);
   });
 });

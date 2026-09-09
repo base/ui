@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Hex, PublicClient } from 'viem';
+import { type Address, type Hex, type PublicClient } from 'viem';
 
 import { trackValidityOrder } from '../../../analytics/events';
 import { Card } from '../../../components/ui/Card';
 import { Text } from '../../../components/ui/Text';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { DemoHeader } from '../_components/DemoHeader';
-import { newCallRow } from '../account/library/calls';
 import { ActivityLog } from '../account/components/ActivityLog';
 import { AccountEngineProvider, useAccountEngine } from '../account/useAccountEngine';
 import { VIBENET_EXPLORER_PATH } from '../../library/config';
@@ -32,14 +31,14 @@ import {
   reservesFromSyncLog,
   tokenBalance,
 } from './lib/amm';
-import { clampNoncelessExpiry, noncelessFields } from '../../library/aa';
 import {
   CANDLE_SAMPLE_MS,
   MAX_EXPIRY_SECONDS,
-  MAX_NONCELESS_SECONDS,
   TRADE_VIBE,
 } from './lib/constants';
+import { vibenetApi } from '../../library/client';
 import { VIBENET_WS_URL } from '../../library/config';
+import { signK1Eip1559Call } from './lib/eip1559';
 import {
   ageRestoredOrders,
   maxBlockForExpiry,
@@ -77,12 +76,14 @@ import { connectJsonRpcStream, headNumber, type StreamHead, type StreamLog } fro
 import { probeSingleton } from './lib/singleton';
 import { mergeTape } from './lib/tape';
 import { createState, loadState, saveState, type StoredState } from './lib/store';
-import type { PlacedOrder, Rectangle, Reserves, Side, SubmitMode } from './lib/types';
+import type { PlacedOrder, Rectangle, Reserves, Side } from './lib/types';
 
 /** HTTP fallback when the read host has no `/ws`. Submit is always HTTP.
  *  The socket carries heads, pair logs, and remaining reads (balances, receipts). */
 const SYNC_MS = 1_000;
 const BALANCE_MS = 5_000;
+const SETUP_GAS_LIMIT = 200_000n;
+const SWAP_GAS_LIMIT = 250_000n;
 
 function wadToNumber(wad: bigint): number {
   return Number(wad) / 1e18;
@@ -114,6 +115,10 @@ function ValidityDemoInner() {
   const [reserves, setReserves] = useState<Reserves | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [signerReady, setSignerReady] = useState(false);
+  const [signerError, setSignerError] = useState<string | null>(null);
+  const [inventoryReady, setInventoryReady] = useState(false);
+  const [inventoryPreparing, setInventoryPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txOpen, setTxOpen] = useState(false);
   const [txStep, setTxStep] = useState<TxStep>('review');
@@ -123,7 +128,6 @@ function ValidityDemoInner() {
   const [priceOverrideWad, setPriceOverrideWad] = useState<bigint | null>(null);
   const [expirySeconds, setExpirySeconds] = useState(15);
   const [delaySeconds, setDelaySeconds] = useState(0);
-  const [submitMode, setSubmitMode] = useState<SubmitMode>('concurrent');
   const [orders, setOrders] = useState<PlacedOrder[]>([]);
   const [hoveredOrderId, setHoveredOrderId] = useState<string | null>(null);
   const [samples, setSamples] = useState<PriceSample[]>([]);
@@ -133,9 +137,9 @@ function ValidityDemoInner() {
   const publicRef = useRef<PublicClient | null>(null);
   const rpcSendRef = useRef<RpcSend | null>(null);
   const headFeesRef = useRef<ReturnType<typeof feesFromHead>>(null);
-  const engineRef = useRef(engine);
-  engineRef.current = engine;
   const refreshBalancesRef = useRef<() => void>(() => {});
+  const submissionInFlightRef = useRef(false);
+  const inventoryKeyRef = useRef('');
 
   const ordersRef = useRef<PlacedOrder[]>([]);
   ordersRef.current = orders;
@@ -262,6 +266,49 @@ function ValidityDemoInner() {
     };
   }, [persist]);
 
+  const signerAddress = engine.activeSigner?.kind === 'k1'
+    ? (engine.activeSigner.address ?? null)
+    : null;
+
+  useEffect(() => {
+    const client = publicRef.current;
+    if (!client || !signerAddress) {
+      setSignerReady(false);
+      setSignerError(signerAddress ? null : 'A K1 owner is required to sign EIP-1559 transactions.');
+      return;
+    }
+    let cancelled = false;
+    const prepareSigner = async () => {
+      setSignerReady(false);
+      setSignerError(null);
+      setInventoryReady(false);
+      inventoryKeyRef.current = '';
+      try {
+        let balance = await client.getBalance({ address: signerAddress });
+        if (balance === 0n) {
+          await vibenetApi.faucet.drip({ address: signerAddress }).catch(() => undefined);
+          const deadline = Date.now() + 10_000;
+          while (balance === 0n && Date.now() < deadline) {
+            await new Promise((resolve) => window.setTimeout(resolve, 500));
+            balance = await client.getBalance({ address: signerAddress });
+          }
+        }
+        if (cancelled) return;
+        if (balance === 0n) throw new Error('The EIP-1559 signer faucet top-up did not land.');
+        setEthBalance(balance);
+        setSignerReady(true);
+      } catch (err) {
+        if (!cancelled) {
+          setSignerError(err instanceof Error ? err.message : 'Could not prepare the EIP-1559 signer.');
+        }
+      }
+    };
+    void prepareSigner();
+    return () => {
+      cancelled = true;
+    };
+  }, [signerAddress]);
+
   const patchOrders = useCallback((patch: (order: PlacedOrder) => PlacedOrder) => {
     let changed = false;
     const next = ordersRef.current.map((order) => {
@@ -368,7 +415,7 @@ function ValidityDemoInner() {
   );
 
   useEffect(() => {
-    if (!hydrated || !acct || !genesisHash) return;
+    if (!hydrated || !acct || !signerAddress || !genesisHash) return;
     const client = publicRef.current;
     if (!client) return;
     let cancelled = false;
@@ -380,13 +427,13 @@ function ValidityDemoInner() {
 
     const pullBalances = async (includeReserves: boolean) => {
       const deployment = stateRef.current?.deployment;
-      const jobs: Promise<unknown>[] = [client.getBalance({ address: acct.address })];
+      const jobs: Promise<unknown>[] = [client.getBalance({ address: signerAddress })];
       if (includeReserves) {
         jobs.push(deployment ? getReserves(client, deployment.pair).catch(() => null) : Promise.resolve(null));
       }
       if (deployment) {
-        jobs.push(tokenBalance(client, deployment.tokenA, acct.address).catch(() => null));
-        jobs.push(tokenBalance(client, deployment.tokenB, acct.address).catch(() => null));
+        jobs.push(tokenBalance(client, deployment.tokenA, signerAddress).catch(() => null));
+        jobs.push(tokenBalance(client, deployment.tokenB, signerAddress).catch(() => null));
       }
       const [eth, ...rest] = await Promise.all(jobs);
       if (cancelled) return;
@@ -536,7 +583,7 @@ function ValidityDemoInner() {
       stream?.close();
       setStreamLive(false);
     };
-  }, [acct, applyReceipts, expireOrders, genesisHash, hydrated, markOrderLanded, pushSample, state?.deployment?.pair]);
+  }, [acct, applyReceipts, expireOrders, genesisHash, hydrated, markOrderLanded, pushSample, signerAddress, state?.deployment?.pair]);
 
   const vibeToken0 = Boolean(state?.deployment && vibeIsToken0(state.deployment));
   const k = reserves ? reserves.reserve0 * reserves.reserve1 : 0n;
@@ -571,18 +618,13 @@ function ValidityDemoInner() {
   const reviewPredicates = useMemo(() => {
     if (!draft) return [];
     if (blockNumber === null) return draft.predicates;
-    const seconds =
-      submitMode === 'concurrent'
-        ? clampNoncelessExpiry(expirySeconds)
-        : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
-    const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
-    const delay = Math.max(0, Math.min(delaySeconds, cap - seconds));
-    const delayBlock = delay > 0 ? minBlockForDelay(blockNumber, delay) : blockNumber;
-    const maxBlock = maxBlockForExpiry(delayBlock, seconds);
+    const seconds = Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
+    const minBlock = delaySeconds > 0 ? minBlockForDelay(blockNumber, delaySeconds) : undefined;
+    const maxBlock = maxBlockForExpiry(minBlock ?? blockNumber, seconds);
     const predicates = [...draft.predicates, blockExpiryPredicate(maxBlock)];
-    if (delay > 0) predicates.push(blockDelayPredicate(delayBlock));
+    if (minBlock !== undefined) predicates.push(blockDelayPredicate(minBlock));
     return predicates;
-  }, [blockNumber, delaySeconds, draft, expirySeconds, submitMode]);
+  }, [blockNumber, delaySeconds, draft, expirySeconds]);
 
   const chartLevels = useMemo((): PriceLevel[] => {
     const levels: PriceLevel[] = [];
@@ -625,51 +667,104 @@ function ValidityDemoInner() {
     return marks;
   }, [hoveredOrderId, orders]);
 
-  const inventoryKeyRef = useRef('');
+  const currentFees = useCallback(async (client: PublicClient) => {
+    const estimated = headFeesRef.current ?? (await client.estimateFeesPerGas().catch(() => null));
+    return estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
+      ? padFees({
+          maxFeePerGas: estimated.maxFeePerGas,
+          maxPriorityFeePerGas: estimated.maxPriorityFeePerGas,
+        })
+      : { maxFeePerGas: 1_000_000_000n, maxPriorityFeePerGas: 1_000_000n };
+  }, []);
 
-  // Mint USDV inventory + approve the helper for the user's own account so
-  // their conditional orders can fill. The pool itself and the maker flow are
-  // now run centrally by the vibenet actor system, so there is no client-side
-  // maker creation, funding, or swap loop here anymore.
+  const sendEip1559Call = useCallback(async (
+    client: PublicClient,
+    call: { to: Address; data: Hex },
+  ): Promise<Hex> => {
+    if (!signerAddress) throw new Error('A K1 owner is required to sign EIP-1559 transactions.');
+    const [nonce, fees] = await Promise.all([
+      client.getTransactionCount({ address: signerAddress, blockTag: 'latest' }),
+      currentFees(client),
+    ]);
+    const serialized = await signK1Eip1559Call({
+      client,
+      signer: engine.activeSigner,
+      call,
+      gas: SETUP_GAS_LIMIT,
+      nonce,
+      fees,
+    });
+    const hash = await client.sendRawTransaction({ serializedTransaction: serialized });
+    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 15_000 });
+    if (receipt.status !== 'success') throw new Error(`Setup transaction reverted (${hash}).`);
+    return hash;
+  }, [currentFees, engine.activeSigner, signerAddress]);
+
+  // Mint inventory + approve the helper for the K1 EOA so its conventional
+  // EIP-1559 conditional orders can fill. Each setup call is a regular
+  // transaction because an EOA cannot batch calls without account abstraction.
+  // The pool itself and the maker flow are run centrally by the vibenet actor
+  // system, so there is no client-side maker creation, funding, or swap loop.
   useEffect(() => {
-    if (!hydrated || !state?.deployment || !acct || busy) return;
-    if (!ethBalance || ethBalance === 0n) return;
+    if (!hydrated || !state?.deployment || !acct || !signerAddress || !signerReady) return;
     const client = publicRef.current;
     if (!client) return;
-    const key = `${state.deployment.pair}:${acct.id}`;
-    if (inventoryKeyRef.current === key) return;
+    const key = `${state.deployment.pair}:${signerAddress}`;
+    if (inventoryKeyRef.current === key) {
+      setInventoryReady(true);
+      return;
+    }
     const deployment = state.deployment;
     let cancelled = false;
+    setInventoryPreparing(true);
+    setInventoryReady(false);
     void (async () => {
       try {
-        const starter = await inventoryMints(client, deployment, [{ to: acct.address }]);
-        const approves = await helperApproveCalls(client, deployment, acct.address);
+        const starter = await inventoryMints(client, deployment, [{ to: signerAddress }]);
+        const approves = await helperApproveCalls(client, deployment, signerAddress);
         if (cancelled) return;
-        if (starter.length + approves.length === 0) {
-          inventoryKeyRef.current = key;
-          return;
+        const calls = [...starter, ...approves];
+        for (let index = 0; index < calls.length; index += 1) {
+          if (cancelled) return;
+          setProgress(`Preparing EIP-1559 inventory (${index + 1}/${calls.length})`);
+          await sendEip1559Call(client, calls[index]);
         }
-        setProgress('Minting USDV inventory');
-        await engineRef.current.sendActiveCalls({
-          calls: [...starter, ...approves],
-          metadata: 'Validity inventory',
-        });
-        if (!cancelled) inventoryKeyRef.current = key;
+        if (cancelled) return;
+        inventoryKeyRef.current = key;
+        setInventoryReady(true);
+        refreshBalancesRef.current();
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not mint inventory');
+        if (!cancelled) {
+          setInventoryReady(false);
+          setError(err instanceof Error ? err.message : 'Could not prepare EIP-1559 inventory');
+        }
       } finally {
-        if (!cancelled) setProgress(null);
+        if (!cancelled) {
+          setInventoryPreparing(false);
+          setProgress(null);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [acct, busy, ethBalance, hydrated, state?.deployment]);
+  }, [acct, hydrated, sendEip1559Call, signerAddress, signerReady, state?.deployment]);
 
   const placeOrder = async (): Promise<Hex | undefined> => {
-    if (!draft || !acct || !state?.deployment || !reserves || !engine.activeSigner) return;
+    if (
+      submissionInFlightRef.current ||
+      !draft ||
+      !acct ||
+      !signerAddress ||
+      !signerReady ||
+      !inventoryReady ||
+      !state?.deployment ||
+      !reserves ||
+      !engine.activeSigner
+    ) return;
     const publicClient = publicRef.current;
     if (!publicClient) return;
+    submissionInFlightRef.current = true;
     setBusy(true);
     setError(null);
     const side: Side = draft.side;
@@ -683,7 +778,7 @@ function ValidityDemoInner() {
       let call: ReturnType<typeof encodeHelperSwapExactIn>;
       if (side === 'sell') {
         const amountIn = TRADE_VIBE;
-        const inventory = await tokenBalance(publicClient, tokenIn, acct.address);
+        const inventory = await tokenBalance(publicClient, tokenIn, signerAddress);
         if (inventory < amountIn) {
           throw new Error(`Need ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL} to sell.`);
         }
@@ -703,7 +798,7 @@ function ValidityDemoInner() {
         const limitIn = amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad);
         if (limitIn === 0n) throw new Error('Swap size is too small.');
         const maxIn = limitIn + limitIn / 1000n + 1n;
-        const inventory = await tokenBalance(publicClient, tokenIn, acct.address);
+        const inventory = await tokenBalance(publicClient, tokenIn, signerAddress);
         if (inventory < maxIn) {
           throw new Error(
             `Need ${formatTokenAmount(maxIn, USDV_DECIMALS)} ${USDV_SYMBOL} to buy ${formatTokenAmount(TRADE_VIBE)} ${VIBE_SYMBOL}.`,
@@ -717,98 +812,59 @@ function ValidityDemoInner() {
           maxIn,
         });
       }
-      const seconds =
-        submitMode === 'concurrent'
-          ? clampNoncelessExpiry(expirySeconds)
-          : Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
+      const seconds = Math.min(MAX_EXPIRY_SECONDS, expirySeconds);
       const block = blockNumber ?? (await publicClient.getBlockNumber({ cacheTime: 0 }));
-      const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
-      const delay = Math.max(0, Math.min(delaySeconds, cap - seconds));
-      const minBlock = delay > 0 ? minBlockForDelay(block, delay) : undefined;
+      const minBlock = delaySeconds > 0 ? minBlockForDelay(block, delaySeconds) : undefined;
       const maxBlock = maxBlockForExpiry(minBlock ?? block, seconds);
       const validity = [...draft.predicates, blockExpiryPredicate(maxBlock)];
       if (minBlock !== undefined) validity.push(blockDelayPredicate(minBlock));
-      const fromHead = headFeesRef.current;
-      const estimated =
-        fromHead ??
-        (await publicClient.estimateFeesPerGas().catch(() => null));
-      const padded =
-        estimated?.maxFeePerGas !== undefined && estimated.maxPriorityFeePerGas !== undefined
-          ? padFees({
-              maxFeePerGas: estimated.maxFeePerGas,
-              maxPriorityFeePerGas: estimated.maxPriorityFeePerGas,
-            })
-          : null;
+      const latestFees = await currentFees(publicClient);
       trackValidityOrder(side, 'submitted');
       let hash: Hex;
-      let nonce: number | undefined;
-      let fees = padded;
-      let replaced: ReturnType<typeof restingOrderToReplace>;
-      const rows = [newCallRow({ to: call.to, data: call.data, value: '0' })];
-      if (submitMode === 'concurrent') {
-        replaced = undefined;
-        const fields = noncelessFields(seconds);
-        const { serialized } = await engine.signComposed(
-          acct,
-          engine.activeSigner,
-          rows,
-          [],
-          null,
-          undefined,
-          undefined,
-          undefined,
-          {
-            nonceKey: fields.nonceKey,
-            nonceSequence: 0n,
-            validBefore: fields.validBefore,
-            maxFeePerGas: padded?.maxFeePerGas,
-            maxPriorityFeePerGas: padded?.maxPriorityFeePerGas,
-          },
-        );
-        hash = await sendValidityTransaction(serialized, validity);
-      } else {
-        const confirmedNonce = Number(
-          await publicClient.getTransactionCount({
-            address: acct.address,
-            blockTag: 'latest',
-          }),
-        );
-        const occupant = occupyingOrder(ordersRef.current, confirmedNonce);
-        replaced = restingOrderToReplace(ordersRef.current, confirmedNonce);
-        if (occupant?.maxFeePerGas !== undefined && occupant.maxPriorityFeePerGas !== undefined) {
-          fees = bumpReplacementFees(
+      const nonce = await publicClient.getTransactionCount({
+        address: signerAddress,
+        blockTag: 'latest',
+      });
+      const signerOrders = ordersRef.current.filter(
+        (order) => order.sender?.toLowerCase() === signerAddress.toLowerCase(),
+      );
+      const occupant = occupyingOrder(signerOrders, nonce);
+      const replaced = restingOrderToReplace(signerOrders, nonce);
+      let fees = occupant?.maxFeePerGas !== undefined && occupant.maxPriorityFeePerGas !== undefined
+        ? bumpReplacementFees(
             {
               maxFeePerGas: occupant.maxFeePerGas,
               maxPriorityFeePerGas: occupant.maxPriorityFeePerGas,
             },
-            padded,
-          );
-        }
-        const sign = (nextFees: typeof fees) =>
-          engine.signComposed(acct, engine.activeSigner!, rows, [], null, undefined, undefined, undefined, {
-            nonceSequence: BigInt(confirmedNonce),
-            maxFeePerGas: nextFees?.maxFeePerGas,
-            maxPriorityFeePerGas: nextFees?.maxPriorityFeePerGas,
-          });
-        let signedResult = await sign(fees);
-        try {
-          hash = await sendValidityTransaction(signedResult.serialized, validity);
-        } catch (err) {
-          if (!isReplacementUnderpriced(err) || !fees) throw err;
-          fees = bumpReplacementFees(fees, padded);
-          signedResult = await sign(fees);
-          hash = await sendValidityTransaction(signedResult.serialized, validity);
-        }
-        nonce = confirmedNonce;
+            latestFees,
+          )
+        : latestFees;
+      const sign = (nextFees: typeof fees) =>
+        signK1Eip1559Call({
+          client: publicClient,
+          signer: engine.activeSigner,
+          call,
+          gas: SWAP_GAS_LIMIT,
+          nonce,
+          fees: nextFees,
+        });
+      let serialized = await sign(fees);
+      try {
+        hash = await sendValidityTransaction(serialized, validity);
+      } catch (err) {
+        if (!isReplacementUnderpriced(err)) throw err;
+        fees = bumpReplacementFees(fees, latestFees);
+        serialized = await sign(fees);
+        hash = await sendValidityTransaction(serialized, validity);
       }
       const order: PlacedOrder = {
         id: newId(),
         side,
+        sender: signerAddress,
         targetPriceWad: draft.priceWad,
         size: TRADE_VIBE,
         expirySeconds: seconds,
-        delaySeconds: delay > 0 ? delay : undefined,
-        submitMode,
+        delaySeconds: delaySeconds > 0 ? delaySeconds : undefined,
         maxBlock,
         minBlock,
         submittedAt: Date.now(),
@@ -834,11 +890,10 @@ function ValidityDemoInner() {
       engine.pushActivity({
         kind: 'transact',
         title: `Validity ${side} submitted`,
-        detail: submitMode === 'concurrent' ? '8130 concurrent' : 'sequential replace',
-        account: acct.address,
+        detail: replaced ? 'Nonce replacement' : 'Resting order',
+        account: signerAddress,
         txHash: hash,
         network: engine.chain.name,
-        mode: engine.chain.mode,
       });
       return hash;
     } catch (err) {
@@ -861,13 +916,14 @@ function ValidityDemoInner() {
         ...prev,
       ]);
     } finally {
+      submissionInFlightRef.current = false;
       setBusy(false);
     }
   };
 
   const tradeLabel = formatTokenAmount(TRADE_VIBE);
   const canAffordTrade = (() => {
-    if (!draft) return false;
+    if (!draft || !signerReady || !inventoryReady) return false;
     if (side === 'sell') return (vibeBalance ?? 0n) >= TRADE_VIBE;
     if (k === 0n) return false;
     const need = amountInForVibe(TRADE_VIBE, 'buy', k, draft.priceWad);
@@ -881,6 +937,8 @@ function ValidityDemoInner() {
 
   return (
     <AccountDemoShell
+      gateTitle="Create an account to place conditional swaps"
+      gateDescription="Your active account signs each conditional swap."
       activity={<ActivityLog activity={engine.activity} accounts={engine.accounts} />}
       activityCount={engine.activity.length}
       activityEmptyMessage="Nothing has happened yet."
@@ -900,65 +958,63 @@ function ValidityDemoInner() {
         <Card className="bg-background p-4 text-bds-orange-50 dark:bg-white/5">{statusError}</Card>
       ) : null}
 
+      {signerError ? (
+        <Card className="bg-background p-4 dark:bg-white/5">
+          <Text variant="footnote" className="text-bds-orange-50">{signerError}</Text>
+        </Card>
+      ) : null}
+
       <div className="flex flex-col gap-6">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
-          <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
-          <div className="flex min-w-0 flex-col gap-4">
-            {draft ? (
-              <OrderTicket
-                spotWad={spot}
-                side={side}
-                offsetBps={offsetBps}
-                expirySeconds={expirySeconds}
-                delaySeconds={delaySeconds}
-                submitMode={submitMode}
-                busy={busy}
-                vibeBalance={vibeBalance}
-                costHint={costHint}
-                priceOverrideWad={priceOverrideWad}
-                canAfford={canAffordTrade}
-                onSide={(next) => {
-                  setSide(next);
-                  setPriceOverrideWad(null);
-                }}
-                onOffset={(bps) => {
-                  setOffsetBps(bps);
-                  setPriceOverrideWad(null);
-                }}
-                onPriceOverride={setPriceOverrideWad}
-                onExpiry={setExpirySeconds}
-                onDelay={setDelaySeconds}
-                onSubmitMode={(mode) => {
-                  setSubmitMode(mode);
-                  if (mode !== 'concurrent') return;
-                  const nextExpiry = expirySeconds > MAX_NONCELESS_SECONDS ? 15 : expirySeconds;
-                  if (nextExpiry !== expirySeconds) setExpirySeconds(nextExpiry);
-                  if (delaySeconds + nextExpiry > MAX_NONCELESS_SECONDS) setDelaySeconds(0);
-                }}
-                onSubmit={() => {
-                  setError(null);
-                  setTxHash(null);
-                  setTxStep('review');
-                  setTxOpen(true);
-                }}
-              />
-            ) : (
-              <Card className="bg-background p-5 dark:bg-white/5">
-                <Text variant="title3">Conditional swap</Text>
-                <Text variant="footnote" tone="muted" className="mt-2">
-                  Waiting for a live mid from the simulated pool.
-                </Text>
-              </Card>
-            )}
-            {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
-            {error && !txOpen ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+            <PriceCandles samples={samples} levels={chartLevels} fills={fillMarks} />
+            <div className="flex min-w-0 flex-col gap-4">
+              {draft ? (
+                <OrderTicket
+                  spotWad={spot}
+                  side={side}
+                  offsetBps={offsetBps}
+                  expirySeconds={expirySeconds}
+                  delaySeconds={delaySeconds}
+                  busy={busy || inventoryPreparing || !signerReady}
+                  vibeBalance={vibeBalance}
+                  costHint={costHint}
+                  priceOverrideWad={priceOverrideWad}
+                  canAfford={canAffordTrade}
+                  onSide={(next) => {
+                    setSide(next);
+                    setPriceOverrideWad(null);
+                  }}
+                  onOffset={(bps) => {
+                    setOffsetBps(bps);
+                    setPriceOverrideWad(null);
+                  }}
+                  onPriceOverride={setPriceOverrideWad}
+                  onExpiry={setExpirySeconds}
+                  onDelay={setDelaySeconds}
+                  onSubmit={() => {
+                    setError(null);
+                    setTxHash(null);
+                    setTxStep('review');
+                    setTxOpen(true);
+                  }}
+                />
+              ) : (
+                <Card className="bg-background p-5 dark:bg-white/5">
+                  <Text variant="title3">Conditional swap</Text>
+                  <Text variant="footnote" tone="muted" className="mt-2">
+                    Waiting for a live mid from the simulated pool.
+                  </Text>
+                </Card>
+              )}
+              {progress ? <Text variant="footnote" tone="muted">{progress}</Text> : null}
+              {error && !txOpen ? <Text variant="footnote" className="text-bds-orange-50">{error}</Text> : null}
+            </div>
           </div>
-        </div>
-        <OrderList
-          orders={orders}
-          highlightedOrderId={hoveredOrderId}
-          onHighlight={setHoveredOrderId}
-        />
+          <OrderList
+            orders={orders}
+            highlightedOrderId={hoveredOrderId}
+            onHighlight={setHoveredOrderId}
+          />
       </div>
         </div>
       )}
@@ -987,10 +1043,9 @@ function ValidityDemoInner() {
                   {draft.side === 'buy' ? '≤' : '≥'} ${formatPrice(draft.priceWad)}
                 </Text>
                 <Text variant="footnote" tone="muted" className="mt-1">
-                  {submitMode === 'concurrent' ? '8130 concurrent' : 'Sequential replace'} ·{' '}
                   {delaySeconds > 0
-                    ? `starts in ~${delaySeconds}s, expires ${expirySeconds}s after`
-                    : `expires in ${expirySeconds}s`}
+                    ? `Starts in ~${delaySeconds}s · expires ${expirySeconds}s after`
+                    : `Expires in ${expirySeconds}s`}
                 </Text>
               </div>
               <ul className="flex flex-col gap-2">

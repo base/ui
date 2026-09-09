@@ -9,7 +9,6 @@ const VALIDITY_PATH = '/vibenet/demos/validity';
 
 const VALIDITY_FEATURE: VibenetFeature = {
   id: 'validity-transactions',
-  tag: 'EIP-8130',
   title: 'Validity Transactions',
   summary:
     'Submit transactions with onchain conditions, then let the sequencer include them only while those conditions are valid.',
@@ -39,8 +38,8 @@ const VALIDITY_FEATURE: VibenetFeature = {
       detail: 'Constrain execution to explicit block windows so stale transactions expire safely.',
     },
     {
-      title: 'Concurrent Intents',
-      detail: 'Nonce-isolated transactions can wait independently without blocking other account activity.',
+      title: 'Condition-Aware Ordering',
+      detail: 'Transactions follow priority fee ordering, but are deferred within a block until their validity criteria are satisfied.',
     },
     {
       title: 'No Keeper Required',

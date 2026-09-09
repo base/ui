@@ -7,10 +7,10 @@ import { InfoTooltip } from '../../../../components/ui/InfoTooltip';
 import { Slider } from '../../../../components/ui/Slider';
 import { Text } from '../../../../components/ui/Text';
 import { AnimatedAmount } from '../../_components/AnimatedAmount';
-import { MAX_EXPIRY_SECONDS, MAX_NONCELESS_SECONDS, TRADE_VIBE } from '../lib/constants';
+import { TRADE_VIBE } from '../lib/constants';
 import { applyOffsetBps, formatPrice, parsePriceWad } from '../lib/predicates';
 import { formatTokenAmount, VIBE_SYMBOL } from '../lib/quote';
-import type { Side, SubmitMode } from '../lib/types';
+import type { Side } from '../lib/types';
 
 const TRADE_LABEL = formatTokenAmount(TRADE_VIBE);
 
@@ -26,7 +26,6 @@ type Props = {
   offsetBps: number;
   expirySeconds: number;
   delaySeconds: number;
-  submitMode: SubmitMode;
   busy: boolean;
   vibeBalance: bigint | null;
   costHint: string | null;
@@ -37,7 +36,6 @@ type Props = {
   onPriceOverride: (wad: bigint | null) => void;
   onExpiry: (seconds: number) => void;
   onDelay: (seconds: number) => void;
-  onSubmitMode: (mode: SubmitMode) => void;
   onSubmit: () => void;
   canAfford: boolean;
 };
@@ -53,7 +51,6 @@ export function OrderTicket({
   offsetBps,
   expirySeconds,
   delaySeconds,
-  submitMode,
   busy,
   vibeBalance,
   costHint,
@@ -62,7 +59,6 @@ export function OrderTicket({
   onOffset,
   onExpiry,
   onDelay,
-  onSubmitMode,
   onSubmit,
   onPriceOverride,
   canAfford,
@@ -207,43 +203,11 @@ export function OrderTicket({
         </Text>
       </div>
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-1.5">
-          <Text variant="caption" tone="muted">
-            Mempool
-          </Text>
-          <InfoTooltip label="About mempool mode">
-            Sequential resubmits on the same nonce, so a new order replaces the resting one. Concurrent
-            uses nonceless (EIP-8130) transactions so several orders can be pending at once.
-          </InfoTooltip>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onSubmitMode('replace')}
-            className={
-              submitMode === 'replace'
-                ? 'rounded-xl bg-foreground px-3 py-2 text-[13px] font-medium text-background'
-                : 'rounded-xl border border-bds-gray-10 px-3 py-2 text-[13px] dark:border-white/10'
-            }
-          >
-            Sequential
-          </button>
-          <button
-            type="button"
-            onClick={() => onSubmitMode('concurrent')}
-            className={
-              submitMode === 'concurrent'
-                ? 'rounded-xl bg-foreground px-3 py-2 text-[13px] font-medium text-background'
-                : 'rounded-xl border border-bds-gray-10 px-3 py-2 text-[13px] dark:border-white/10'
-            }
-          >
-            Concurrent
-          </button>
-        </div>
+        <Text variant="caption" tone="muted">
+          Nonce behavior
+        </Text>
         <Text variant="footnote" tone="muted">
-          {submitMode === 'replace'
-            ? 'One transaction at a time via sequential nonces.'
-            : `Submit multiple nonceless transactions simultaneously. Delay + expiry ≤ ${MAX_NONCELESS_SECONDS}s.`}
+          One order can rest at a time. A new swap uses the same nonce with a fee bump and replaces the current order.
         </Text>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -257,28 +221,20 @@ export function OrderTicket({
             </InfoTooltip>
           </div>
           <div className="flex flex-wrap gap-2">
-            {DELAYS.map((seconds) => {
-              const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
-              const blocked = seconds > 0 && seconds + expirySeconds > cap;
-              return (
-                <button
-                  key={seconds}
-                  type="button"
-                  disabled={blocked}
-                  title={blocked ? `Delay plus expiry cannot exceed ${cap}s` : undefined}
-                  onClick={() => onDelay(seconds)}
-                  className={
-                    blocked
-                      ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
-                      : seconds === delaySeconds
-                        ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
-                        : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
-                  }
-                >
-                  {seconds === 0 ? 'Off' : `${seconds}s`}
-                </button>
-              );
-            })}
+            {DELAYS.map((seconds) => (
+              <button
+                key={seconds}
+                type="button"
+                onClick={() => onDelay(seconds)}
+                className={
+                  seconds === delaySeconds
+                    ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
+                    : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
+                }
+              >
+                {seconds === 0 ? 'Off' : `${seconds}s`}
+              </button>
+            ))}
           </div>
         </div>
         <div className="flex flex-col gap-2">
@@ -291,28 +247,20 @@ export function OrderTicket({
             </InfoTooltip>
           </div>
           <div className="flex flex-wrap gap-2">
-            {EXPIRIES.map((seconds) => {
-              const cap = submitMode === 'concurrent' ? MAX_NONCELESS_SECONDS : MAX_EXPIRY_SECONDS;
-              const blocked = delaySeconds + seconds > cap;
-              return (
-                <button
-                  key={seconds}
-                  type="button"
-                  disabled={blocked}
-                  title={blocked ? `Delay plus expiry cannot exceed ${cap}s` : undefined}
-                  onClick={() => onExpiry(seconds)}
-                  className={
-                    blocked
-                      ? 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] text-bds-gray-40 dark:border-white/10'
-                      : seconds === expirySeconds
-                        ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
-                        : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
-                  }
-                >
-                  {seconds}s
-                </button>
-              );
-            })}
+            {EXPIRIES.map((seconds) => (
+              <button
+                key={seconds}
+                type="button"
+                onClick={() => onExpiry(seconds)}
+                className={
+                  seconds === expirySeconds
+                    ? 'rounded-full bg-foreground px-3 py-1 text-[12px] text-background'
+                    : 'rounded-full border border-bds-gray-10 px-3 py-1 text-[12px] dark:border-white/10'
+                }
+              >
+                {seconds}s
+              </button>
+            ))}
           </div>
         </div>
       </div>
