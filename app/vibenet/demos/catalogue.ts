@@ -93,7 +93,7 @@ export const DEMOS: DemoEntry[] = [
           'Place a swap that waits for a target price, then lands or expires as a shared simulated market moves through its validity window.',
         points: [
           'Set a buy or sell price against a live VIBE/USDV pool',
-          'Inspect the validity predicates attached to the EIP-1559 swap',
+          'Inspect the validity predicates attached to the swap',
           'Watch pending orders fill, expire, or get replaced',
         ],
         available: true,

@@ -7,7 +7,7 @@ export type StoragePredicate = {
   params: {
     address: Address;
     slot: Hex;
-    mask: Hex;
+    mask?: Hex;
     op: ValidityOperator;
     value: Hex;
   };
