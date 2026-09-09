@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import artifact from './artifacts/ConditionalWithdrawal.json';
 import {
   CONDITIONAL_WITHDRAWAL_AMOUNT,
-  CONDITIONAL_WITHDRAWAL_ENABLED_MASK,
   CONDITIONAL_WITHDRAWAL_ENABLED_SLOT,
   CONDITIONAL_WITHDRAWAL_SALT,
   conditionalWithdrawalAbi,
@@ -14,7 +13,6 @@ import {
   probeConditionalWithdrawal,
 } from './conditionalWithdrawal';
 import { WAD } from './constants';
-import { toWord } from './predicates';
 
 const VIBE = '0x1111111111111111111111111111111111111111';
 const OTHER_VIBE = '0x2222222222222222222222222222222222222222';
@@ -55,17 +53,15 @@ describe('conditional withdrawal contract', () => {
     await expect(probeConditionalWithdrawal(client as never, VIBE)).resolves.toBeNull();
   });
 
-  it('reads bool public enabled from slot 0 in the EIP-8130 predicate', () => {
-    expect(CONDITIONAL_WITHDRAWAL_ENABLED_SLOT).toBe(0n);
-    expect(CONDITIONAL_WITHDRAWAL_ENABLED_MASK).toBe(0xffn);
+  it('uses the compact predicate form for bool public enabled in slot 0', () => {
+    expect(CONDITIONAL_WITHDRAWAL_ENABLED_SLOT).toBe('0x0');
     expect(conditionalWithdrawalEnabledPredicate(WITHDRAWAL)).toEqual({
       type: 'storage',
       params: {
         address: WITHDRAWAL,
-        slot: toWord(0n),
-        mask: toWord(0xffn),
+        slot: '0x0',
         op: '=',
-        value: toWord(1n),
+        value: '0x1',
       },
     });
   });

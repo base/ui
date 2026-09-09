@@ -54,7 +54,9 @@ function boundWord(op: ValidityOperator): string {
 }
 
 function storageNotes(predicate: StoragePredicate, vibeToken0: boolean): Record<string, string> {
-  const mask = BigInt(predicate.params.mask);
+  const mask = predicate.params.mask === undefined
+    ? (1n << 256n) - 1n
+    : BigInt(predicate.params.mask);
   const slot = BigInt(predicate.params.slot);
   const value = BigInt(predicate.params.value);
   const reserve = slot === PAIR_RESERVES_SLOT ? reserveFromMask(mask) : null;
