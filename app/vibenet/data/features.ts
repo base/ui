@@ -11,7 +11,7 @@ export const FEATURES: VibenetFeature[] = [
     status: 'live',
     availability: 'Coming soon in ',
     availabilityLabel: 'Base Denim',
-    availabilityHref: {label: 'Base Denim', href: 'https://docs.base.org/base-chain/specs/upgrades/denim/overview', external: true},
+    availabilityHref: {label: 'Base Denim', href: 'https://docs.base.org/upgrades/denim', external: true},
     highlights: [
       { title: 'Authorize How You Want', detail: 'Support for secp256k1, P-256, and WebAuthn passkeys.' },
       { title: 'Portable Everywhere', detail: 'Same account and address on any EVM chain.' },
