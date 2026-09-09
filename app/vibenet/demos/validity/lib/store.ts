@@ -117,7 +117,7 @@ function parseOrder(value: unknown): PlacedOrder | undefined {
     rectangle,
     validity,
   };
-  if (row.submitMode === 'replace' || row.submitMode === 'concurrent') order.submitMode = row.submitMode;
+  if (isAddress(row.sender)) order.sender = row.sender;
   if (typeof row.delaySeconds === 'number') order.delaySeconds = row.delaySeconds;
   const maxBlock = asBigint(row.maxBlock);
   if (maxBlock !== undefined) order.maxBlock = maxBlock;

@@ -7,7 +7,7 @@ export type StoragePredicate = {
   params: {
     address: Address;
     slot: Hex;
-    mask?: Hex;
+    mask: Hex;
     op: ValidityOperator;
     value: Hex;
   };
@@ -24,8 +24,6 @@ export type BlockNumberPredicate = {
 export type ValidityPredicate = StoragePredicate | BlockNumberPredicate;
 
 export type Side = 'buy' | 'sell';
-
-export type SubmitMode = 'replace' | 'concurrent';
 
 export type Rectangle = {
   r0Min: bigint;
@@ -58,11 +56,12 @@ export type OrderStatus = 'pending' | 'filled' | 'expired' | 'replaced' | 'error
 export type PlacedOrder = {
   id: string;
   side: Side;
+  /** Conventional transaction sender whose sequential nonce this order occupies. */
+  sender?: Address;
   targetPriceWad: bigint;
   size: bigint;
   expirySeconds: number;
   delaySeconds?: number;
-  submitMode?: SubmitMode;
   maxBlock?: bigint;
   minBlock?: bigint;
   submittedAt: number;

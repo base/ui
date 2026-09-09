@@ -9,7 +9,7 @@ const VALIDITY_PATH = '/vibenet/demos/validity';
 
 const VALIDITY_FEATURE: VibenetFeature = {
   id: 'validity-transactions',
-  tag: 'EIP-8130',
+  tag: 'EIP-1559',
   title: 'Validity Transactions',
   summary:
     'Submit transactions with onchain conditions, then let the sequencer include them only while those conditions are valid.',
@@ -39,8 +39,8 @@ const VALIDITY_FEATURE: VibenetFeature = {
       detail: 'Constrain execution to explicit block windows so stale transactions expire safely.',
     },
     {
-      title: 'Concurrent Intents',
-      detail: 'Nonce-isolated transactions can wait independently without blocking other account activity.',
+      title: 'Conventional Transactions',
+      detail: 'Attach out-of-band predicates to ordinary EIP-1559 transactions without changing their execution semantics.',
     },
     {
       title: 'No Keeper Required',

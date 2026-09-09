@@ -65,7 +65,6 @@ export const RESERVE0_MASK = (1n << RESERVE_BITS) - 1n;
 export const RESERVE1_MASK = RESERVE0_MASK << RESERVE_BITS;
 
 export const MAX_EXPIRY_SECONDS = 60;
-export { MAX_NONCELESS_SECONDS } from '../../../library/aa';
 /**
  * Denim-native L2 block time. `block_number` predicates and mempool eviction
  * are on committed 200ms blocks, not 2s pre-Denim heads or 250ms flashblocks.
