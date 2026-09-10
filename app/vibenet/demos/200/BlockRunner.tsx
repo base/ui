@@ -1164,22 +1164,54 @@ export function BlockRunner() {
           )}
         </div>
         <Text variant="footnote" tone="muted">
-          Scores live in a contract on vibenet — no names, only the wallet that posted them. Your browser plays as{' '}
+          Your browser plays as{' '}
           {myAddress ? <span className="font-mono">{shortAddr(myAddress as `0x${string}`)}</span> : '…'} and the
-          faucet funds its first submission. A devnet regenesis wipes the board.
+          faucet funds its first submission.
         </Text>
       </section>
 
-      <Text variant="footnote" tone="muted">
-        The boss on the right is the sequencer: every block it spits is a real vibenet block, pushed over WebSocket as
-        it lands, one every 200 ms. Block height follows gas used. Swallow one to read its number and slot
-        {head ? `, like ${blockLabel(head)}` : ''}. Tap Space, X, or the picture to bite — each tap opens the
-        mouth for one block, and the next block needs the next tap. Heavy walls drag in slower. Every block that
-        reaches him uneaten costs a heart. Fill the belly gauge and he is FULL — for a few seconds nothing can hurt him and he rolls
-        along the top of the blocks while the gauge drains, then he is hungry again. The beat runs at one note per
-        block. R restarts after a run, M mutes music and effects, F goes full screen.
-      </Text>
+      <div className="grid gap-6 border-t border-bds-gray-10 pt-6 sm:grid-cols-2 dark:border-white/10">
+        <section className="flex flex-col gap-2">
+          <Text variant="label">How to play</Text>
+          <HelpList
+            items={[
+              'Tap Space, X, or the picture to bite. Each tap opens the mouth for one block; the next block needs the next tap.',
+              'Heavy walls drag in slower.',
+              'A block that reaches him uneaten costs a heart.',
+              'Fill the belly gauge and he is FULL: for a few seconds nothing can hurt him, and he rolls along the top of the blocks while the gauge drains.',
+              'R restarts after a run. M mutes music and effects. F goes full screen.',
+            ]}
+          />
+        </section>
+        <section className="flex flex-col gap-2">
+          <Text variant="label">How it works</Text>
+          <HelpList
+            items={[
+              'The boss on the right is the sequencer. Every block it spits is a real vibenet block, pushed over WebSocket as it lands, one every 200 ms.',
+              'Block height follows gas used.',
+              `Swallow a block to read its number and slot${head ? `, like ${blockLabel(head)}` : ''}.`,
+              'The beat runs at one note per block.',
+              'Scores live in a contract on vibenet, keyed by the wallet that posted them. A devnet regenesis wipes the board.',
+            ]}
+          />
+        </section>
+      </div>
     </div>
+  );
+}
+
+function HelpList({ items }: { items: string[] }) {
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {items.map((item) => (
+        <li key={item} className="flex gap-2">
+          <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-[1px] bg-bds-gray-30" aria-hidden="true" />
+          <Text as="span" variant="footnote" tone="muted">
+            {item}
+          </Text>
+        </li>
+      ))}
+    </ul>
   );
 }
 
