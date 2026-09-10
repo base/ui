@@ -15,21 +15,28 @@ import type { TokenInfo } from '../lib/types';
 import { CopyPromptButton } from './CopyPromptButton';
 import { ErrorNote, Field, Input } from './primitives';
 
-// Send-with-memo flow, presented through the shared TransactionModal. It attaches
-// a bytes32 reference to a B20 transfer so the transaction can be reconciled later.
-export function MemoModule({
-  open,
-  onClose,
-  token,
-  addressBook,
-  onSend,
-}: {
+type MemoModuleProps = {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
   addressBook: AddressBookEntry[];
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
-}) {
+};
+
+// Send-with-memo flow, presented through the shared TransactionModal. It attaches
+// a bytes32 reference to a B20 transfer so the transaction can be reconciled later.
+export function MemoModule(props: MemoModuleProps) {
+  if (!props.open) return null;
+  return <MemoModuleInner {...props} />;
+}
+
+function MemoModuleInner({
+  open,
+  onClose,
+  token,
+  addressBook,
+  onSend,
+}: MemoModuleProps) {
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
   const [memo, setMemo] = useState('');
@@ -38,19 +45,8 @@ export function MemoModule({
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<Hex | null>(null);
 
-  const reset = () => {
-    setStep('build');
-    setFinalizing(false);
-    setError(null);
-    setTxHash(null);
-    setTo('');
-    setValue('');
-    setMemo('');
-  };
-
   const handleClose = () => {
     if (finalizing) return;
-    reset();
     onClose();
   };
 
