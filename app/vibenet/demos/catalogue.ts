@@ -67,12 +67,11 @@ export const DEMOS: DemoEntry[] = [
     summary:
       'Explore transactions that remain pending until their onchain conditions are satisfied, then execute without a keeper or a custom settlement contract.',
     points: [
-      'Attach storage and block-number conditions to signed transactions',
+      'Attach state and block-number conditions to signed transactions',
       'Let the sequencer evaluate validity before inclusion',
       'Build intent-like flows from ordinary account transactions',
     ],
     available: true,
-    listed: false,
     children: [
       {
         href: '/vibenet/demos/validity/race-the-agent',
