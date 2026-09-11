@@ -14,7 +14,6 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { Button } from '../../../components/ui/Button';
-import { Modal } from '../../../components/ui/Modal';
 import { Text } from '../../../components/ui/Text';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { FeatureCard } from '../../components/FeatureCard';
@@ -37,7 +36,7 @@ export function AccountDemo() {
 
 function AccountDemoInner() {
   const engine = useAccountEngine();
-  const { accounts, activeAccountId, activity, regenesisNotice, setRegenesisNotice, acct } = engine;
+  const { accounts, activeAccountId, activity, acct } = engine;
 
   const [transactionRequest, setTransactionRequest] = useState<{
     preset?: TransactPreset;
@@ -126,22 +125,6 @@ function AccountDemoInner() {
           preset={transactionRequest.preset}
         />
       ) : null}
-
-      <Modal
-        open={regenesisNotice}
-        onClose={() => setRegenesisNotice(false)}
-        title="Chain Was Reset"
-        footer={
-          <Button variant="primary" size="sm" onClick={() => setRegenesisNotice(false)}>
-            Got It
-          </Button>
-        }
-      >
-        <Text variant="body" tone="muted">
-          The vibenet devnet has been regenesised — its onchain state was wiped. Your
-          accounts and keys are still here and their addresses are unchanged; top up to transact again.
-        </Text>
-      </Modal>
     </>
   );
 
