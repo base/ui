@@ -7,6 +7,7 @@ import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { AddressAutocomplete, type AddressBookEntry } from '../../_shared/AddressAutocomplete';
+import type { Inclusion } from '../../_shared/inclusion';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import { amount, b20Abi, memoToBytes32 } from '../lib/protocol';
 import type { TokenInfo } from '../lib/types';
@@ -20,12 +21,15 @@ export function TransferModule({
   token,
   addressBook,
   onSend,
+  inclusionFor,
 }: {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
   addressBook: AddressBookEntry[];
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
+  /** Inclusion timing for a landed hash — which 200 ms block, how fast. */
+  inclusionFor?: (hash: Hex) => Inclusion | undefined;
 }) {
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
@@ -82,7 +86,7 @@ export function TransferModule({
       step={step}
       busy={finalizing}
       error={error ?? undefined}
-      result={txHash ? { txHash } : null}
+      result={txHash ? { txHash, inclusion: inclusionFor?.(txHash) } : null}
       titles={{ build: 'Transfer', submitted: 'Transfer' }}
       canProceed={Boolean(token)}
       proceedLabel="Send"

@@ -134,6 +134,9 @@ export function connectJsonRpcStream(url: string) {
   };
 }
 
+/** The handle `connectJsonRpcStream` returns; injectable so consumers can be tested with a fake. */
+export type JsonRpcStream = ReturnType<typeof connectJsonRpcStream>;
+
 export function headNumber(head: StreamHead): bigint | null {
   try {
     return BigInt(head.number);

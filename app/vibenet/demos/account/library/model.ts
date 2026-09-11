@@ -238,6 +238,14 @@ export type ActivityEntry = {
   serialized?: Hex;
   txHash?: Hex;
   account?: Address;
+  /** Block the tx landed in (Cobalt: one every 200 ms on vibenet). */
+  blockNumber?: number;
+  /** Block time in unix ms from Cobalt's `timestampMs`; null on chains without it. */
+  blockTimestampMs?: number | null;
+  /** Chain time from the block seen at broadcast to the inclusion block; null without an anchor. */
+  chainMs?: number | null;
+  /** The same in blocks. */
+  blocksAfterSend?: number | null;
 };
 
 // ---------------------------------------------------------------------------

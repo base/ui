@@ -41,7 +41,7 @@ export const DEMOS: DemoEntry[] = [
     points: [
       'Smart & EOA accounts — deterministic addresses',
       'K1 / P-256 / passkey signers',
-      'Live balances on Vibenet',
+      'Transactions land in the next 200 ms block',
     ],
     available: true,
   },
@@ -56,6 +56,7 @@ export const DEMOS: DemoEntry[] = [
       'Pay gas with your own stablecoin (ERC-8168 token payment)',
       'Transaction memos for payment tracking and reconciliation',
       'Policies and Asset announcements',
+      'Every send confirms in a 200 ms block',
     ],
     available: true,
   },
@@ -98,6 +99,16 @@ export const DEMOS: DemoEntry[] = [
         available: true,
       },
     ],
+  },
+  {
+    // Secret route: /demos/200 (redirects here). Off the grid on purpose.
+    href: '/vibenet/demos/200',
+    title: 'Block Runner',
+    shortTitle: 'Block Runner',
+    summary: 'A pixel runner paced by vibenet’s 200 ms blocks. Swallow a block to read its number and slot.',
+    points: ['One block every 200 ms', 'Block height follows gas used', 'One button: tap to bite'],
+    available: true,
+    listed: false,
   },
 ];
 
