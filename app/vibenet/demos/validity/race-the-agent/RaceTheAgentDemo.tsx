@@ -521,10 +521,10 @@ function RaceTheAgentDemoInner() {
       <DemoHeader
         eyebrow="Validity Transactions · live comparison"
         title="Race the Agent"
-        description="The same permissionless withdrawal pays exactly 1 VIBE. One transaction waits in advance for storage to equal 1; the other can be fired at any time and succeeds or reverts against the state it reaches onchain."
+        description="Beat a short onchain window two ways: react manually, or submit ahead and let validity execute when the condition opens."
       />
 
-      <section className="grid min-w-0 gap-4 xl:h-[calc(100dvh-19rem)] xl:min-h-[38rem] xl:max-h-[46rem] xl:grid-cols-2">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Card className="flex min-h-0 flex-col overflow-hidden bg-background p-5 sm:p-6 dark:bg-white/[.04]">
           <div className="min-w-0">
             <Text variant="caption" tone="muted">Shared onchain switch</Text>
@@ -556,7 +556,7 @@ function RaceTheAgentDemoInner() {
               <Text variant="headline" className="mt-1">Same call, different timing.</Text>
             </div>
             <Text variant="label.regular" tone="muted" className="mt-2">
-              Manual attempts begin on your click. Validity attempts can already be waiting when withdrawals open.
+              React during the window, or have a validity transaction waiting for it.
             </Text>
             <div className="mt-4 grid h-72 flex-none grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-3 overflow-hidden xl:h-auto xl:min-h-0 xl:flex-1">
               <AttemptHistoryCard title="Manual attempts" attempts={manualAttempts} />
@@ -568,13 +568,13 @@ function RaceTheAgentDemoInner() {
         <Card className="flex min-h-0 flex-col overflow-hidden bg-background text-foreground dark:bg-[#090b12] dark:text-white">
           <div className="border-b border-bds-gray-10 p-5 sm:p-6 dark:border-white/10">
             <Text variant="caption" tone="muted">Guided race</Text>
-            <Text as="h2" variant="title2" className="mt-2">Race first. Then submit ahead.</Text>
+            <Text as="h2" variant="title2" className="mt-2">React now or submit ahead.</Text>
           </div>
-          <div className="grid min-h-0 flex-1 grid-rows-3 gap-px bg-bds-gray-10 dark:bg-white/10">
+          <div className="grid min-h-0 flex-1 gap-px bg-bds-gray-10 dark:bg-white/10">
             <RaceStep
               number="01"
-              title="Shared background agent"
-              detail="Shared Vibenet infrastructure drives this onchain switch in the background. This page only discovers the singleton and observes its current state."
+              title="Watch the agent"
+              detail="A shared agent toggles the withdrawal onchain. Wait for the condition to open."
               active={!prepared || !signerReady}
               complete={prepared && signerReady}
             >
@@ -592,8 +592,8 @@ function RaceTheAgentDemoInner() {
             </RaceStep>
             <RaceStep
               number="02"
-              title="Race it manually"
-              detail="Try to claim 1 $VIBE during the short open window. If the withdrawal is off, the transaction reverts; if it is on, your transaction still has to reach the chain before the agent turns it off again."
+              title="Race manually"
+              detail="Click during the short open window. Too early or too late, and the withdrawal reverts."
               active={readyToWithdraw}
               complete={manualAttemptCount > 0}
             >
@@ -603,8 +603,8 @@ function RaceTheAgentDemoInner() {
             </RaceStep>
             <RaceStep
               number="03"
-              title="Pre-submit validity"
-              detail={`Submit a validity transaction while the withdrawal is off. It waits in advance, then claims 1 $VIBE automatically if the withdrawal opens within ${RACE_VALIDITY_SECONDS} seconds.`}
+              title="Submit ahead"
+              detail={`Queue a validity transaction while closed. It executes automatically if the window opens within ${RACE_VALIDITY_SECONDS} seconds.`}
               active={readyToSubmit}
               complete={validityAttemptCount > 0}
             >
