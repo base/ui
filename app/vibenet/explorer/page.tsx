@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
@@ -10,7 +10,7 @@ import { ExplorerLink } from '../components/ExplorerLink';
 import { ExplorerSearch } from '../components/ExplorerSearch';
 import { timeAgoFromMilliseconds, timeAgoFromSeconds } from '../library/explorer';
 import { useLiveExplorer } from './useLiveExplorer';
-import { LiveTable } from './LiveTable';
+import { LiveTables } from './LiveTables';
 
 const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0';
 const TH =
@@ -46,7 +46,22 @@ function TablePanel({ loading, isEmpty, emptyText, children }: TablePanelProps) 
 }
 
 export default function ExplorerPage() {
-  const { blocks, txs, stats, loading, status, newKeys, pauses, dispatchPause } = useLiveExplorer();
+  const { blocks, txs, stats, loading, status, newKeys, pause, dispatchPause } = useLiveExplorer();
+  const [now, setNow] = useState<number>();
+
+  // Age is a clock, not a side effect of arriving blocks. Keep it advancing
+  // while both tables are paused, or when no new heads arrive at all.
+  useEffect(() => {
+    const tick = () => {
+      if (!document.hidden) setNow(Date.now());
+    };
+    const timer = window.setInterval(tick, 200);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, []);
 
   const statItems = [
     { key: 'blocks', label: 'Indexed blocks', value: stats?.blocks },
@@ -70,16 +85,13 @@ export default function ExplorerPage() {
         ))}
       </div>
 
-      <section
-        aria-label="Live explorer lists"
-        className="grid grid-cols-1 gap-6 lg:grid-cols-2"
-      >
-        <LiveTable
-          title="Latest Blocks"
-          pause={pauses.blocks}
-          status={status}
-          onPauseChange={(action) => dispatchPause('blocks', action)}
+      <LiveTables pause={pause} status={status} onPauseChange={dispatchPause}>
+        <Card
+          role="region"
+          aria-label="Latest Blocks"
+          className="flex min-w-0 flex-col gap-3 bg-background p-5 dark:bg-white/5"
         >
+          <Text variant="headline">Latest Blocks</Text>
           <TablePanel loading={loading} isEmpty={blocks.length === 0} emptyText="No blocks yet">
             <table className="w-full border-collapse">
               <thead>
@@ -113,22 +125,22 @@ export default function ExplorerPage() {
                       )}
                     >
                       {b.timestamp_ms != null
-                        ? timeAgoFromMilliseconds(b.timestamp_ms)
-                        : timeAgoFromSeconds(b.timestamp)}
+                        ? timeAgoFromMilliseconds(b.timestamp_ms, now)
+                        : timeAgoFromSeconds(b.timestamp, now)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </TablePanel>
-        </LiveTable>
+        </Card>
 
-        <LiveTable
-          title="Latest Transactions"
-          pause={pauses.txs}
-          status={status}
-          onPauseChange={(action) => dispatchPause('txs', action)}
+        <Card
+          role="region"
+          aria-label="Latest Transactions"
+          className="flex min-w-0 flex-col gap-3 bg-background p-5 dark:bg-white/5"
         >
+          <Text variant="headline">Latest Transactions</Text>
           <TablePanel loading={loading} isEmpty={txs.length === 0} emptyText="No transactions in the latest blocks">
             {/* Desktop table */}
             <table className="hidden w-full border-collapse sm:table">
@@ -214,8 +226,8 @@ export default function ExplorerPage() {
               ))}
             </div>
           </TablePanel>
-        </LiveTable>
-      </section>
+        </Card>
+      </LiveTables>
     </div>
   );
 }

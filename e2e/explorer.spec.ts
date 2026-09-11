@@ -59,6 +59,7 @@ test('explorer opens the latest transaction', async ({ page }) => {
 async function mockStream(page: Page) {
   let socket: WebSocketRoute;
   let head = 12;
+  const tipTimestampMs = Date.now();
   const fetched: number[] = [];
   const blockPolls: string[] = [];
   const statsReads: number[] = [];
@@ -83,7 +84,9 @@ async function mockStream(page: Page) {
         fetched.push(number);
         result = {
           hash: hash(number), parentHash: hash(Math.max(0, number - 1)),
-          number: `0x${number.toString(16)}`, timestamp: '0x6553f100',
+          number: `0x${number.toString(16)}`,
+          timestamp: `0x${Math.floor((tipTimestampMs + (number - 12) * 200) / 1000).toString(16)}`,
+          timestampMs: `0x${(tipTimestampMs + (number - 12) * 200).toString(16)}`,
           transactions: [{ hash: hash(number + 1000), from: hash(100).slice(0, 42), to: null }],
         };
       } else result = '0x1';
@@ -102,7 +105,7 @@ async function mockStream(page: Page) {
   };
 }
 
-test('each table pauses only while hovered or focused, with no separate controls', async ({ page }) => {
+test('both tables share one pause hint and stay held when switching columns', async ({ page }) => {
   const stream = await mockStream(page);
   await page.goto('/vibenet/explorer');
   const region = page.getByRole('region', { name: 'Live explorer lists' });
@@ -112,42 +115,50 @@ test('each table pauses only while hovered or focused, with no separate controls
   const firstTxBlock = txs.locator('tbody tr').first().locator('td').last();
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
   await expect(region.getByRole('button')).toHaveCount(0);
+  await expect(region.getByRole('status')).toHaveCount(1);
+  await expect(region.getByRole('status')).toHaveText('Hover to pause');
   stream.emit(13);
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
   const initialY = (await firstBlock.boundingBox())!.y;
   await firstBlock.hover();
-  await expect(blocks.getByRole('status')).toHaveText('Paused while hovering');
-  await expect(txs.getByRole('status')).toHaveText('Hover to pause');
+  await expect(region.getByRole('status')).toHaveText('Paused while hovering');
   const href = await firstBlock.getByRole('link').getAttribute('href');
   stream.emit(14);
-  await expect(firstTxBlock).toHaveText('14');
+  await expect.poll(() => stream.fetched.includes(14)).toBe(true);
+  await expect(firstTxBlock).toHaveText('13');
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
   await expect(firstBlock.getByRole('link')).toHaveAttribute('href', href!);
   expect((await firstBlock.boundingBox())!.y).toBe(initialY);
-  // Switching tables resumes the first immediately, without a click.
+  // Crossing the gap between columns must not resume or replace either list.
   await firstTxBlock.hover();
-  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 14');
-  await expect(txs.getByRole('status')).toHaveText('Paused while hovering');
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
+  await expect(region.getByRole('status')).toHaveText('Paused while hovering');
   stream.emit(15);
-  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 15');
-  await expect(firstTxBlock).toHaveText('14');
+  await expect.poll(() => stream.fetched.includes(15)).toBe(true);
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
+  await expect(firstTxBlock).toHaveText('13');
   await page.mouse.move(0, 0);
   await expect(firstTxBlock).toHaveText('15');
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 15');
   await page.keyboard.press('Tab');
   await firstBlock.getByRole('link').focus();
-  await expect(blocks.getByRole('status')).toHaveText('Paused while focused');
+  await expect(region.getByRole('status')).toHaveText('Paused while focused');
   stream.emit(16);
-  await expect(firstTxBlock).toHaveText('16');
+  await expect.poll(() => stream.fetched.includes(16)).toBe(true);
+  await expect(firstTxBlock).toHaveText('15');
+  await txs.getByRole('link').first().focus();
+  await expect(firstTxBlock).toHaveText('15');
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 15');
   await page.getByRole('textbox').first().focus();
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 16');
-  await expect(blocks.getByRole('status')).toHaveText('Hover to pause');
+  await expect(firstTxBlock).toHaveText('16');
+  await expect(region.getByRole('status')).toHaveText('Hover to pause');
   expect(stream.blockPolls).toEqual([]);
 });
 
 test.describe('touch interactions', () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
-  test('holds the touched table until release without pause/resume buttons', async ({ page }) => {
+  test('holds both tables during a touch until release without buttons', async ({ page }) => {
     const stream = await mockStream(page);
     await page.goto('/vibenet/explorer');
     const region = page.getByRole('region', { name: 'Live explorer lists' });
@@ -155,9 +166,9 @@ test.describe('touch interactions', () => {
     const firstBlock = blocks.locator('tbody tr').first();
     await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
     await expect(region.getByRole('button')).toHaveCount(0);
-    await expect(blocks.getByRole('status')).toBeHidden();
+    await expect(region.getByRole('status')).toBeHidden();
     await firstBlock.dispatchEvent('pointerdown', { pointerType: 'touch' });
-    await expect(blocks.getByRole('status')).toHaveText('Paused while touching');
+    await expect(region.getByRole('status')).toHaveText('Paused while touching');
     stream.emit(13);
     await expect.poll(() => stream.fetched.includes(13)).toBe(true);
     await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
@@ -169,7 +180,7 @@ test.describe('touch interactions', () => {
     await firstBlock.dispatchEvent('pointercancel', { pointerType: 'touch' });
     await expect(firstBlock).toHaveAttribute('aria-label', 'Block 14');
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-    await expect(blocks.getByRole('status')).toBeHidden();
+    await expect(region.getByRole('status')).toBeHidden();
     const href = await firstBlock.getByRole('link').getAttribute('href');
     await firstBlock.getByRole('link').tap();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
@@ -193,4 +204,31 @@ test('indexed totals are throttled separately and are not frozen with table rows
   stream.emit(14);
   await expect.poll(() => stream.statsReads).toEqual([12, 14]);
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
+});
+
+test('Age advances while both tables are paused even when no heads arrive', async ({ page }) => {
+  await page.clock.install();
+  const stream = await mockStream(page);
+  await page.goto('/vibenet/explorer');
+  const region = page.getByRole('region', { name: 'Live explorer lists' });
+  const firstBlock = page.getByRole('region', { name: 'Latest Blocks', exact: true }).locator('tbody tr').first();
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
+  await firstBlock.hover();
+  await expect(region.getByRole('status')).toHaveText('Paused while hovering');
+  await expect(page.getByText('Indexed blocks', { exact: true }).locator('..')).toContainText('12');
+  // Let the initial highlight-clear timer finish; it must not be the reason
+  // Age changes in the observation window below.
+  await page.clock.runFor(500);
+  const age = firstBlock.locator('td').last();
+  const before = await age.innerText();
+  const links = await region.locator('a').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')));
+  const requestsBefore = stream.fetched.length;
+  await page.clock.runFor(1_000);
+  await expect(age).not.toHaveText(before);
+  expect(parseFloat(await age.innerText())).toBeGreaterThan(parseFloat(before));
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
+  expect(await region.locator('a').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href')))).toEqual(links);
+  expect(stream.fetched).toHaveLength(requestsBefore);
+  expect(stream.statsReads).toHaveLength(1);
+  expect(stream.blockPolls).toEqual([]);
 });

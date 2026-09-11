@@ -14,8 +14,8 @@ export function isExplorerPaused(state: PauseState): boolean {
   return state.hovered || state.focused || state.touching;
 }
 
-// A table is held only while it is being interacted with. There is no manual
-// pause or sticky override; the other table continues to stream independently.
+// Both tables share one interaction region. Moving between columns keeps the
+// snapshot held; leaving the region resumes both lists together.
 export function explorerPauseReducer(state: PauseState, action: PauseAction): PauseState {
   switch (action) {
     case 'enter': return { ...state, hovered: true };
