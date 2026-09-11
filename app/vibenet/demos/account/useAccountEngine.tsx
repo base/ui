@@ -285,9 +285,6 @@ function useAccountEngineCore() {
 
   const [faucetBusy, setFaucetBusy] = useState<string | null>(null);
 
-  // Regenesis (devnet reset) detection.
-  const [regenesisNotice, setRegenesisNotice] = useState(false);
-
   // Owner-change staging (draft owners vs applied owners).
   const [ownerDraft, setOwnerDraft] = useState<string[]>([]);
   const [scopeDraft, setScopeDraft] = useState<Record<string, number>>({});
@@ -360,13 +357,15 @@ function useAccountEngineCore() {
         return;
       }
       if (!hash || cancelled) return;
-      setGenesisHash((prev) => {
-        if (prev && prev !== hash) {
-          setAccounts((accts) => accts.map((a) => (a.deployed ? { ...a, deployed: false } : a)));
-          setRegenesisNotice(true);
-        }
-        return hash;
-      });
+      if (genesisHash && genesisHash !== hash) {
+        setAccounts((accts) => accts.map((a) => (a.deployed ? { ...a, deployed: false } : a)));
+        toast.info('Vibenet chain was reset', {
+          description:
+            'Your accounts, keys, and addresses are unchanged. Accounts will redeploy automatically with their next transaction.',
+          duration: 8_000,
+        });
+      }
+      if (genesisHash !== hash) setGenesisHash(hash);
     };
     checkGenesis();
     const t = setInterval(checkGenesis, 10_000);
@@ -374,7 +373,7 @@ function useAccountEngineCore() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [hydrated, makeRpcClient, setAccounts, setGenesisHash]);
+  }, [genesisHash, hydrated, makeRpcClient, setAccounts, setGenesisHash]);
 
   // --- live EIP-8130 deployment resolution ------------------------------
   // Fetch the system-contract addresses from the dataplane on mount and again
@@ -2049,9 +2048,6 @@ function useAccountEngineCore() {
     activeSignerId,
     setActiveSignerId,
     activeSigner,
-    regenesisNotice,
-    setRegenesisNotice,
-
     // Faucet
     faucetBusy,
     requestFaucet,

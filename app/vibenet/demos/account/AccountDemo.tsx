@@ -15,7 +15,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import { toast } from 'sonner';
 
 import { Button } from '../../../components/ui/Button';
-import { Modal } from '../../../components/ui/Modal';
 import { Text } from '../../../components/ui/Text';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { FeatureCard } from '../../components/FeatureCard';
@@ -53,9 +52,6 @@ function AccountDemoInner() {
     activeSigner,
 
     chain,
-    regenesisNotice,
-    setRegenesisNotice,
-
     acct,
 
     deleteSigner,
@@ -227,23 +223,6 @@ function AccountDemoInner() {
           applyTarget={transactionRequest.applyTarget}
         />
       ) : null}
-
-      <Modal
-        open={regenesisNotice}
-        onClose={() => setRegenesisNotice(false)}
-        title="Chain Was Reset"
-        footer={
-          <Button variant="primary" size="sm" onClick={() => setRegenesisNotice(false)}>
-            Got It
-          </Button>
-        }
-      >
-        <Text variant="body" tone="muted">
-          The vibenet devnet has been regenesised — its onchain state was wiped. Your accounts and keys are still here
-          and their addresses are unchanged; they&apos;ve been marked undeployed and will redeploy on their next
-          transaction.
-        </Text>
-      </Modal>
     </>
   );
 
