@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { explorerPauseReducer, INITIAL_PAUSE_STATE, isExplorerPaused, type PauseAction } from './pause';
+import { explorerPauseReducer, INITIAL_PAUSE_STATE, isExplorerPaused, pauseHint, type PauseAction } from './pause';
 
 function apply(...actions: PauseAction[]) {
   return actions.reduce(explorerPauseReducer, INITIAL_PAUSE_STATE);
@@ -19,16 +19,19 @@ describe('explorer pause interactions', () => {
     expect(isExplorerPaused(apply('enter', 'focus', 'leave', 'blur'))).toBe(false);
   });
 
-  it('allows explicit resume while hovered/focused without immediately repausing', () => {
-    expect(isExplorerPaused(apply('enter', 'focus', 'resume'))).toBe(false);
-    expect(isExplorerPaused(apply('enter', 'focus', 'resume', 'focus'))).toBe(false);
-    expect(isExplorerPaused(apply('enter', 'focus', 'resume', 'leave', 'blur', 'enter'))).toBe(true);
+  it('holds rows during a touch and resumes on release or cancellation', () => {
+    expect(isExplorerPaused(apply('touch'))).toBe(true);
+    expect(isExplorerPaused(apply('touch', 'release'))).toBe(false);
+    expect(isExplorerPaused(apply('touch', 'focus', 'release'))).toBe(true);
+    expect(isExplorerPaused(apply('touch', 'focus', 'release', 'blur'))).toBe(false);
   });
 
-  it('supports persistent manual pause, including on touch devices', () => {
-    expect(isExplorerPaused(apply('pause'))).toBe(true);
-    expect(isExplorerPaused(apply('pause', 'leave', 'blur'))).toBe(true);
-    expect(isExplorerPaused(apply('pause', 'resume'))).toBe(false);
-    expect(isExplorerPaused(apply('enter', 'resume', 'pause'))).toBe(true);
+  it('explains the active reason instead of just showing live/paused', () => {
+    expect(pauseHint(apply())).toBe('Hover to pause');
+    expect(pauseHint(apply('enter'))).toBe('Paused while hovering');
+    expect(pauseHint(apply('focus'))).toBe('Paused while focused');
+    expect(pauseHint(apply('touch'))).toBe('Paused while touching');
+    expect(pauseHint(apply('focus', 'enter'))).toBe('Paused while interacting');
+    expect(pauseHint(apply('focus', 'enter', 'leave', 'blur'))).toBe('Hover to pause');
   });
 });

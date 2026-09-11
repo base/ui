@@ -9,6 +9,8 @@ import { startExplorerStream, type ExplorerSnapshot, type StreamStatus } from '.
 import { explorerPauseReducer, INITIAL_PAUSE_STATE, isExplorerPaused, type PauseAction } from './pause';
 
 const EMPTY_SNAPSHOT: ExplorerSnapshot = { blocks: [], txs: [] };
+const INITIAL_TABLE_PAUSES = { blocks: INITIAL_PAUSE_STATE, txs: INITIAL_PAUSE_STATE };
+export type ExplorerTable = keyof typeof INITIAL_TABLE_PAUSES;
 
 export function useLiveExplorer() {
   const [snapshot, setSnapshot] = useState(EMPTY_SNAPSHOT);
@@ -16,24 +18,23 @@ export function useLiveExplorer() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<StatsRow | null>(null);
   const [newKeys, setNewKeys] = useState<Set<string>>(new Set());
-  const [paused, setPaused] = useState(false);
-  const pauseState = useRef(INITIAL_PAUSE_STATE);
+  const [pauses, setPauses] = useState(INITIAL_TABLE_PAUSES);
+  const pauseState = useRef(INITIAL_TABLE_PAUSES);
   const latest = useRef<ExplorerSnapshot>(EMPTY_SNAPSHOT);
   const visible = useRef<ExplorerSnapshot>(EMPTY_SNAPSHOT);
 
   // Update the stream gate synchronously with the interaction, not in a later
   // effect: a head arriving immediately after pointer-enter must not move rows.
-  function dispatchPause(action: PauseAction) {
-    pauseState.current = explorerPauseReducer(pauseState.current, action);
-    const nextPaused = isExplorerPaused(pauseState.current);
-    setPaused(nextPaused);
-    if (nextPaused) {
-      setNewKeys(new Set());
-    } else if (latest.current !== visible.current) {
-      visible.current = latest.current;
-      setSnapshot(latest.current);
-      setNewKeys(new Set());
+  function dispatchPause(table: ExplorerTable, action: PauseAction) {
+    const nextState = explorerPauseReducer(pauseState.current[table], action);
+    pauseState.current = { ...pauseState.current, [table]: nextState };
+    setPauses(pauseState.current);
+    if (!isExplorerPaused(nextState)) {
+      visible.current = { ...visible.current, [table]: latest.current[table] };
+      setSnapshot(visible.current);
     }
+    const prefix = table === 'blocks' ? 'block-' : 'tx-';
+    setNewKeys((keys) => new Set([...keys].filter((key) => !key.startsWith(prefix))));
   }
 
   useEffect(() => {
@@ -44,8 +45,9 @@ export function useLiveExplorer() {
     let lastStatsAttempt = -Infinity;
     const controller = new AbortController();
 
-    // Indexed totals are independent of the live chain and may lag it. Refresh
-    // at most once per ten seconds, on block arrival (no recurring poll timer).
+    // Totals come from a separate indexer API, not from streamed block counts.
+    // Scheduling is stream-triggered: initially, then on the first block after
+    // ten seconds. Indexer lag may add delay; pausing either table has no effect.
     function refreshStats() {
       if (statsInFlight || Date.now() - lastStatsAttempt < 10_000) return;
       statsInFlight = true;
@@ -79,21 +81,26 @@ export function useLiveExplorer() {
           latest.current = next;
           setLoading(false);
           refreshStats();
-          if (isExplorerPaused(pauseState.current) && visible.current.blocks.length > 0) return;
           const previous = visible.current;
+          const displayed = {
+            blocks: isExplorerPaused(pauseState.current.blocks) && previous.blocks.length > 0
+              ? previous.blocks : next.blocks,
+            txs: isExplorerPaused(pauseState.current.txs) && previous.txs.length > 0
+              ? previous.txs : next.txs,
+          };
           const seenBlocks = new Set(previous.blocks.map((block) => block.hash));
           const seenTxs = new Set(previous.txs.map((tx) => tx.hash));
           const fresh = new Set<string>();
           if (previous.blocks.length) {
-            next.blocks.forEach((block) => {
+            displayed.blocks.forEach((block) => {
               if (!seenBlocks.has(block.hash)) fresh.add(`block-${block.hash}`);
             });
-            next.txs.forEach((tx) => {
+            displayed.txs.forEach((tx) => {
               if (!seenTxs.has(tx.hash)) fresh.add(`tx-${tx.hash}`);
             });
           }
-          visible.current = next;
-          setSnapshot(next);
+          visible.current = displayed;
+          setSnapshot(displayed);
           setNewKeys(fresh);
           clearTimeout(highlightTimer);
           highlightTimer = setTimeout(() => setNewKeys(new Set()), 350);
@@ -121,5 +128,5 @@ export function useLiveExplorer() {
     };
   }, []);
 
-  return { ...snapshot, status, loading, stats, newKeys, paused, dispatchPause };
+  return { ...snapshot, status, loading, stats, newKeys, pauses, dispatchPause };
 }

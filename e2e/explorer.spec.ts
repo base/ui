@@ -61,14 +61,16 @@ async function mockStream(page: Page) {
   let head = 12;
   const fetched: number[] = [];
   const blockPolls: string[] = [];
+  const statsReads: number[] = [];
   const hash = (number: number) => `0x${number.toString(16).padStart(64, '0')}`;
   page.on('request', (request) => {
     if (request.url().includes('/api/vibenet/explorer/blocks')) blockPolls.push(request.url());
   });
   await page.route('**/api/vibenet/chain-health', (route) => route.fulfill({ json: { healthy: true } }));
-  await page.route('**/api/vibenet/explorer/stats', (route) => route.fulfill({
-    json: { blocks: 12, txs: 12, addresses: 2 },
-  }));
+  await page.route('**/api/vibenet/explorer/stats', (route) => {
+    statsReads.push(head);
+    return route.fulfill({ json: { blocks: head, txs: head, addresses: 2 } });
+  });
   await page.routeWebSocket(/\/ws$/, (ws) => {
     socket = ws;
     ws.onMessage((message) => {
@@ -89,7 +91,7 @@ async function mockStream(page: Page) {
     });
   });
   return {
-    fetched, blockPolls,
+    fetched, blockPolls, statsReads,
     emit: (number: number) => {
       head = number;
       socket.send(JSON.stringify({
@@ -100,54 +102,95 @@ async function mockStream(page: Page) {
   };
 }
 
-test('streaming rows freeze on hover and keyboard focus, then resume without polling', async ({ page }) => {
+test('each table pauses only while hovered or focused, with no separate controls', async ({ page }) => {
   const stream = await mockStream(page);
   await page.goto('/vibenet/explorer');
   const region = page.getByRole('region', { name: 'Live explorer lists' });
-  const firstBlock = region.locator('tr[aria-label^="Block "]').first();
+  const blocks = page.getByRole('region', { name: 'Latest Blocks', exact: true });
+  const txs = page.getByRole('region', { name: 'Latest Transactions', exact: true });
+  const firstBlock = blocks.locator('tbody tr').first();
+  const firstTxBlock = txs.locator('tbody tr').first().locator('td').last();
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
+  await expect(region.getByRole('button')).toHaveCount(0);
   stream.emit(13);
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
+  const initialY = (await firstBlock.boundingBox())!.y;
   await firstBlock.hover();
-  await expect(region.getByRole('status')).toHaveText('Paused');
+  await expect(blocks.getByRole('status')).toHaveText('Paused while hovering');
+  await expect(txs.getByRole('status')).toHaveText('Hover to pause');
   const href = await firstBlock.getByRole('link').getAttribute('href');
   stream.emit(14);
-  await expect.poll(() => stream.fetched.includes(14)).toBe(true);
+  await expect(firstTxBlock).toHaveText('14');
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
   await expect(firstBlock.getByRole('link')).toHaveAttribute('href', href!);
-  await region.getByRole('button', { name: 'Resume live' }).click();
+  expect((await firstBlock.boundingBox())!.y).toBe(initialY);
+  // Switching tables resumes the first immediately, without a click.
+  await firstTxBlock.hover();
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 14');
-  await expect(region.getByRole('status')).toHaveText('Live');
-  // Explicit resume survives the pointer still being in the list region.
+  await expect(txs.getByRole('status')).toHaveText('Paused while hovering');
   stream.emit(15);
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 15');
+  await expect(firstTxBlock).toHaveText('14');
   await page.mouse.move(0, 0);
+  await expect(firstTxBlock).toHaveText('15');
   await page.keyboard.press('Tab');
-  await expect(region.getByRole('status')).toHaveText('Paused');
+  await firstBlock.getByRole('link').focus();
+  await expect(blocks.getByRole('status')).toHaveText('Paused while focused');
   stream.emit(16);
-  await expect.poll(() => stream.fetched.includes(16)).toBe(true);
+  await expect(firstTxBlock).toHaveText('16');
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 15');
-  await region.getByRole('button', { name: 'Resume live' }).focus();
-  await page.keyboard.press('Enter');
+  await page.getByRole('textbox').first().focus();
   await expect(firstBlock).toHaveAttribute('aria-label', 'Block 16');
+  await expect(blocks.getByRole('status')).toHaveText('Hover to pause');
   expect(stream.blockPolls).toEqual([]);
 });
 
-test.describe('touch stream controls', () => {
+test.describe('touch interactions', () => {
   test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
-  test('pause and resume without hover or pointer-induced focus toggling the action', async ({ page }) => {
+  test('holds the touched table until release without pause/resume buttons', async ({ page }) => {
     const stream = await mockStream(page);
     await page.goto('/vibenet/explorer');
     const region = page.getByRole('region', { name: 'Live explorer lists' });
-    const firstBlock = region.locator('tr[aria-label^="Block "]').first();
+    const blocks = page.getByRole('region', { name: 'Latest Blocks', exact: true });
+    const firstBlock = blocks.locator('tbody tr').first();
     await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
-    await region.getByRole('button', { name: 'Pause updates' }).tap();
-    await expect(region.getByRole('status')).toHaveText('Paused');
+    await expect(region.getByRole('button')).toHaveCount(0);
+    await expect(blocks.getByRole('status')).toBeHidden();
+    await firstBlock.dispatchEvent('pointerdown', { pointerType: 'touch' });
+    await expect(blocks.getByRole('status')).toHaveText('Paused while touching');
     stream.emit(13);
     await expect.poll(() => stream.fetched.includes(13)).toBe(true);
     await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
-    await region.getByRole('button', { name: 'Resume live' }).tap();
+    await firstBlock.dispatchEvent('pointerup', { pointerType: 'touch' });
     await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
-    await expect(region.getByRole('status')).toHaveText('Live');
+    await firstBlock.dispatchEvent('pointerdown', { pointerType: 'touch' });
+    stream.emit(14);
+    await expect.poll(() => stream.fetched.includes(14)).toBe(true);
+    await firstBlock.dispatchEvent('pointercancel', { pointerType: 'touch' });
+    await expect(firstBlock).toHaveAttribute('aria-label', 'Block 14');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    await expect(blocks.getByRole('status')).toBeHidden();
+    const href = await firstBlock.getByRole('link').getAttribute('href');
+    await firstBlock.getByRole('link').tap();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
   });
+});
+
+test('indexed totals are throttled separately and are not frozen with table rows', async ({ page }) => {
+  await page.clock.install();
+  const stream = await mockStream(page);
+  await page.goto('/vibenet/explorer');
+  const blocks = page.getByRole('region', { name: 'Latest Blocks', exact: true });
+  const firstBlock = blocks.locator('tbody tr').first();
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 12');
+  await expect.poll(() => stream.statsReads.length).toBe(1);
+  stream.emit(13);
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
+  expect(stream.statsReads).toEqual([12]);
+  await page.clock.fastForward(10_000);
+  expect(stream.statsReads).toEqual([12]); // No independent recurring stats timer.
+  await firstBlock.hover();
+  stream.emit(14);
+  await expect.poll(() => stream.statsReads).toEqual([12, 14]);
+  await expect(firstBlock).toHaveAttribute('aria-label', 'Block 13');
 });

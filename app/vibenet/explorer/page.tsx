@@ -2,7 +2,6 @@
 
 import type { ReactNode } from 'react';
 
-import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -11,6 +10,7 @@ import { ExplorerLink } from '../components/ExplorerLink';
 import { ExplorerSearch } from '../components/ExplorerSearch';
 import { timeAgoFromMilliseconds, timeAgoFromSeconds } from '../library/explorer';
 import { useLiveExplorer } from './useLiveExplorer';
+import { LiveTable } from './LiveTable';
 
 const NEW_ROW_HIGHLIGHT = 'bg-bds-blue-0';
 const TH =
@@ -46,10 +46,7 @@ function TablePanel({ loading, isEmpty, emptyText, children }: TablePanelProps) 
 }
 
 export default function ExplorerPage() {
-  const { blocks, txs, stats, loading, status, newKeys, paused, dispatchPause } = useLiveExplorer();
-  const connectionLabel = {
-    live: 'Live', connecting: 'Connecting…', reconnecting: 'Reconnecting…', unavailable: 'Unavailable',
-  }[status];
+  const { blocks, txs, stats, loading, status, newKeys, pauses, dispatchPause } = useLiveExplorer();
 
   const statItems = [
     { key: 'blocks', label: 'Indexed blocks', value: stats?.blocks },
@@ -76,44 +73,13 @@ export default function ExplorerPage() {
       <section
         aria-label="Live explorer lists"
         className="grid grid-cols-1 gap-6 lg:grid-cols-2"
-        onPointerEnter={(event) => {
-          if (event.pointerType === 'mouse' || event.pointerType === 'pen') dispatchPause('enter');
-        }}
-        onPointerLeave={(event) => {
-          if (event.pointerType === 'mouse' || event.pointerType === 'pen') dispatchPause('leave');
-        }}
-        onFocusCapture={(event) => {
-          // Pointer/touch focus must not turn a tap on Pause into Resume.
-          if (event.target.matches(':focus-visible')) dispatchPause('focus');
-        }}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) dispatchPause('blur');
-        }}
       >
-        <div className="flex min-h-10 items-center justify-between gap-3 lg:col-span-2">
-          <div className="flex items-center gap-3 text-sm">
-            <span role="status" className="font-medium">
-              {paused && status !== 'unavailable' ? 'Paused' : connectionLabel}
-              {paused && status === 'reconnecting' ? ' · reconnecting' : null}
-            </span>
-            <span className="hidden text-bds-gray-60 dark:text-bds-gray-40 sm:inline">
-              {status === 'unavailable' ? 'No valid WebSocket endpoint configured.' : status === 'reconnecting'
-                ? 'Showing last received data. Retrying automatically.'
-                : paused ? 'Rows held still. Resume to jump to latest.' : 'Hover or focus a list to pause updates.'}
-            </span>
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="min-w-28"
-            disabled={status === 'unavailable'}
-            onClick={() => dispatchPause(paused ? 'resume' : 'pause')}
-          >
-            {paused ? 'Resume live' : 'Pause updates'}
-          </Button>
-        </div>
-        <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
-          <Text variant="headline">Latest Blocks</Text>
+        <LiveTable
+          title="Latest Blocks"
+          pause={pauses.blocks}
+          status={status}
+          onPauseChange={(action) => dispatchPause('blocks', action)}
+        >
           <TablePanel loading={loading} isEmpty={blocks.length === 0} emptyText="No blocks yet">
             <table className="w-full border-collapse">
               <thead>
@@ -155,10 +121,14 @@ export default function ExplorerPage() {
               </tbody>
             </table>
           </TablePanel>
-        </Card>
+        </LiveTable>
 
-        <Card className="flex flex-col gap-3 bg-background p-5 dark:bg-white/5">
-          <Text variant="headline">Latest Transactions</Text>
+        <LiveTable
+          title="Latest Transactions"
+          pause={pauses.txs}
+          status={status}
+          onPauseChange={(action) => dispatchPause('txs', action)}
+        >
           <TablePanel loading={loading} isEmpty={txs.length === 0} emptyText="No transactions in the latest blocks">
             {/* Desktop table */}
             <table className="hidden w-full border-collapse sm:table">
@@ -244,7 +214,7 @@ export default function ExplorerPage() {
               ))}
             </div>
           </TablePanel>
-        </Card>
+        </LiveTable>
       </section>
     </div>
   );
