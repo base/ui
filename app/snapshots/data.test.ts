@@ -1,4 +1,10 @@
-import { PRESETS, presetSize, type SnapshotComponent } from './data';
+import {
+  applyComponentDependencies,
+  buildDownloadCommand,
+  PRESETS,
+  presetSize,
+  type SnapshotComponent,
+} from './data';
 
 const component = (name: string, size: number, fullSize?: number): SnapshotComponent => ({
   name,
@@ -18,6 +24,7 @@ describe('presetSize', () => {
     component('account_changesets', 60, 6),
     component('storage_changesets', 50, 5),
     component('rocksdb_indices', 40),
+    component('proofs', 25),
   ];
 
   it('uses all state and headers plus the history window of full static-file components', () => {
@@ -41,9 +48,41 @@ describe('presetSize', () => {
     expect(presetSize(components, minimal)).toBe(120);
   });
 
+  it('adds the proofs component to the complete archive size', () => {
+    const archiveWithProofs = PRESETS.find((preset) => preset.name === 'archive-proofs')!;
+
+    expect(presetSize(components, archiveWithProofs)).toBe(455);
+  });
+
   it('falls back to the complete size when older API data has no tail size', () => {
     const full = PRESETS.find((preset) => preset.name === 'full')!;
 
     expect(presetSize([component('transactions', 80)], full)).toBe(80);
+  });
+});
+
+describe('proofs configuration', () => {
+  const archive = PRESETS.find((preset) => preset.name === 'archive')!;
+  const archiveWithProofs = PRESETS.find((preset) => preset.name === 'archive-proofs')!;
+
+  it('builds the archive and proofs command from a custom selection', () => {
+    expect(buildDownloadCommand('base', null, archiveWithProofs.components)).toBe(
+      'base-reth-node download --chain base --archive --proofs',
+    );
+  });
+
+  it('builds the same command when the Archive + Proofs preset is selected', () => {
+    expect(buildDownloadCommand('base', 'archive-proofs', archiveWithProofs.components)).toBe(
+      'base-reth-node download --chain base --archive --proofs',
+    );
+  });
+
+  it('removes proofs when any archive component is removed', () => {
+    const withoutReceipts = archiveWithProofs.components.filter(
+      (component) => component !== 'receipts',
+    );
+
+    expect(applyComponentDependencies(withoutReceipts)).not.toContain('proofs');
+    expect(applyComponentDependencies(archive.components)).toEqual(archive.components);
   });
 });
