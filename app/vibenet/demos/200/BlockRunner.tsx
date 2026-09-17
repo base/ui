@@ -955,7 +955,7 @@ export function BlockRunner() {
 
   const slot = head ? slotOf(head.timestampMs) : null;
   const feedLabel =
-    feed === 'live' ? 'live · newHeads' : feed === 'polling' ? 'polling · 200 ms' : feed === 'quiet' ? 'chain quiet' : 'connecting';
+    feed === 'live' ? 'live · websocket' : feed === 'polling' ? 'polling · 200 ms' : feed === 'quiet' ? 'chain quiet' : 'connecting';
 
   return (
     <div className="flex flex-col gap-4">
