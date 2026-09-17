@@ -616,7 +616,11 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
           </span>
         </a>
         <div style={styles.footerLastRow} className="justify-between -mb-1.5">
-          <span className="pl-2.5 text-[12px] font-medium text-bds-gray-20 dark:text-bds-gray-40">Developer Console</span>
+          <span className="pl-2.5 text-[12px] font-medium text-bds-gray-50">
+            <a href="https://www.base.org/terms-of-service" target="_blank" rel="noreferrer" className="transition-colors duration-150 hover:text-bds-gray-80">Terms</a>
+            {" · "}
+            <a href="https://www.base.org/privacy-policy" target="_blank" rel="noreferrer" className="transition-colors duration-150 hover:text-bds-gray-80">Privacy</a>
+          </span>
           <button
             type="button"
             role="switch"

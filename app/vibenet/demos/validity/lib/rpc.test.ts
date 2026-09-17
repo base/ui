@@ -52,7 +52,7 @@ describe('sendValidityTransaction', () => {
           jsonrpc: '2.0',
           id: 1,
           method: 'base_sendRawTransactionValidity',
-          params: [{ tx: '0x01', validity: [] }],
+          params: ['0x01', { validity: [] }],
         }),
       }),
     );
