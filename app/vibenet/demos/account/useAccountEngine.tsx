@@ -34,6 +34,7 @@ import {
   generatePrivateKey,
   getConfigSequence,
   getTransactionCount,
+  getTransactionReceipt,
   type Hex,
   http,
   key,
@@ -47,9 +48,9 @@ import {
   toHex,
   toP256Signer,
   toWebAuthnAccount,
+  parseReceiptFields,
   toWebAuthnSigner,
   upgradeableProxyBytecode,
-  waitForTransactionReceipt,
 } from '@aa';
 import {
   createContext,
@@ -64,10 +65,18 @@ import {
 import { toast } from 'sonner';
 
 import { vibenetApi } from '../../library/client';
-import { ACCOUNT_RPC_URL } from '../../library/config';
+import { ACCOUNT_RPC_URL, VIBENET_WS_URL } from '../../library/config';
+import { type Inclusion, inclusionFromChain, type SendAnchor } from '../_shared/inclusion';
+import {
+  createReceiptWatcher,
+  type RawReceipt,
+  ReceiptTimeoutError,
+  type ReceiptWatcher,
+} from '../_shared/receiptWatcher';
+import { connectJsonRpcStream } from '../validity/lib/stream';
 import { type DemoChain, deploymentFromContracts, estimateTxGas, getDemoChain } from './library/chains';
 import { buildPhases, type CallRow, newCallRow, safeGasLimit, valueBearingCallCount } from './library/calls';
-import { aaReceiptSucceeded } from './library/receipt';
+import { type AaReceiptLike, aaReceiptSucceeded } from './library/receipt';
 import {
   type AppPolicy,
   type AppSessionKey,
@@ -609,8 +618,13 @@ function useAccountEngineCore() {
   }, [sessionPolicyKey, chain.shortName]);
 
   // --- helpers -----------------------------------------------------------
+  // Entries that name a tx hash pick up its inclusion timing automatically, so
+  // every surface's activity row can say which 200 ms block the tx landed in.
   const pushActivity = (e: Omit<Persisted['activity'][number], 'id' | 'ts'>) =>
-    setActivity((prev) => [{ id: crypto.randomUUID(), ts: Date.now(), ...e }, ...prev]);
+    setActivity((prev) => [
+      { id: crypto.randomUUID(), ts: Date.now(), ...inclusionFor(e.txHash), ...e },
+      ...prev,
+    ]);
 
   const updateAccount = useCallback(
     (id: string, patch: Partial<StoredAccount> | ((a: StoredAccount) => StoredAccount)) =>
@@ -798,17 +812,85 @@ function useAccountEngineCore() {
       ? account.delegate(a.delegate ?? chain.deployment.accounts.default)
       : (account as ReturnType<typeof toAccount>).create();
 
+  // Inclusion timing per broadcast hash, in chain time: which block (and which
+  // 200 ms slot) each transaction landed in, and how many blocks after the
+  // newest head this page had seen when it broadcast. Written by
+  // awaitInclusion, read by pushActivity and by the surfaces' result views.
+  // Refs, not state — looked up right after the await, never rendered from.
+  const inclusions = useRef(new Map<Hex, Inclusion>());
+  const sendAnchors = useRef(new Map<Hex, { anchor: SendAnchor | null; at: number }>());
+  const inclusionFor = (txHash: Hex | undefined): Inclusion | undefined =>
+    txHash ? inclusions.current.get(txHash) : undefined;
+
+  // The block watcher: `newHeads` (the anchor a send is measured from, and each
+  // block's Cobalt `timestampMs`) and `transactionReceipts` (the receipt the
+  // moment its block is sealed) on one socket, with HTTP receipt polling when
+  // the socket is down. Opened on mount so the anchor is warm by the first send.
+  const watcher = useRef<ReceiptWatcher | null>(null);
+  const makeWatcher = useCallback(
+    () =>
+      createReceiptWatcher({
+        connect: () =>
+          chain.shortName === 'vibenet' && VIBENET_WS_URL ? connectJsonRpcStream(VIBENET_WS_URL) : null,
+        fetchReceipt: (hash) =>
+          makeRpcClient().request({ method: 'eth_getTransactionReceipt', params: [hash] }) as Promise<RawReceipt | null>,
+      }),
+    [chain.shortName, makeRpcClient],
+  );
+  useEffect(() => {
+    const w = makeWatcher();
+    watcher.current = w;
+    return () => {
+      w.close();
+      if (watcher.current === w) watcher.current = null;
+    };
+  }, [makeWatcher]);
+  const ensureWatcher = (): ReceiptWatcher => {
+    if (!watcher.current) watcher.current = makeWatcher();
+    return watcher.current;
+  };
+
   // Wait for a broadcast tx to be included and check that it — and every 8130
   // phase in it — succeeded. Throws TxPendingError if it is still not included
   // when the timeout runs out, a plain Error if anything reverted.
   const awaitInclusion = async (txHash: Hex, timeout = 30_000): Promise<Hex> => {
+    const client = makeRpcClient();
+    const w = ensureWatcher();
+    // The receipt arrives on the socket the moment its block is sealed; over
+    // HTTP it is polled every 100 ms. This is the whole wait the spinner shows.
+    let pushed: RawReceipt;
     try {
-      const receipt = await waitForTransactionReceipt(makeRpcClient() as never, { hash: txHash, timeout });
-      if (!aaReceiptSucceeded(receipt)) throw new Error(`Transaction reverted onchain (${txHash}).`);
+      pushed = await w.waitForReceipt(txHash, { timeoutMs: timeout });
     } catch (err) {
-      if ((err as Error)?.message?.includes('timed out')) throw new TxPendingError(txHash);
+      if (err instanceof ReceiptTimeoutError) throw new TxPendingError(txHash);
       throw err;
     }
+    // Status and 8130 phase results come from the account RPC, whose replica
+    // can trail the socket's node by a block: a few short retries, then the
+    // pushed receipt itself.
+    let receipt: (Record<string, unknown> & { eip8130: ReturnType<typeof parseReceiptFields> }) | null = null;
+    for (let attempt = 0; attempt < 5 && !receipt; attempt += 1) {
+      if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 150));
+      receipt = await getTransactionReceipt(client as never, { hash: txHash }).catch(() => null);
+    }
+    if (!receipt) receipt = { ...pushed, eip8130: parseReceiptFields(pushed) };
+    if (!aaReceiptSucceeded(receipt as AaReceiptLike)) throw new Error(`Transaction reverted onchain (${txHash}).`);
+    // Chain facts: the inclusion block's Cobalt `timestampMs`, from the head
+    // stream when it has the block, else one block read. Timing is decoration,
+    // so a failed read is dropped.
+    const blockHash = receipt.blockHash as Hex;
+    const head =
+      w.headByHash(blockHash) ??
+      ((await client
+        .request({ method: 'eth_getBlockByHash', params: [blockHash, false] })
+        .catch(() => null)) as { timestampMs?: Hex } | null);
+    const inclusion = inclusionFromChain(
+      receipt as { blockNumber?: unknown },
+      head,
+      sendAnchors.current.get(txHash)?.anchor ?? null,
+    );
+    if (inclusion) inclusions.current.set(txHash, inclusion);
+    sendAnchors.current.delete(txHash);
     return txHash;
   };
 
@@ -816,11 +898,21 @@ function useAccountEngineCore() {
   // timeout (submitted but unconfirmed), a plain Error if any phase reverts.
   const broadcast8130 = async (signedTx: Hex, onStatus?: (s: 'submitting' | 'confirming') => void): Promise<Hex> => {
     const client = makeRpcClient();
+    const w = ensureWatcher();
     onStatus?.('submitting');
+    // The newest block this page has seen is the anchor the inclusion is
+    // measured from, on the chain's clock: read it before the send leaves.
+    const latest = w.latestHead();
+    const anchor: SendAnchor | null = latest ? { number: latest.number, timestampMs: latest.timestampMs } : null;
     const txHash = (await client.request({
       method: 'eth_sendRawTransaction',
       params: [signedTx],
     })) as Hex;
+    // Anchors outlive a pending timeout (the batch retry re-awaits the same
+    // hash), so abandoned ones are swept here instead.
+    const now = Date.now();
+    for (const [hash, mark] of sendAnchors.current) if (now - mark.at > 300_000) sendAnchors.current.delete(hash);
+    sendAnchors.current.set(txHash, { anchor, at: now });
     onStatus?.('confirming');
     return awaitInclusion(txHash);
   };
@@ -1114,7 +1206,7 @@ function useAccountEngineCore() {
     tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
     /** Optional top-level signed app data attached to the transaction. */
     metadata?: string;
-  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token' }> => {
+  }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token'; inclusion?: Inclusion }> => {
     if (!acct) throw new Error('Select an account before you continue.');
     if (!calls.length) throw new Error('No calls to send.');
     const signer =
@@ -1149,7 +1241,7 @@ function useAccountEngineCore() {
     );
     const hash = await broadcast8130(serialized);
     applyLandedBundle(acct, nextSeq, bundle);
-    return { hash, serialized, mode: tokenGas ? 'token' : 'self' };
+    return { hash, serialized, mode: tokenGas ? 'token' : 'self', inclusion: inclusionFor(hash) };
   };
 
   // Sign + broadcast from a specific stored account (not necessarily the active
@@ -2084,6 +2176,7 @@ function useAccountEngineCore() {
 
     // Signing engine (also used by each surface's own Transact flow)
     broadcast8130,
+    inclusionFor,
     signComposed,
     signAccountCalls,
     sendActiveCalls,
