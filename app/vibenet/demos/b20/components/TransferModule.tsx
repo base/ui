@@ -12,21 +12,28 @@ import { amount, b20Abi, memoToBytes32 } from '../lib/protocol';
 import type { TokenInfo } from '../lib/types';
 import { ErrorNote, Field, Input } from './primitives';
 
-// Plain token transfer — a recipient and an amount, presented through the shared
-// TransactionModal.
-export function TransferModule({
-  open,
-  onClose,
-  token,
-  addressBook,
-  onSend,
-}: {
+type TransferModuleProps = {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
   addressBook: AddressBookEntry[];
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
-}) {
+};
+
+// Plain token transfer — a recipient and an amount, presented through the shared
+// TransactionModal.
+export function TransferModule(props: TransferModuleProps) {
+  if (!props.open) return null;
+  return <TransferModuleInner {...props} />;
+}
+
+function TransferModuleInner({
+  open,
+  onClose,
+  token,
+  addressBook,
+  onSend,
+}: TransferModuleProps) {
   const [to, setTo] = useState('');
   const [value, setValue] = useState('');
   const [step, setStep] = useState<TxStep>('build');
@@ -34,18 +41,8 @@ export function TransferModule({
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<Hex | null>(null);
 
-  const reset = () => {
-    setStep('build');
-    setFinalizing(false);
-    setError(null);
-    setTxHash(null);
-    setTo('');
-    setValue('');
-  };
-
   const handleClose = () => {
     if (finalizing) return;
-    reset();
     onClose();
   };
 

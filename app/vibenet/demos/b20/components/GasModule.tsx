@@ -12,20 +12,7 @@ import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import type { TokenInfo } from '../lib/types';
 import { Notice } from './primitives';
 
-// "Gas Payments" flow: send a real transaction whose network fee is paid in the
-// currently selected stablecoin, not ETH. The account spends the token; the
-// demo's own ERC-8168 gas payer spends the ETH that actually buys the gas, so
-// the account never needs to hold ETH. This is a demonstration send, not a
-// persistent setting — every payment pays its own fee in the token.
-export function GasModule({
-  open,
-  onClose,
-  token,
-  ethAmount,
-  recipient,
-  fee,
-  onPay,
-}: {
+type GasModuleProps = {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
@@ -37,7 +24,27 @@ export function GasModule({
   fee: string;
   /** Sends the demo transaction with its gas paid in the token; resolves to the tx hash. */
   onPay: () => Promise<Hex | null>;
-}) {
+};
+
+// "Gas Payments" flow: send a real transaction whose network fee is paid in the
+// currently selected stablecoin, not ETH. The account spends the token; the
+// demo's own ERC-8168 gas payer spends the ETH that actually buys the gas, so
+// the account never needs to hold ETH. This is a demonstration send, not a
+// persistent setting — every payment pays its own fee in the token.
+export function GasModule(props: GasModuleProps) {
+  if (!props.open) return null;
+  return <GasModuleInner {...props} />;
+}
+
+function GasModuleInner({
+  open,
+  onClose,
+  token,
+  ethAmount,
+  recipient,
+  fee,
+  onPay,
+}: GasModuleProps) {
   const [step, setStep] = useState<TxStep>('build');
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,16 +52,8 @@ export function GasModule({
 
   const isStablecoin = token?.variant === 'stablecoin';
 
-  const reset = () => {
-    setStep('build');
-    setFinalizing(false);
-    setError(null);
-    setTxHash(null);
-  };
-
   const handleClose = () => {
     if (finalizing) return;
-    reset();
     onClose();
   };
 
