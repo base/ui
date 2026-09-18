@@ -20,10 +20,13 @@ import {
 } from '../analytics/events';
 
 import {
+  applyComponentDependencies,
+  buildDownloadCommand,
   CHAIN_NAME_BY_NETWORK,
   formatBytes,
   formatDate,
   formatNumber,
+  hasCompleteArchive,
   presetSize,
   PresetName,
   PRESETS,
@@ -51,46 +54,6 @@ function InlineCommand({ command, onCopy }: { command: string; onCopy?: () => vo
       <CommandLine command={command} onCopy={onCopy} />
     </div>
   );
-}
-
-// Builds the `base-reth-node download` command from the current selection,
-// mirroring the CLI's component flags and preset/archive shortcuts.
-function buildDownloadCommand(
-  chainName: string,
-  preset: PresetName | null,
-  selectedComponents: string[],
-): string {
-  const matchingPreset = PRESETS.find(
-    (p) =>
-      p.components.length === selectedComponents.length &&
-      p.components.every((c) => selectedComponents.includes(c)),
-  )?.name;
-  const archiveWithoutRocksDb =
-    PRESETS.find((p) => p.name === 'archive')?.components.filter((c) => c !== 'rocksdb_indices') ??
-    [];
-  const isArchiveWithoutRocksDb =
-    archiveWithoutRocksDb.length === selectedComponents.length &&
-    archiveWithoutRocksDb.every((c) => selectedComponents.includes(c));
-  const effectivePreset = preset ?? matchingPreset;
-  const args: string[] = [];
-
-  if (effectivePreset) {
-    args.push(`--${effectivePreset}`, '--resumable');
-  } else if (isArchiveWithoutRocksDb) {
-    args.push('--archive', '--without-rocksdb');
-  } else {
-    if (selectedComponents.includes('transactions')) args.push('--with-txs');
-    if (selectedComponents.includes('transaction_senders')) args.push('--with-senders');
-    if (selectedComponents.includes('receipts')) args.push('--with-receipts');
-    if (
-      selectedComponents.includes('account_changesets') ||
-      selectedComponents.includes('storage_changesets')
-    ) {
-      args.push('--with-state-history');
-    }
-  }
-
-  return `base-reth-node download --chain ${chainName}${args.length ? ` ${args.join(' ')}` : ''}`;
 }
 
 type SnapshotsClientProps = {
@@ -143,16 +106,9 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
       next.push(name);
     }
 
-    // Enforce component dependencies: senders need transactions; the rocksdb
-    // indices need transactions, receipts, and state history.
-    const withTransactions = next.includes('transactions');
-    const withReceipts = next.includes('receipts');
-    const withStateHistory =
-      next.includes('account_changesets') && next.includes('storage_changesets');
-    if (!withTransactions) next = next.filter((c) => c !== 'transaction_senders');
-    if (!withTransactions || !withReceipts || !withStateHistory) {
-      next = next.filter((c) => c !== 'rocksdb_indices');
-    }
+    // Enforce component dependencies: proofs require the complete archive;
+    // senders and RocksDB indices have narrower requirements of their own.
+    next = applyComponentDependencies(next);
 
     if (next.length === 0) return;
 
@@ -280,7 +236,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                       selectPreset(next as PresetName);
                     }}
                     aria-label="Configure Snapshot"
-                    className="grid-cols-1 lg:grid-cols-3"
+                    className="grid-cols-1 lg:grid-cols-4"
                   >
                     {PRESETS.map((p) => {
                       const size = presetSize(activeSnapshot.components, p);
@@ -333,6 +289,7 @@ export function SnapshotsClient({ snapshots }: SnapshotsClientProps) {
                         (c.name === 'state_history' ? withStateHistory : selectedComponents.includes(c.name));
                       const isDisabled =
                         REQUIRED_COMPONENTS.has(c.name) ||
+                        (c.name === 'proofs' && !hasCompleteArchive(selectedComponents)) ||
                         (c.name === 'transaction_senders' && !withTransactions) ||
                         (c.name === 'rocksdb_indices' &&
                           (!withTransactions || !withReceipts || !withStateHistory));

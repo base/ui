@@ -29,7 +29,7 @@ export type Snapshot = {
   manifestUrl: string;
 };
 
-export type PresetName = 'minimal' | 'full' | 'archive';
+export type PresetName = 'minimal' | 'full' | 'archive' | 'archive-proofs';
 
 export type Preset = {
   name: PresetName;
@@ -39,21 +39,30 @@ export type Preset = {
   capabilities: string[];
 };
 
+const ARCHIVE_COMPONENTS = [
+  'state',
+  'headers',
+  'transactions',
+  'transaction_senders',
+  'receipts',
+  'account_changesets',
+  'storage_changesets',
+  'rocksdb_indices',
+];
+
 export const PRESETS: Preset[] = [
+  {
+    name: 'archive-proofs',
+    displayName: 'Archive + Proofs',
+    description: 'Everything in Archive, plus execution proofs.',
+    components: [...ARCHIVE_COMPONENTS, 'proofs'],
+    capabilities: ['Sync', 'Validate', 'Query', 'Trace', 'Debug', 'Index', 'Prove'],
+  },
   {
     name: 'archive',
     displayName: 'Archive',
-    description: 'Everything included. Full historical data for indexers and RPC providers.',
-    components: [
-      'state',
-      'headers',
-      'transactions',
-      'transaction_senders',
-      'receipts',
-      'account_changesets',
-      'storage_changesets',
-      'rocksdb_indices',
-    ],
+    description: 'Full historical data for indexers and RPC providers.',
+    components: ARCHIVE_COMPONENTS,
     capabilities: ['Sync', 'Validate', 'Query', 'Trace', 'Debug', 'Index'],
   },
   {
@@ -90,6 +99,66 @@ export function presetSize(components: SnapshotComponent[], preset: Preset): num
           : component.size),
       0,
     );
+}
+
+export function hasCompleteArchive(components: string[]): boolean {
+  return ARCHIVE_COMPONENTS.every((component) => components.includes(component));
+}
+
+export function applyComponentDependencies(components: string[]): string[] {
+  let next = [...components];
+  const withTransactions = next.includes('transactions');
+  const withReceipts = next.includes('receipts');
+  const withStateHistory =
+    next.includes('account_changesets') && next.includes('storage_changesets');
+
+  if (!withTransactions) next = next.filter((component) => component !== 'transaction_senders');
+  if (!withTransactions || !withReceipts || !withStateHistory) {
+    next = next.filter((component) => component !== 'rocksdb_indices');
+  }
+  if (!hasCompleteArchive(next)) next = next.filter((component) => component !== 'proofs');
+
+  return next;
+}
+
+export function buildDownloadCommand(
+  chainName: string,
+  preset: PresetName | null,
+  selectedComponents: string[],
+): string {
+  const matchingPreset = PRESETS.find(
+    (candidate) =>
+      candidate.components.length === selectedComponents.length &&
+      candidate.components.every((component) => selectedComponents.includes(component)),
+  )?.name;
+  const archiveWithoutRocksDb = ARCHIVE_COMPONENTS.filter(
+    (component) => component !== 'rocksdb_indices',
+  );
+  const isArchiveWithoutRocksDb =
+    archiveWithoutRocksDb.length === selectedComponents.length &&
+    archiveWithoutRocksDb.every((component) => selectedComponents.includes(component));
+  const effectivePreset = preset ?? matchingPreset;
+  const args: string[] = [];
+
+  if (effectivePreset === 'archive-proofs') {
+    args.push('--archive', '--proofs');
+  } else if (effectivePreset) {
+    args.push(`--${effectivePreset}`, '--resumable');
+  } else if (isArchiveWithoutRocksDb) {
+    args.push('--archive', '--without-rocksdb');
+  } else {
+    if (selectedComponents.includes('transactions')) args.push('--with-txs');
+    if (selectedComponents.includes('transaction_senders')) args.push('--with-senders');
+    if (selectedComponents.includes('receipts')) args.push('--with-receipts');
+    if (
+      selectedComponents.includes('account_changesets') ||
+      selectedComponents.includes('storage_changesets')
+    ) {
+      args.push('--with-state-history');
+    }
+  }
+
+  return `base-reth-node download --chain ${chainName}${args.length ? ` ${args.join(' ')}` : ''}`;
 }
 
 export const CHAIN_NAME_BY_NETWORK: Record<string, string> = {
@@ -139,6 +208,7 @@ export const COMPONENT_META: Record<string, { displayName: string; description: 
     description: 'Historical storage slot changes.',
   },
   rocksdb_indices: { displayName: 'Indices', description: 'Database indices for fast lookups.' },
+  proofs: { displayName: 'Proofs', description: 'Execution proofs for archived blocks.' },
 };
 
 export const COMPONENT_ORDER = Object.keys(COMPONENT_META);
@@ -196,6 +266,7 @@ export const SAMPLE_SNAPSHOTS: Snapshot[] = [
       account_changesets: 310,
       storage_changesets: 680,
       rocksdb_indices: 240,
+      proofs: 842,
     },
     {
       transactions: 42,
@@ -218,6 +289,7 @@ export const SAMPLE_SNAPSHOTS: Snapshot[] = [
       account_changesets: 40,
       storage_changesets: 90,
       rocksdb_indices: 35,
+      proofs: 339,
     },
     {
       transactions: 9,
@@ -242,6 +314,7 @@ export const SAMPLE_SNAPSHOTS: Snapshot[] = [
       account_changesets: 2,
       storage_changesets: 5,
       rocksdb_indices: 2,
+      proofs: 6,
     },
     {
       transactions: 1,
