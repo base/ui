@@ -4,7 +4,7 @@ import { CSSProperties, MouseEvent as ReactMouseEvent, PropsWithChildren, useEff
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Dialog } from '@base-ui/react/dialog';
-import { AnimatePresence, easeOut, motion, useIsPresent, useMotionTemplate, useMotionValue, usePresenceData, useReducedMotion, type MotionValue } from 'motion/react';
+import { AnimatePresence, easeOut, motion, useIsPresent, usePresenceData } from 'motion/react';
 import { Toaster } from 'sonner';
 
 import { getActiveParent, isChildActive, isTopNavActive, navActiveParent, navHighlightPath, NAV_ITEMS, NavIcon, titleForPath } from '../navigation';
@@ -18,7 +18,7 @@ import { NavScrollArea } from './NavScrollArea';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
 import { cn } from './ui/cn';
-import { AnimatedArrowIcon, CloseIcon } from './ui/icons';
+import { AnimatedArrowIcon } from './ui/icons';
 import { Text, textVariantClasses } from './ui/Text';
 
 const SIDEBAR_WIDTH = 248;
@@ -359,8 +359,6 @@ function TopNavList({ highlightPath, onSelect }: { highlightPath: string; onSele
 }
 
 const slideTransition = { duration: 0.2, ease: easeOut, x: { visualDuration: 0.2, type: 'spring', bounce: 0 } };
-/** Matches `h-9` / theme(spacing.9). */
-const APP_BANNER_HEIGHT = '2.25rem';
 
 // How long the nav trusts a tapped href before falling back to the router. Only
 // reached if a navigation never commits (aborted, failed, or a modified click that
@@ -649,63 +647,6 @@ function SidebarContent({ dark, onToggleTheme, onNavigate, hideBrand }: SidebarC
   );
 }
 
-type GlobalBannerProps = {
-  dismissed: boolean;
-  onDismiss: () => void;
-  className?: string;
-  height: MotionValue<string>;
-};
-
-function GlobalBanner({ dismissed, onDismiss, className, height }: GlobalBannerProps) {
-  const reducedMotion = useReducedMotion();
-  const transition = reducedMotion ? { duration: 0 } : slideTransition;
-
-  return (
-    <motion.div
-      className={cn(className, 'overflow-clip after:pointer-events-none after:inset-x-0 after:absolute after:bottom-0 after:border-b after:border-bds-gray-10 bg-bds-gray-5')}
-      style={{ height }}
-      initial={false}
-      animate={{ height: dismissed ? '0rem' : APP_BANNER_HEIGHT }}
-      transition={transition}
-    >
-      <motion.div
-        className="relative flex w-full shrink-0 items-center justify-center border-b border-transparent pl-4 pr-10 sm:px-10"
-        initial={false}
-        animate={{ opacity: dismissed ? 0 : 1 }}
-        transition={transition}
-        style={{ height: APP_BANNER_HEIGHT }}
-      >
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center min-[860px]:flex-row min-[860px]:gap-5">
-          <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 min-[860px]:flex-nowrap">
-            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic]">New!</Text>
-            <Text as="span" variant="label.medium" className="whitespace-nowrap text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic]">EIP-8130: Accounts</Text>
-            <span className="inline-block h-3.5 w-px shrink-0 bg-bds-gray-20"></span>
-            <Link
-              href="/vibenet/demos/account"
-              className="group flex shrink-0 items-center gap-1 no-underline"
-              onClick={(event) => {
-                if (opensInNewTab(event)) return;
-                onDismiss();
-              }}
-            >
-              <Text as="span" variant="label.medium" className="text-[12.5px] leading-[16px] font-[500] md:text-[12.5px] md:leading-[16px] md:font-[500] [text-box-trim:trim-both] [text-box-edge:cap_alphabetic] text-base-blue">Test on Vibenet</Text>
-              <AnimatedArrowIcon size={14} strokeWidth={2} className="text-base-blue transition-transform duration-200 ease-out group-hover:translate-x-[3px]" />
-            </Link>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-bds-gray-40 transition-colors hover:text-foreground"
-          aria-label="Dismiss banner"
-        >
-          <CloseIcon size={10} />
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 // next-themes `disableTransitionOnChange`: stamp a global `transition: none`
 // rule, apply the theme, force a restyle, then drop the rule on the next tick
 // so color tokens don't animate through every `transition-colors` on the page.
@@ -734,10 +675,7 @@ function disableAnimation() {
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
-  const bannerHeight = useMotionValue(APP_BANNER_HEIGHT);
-  const sidebarHeight = useMotionTemplate`calc(100dvh - ${bannerHeight})`;
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
   // aria-checked only. The switch's look is CSS against html[data-theme],
   // which the pre-paint script already set — this state starts false so SSR
   // and the first client render match, then catches up after mount.
@@ -775,20 +713,11 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      {/* Desktop: banner spans the full width above the shell. On mobile it is
-          rendered below the fixed header instead (see below), so it isn't hidden
-          behind it. */}
-      <GlobalBanner
-        dismissed={bannerDismissed}
-        onDismiss={() => setBannerDismissed(true)}
-        height={bannerHeight}
-        className="sticky top-0 z-50 hidden md:block"
-      />
       <div style={styles.root}>
         {/* Desktop sidebar */}
         <motion.aside
           className="sidebar-desktop sticky self-start"
-          style={{ ...styles.sidebar, top: bannerHeight, height: sidebarHeight }}
+          style={{ ...styles.sidebar, top: 0, height: '100dvh' }}
         >
           <SidebarContent dark={dark} onToggleTheme={toggleTheme} />
         </motion.aside>
@@ -823,17 +752,9 @@ export function AppShell({ children }: PropsWithChildren) {
         </Dialog.Root>
 
         <div className="pt-14 md:pt-0" style={styles.main}>
-          {/* Mobile: banner sits below the fixed header (which the top slot is
-              hidden behind), so it's visible without scrolling. */}
-          <GlobalBanner
-            dismissed={bannerDismissed}
-            onDismiss={() => setBannerDismissed(true)}
-            height={bannerHeight}
-            className="sticky top-14 z-50 block md:hidden"
-          />
           <motion.header
             className="topbar-desktop sticky z-40 bg-background"
-            style={{ ...styles.topbar, top: bannerHeight }}
+            style={{ ...styles.topbar, top: 0 }}
           >
             <div id="topbar-actions-slot" className="absolute right-7 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2" />
             {(() => {
