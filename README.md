@@ -28,7 +28,7 @@ to run the **internal** build locally with those sections visible. See
 - `npm run build:internal` — production build with internal-only sections
 - `npm run start` — serve the production build
 - `npm run lint` — eslint (next/core-web-vitals)
-- `npm run typecheck` — `tsc --noEmit`
+- `npm run typecheck` — generate Next.js route and asset types, then run `tsc --noEmit`
 - `npm test` — vitest
 - `npm run test:e2e` — playwright end-to-end tests (builds and serves the app first)
 - `npm run llms` / `npm run agents` — regenerate the agent index files
@@ -38,7 +38,7 @@ to run the **internal** build locally with those sections visible. See
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-- **typecheck** — `tsc --noEmit`
+- **typecheck** — generate Next.js route and asset types, then run `tsc --noEmit`
 - **lint** — eslint
 - **test** — vitest. Includes `app/snapshots/networks.contract.test.ts`, which
   asserts every expected network stays served by `/api/snapshots`. Nodes sync
