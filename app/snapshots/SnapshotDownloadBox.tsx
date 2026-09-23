@@ -2,7 +2,7 @@ import { Card } from '../components/ui/Card';
 import { CommandLine } from '../components/ui/CommandLine';
 import { Text } from '../components/ui/Text';
 
-import { formatBytes, formatDate, formatNumber, type Snapshot } from './data';
+import { formatBytes, formatDate, formatNumber, PRESETS, presetSize, type Snapshot } from './data';
 
 // The archive preset built by the snapshots configurator, hoisted to the
 // homepage so a node operator can copy-and-go without opening the full page.
@@ -13,8 +13,10 @@ const ARCHIVE_COMMAND = 'base-reth-node download --chain base --archive --resuma
 // the ready-to-run download command, with a link out to the configurator for
 // anything smaller than a full archive.
 export function SnapshotDownloadBox({ snapshot }: { snapshot: Snapshot }) {
+  const archivePreset = PRESETS.find((preset) => preset.name === 'archive');
+  const archiveSize = archivePreset ? presetSize(snapshot.components, archivePreset) : snapshot.size;
   const stats = [
-    { label: 'Total Size', value: formatBytes(snapshot.size) },
+    { label: 'Total Size', value: formatBytes(archiveSize) },
     { label: 'Block', value: formatNumber(snapshot.block) },
     { label: 'Version', value: snapshot.rethVersion },
     { label: 'Updated', value: formatDate(snapshot.date) },
