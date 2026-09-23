@@ -624,6 +624,7 @@ function B20DemoInner() {
         onClose={closeModal}
         wallet={wallet}
         onSendCalls={sendCalls}
+        inclusionFor={engine.inclusionFor}
         onCreated={async (next) => {
           if (wallet) setRecent(writeRecent(wallet, next));
           selectToken(next);
@@ -671,6 +672,7 @@ function B20DemoInner() {
         token={token}
         assignment={pendingAssign}
         onSend={send}
+        inclusionFor={engine.inclusionFor}
       />
 
       {/* Transfer modal (owns the shared transaction dialog) */}
@@ -680,6 +682,7 @@ function B20DemoInner() {
         token={token}
         addressBook={addressBook}
         onSend={send}
+        inclusionFor={engine.inclusionFor}
       />
 
       {/* Memos modal (owns the shared transaction dialog) */}
@@ -689,6 +692,7 @@ function B20DemoInner() {
         token={token}
         addressBook={addressBook}
         onSend={send}
+        inclusionFor={engine.inclusionFor}
       />
 
       {/* Gas Payments modal: send a transaction paying its fee in the token. */}
@@ -700,6 +704,7 @@ function B20DemoInner() {
         recipient={GAS_DEMO_RECIPIENT}
         fee={token ? formatTokenAmount(tokenGasFee(token.decimals), token.decimals) : ''}
         onPay={sendGasPayment}
+        inclusionFor={engine.inclusionFor}
       />
 
       {/* Announcements modal (owns the shared transaction dialog) */}
@@ -710,6 +715,7 @@ function B20DemoInner() {
         tokenAccess={tokenAccess}
         wallet={wallet}
         onSend={send}
+        inclusionFor={engine.inclusionFor}
       />
     </AccountDemoShell>
   );

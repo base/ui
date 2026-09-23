@@ -7,6 +7,7 @@ import { Text } from '../../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../../library/config';
 import { walletErrorMessage } from '../../../library/wallet';
 import { CallRow, ReviewArrow } from '../../_shared/CallRow';
+import type { Inclusion } from '../../_shared/inclusion';
 import { TransactionModal, type TxStep } from '../../_shared/TransactionModal';
 import { b20Abi, scopeId } from '../lib/protocol';
 import type { TokenInfo } from '../lib/types';
@@ -21,12 +22,15 @@ export function AssignPolicyModal({
   token,
   assignment,
   onSend,
+  inclusionFor,
 }: {
   open: boolean;
   onClose: () => void;
   token: TokenInfo | null;
   assignment: PendingAssignment | null;
   onSend: (label: string, to: Address, data: Hex, action: string) => Promise<Hex | null>;
+  /** Inclusion timing for a landed hash — which 200 ms block, how fast. */
+  inclusionFor?: (hash: Hex) => Inclusion | undefined;
 }) {
   const [step, setStep] = useState<TxStep>('build');
   const [finalizing, setFinalizing] = useState(false);
@@ -74,7 +78,7 @@ export function AssignPolicyModal({
       step={step}
       busy={finalizing}
       error={error ?? undefined}
-      result={txHash ? { txHash } : null}
+      result={txHash ? { txHash, inclusion: inclusionFor?.(txHash) } : null}
       titles={{ build: 'Assign Policy', submitted: 'Assign Policy' }}
       canProceed={Boolean(assignment)}
       proceedLabel="Assign"
