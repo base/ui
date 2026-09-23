@@ -33,9 +33,9 @@ describe('deploy.config', () => {
     it('reports the disabled route + api prefixes and subtree globs', async () => {
       const c = await loadWithTarget('external');
       expect(c.disabledRoutePrefixes()).toEqual(['/internal-explorer', '/tips', '/benchmark']);
-      // Benchmark contributes no api prefix: it calls the report API directly
-      // from the browser rather than through a route handler in this app.
-      expect(c.disabledApiPrefixes()).toEqual(['/api/internal-explorer', '/api/tips']);
+      // Performance uses a same-origin benchmark proxy, which must remain
+      // unavailable in the external build with the benchmark UI itself.
+      expect(c.disabledApiPrefixes()).toEqual(['/api/internal-explorer', '/api/tips', '/api/benchmark']);
       expect(c.disabledRouteGlobs()).toEqual([
         '/internal-explorer',
         '/internal-explorer/**',
