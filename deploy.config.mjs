@@ -35,11 +35,12 @@ export const SURFACES = {
     apiPrefixes: ['/api/internal-explorer', '/api/tips'],
     targets: ['internal'],
   },
-  // No apiPrefixes: the benchmark UI calls the report API straight from the
-  // browser (NEXT_PUBLIC_BENCHMARK_API_BASE_URL) instead of proxying through a
-  // route handler here, so this app serves no /api path for it.
+  // The existing benchmark reports use a browser-visible report API. Performance
+  // additionally uses a same-origin route to proxy the CORS-restricted public
+  // aggregate metadata source.
   benchmark: {
     routePrefixes: ['/benchmark'],
+    apiPrefixes: ['/api/benchmark'],
     targets: ['internal'],
   },
 };

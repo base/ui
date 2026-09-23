@@ -252,6 +252,13 @@ function NavGlyph({ name }: NavGlyphProps) {
           <path d="m7 15 3.5-4.5 3 2.5L19 6" />
         </svg>
       );
+    case 'performance':
+      return (
+        <svg {...common} className="nav-performance-icon">
+          <path d="M3 3v15.5A2.5 2.5 0 0 0 5.5 21H21" />
+          <path d="m7 15 3.5-4.5 3 2.5L19 6" />
+        </svg>
+      );
     case 'runs':
       return (
         <svg {...common} strokeWidth={1.8} className="nav-runs-icon">

@@ -2,7 +2,7 @@ import { BENCHMARK_ENABLED } from './benchmark/flag';
 import { EXPLORER_ENABLED, EXPLORER_LABEL } from './internal-explorer/flag';
 import { demoBreadcrumb } from './vibenet/demos/catalogue';
 
-export type NavIcon = 'home' | 'snapshots' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
+export type NavIcon = 'home' | 'snapshots' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'performance' | 'runs' | 'loadtest';
 
 export type NavChild = {
   label: string;
@@ -49,6 +49,7 @@ export const NAV_ITEMS: NavItem[] = [
           icon: 'benchmark',
           enabled: true,
           children: [
+            { label: 'Performance', href: '/benchmark/performance', icon: 'performance' },
             { label: 'Benchmarks', href: '/benchmark/run', icon: 'runs' },
             { label: 'Load Tests', href: '/benchmark/load-tests', icon: 'loadtest' },
           ],
