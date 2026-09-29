@@ -162,7 +162,7 @@ export function EventHistoryRow({
             </div>
           </div>
           {event.data.originalEvent !== undefined && jsonExpanded && (
-            <pre className="mt-3 max-h-72 overflow-auto rounded-lg bg-bds-gray-90 p-3 text-xs text-bds-gray-5 dark:bg-black">
+            <pre className="mt-3 max-h-72 overflow-auto rounded-lg bg-bds-gray-90 p-3 text-xs text-bds-gray-5 dark:bg-black dark:text-bds-gray-90">
               {JSON.stringify(event.data.originalEvent, null, 2)}
             </pre>
           )}
