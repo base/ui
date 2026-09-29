@@ -4,8 +4,7 @@
 // re-exported type-only (erased at build, so no server code reaches the client
 // bundle). Two things stay local: the block-detail wire shape (the block route
 // serializes its response inline and exports no type), and formatRejectionReason
-// (a pure helper — importing it from the s3 module would pull server deps into
-// the client).
+// (a pure helper kept local so the client never imports a server module at runtime).
 
 export type {
   BundleData,
@@ -17,7 +16,7 @@ export type {
   MeterBundleResult,
   RejectedTransaction,
   RejectionReason,
-} from '../../api/internal-explorer/s3';
+} from '../../api/internal-explorer/transaction-data';
 export type { BlocksPage, BlockSummary, BlocksResponse } from '../../api/internal-explorer/blocks/route';
 export type { LatestActiveBlockResponse } from '../../api/internal-explorer/blocks/latest-active/route';
 export type { TransactionListItem, TransactionsResponse } from '../../api/internal-explorer/txs/route';
@@ -29,7 +28,6 @@ export type {
   ChainTransaction,
   ChainTransactionData,
   CoverageState,
-  TransactionArchiveSource,
   TransactionAuditSource,
   TransactionCoverage,
   TransactionLookupResponse,
@@ -37,8 +35,8 @@ export type {
 export type { AuditTransactionEventRecord } from '../../api/internal-explorer/audit-events';
 export type { ShadowBlockDetail, ShadowBlockSummary, ShadowTxSummary } from '../../api/internal-explorer/shadow';
 
-import type { BundleEvent } from '../../api/internal-explorer/s3';
-import type { MeterBundleResponse, MeterBundleResult, RejectionReason } from '../../api/internal-explorer/s3';
+import type { BundleEvent } from '../../api/internal-explorer/transaction-data';
+import type { MeterBundleResponse, MeterBundleResult, RejectionReason } from '../../api/internal-explorer/transaction-data';
 
 // Block detail (/api/internal-explorer/block/[hash]). The route serializes inline (bigints as
 // strings, metering split into transaction/bundle), so the wire shape is modeled

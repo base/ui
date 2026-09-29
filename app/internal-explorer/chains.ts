@@ -1,7 +1,7 @@
 // Chain model for Internal Explorer. Client-safe: the data for each chain
 // used to be a separate deployment; here chain is a runtime parameter carried in
 // the URL (?chain=) and passed to /api/internal-explorer/* which resolves
-// per-chain S3 + RPC.
+// per-chain RPC + audit endpoints.
 
 import { defaultExplorerChainForOrigin, type ExplorerHostMap } from './hosts';
 

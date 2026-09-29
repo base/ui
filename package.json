@@ -21,7 +21,6 @@
     "docs:check": "node scripts/llms.mjs --check && node scripts/agents.mjs --check"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1116.0",
     "@base-ui/react": "^1.7.0",
     "@vercel/analytics": "^2.0.1",
     "classnames": "^2.5.1",

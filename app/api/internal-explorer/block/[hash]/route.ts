@@ -16,13 +16,7 @@ import {
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
 import { explorerDisabledResponse } from '../../guard';
 import { getTransactionReceiptSummaries } from '../../receipts';
-import {
-  cacheBlockData,
-  getBlockFromCache,
-  getBundleHistory,
-  getTransactionMetadataByHash,
-} from '../../s3';
-import type { BlockData, BlockTransaction, BundleEvent } from '../../transaction-data';
+import type { BlockData, BlockTransaction } from '../../transaction-data';
 import { publicClientFor } from '../../viem';
 
 export const runtime = 'nodejs';
@@ -168,13 +162,6 @@ function timedAuditEvents(events: AuditTransactionEventRecord[]): TimedExplorerE
   }));
 }
 
-function timedHistoryEvents(history: BundleEvent[]): TimedExplorerEvent[] {
-  return history.map((event) => ({
-    event: event.event,
-    timestamp: event.data.timestamp,
-  }));
-}
-
 function auditEventsForHash(
   txHash: string,
   events: AuditTransactionEventRecord[],
@@ -183,43 +170,14 @@ function auditEventsForHash(
   return events.filter((event) => event.tx_hash?.toLowerCase() === normalized);
 }
 
-async function enrichTransactionFromS3(
-  chain: ExplorerChain,
-  txHash: string,
-): Promise<{
-  bundleId: string | null;
-  meterBundleResponse: Record<string, unknown> | null;
-  history: BundleEvent[];
-}> {
-  const metadata = await getTransactionMetadataByHash(chain, txHash);
-  if (!metadata || metadata.bundle_ids.length === 0) {
-    return { bundleId: null, meterBundleResponse: null, history: [] };
-  }
-
-  const bundleId = metadata.bundle_ids[0];
-  const bundleHistory = await getBundleHistory(chain, bundleId);
-  if (!bundleHistory) {
-    return { bundleId, meterBundleResponse: null, history: [] };
-  }
-
-  const receivedEvent = bundleHistory.history.find((event) => event.event === 'Received');
-  return {
-    bundleId,
-    meterBundleResponse: receivedEvent?.data?.bundle?.meter_bundle_response
-      ? (receivedEvent.data.bundle.meter_bundle_response as unknown as Record<string, unknown>)
-      : null,
-    history: bundleHistory.history,
-  };
-}
-
 type TransactionEnrichment = {
   bundleId: string | null;
   meterBundleResponse: Record<string, unknown> | null;
   inclusionLatencyMs: number | null;
 };
 
-// Audit-first, S3-fallback per-transaction enrichment (bundle id, metering, and
-// inclusion latency from the same event set the transaction page uses).
+// Audit-backed per-transaction enrichment (bundle id, metering, and inclusion
+// latency from the same event set the transaction page uses).
 async function enrichTransactionWithBundleData(
   chain: ExplorerChain,
   txHash: string,
@@ -232,7 +190,7 @@ async function enrichTransactionWithBundleData(
     try {
       hashEvents = await getAuditEventsByTransactionHash(auditRpcUrl, txHash);
     } catch {
-      // Audit is an optional read path; fall back to the S3-backed enrichment on errors.
+      // Audit is an optional read path; render the block without enrichment on errors.
     }
   }
 
@@ -240,23 +198,16 @@ async function enrichTransactionWithBundleData(
     hashEvents,
     auditEventsForHash(txHash, blockAuditEvents),
   ]);
-  let inclusionLatency = inclusionLatencyMs(timedAuditEvents(mergedAuditEvents));
+  const inclusionLatency = inclusionLatencyMs(timedAuditEvents(mergedAuditEvents));
 
   const metadata = transactionMetadataFromAuditEvents(hashEvents);
-  let bundleId = metadata?.bundle_ids[0] ?? null;
+  const bundleId = metadata?.bundle_ids[0] ?? null;
   let meterBundleResponse: Record<string, unknown> | null = null;
   if (bundleId !== null) {
     const accepted = hashEvents.find((event) => event.event_type === 'SIMULATION_SUCCEEDED');
     meterBundleResponse = accepted
       ? (meterBundleResponseFromAuditEvent(accepted) as unknown as Record<string, unknown>)
       : null;
-  }
-
-  if (bundleId === null) {
-    const s3 = await enrichTransactionFromS3(chain, txHash);
-    bundleId = s3.bundleId;
-    meterBundleResponse = s3.meterBundleResponse;
-    inclusionLatency = inclusionLatency ?? inclusionLatencyMs(timedHistoryEvents(s3.history));
   }
 
   return {
@@ -335,17 +286,6 @@ async function buildBlockData(chain: ExplorerChain, rpcBlock: ParsedFullBlock): 
   };
 }
 
-// Build live from RPC (audit-first enrichment), writing through to the block
-// cache, which also serves as a fallback when the RPC is unavailable.
-async function buildAndCacheBlockData(
-  chain: ExplorerChain,
-  rpcBlock: ParsedFullBlock,
-): Promise<BlockData> {
-  const blockData = await buildBlockData(chain, rpcBlock);
-  await cacheBlockData(chain, blockData);
-  return blockData;
-}
-
 export async function GET(request: Request, { params }: { params: Promise<{ hash: string }> }) {
   const disabled = explorerDisabledResponse();
   if (disabled) return disabled;
@@ -362,21 +302,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
         return Response.json({ error: 'Block not found' }, { status: 404 });
       }
 
-      const blockData = await buildAndCacheBlockData(chain, rpcBlock);
+      const blockData = await buildBlockData(chain, rpcBlock);
       return Response.json(serializeBlockData(blockData));
     }
 
     const rpcBlock = await fetchBlockFromRpc(rpcUrl, identifier);
     if (!rpcBlock) {
-      // RPC could not serve the block; fall back to the block cache.
-      const cachedBlock = await getBlockFromCache(chain, identifier);
-      if (cachedBlock) {
-        return Response.json(serializeBlockData(cachedBlock));
-      }
       return Response.json({ error: 'Block not found' }, { status: 404 });
     }
 
-    const blockData = await buildAndCacheBlockData(chain, rpcBlock);
+    const blockData = await buildBlockData(chain, rpcBlock);
     return Response.json(serializeBlockData(blockData));
   } catch (error) {
     console.error('Error fetching block data:', error);

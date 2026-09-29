@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
 
 import type { AuditTransactionEventRecord } from './audit-events';
-import type { BundleHistory } from './transaction-data';
 import {
   type ChainLookupResult,
   type ChainTransactionData,
@@ -82,8 +81,6 @@ function dependencies(
     getJoinedAuditEventsByBundle: async () => [],
     getAuditEventsByBlockHash: async () => [],
     getAuditEventsByBlockNumber: async () => [],
-    getTransactionMetadataByHash: async () => null,
-    getBundleHistory: async () => null,
     getChainData: async (): Promise<ChainLookupResult> => ({
       status: 'empty',
       data: null,
@@ -178,20 +175,8 @@ describe('transaction lookup', () => {
     assert.equal(result.response.coverage.block_events, 'disabled');
   });
 
-  test('merges audit events with every available archive history', async () => {
-    const proxyEvent = event();
-    const archiveHistory: BundleHistory = {
-      history: [
-        {
-          event: 'Received',
-          data: {
-            key: 'archive-event',
-            timestamp: Date.parse('2026-06-02T00:00:02Z'),
-            originalEvent: { source: 's3' },
-          },
-        },
-      ],
-    };
+  test('uses bundle keys from audit events for related bundle queries', async () => {
+    const bundleKeys: string[] = [];
     const result = await lookupTransaction(
       CHAIN,
       txHash,
@@ -199,37 +184,28 @@ describe('transaction lookup', () => {
         getTransactionEventsByHash: async () => [
           event({
             event_id: 'bundle-event',
-            data: { bundle_hash: '0xbundle' },
+            data: { bundle_id: 'bundle-uuid', bundle_hash: '0xbundle' },
           }),
-          proxyEvent,
         ],
-        getTransactionMetadataByHash: async () => ({
-          bundle_ids: ['0xbundle'],
-          sender: '',
-          nonce: '',
-        }),
-        getBundleHistory: async () => archiveHistory,
+        getJoinedAuditEventsByBundle: async (bundleKey) => {
+          bundleKeys.push(bundleKey);
+          return [];
+        },
       }),
     );
 
     assert.equal(result.found, true);
-    assert.deepEqual(result.response.archive.histories, [
-      { key: '0xbundle', history: archiveHistory.history },
-    ]);
-    assert.equal(result.response.history.length, 3);
-    assert.equal(result.response.coverage.archive, 'available');
+    assert.deepEqual(result.response.bundle_ids, ['bundle-uuid', '0xbundle']);
+    assert.deepEqual(bundleKeys.sort(), ['0xbundle', 'bundle-uuid']);
   });
 
-  test('keeps chain data when audit and archive queries fail', async () => {
+  test('keeps chain data when audit queries fail', async () => {
     const result = await lookupTransaction(
       CHAIN,
       txHash,
       dependencies({
         getTransactionEventsByHash: async () => {
           throw new Error('audit unavailable');
-        },
-        getTransactionMetadataByHash: async () => {
-          throw new Error('archive unavailable');
         },
         getChainData: async () => ({
           status: 'available',
@@ -241,7 +217,6 @@ describe('transaction lookup', () => {
     assert.equal(result.found, true);
     assert.ok(result.response.chain);
     assert.equal(result.response.coverage.audit, 'unavailable');
-    assert.equal(result.response.coverage.archive, 'unavailable');
   });
 
   test('reports a true all-sources-missing lookup', async () => {
@@ -251,7 +226,6 @@ describe('transaction lookup', () => {
     assert.equal(result.unavailable, false);
     assert.equal(result.response.coverage.audit, 'empty');
     assert.equal(result.response.coverage.chain, 'empty');
-    assert.equal(result.response.coverage.archive, 'empty');
   });
 
   test('distinguishes unavailable sources from a missing transaction', async () => {
@@ -261,9 +235,6 @@ describe('transaction lookup', () => {
       dependencies({
         getTransactionEventsByHash: async () => {
           throw new Error('audit unavailable');
-        },
-        getTransactionMetadataByHash: async () => {
-          throw new Error('archive unavailable');
         },
         getChainData: async () => {
           throw new Error('rpc unavailable');
@@ -275,6 +246,5 @@ describe('transaction lookup', () => {
     assert.equal(result.unavailable, true);
     assert.equal(result.response.coverage.audit, 'unavailable');
     assert.equal(result.response.coverage.chain, 'unavailable');
-    assert.equal(result.response.coverage.archive, 'unavailable');
   });
 });

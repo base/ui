@@ -50,7 +50,7 @@ function SearchBar({ chain, onError }: { chain: ExplorerChain; onError: (error: 
     if (!hash) return;
 
     // The transaction detail page is now the canonical, multi-source view (it
-    // resolves audit + on-chain + archive data itself and works even when the
+    // resolves audit + on-chain data itself and works even when the
     // transaction is not part of a bundle), so route straight to it.
     setLoading(true);
     onError(null);
