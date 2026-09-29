@@ -2,7 +2,7 @@ import { BENCHMARK_ENABLED } from './benchmark/flag';
 import { EXPLORER_ENABLED, EXPLORER_LABEL } from './internal-explorer/flag';
 import { demoBreadcrumb } from './vibenet/demos/catalogue';
 
-export type NavIcon = 'home' | 'snapshots' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
+export type NavIcon = 'home' | 'snapshots' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'performance' | 'runs' | 'loadtest';
 
 export type NavChild = {
   label: string;
@@ -38,22 +38,10 @@ export const NAV_ITEMS: NavItem[] = [
   ...(EXPLORER_ENABLED
     ? [{ label: EXPLORER_LABEL, href: '/internal-explorer', icon: 'internal-explorer', enabled: true } as NavItem]
     : []),
-  // Benchmark is internal-only; present only in the internal build target
-  // (deploy.config.mjs). See app/benchmark/flag.ts. The two children were the
-  // report's own in-page tab bar upstream.
+  // Performance is the sole user-facing benchmark surface. Raw report routes
+  // remain available by URL, but do not appear in the primary navigation.
   ...(BENCHMARK_ENABLED
-    ? [
-        {
-          label: 'Benchmark',
-          href: '/benchmark',
-          icon: 'benchmark',
-          enabled: true,
-          children: [
-            { label: 'Benchmarks', href: '/benchmark/run', icon: 'runs' },
-            { label: 'Load Tests', href: '/benchmark/load-tests', icon: 'loadtest' },
-          ],
-        } as NavItem,
-      ]
+    ? [{ label: 'Performance', href: '/benchmark/performance', icon: 'benchmark', enabled: true } as NavItem]
     : []),
 ];
 

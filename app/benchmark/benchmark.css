@@ -14,7 +14,7 @@
    * `styles.contentInner` in app/components/AppShell.tsx (padding 24px 28px 80px). */
   margin: -24px -28px -80px;
   padding: 24px 28px 80px;
-  background: #f8fafc;
+  background: transparent;
   color: #333;
 }
 

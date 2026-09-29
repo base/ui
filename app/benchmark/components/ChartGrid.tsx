@@ -6,6 +6,9 @@ import LineChart from "./LineChart";
 interface ProvidedProps {
   data: DataSeries[];
   role: "sequencer" | "validator" | null;
+  xAxisDomain?: [number, number];
+  xAxisLabel?: string;
+  showLegend?: boolean;
 }
 
 function resolveMetricKey(
@@ -39,7 +42,7 @@ function resolveMetricKey(
   return primaryKey;
 }
 
-const ChartGrid: React.FC<ProvidedProps> = ({ data, role }: ProvidedProps) => {
+const ChartGrid: React.FC<ProvidedProps> = ({ data, role, xAxisDomain, xAxisLabel, showLegend }: ProvidedProps) => {
   return (
     <div className="charts-container">
       {SORTED_CHART_CONFIG.map(([metricKey, config]) => {
@@ -62,6 +65,9 @@ const ChartGrid: React.FC<ProvidedProps> = ({ data, role }: ProvidedProps) => {
           description: config.description,
           unit: config.unit,
           thresholds,
+          xAxisDomain,
+          xAxisLabel,
+          showLegend,
         };
 
         return (

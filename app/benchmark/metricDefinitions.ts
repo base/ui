@@ -370,12 +370,6 @@ export const CHART_CONFIG = {
     description: "p90 hashed trie cursor overall duration",
     unit: "s",
   },
-  reth_db_freelist: {
-    type: "line",
-    title: "MDBX Freelist",
-    description: "MDBX freelist size",
-    unit: "count",
-  },
   reth_sync_state_provider_total_storage_fetch_latency_avg: {
     type: "line",
     title: "Validator Storage Load Latency",
@@ -444,7 +438,6 @@ const CHART_CONFIG_ORDER: (keyof typeof CHART_CONFIG)[] = [
   "reth_trie_proof_task_blinded_account_nodes_quantile_0_9",
   "reth_trie_cursor_overall_duration_quantile_0_9",
   "reth_trie_hashed_cursor_overall_duration_quantile_0_9",
-  "reth_db_freelist",
 ];
 
 export const SORTED_CHART_CONFIG: [string, ChartConfig][] = Object.entries(
