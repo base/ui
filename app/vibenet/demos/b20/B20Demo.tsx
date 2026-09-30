@@ -380,10 +380,10 @@ function B20DemoInner() {
         // The payer underwrites the gas in ETH, so it has to be funded before it
         // co-signs — the first token-paid send follows key creation closely.
         if (payer) await ensurePayerFunded(payer);
-        // Sign + broadcast through the shared account engine so account deploy,
-        // sub-account, gas-estimation, and staged-settings behavior stays in one
-        // implementation across demos. Logging via pushActivity puts this send in
-        // the same history the account demo reads, so both demos share one trail.
+        // Sign + broadcast through the shared account engine so gas estimation
+        // and payer co-signing stay in one implementation across demos. Logging
+        // via pushActivity puts this send in the same history the account demo
+        // reads, so both demos share one trail.
         const { hash, serialized, mode } = await engine.sendActiveCalls({
           calls,
           metadata: label,

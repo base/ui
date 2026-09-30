@@ -13,18 +13,12 @@ export const FEATURES: VibenetFeature[] = [
     availabilityLabel: 'Base Denim',
     availabilityHref: {label: 'Base Denim', href: 'https://docs.base.org/upgrades/denim', external: true},
     highlights: [
-      { title: 'Authorize How You Want', detail: 'Support for secp256k1, P-256, and WebAuthn passkeys.' },
-      { title: 'Portable Everywhere', detail: 'Same account and address on any EVM chain.' },
-      {
-        title: 'Rotate Keys, Keep Your Address',
-        detail: 'Swap signers without ever migrating accounts.',
-      },
-      {
-        title: 'Session Keys & Sub-Accounts',
-        detail: 'Scoped, policy-gated or full account separation.',
-      },
-      { title: 'Sponsored & ERC-20 Gas', detail: 'Native payer support via ERC-8168 contracts.' },
-      { title: 'Batch Everything', detail: 'Atomic multicall with top-level call metadata.' },
+      { title: 'Your EOA Is the Account', detail: 'Any secp256k1 key sends native AA transactions — nothing to deploy.' },
+      { title: 'Portable Everywhere', detail: 'Same key and address on any EVM chain.' },
+      { title: 'Optional Code Delegation', detail: 'Point your EOA at contract code, or clear it, in any transaction.' },
+      { title: 'Nonce-Free Sends', detail: 'Short-lived transactions with no nonce to track or collide on.' },
+      { title: 'Sponsored & ERC-20 Gas', detail: 'Native payer support via the ERC-8168 payer service.' },
+      { title: 'Batch Everything', detail: 'Atomic, phased multicall with per-call value and top-level metadata.' },
     ],
     // `live` hides the "coming-soon" badge. "Tutorial" points at the
     // EIP-8130 build guide; there's no "try it" CTA since this card already
