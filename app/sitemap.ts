@@ -21,6 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/vibenet/explorer', priority: 0.6, changeFrequency: 'daily' },
     { path: '/vibenet/faucet', priority: 0.5, changeFrequency: 'monthly' },
     { path: '/vibenet/demos/200', priority: 0.5, changeFrequency: 'weekly' },
+    { path: '/vibenet/demos/200/reflex', priority: 0.5, changeFrequency: 'weekly' },
     { path: '/vibenet/demos/account', priority: 0.5, changeFrequency: 'weekly' },
     { path: '/vibenet/demos/b20', priority: 0.5, changeFrequency: 'weekly' },
     { path: '/vibenet/demos/validity', priority: 0.5, changeFrequency: 'weekly' },

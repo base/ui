@@ -853,7 +853,7 @@ function useAccountEngineCore() {
   // Wait for a broadcast tx to be included and check that it — and every 8130
   // phase in it — succeeded. Throws TxPendingError if it is still not included
   // when the timeout runs out, a plain Error if anything reverted.
-  const awaitInclusion = async (txHash: Hex, timeout = 30_000): Promise<Hex> => {
+  const awaitInclusion = async (txHash: Hex, timeout = 30_000, onReceipt?: () => void): Promise<Hex> => {
     const client = makeRpcClient();
     const w = ensureWatcher();
     // The receipt arrives on the socket the moment its block is sealed; over
@@ -865,6 +865,7 @@ function useAccountEngineCore() {
       if (err instanceof ReceiptTimeoutError) throw new TxPendingError(txHash);
       throw err;
     }
+    onReceipt?.();
     // Status and 8130 phase results come from the account RPC, whose replica
     // can trail the socket's node by a block: a few short retries, then the
     // pushed receipt itself.
@@ -896,9 +897,16 @@ function useAccountEngineCore() {
 
   // Broadcast a signed 8130 tx and wait for inclusion. Throws TxPendingError on
   // timeout (submitted but unconfirmed), a plain Error if any phase reverts.
-  const broadcast8130 = async (signedTx: Hex, onStatus?: (s: 'submitting' | 'confirming') => void): Promise<Hex> => {
+  const broadcast8130 = async (
+    signedTx: Hex,
+    onStatus?: (s: 'submitting' | 'confirming') => void,
+    onBroadcast?: (hash: Hex) => void,
+    beforeBroadcast?: () => void | Promise<void>,
+    onReceipt?: () => void,
+  ): Promise<Hex> => {
     const client = makeRpcClient();
     const w = ensureWatcher();
+    await beforeBroadcast?.();
     onStatus?.('submitting');
     // The newest block this page has seen is the anchor the inclusion is
     // measured from, on the chain's clock: read it before the send leaves.
@@ -913,8 +921,9 @@ function useAccountEngineCore() {
     const now = Date.now();
     for (const [hash, mark] of sendAnchors.current) if (now - mark.at > 300_000) sendAnchors.current.delete(hash);
     sendAnchors.current.set(txHash, { anchor, at: now });
+    onBroadcast?.(txHash);
     onStatus?.('confirming');
-    return awaitInclusion(txHash);
+    return awaitInclusion(txHash, 30_000, onReceipt);
   };
 
   // Live EIP-8130 state used while preparing a transaction. This is the only
@@ -1201,11 +1210,20 @@ function useAccountEngineCore() {
     calls,
     tokenGas,
     metadata,
+    onBroadcast,
+    beforeBroadcast,
+    onReceipt,
   }: {
     calls: { to: Address; data: Hex; value?: string }[];
     tokenGas?: { token: Address; decimals: number; payer: Signer; fee: bigint };
     /** Optional top-level signed app data attached to the transaction. */
     metadata?: string;
+    /** Called as soon as the RPC accepts the signed transaction, before inclusion. */
+    onBroadcast?: (hash: Hex) => void;
+    /** Runs after signing and immediately before the transaction is sent to the RPC. */
+    beforeBroadcast?: () => void | Promise<void>;
+    /** Called when the receipt first arrives, before follow-up receipt parsing. */
+    onReceipt?: () => void;
   }): Promise<{ hash: Hex; serialized: Hex; mode: 'self' | 'token'; inclusion?: Inclusion }> => {
     if (!acct) throw new Error('Select an account before you continue.');
     if (!calls.length) throw new Error('No calls to send.');
@@ -1239,7 +1257,7 @@ function useAccountEngineCore() {
       undefined,
       payerOpt,
     );
-    const hash = await broadcast8130(serialized);
+    const hash = await broadcast8130(serialized, undefined, onBroadcast, beforeBroadcast, onReceipt);
     applyLandedBundle(acct, nextSeq, bundle);
     return { hash, serialized, mode: tokenGas ? 'token' : 'self', inclusion: inclusionFor(hash) };
   };

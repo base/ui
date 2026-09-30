@@ -8,5 +8,5 @@
 import { disabledRouteGlobs } from './deploy.config.mjs';
 
 export default {
-  exclude: disabledRouteGlobs(),
+  exclude: [...disabledRouteGlobs(), '/vibenet/demos/200/block-runner'],
 };
