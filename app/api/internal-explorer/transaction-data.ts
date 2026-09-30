@@ -1,6 +1,6 @@
-// Source-agnostic Internal Explorer domain types, shared by every data source — the S3 archive
-// (s3.ts), the audit events RPC (audit-events.ts), and direct execution-RPC reads.
-// They live here rather than in any one source module; s3.ts re-exports them.
+// Source-agnostic Internal Explorer domain types, shared by every data source — the audit
+// events RPC (audit-events.ts) and direct execution-RPC reads. They live here
+// rather than in any one source module.
 
 export interface TransactionMetadata {
   bundle_ids: string[];

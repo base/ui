@@ -1,8 +1,8 @@
 // Canonical multi-source single-transaction lookup behind /api/internal-explorer/txn/[hash].
-// defaultDependencies(chain) binds the audit RPC URL, S3 chain, and execution-RPC
-// client; chain data is read with viem. Queries three independent sources in
-// parallel — audit events, on-chain tx+receipt, and the S3 archive — and merges
-// them, reporting per-source coverage. Dependency-injected for testability.
+// defaultDependencies(chain) binds the audit RPC URL and execution-RPC client;
+// chain data is read with viem. Queries two independent sources in parallel —
+// audit events (Postgres-backed RPC) and on-chain tx+receipt — and merges them,
+// reporting per-source coverage. Dependency-injected for testability.
 // Server-only.
 import { type Hash } from 'viem';
 
@@ -19,8 +19,7 @@ import {
   transactionHistoryFromAuditEvents,
 } from './audit-events';
 import { getAuditRpcUrl, getRpcUrl, isAuditConfigured } from './config';
-import { getBundleHistory, getTransactionMetadataByHash } from './s3';
-import type { BundleEvent, BundleHistory, TransactionMetadata } from './transaction-data';
+import type { BundleEvent } from './transaction-data';
 import { publicClientFor, type ExplorerPublicClient } from './viem';
 
 export type CoverageState = 'available' | 'empty' | 'disabled' | 'unavailable' | 'not_applicable';
@@ -65,11 +64,6 @@ export interface ChainTransactionData {
   receipt: ChainReceipt | null;
 }
 
-export interface TransactionArchiveHistory {
-  key: string;
-  history: BundleEvent[];
-}
-
 export interface TransactionAuditSource {
   configured: boolean;
   events: AuditTransactionEventRecord[];
@@ -78,15 +72,9 @@ export interface TransactionAuditSource {
   block_events: AuditTransactionEventRecord[];
 }
 
-export interface TransactionArchiveSource {
-  metadata: TransactionMetadata | null;
-  histories: TransactionArchiveHistory[];
-}
-
 export interface TransactionCoverage {
   audit: CoverageState;
   chain: CoverageState;
-  archive: CoverageState;
   block_events: CoverageState;
 }
 
@@ -96,7 +84,6 @@ export interface TransactionLookupResponse {
   history: BundleEvent[];
   audit: TransactionAuditSource;
   chain: ChainTransactionData | null;
-  archive: TransactionArchiveSource;
   coverage: TransactionCoverage;
 }
 
@@ -123,8 +110,6 @@ export interface TransactionLookupDependencies {
     blockNumber: number,
     limit: number,
   ) => Promise<AuditTransactionEventRecord[]>;
-  getTransactionMetadataByHash: (hash: string) => Promise<TransactionMetadata | null>;
-  getBundleHistory: (bundleKey: string) => Promise<BundleHistory | null>;
   getChainData: (hash: string) => Promise<ChainLookupResult>;
 }
 
@@ -146,35 +131,24 @@ export async function lookupTransaction(
 }> {
   const hash = normalizeTransactionHash(inputHash);
 
-  const [auditResult, chainResult, archiveResult] = await Promise.all([
+  const [auditResult, chainResult] = await Promise.all([
     loadTransactionAuditEvents(hash, dependencies),
     loadChainData(hash, dependencies),
-    loadArchiveSource(hash, dependencies),
   ]);
 
-  const bundleKeys = uniqueStrings([
-    ...transactionBundleKeysFromAuditEvents(auditResult.transactionEvents).all,
-    ...(archiveResult.metadata?.bundle_ids ?? []),
-  ]);
+  const bundleKeys = transactionBundleKeysFromAuditEvents(auditResult.transactionEvents).all;
 
-  const relatedEvents = await loadRelatedAuditEvents(bundleKeys, dependencies);
-  const blockResult = await loadBlockAuditEvents(hash, chainResult.data, dependencies);
-  const archiveHistories = await loadArchiveHistories(
-    bundleKeys,
-    archiveResult.histories,
-    dependencies,
-  );
+  const [relatedEvents, blockResult] = await Promise.all([
+    loadRelatedAuditEvents(bundleKeys, dependencies),
+    loadBlockAuditEvents(hash, chainResult.data, dependencies),
+  ]);
 
   const auditEvents = mergeAuditEvents([
     auditResult.transactionEvents,
     relatedEvents,
     blockResult.events,
   ]);
-  const auditHistory = transactionHistoryFromAuditEvents(hash, auditEvents);
-  const history = mergeBundleEvents([
-    auditHistory,
-    ...archiveHistories.map((entry) => entry.history),
-  ]);
+  const history = transactionHistoryFromAuditEvents(hash, auditEvents);
 
   const auditState =
     auditResult.status === 'disabled'
@@ -182,17 +156,8 @@ export async function lookupTransaction(
       : auditEvents.length > 0
         ? 'available'
         : auditResult.status;
-  const archiveState =
-    archiveResult.metadata !== null || archiveHistories.length > 0
-      ? 'available'
-      : archiveResult.status;
-  const found =
-    auditEvents.length > 0 ||
-    chainResult.data !== null ||
-    archiveResult.metadata !== null ||
-    archiveHistories.length > 0;
-  const unavailable =
-    !found && [auditState, chainResult.status, archiveState].includes('unavailable');
+  const found = auditEvents.length > 0 || chainResult.data !== null;
+  const unavailable = !found && [auditState, chainResult.status].includes('unavailable');
 
   return {
     found,
@@ -209,14 +174,9 @@ export async function lookupTransaction(
         block_events: blockResult.events,
       },
       chain: chainResult.data,
-      archive: {
-        metadata: archiveResult.metadata,
-        histories: archiveHistories,
-      },
       coverage: {
         audit: auditState,
         chain: chainResult.status,
-        archive: archiveState,
         block_events: blockResult.status,
       },
     },
@@ -247,8 +207,6 @@ function defaultDependencies(chain: ExplorerChain): TransactionLookupDependencie
       getAuditEventsByBlockHash(auditRpcUrl, blockHash, limit),
     getAuditEventsByBlockNumber: (blockNumber, limit) =>
       getAuditEventsByBlockNumber(auditRpcUrl, blockNumber, limit),
-    getTransactionMetadataByHash: (hash) => getTransactionMetadataByHash(chain, hash),
-    getBundleHistory: (bundleKey) => getBundleHistory(chain, bundleKey),
     getChainData: (hash) => getChainDataFromRpc(rpcUrl, hash),
   };
 }
@@ -354,49 +312,6 @@ async function loadBlockAuditEvents(
   };
 }
 
-async function loadArchiveSource(
-  hash: string,
-  dependencies: TransactionLookupDependencies,
-): Promise<{
-  status: Extract<CoverageState, 'available' | 'empty' | 'unavailable'>;
-  metadata: TransactionMetadata | null;
-  histories: TransactionArchiveHistory[];
-}> {
-  try {
-    const metadata = await dependencies.getTransactionMetadataByHash(hash);
-    return {
-      status: metadata === null ? 'empty' : 'available',
-      metadata,
-      histories: [],
-    };
-  } catch {
-    return { status: 'unavailable', metadata: null, histories: [] };
-  }
-}
-
-async function loadArchiveHistories(
-  bundleKeys: string[],
-  existing: TransactionArchiveHistory[],
-  dependencies: TransactionLookupDependencies,
-): Promise<TransactionArchiveHistory[]> {
-  const existingKeys = new Set(existing.map((entry) => entry.key));
-  const additionalKeys = bundleKeys.filter((key) => !existingKeys.has(key));
-  const results = await Promise.all(
-    additionalKeys.map(async (key) => {
-      try {
-        const bundle = await dependencies.getBundleHistory(key);
-        return bundle === null ? null : { key, history: bundle.history };
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return [
-    ...existing,
-    ...results.filter((entry): entry is TransactionArchiveHistory => entry !== null),
-  ];
-}
-
 async function getChainDataFromRpc(rpcUrl: string, hash: string): Promise<ChainLookupResult> {
   const client = publicClientFor(rpcUrl);
   try {
@@ -470,22 +385,6 @@ function serializeReceipt(
 
 function numericHex(value: bigint | number | null | undefined): string | null {
   return value === null || value === undefined ? null : `0x${value.toString(16)}`;
-}
-
-function mergeBundleEvents(eventGroups: BundleEvent[][]): BundleEvent[] {
-  const events = new Map<string, BundleEvent>();
-  for (const group of eventGroups) {
-    for (const event of group) {
-      const key = `${event.event}:${event.data.key ?? `${event.data.timestamp}`}`;
-      events.set(key, event);
-    }
-  }
-
-  return Array.from(events.values()).sort((lhs, rhs) => lhs.data.timestamp - rhs.data.timestamp);
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return Array.from(new Set(values.filter((value) => value.length > 0)));
 }
 
 function normalizeTransactionHash(hash: string): string {

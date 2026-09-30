@@ -9,7 +9,7 @@ import {
 export const runtime = 'nodejs';
 
 // The canonical transaction view is multi-source (audit events + on-chain
-// tx/receipt + S3 archive), merged and coverage-annotated by lookupTransaction.
+// tx/receipt), merged and coverage-annotated by lookupTransaction.
 // See app/api/internal-explorer/transaction-lookup.ts.
 export type TransactionHistoryResponse = TransactionLookupResponse;
 

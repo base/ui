@@ -1,6 +1,6 @@
 'use client';
 
-// Single timeline event for the audit/archive history on the block, bundle, and
+// Single timeline event for the audit history on the block, bundle, and
 // transaction pages. Chain-aware: block links carry ?chain=.
 import Link from 'next/link';
 import { useState } from 'react';

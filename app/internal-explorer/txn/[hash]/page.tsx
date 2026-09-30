@@ -189,7 +189,7 @@ function SimulationCard({ meter }: { meter: MeterBundleResponse | null }) {
       <Card className="bg-white dark:bg-white/5">
         <CardHeader
           title="Simulation results"
-          subtitle="Audit or archive metering data for this transaction"
+          subtitle="Audit metering data for this transaction"
           badge={
             <span className="rounded-full bg-bds-gray-5 px-2.5 py-1 text-xs font-medium text-bds-gray-60 dark:bg-white/5 dark:text-bds-gray-40">
               Unavailable
@@ -215,7 +215,7 @@ function SimulationCard({ meter }: { meter: MeterBundleResponse | null }) {
     <Card className="bg-white dark:bg-white/5">
       <CardHeader
         title="Simulation results"
-        subtitle="Metering data from Audit or the legacy archive"
+        subtitle="Metering data from Audit"
         badge={
           <span className="rounded-full bg-bds-green-0 px-2.5 py-1 text-xs font-medium text-bds-green-70 dark:bg-bds-green-90/20 dark:text-bds-green-30">
             Available
@@ -263,7 +263,6 @@ function ProvenanceFooter({
         <div className="flex flex-wrap gap-2">
           <SourceBadge label="Audit" state={data.coverage.audit} />
           <SourceBadge label="Chain" state={data.coverage.chain} />
-          <SourceBadge label="Archive" state={data.coverage.archive} />
           <SourceBadge label="Block journal" state={data.coverage.block_events} />
         </div>
       </div>
@@ -377,7 +376,7 @@ function TransactionContent({ params }: PageProps) {
           <SimulationCard meter={simulationMeter(data.history)} />
 
           <section className="flex flex-col gap-4">
-            <Text variant="headline">Audit and archive timeline</Text>
+            <Text variant="headline">Audit timeline</Text>
             <Card className="bg-white p-6 dark:bg-white/5">
               {data.history.length > 0 ? (
                 data.history.map((event, index) => (
@@ -392,7 +391,7 @@ function TransactionContent({ params }: PageProps) {
                 ))
               ) : (
                 <div className="py-8 text-center text-sm text-bds-gray-60 dark:text-bds-gray-40">
-                  No journal or archive events are available for this transaction.
+                  No audit events are available for this transaction.
                 </div>
               )}
             </Card>

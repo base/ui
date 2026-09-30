@@ -1,6 +1,5 @@
 import { type Hash } from 'viem';
 
-import { type ExplorerChain } from '../../../../internal-explorer/chains';
 import { resolveExplorerChainFromRequest } from '../../chain';
 import {
   bundleHistoryFromAuditEvents,
@@ -8,8 +7,7 @@ import {
 } from '../../audit-events';
 import { getAuditRpcUrl, getRpcUrl } from '../../config';
 import { explorerDisabledResponse } from '../../guard';
-import { getBundleHistory } from '../../s3';
-import type { BundleEvent, BundleHistory, BundleTransaction } from '../../transaction-data';
+import type { BundleEvent, BundleTransaction } from '../../transaction-data';
 import { publicClientFor, type ExplorerPublicClient } from '../../viem';
 
 export const runtime = 'nodejs';
@@ -51,7 +49,7 @@ function bundleTransactionFromViem(
 }
 
 // Fills in full transaction fields for each bundle tx hash from the execution RPC.
-// Audit/S3 bundle events only carry the tx hashes (and metering), so the on-chain
+// Audit bundle events only carry the tx hashes (and metering), so the on-chain
 // signer/value/gas come from getTransaction.
 async function enrichBundleTransactionsFromRpc(
   rpcUrl: string,
@@ -98,10 +96,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
   if (disabled) return disabled;
   const chain = resolveExplorerChainFromRequest(request);
 
-  try {
-    const { hash } = await params;
+  // Bundle history comes only from the audit events RPC (Postgres-backed).
+  const auditRpcUrl = getAuditRpcUrl(chain);
+  if (!auditRpcUrl) {
+    return Response.json({ error: 'Bundle not found' }, { status: 404 });
+  }
 
-    const bundle = await getAuditBundleHistory(chain, hash);
+  const { hash } = await params;
+
+  let events;
+  try {
+    events = await getJoinedAuditEventsByBundle(auditRpcUrl, hash);
+  } catch (error) {
+    console.error('Error fetching bundle history from audit RPC:', error);
+    return Response.json({ error: 'Audit RPC unavailable' }, { status: 502 });
+  }
+
+  try {
+    const bundle = bundleHistoryFromAuditEvents(hash, events);
     if (!bundle) {
       return Response.json({ error: 'Bundle not found' }, { status: 404 });
     }
@@ -118,23 +130,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ hash
   } catch (error) {
     console.error('Error fetching bundle data:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-async function getAuditBundleHistory(
-  chain: ExplorerChain,
-  hash: string,
-): Promise<BundleHistory | null> {
-  const auditRpcUrl = getAuditRpcUrl(chain);
-  if (!auditRpcUrl) {
-    return getBundleHistory(chain, hash);
-  }
-
-  try {
-    const events = await getJoinedAuditEventsByBundle(auditRpcUrl, hash);
-    return bundleHistoryFromAuditEvents(hash, events) ?? (await getBundleHistory(chain, hash));
-  } catch (error) {
-    console.error('Falling back to S3 bundle history:', error);
-    return getBundleHistory(chain, hash);
   }
 }

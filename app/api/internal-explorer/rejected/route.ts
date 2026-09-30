@@ -1,4 +1,3 @@
-import type { ExplorerChain } from '../../../internal-explorer/chains';
 import { resolveExplorerChainFromRequest } from '../chain';
 import {
   getAuditRejectedTransactionEvents,
@@ -6,7 +5,6 @@ import {
 } from '../audit-events';
 import { getAuditRpcUrl } from '../config';
 import { explorerDisabledResponse } from '../guard';
-import { getRejectedTransaction, listRejectedTransactions } from '../s3';
 import type { RejectedTransaction } from '../transaction-data';
 
 export const runtime = 'nodejs';
@@ -20,41 +18,23 @@ export async function GET(request: Request) {
   if (disabled) return disabled;
   const chain = resolveExplorerChainFromRequest(request);
 
+  // Rejected transactions come only from the audit events RPC (Postgres-backed).
+  // With no audit endpoint configured for this chain there is nothing to list.
+  const auditRpcUrl = getAuditRpcUrl(chain);
+  if (!auditRpcUrl) {
+    const response: RejectedTransactionsResponse = { transactions: [] };
+    return Response.json(response);
+  }
+
   try {
-    // Audit-first, S3 fallback: use the S3 archive only when audit is not
-    // configured for this chain or returns no rejected events.
-    const auditTransactions = await getAuditRejectedTransactions(chain);
-    const transactions =
-      auditTransactions.length > 0 ? auditTransactions : await getS3RejectedTransactions(chain);
+    const transactions = (await getAuditRejectedTransactionEvents(auditRpcUrl, 100))
+      .map(rejectedTransactionFromAuditEvent)
+      .filter((tx): tx is RejectedTransaction => tx !== null);
 
     const response: RejectedTransactionsResponse = { transactions };
     return Response.json(response);
   } catch (error) {
-    console.error('Error fetching rejected transactions:', error);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error fetching rejected transactions from audit RPC:', error);
+    return Response.json({ error: 'Audit RPC unavailable' }, { status: 502 });
   }
-}
-
-async function getAuditRejectedTransactions(chain: ExplorerChain): Promise<RejectedTransaction[]> {
-  const auditRpcUrl = getAuditRpcUrl(chain);
-  if (!auditRpcUrl) {
-    return [];
-  }
-
-  try {
-    return (await getAuditRejectedTransactionEvents(auditRpcUrl, 100))
-      .map(rejectedTransactionFromAuditEvent)
-      .filter((tx): tx is RejectedTransaction => tx !== null);
-  } catch (error) {
-    console.error('Falling back to S3 rejected transactions:', error);
-    return [];
-  }
-}
-
-async function getS3RejectedTransactions(chain: ExplorerChain): Promise<RejectedTransaction[]> {
-  const summaries = await listRejectedTransactions(chain, 100);
-  const transactions = await Promise.all(
-    summaries.map((summary) => getRejectedTransaction(chain, summary.blockNumber, summary.txHash)),
-  );
-  return transactions.filter((tx): tx is RejectedTransaction => tx !== null);
 }
