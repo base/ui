@@ -30,11 +30,9 @@ export {
   privateKeyToAccount,
 } from '../../../viem/src/accounts/index.ts'
 
-// EIP-8130 (native account abstraction) — secp256k1 EOA senders with optional
-// code delegation.
+// EIP-8130 (native account abstraction) — secp256k1 EOA senders.
 export {
   allPhasesSucceeded,
-  delegationCost,
   estimateGas,
   getTransactionCount,
   getTransactionReceipt,

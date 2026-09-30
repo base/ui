@@ -2,8 +2,8 @@
 // Covers exactly the surface entry.mjs exports. Generated artifact pairing:
 // `bun run vendor/aa/build.mjs` rebuilds index.js from the sibling viem branch
 // (feat/aa-tx-split). The chain runs with the EIP-8130 Keystore disabled, so
-// only the Keystore-free core is declared: secp256k1 EOA senders, optional
-// `delegation` account changes, and ERC-8168 payers.
+// only the Keystore-free core is declared: secp256k1 EOA senders and ERC-8168
+// payers.
 
 export type Hex = `0x${string}`
 export type Address = `0x${string}`
@@ -130,7 +130,6 @@ export const k1Authenticator: Address
 export const nonceKeyMax: bigint
 export const k1AuthCost: bigint
 export const txValueCost: bigint
-export const delegationCost: bigint
 export const nonceFreeCost: bigint
 
 /** Read the EIP-8130 nonce via `eth_getTransactionCount` (2D channel-nonce). */

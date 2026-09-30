@@ -1,7 +1,7 @@
 'use client';
 
 // The shared "Create Transaction" dialog for EIP-8130 EOA accounts: a single
-// popup with three steps — build (calls, code delegation, gas), review, and
+// popup with three steps — build (calls, gas), review, and
 // submitted (sign → broadcast → wait for inclusion).
 //
 // Driven by declarative open/preset props plus the account-engine context, so
@@ -20,7 +20,6 @@ import {
   privateKeyToAccount,
   selectPaymentOption,
   toHex,
-  zeroAddress,
 } from '@aa';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -69,14 +68,11 @@ import {
 } from '../useAccountEngine';
 
 type GasMode = 'eth' | 'free' | 'usdv';
-type DelegateMode = 'none' | 'set' | 'clear';
 
 export type TransactPreset = {
   calls?: CallRow[];
   gasMode?: GasMode;
   metadata?: string;
-  /** Open with the "Delegate code" control set (target left for the user to fill in). */
-  delegation?: 'set' | 'clear';
   nonceless?: boolean;
 };
 
@@ -138,8 +134,6 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
     addressBook,
     chain,
     activeSigner,
-    delegationTarget,
-    refreshDelegation,
     latestAnchor,
     broadcast8130,
     awaitRelayed,
@@ -148,20 +142,13 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
     pushActivity,
   } = engine;
 
-  const [calls, setCalls] = useState<CallRow[]>(
-    () =>
-      preset?.calls ??
-      // A delegation-only transaction still needs a call; a self no-op is the cheapest.
-      [preset?.delegation && acct ? newCallRow({ to: acct.address }) : newCallRow()],
-  );
+  const [calls, setCalls] = useState<CallRow[]>(() => preset?.calls ?? [newCallRow()]);
   const [callsAdvanced, setCallsAdvanced] = useState(false);
   const [usdvRecipientDrafts, setUsdvRecipientDrafts] = useState<Record<string, string>>({});
   const [usdvAmountDrafts, setUsdvAmountDrafts] = useState<Record<string, string>>({});
   const [metaField, setMetaField] = useState(preset?.metadata ?? '');
   const [gasMode, setGasMode] = useState<GasMode>(preset?.gasMode ?? 'eth');
   const [nonceless, setNonceless] = useState(preset?.nonceless ?? false);
-  const [delegateMode, setDelegateMode] = useState<DelegateMode>(preset?.delegation ?? 'none');
-  const [delegateInput, setDelegateInput] = useState('');
   const [signing, setSigning] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [submitStatus, setSubmitStatus] = useState<'' | 'submitting' | 'confirming'>('');
@@ -170,19 +157,11 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
   // Error UI is local to this dialog — nothing leaks onto the page behind it.
   const [error, setError] = useState('');
   const [txStep, setTxStep] = useState<'build' | 'review' | 'submitted'>(
-    preset?.calls && !preset.delegation ? 'review' : 'build',
+    preset?.calls ? 'review' : 'build',
   );
   const [result, setResult] = useState<SubmittedResult>(null);
 
   const callsValid = useMemo(() => calls.every(rowToValid), [calls]);
-  const delegateTo: Address | undefined =
-    delegateMode === 'set' && isAddressStr(delegateInput.trim()) && BigInt(delegateInput.trim()) !== 0n
-      ? (delegateInput.trim() as Address)
-      : delegateMode === 'clear'
-        ? zeroAddress
-        : undefined;
-  const delegateValid = delegateMode === 'none' || !!delegateTo;
-  const formValid = callsValid && delegateValid;
   const metadataHex = useMemo<Hex | undefined>(
     () => (metaField.trim() ? (toHex(metaField.trim()) as Hex) : undefined),
     [metaField],
@@ -192,12 +171,11 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
     return estimateTxGas({
       calls: calls.length,
       valueCalls: valueBearingCallCount(calls, acct.address),
-      delegation: delegateMode !== 'none',
       nonceless,
       payer: gasMode !== 'eth',
       tokenPayment: gasMode === 'usdv',
     });
-  }, [acct, calls, delegateMode, nonceless, gasMode]);
+  }, [acct, calls, nonceless, gasMode]);
 
   const clearResult = () => setResult(null);
   const copy = async (text: string, key: string) => {
@@ -211,12 +189,6 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
   };
   const copyRandomAddress = () => copy(privateKeyToAccount(generatePrivateKey()).address, 'randaddr');
 
-  const delegationChange = delegateTo
-    ? delegateTo === zeroAddress
-      ? 'clear code delegation'
-      : `delegate → ${short(delegateTo)}`
-    : null;
-
   const recordResult = (
     a: StoredAccount,
     serialized: Hex,
@@ -227,17 +199,12 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
   ) => {
     setResult({ serialized, txHash, by: by.label, kind: by.kind, pending, gasNote, inclusion: inclusionFor(txHash) });
     pushActivity({
-      kind: delegationChange ? 'delegate' : 'transact',
+      kind: 'transact',
       txHash,
       title: pending
         ? 'Transaction pending · not yet included'
-        : delegationChange
-          ? delegateTo === zeroAddress
-            ? 'Code delegation cleared'
-            : 'Code delegation set'
-          : `Transaction landed onchain${gasNote ? ' (payer gas)' : ''}`,
+        : `Transaction landed onchain${gasNote ? ' (payer gas)' : ''}`,
       changes: [
-        ...(delegationChange ? [delegationChange] : []),
         ...(nonceless ? ['nonce-free'] : []),
         ...(pending ? ['⚠ pending — not yet included'] : []),
         ...(gasNote ? [gasNote] : []),
@@ -249,7 +216,6 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
       serialized,
       account: a.address,
     });
-    if (delegationChange && !pending) void refreshDelegation();
   };
 
   const surfaceSendError = (message: string) => {
@@ -280,7 +246,6 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
       const { serialized } = await signComposed(acct, {
         rows: calls,
         metadata: metadataHex,
-        delegateTo,
         noncelessSeconds: nonceless ? NONCELESS_SECONDS : undefined,
         estimateRevert: forceEstimate ? 'force' : 'throw',
       });
@@ -346,7 +311,6 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
       const { serialized, paymentAmount } = await signComposed(acct, {
         rows: calls,
         metadata: metadataHex,
-        delegateTo,
         noncelessSeconds: nonceless ? NONCELESS_SECONDS : undefined,
         payer,
         validBefore,
@@ -439,7 +403,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
   };
 
   const startSend = () => {
-    if (!formValid || !activeSigner) return;
+    if (!callsValid || !activeSigner) return;
     setError('');
     setResult(null);
     setTxStep('review');
@@ -507,7 +471,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
               variant="primary"
               size="sm"
               onClick={() => confirmSend()}
-              disabled={signing || !formValid}
+              disabled={signing || !callsValid}
               className="disabled:cursor-not-allowed disabled:opacity-50"
             >
               Send
@@ -521,7 +485,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
             <Button
               size="sm"
               onClick={startSend}
-              disabled={!formValid || !activeSigner || signing}
+              disabled={!callsValid || !activeSigner || signing}
               className="disabled:cursor-not-allowed disabled:opacity-50"
             >
               Review
@@ -540,7 +504,6 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
           metaField={metaField}
           gasMode={gasMode}
           gasEstimate={gasEstimate}
-          delegateTo={delegateTo}
           nonceless={nonceless}
           txSigner={activeSigner}
           error={error}
@@ -579,56 +542,6 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
               addressBook={addressBook}
             />
           </div>
-
-          {/* Code delegation */}
-          <Field.Root>
-            <div className="flex items-baseline justify-between gap-2">
-              <Field.Label>Delegate Code</Field.Label>
-              <span className="text-[12px] text-bds-gray-60 dark:text-bds-gray-40">
-                {delegationTarget === undefined
-                  ? 'Current: …'
-                  : delegationTarget
-                    ? `Current: ${short(delegationTarget)}`
-                    : 'Current: none'}
-              </span>
-            </div>
-            <Tabs
-              size="sm"
-              items={[
-                { value: 'none', label: 'No Change' },
-                { value: 'set', label: 'Set' },
-                { value: 'clear', label: 'Clear' },
-              ]}
-              value={delegateMode}
-              onChange={(v) => setDelegateMode(v as DelegateMode)}
-            />
-            {delegateMode === 'set' ? (
-              <>
-                <Input
-                  value={delegateInput}
-                  spellCheck={false}
-                  placeholder="0x… contract whose code this EOA runs"
-                  onValueChange={setDelegateInput}
-                />
-                {delegateInput.trim() && !delegateTo ? (
-                  <Field.Description className="text-bds-red-60">
-                    Enter a non-zero 20-byte hex address.
-                  </Field.Description>
-                ) : (
-                  <Field.Description>
-                    This transaction sets EIP-7702-style code on your EOA. Only delegate to contracts you trust — they
-                    can act with your account&apos;s full authority.
-                  </Field.Description>
-                )}
-              </>
-            ) : delegateMode === 'clear' ? (
-              <Field.Description>
-                {delegationTarget === null
-                  ? 'This account has no delegation — clearing is a no-op.'
-                  : 'This transaction removes the code delegation, so the account behaves as a plain EOA.'}
-              </Field.Description>
-            ) : null}
-          </Field.Root>
 
           {/* Metadata */}
           <Field.Root>
@@ -952,7 +865,6 @@ type ReviewBodyProps = {
   metaField: string;
   gasMode: GasMode;
   gasEstimate: number;
-  delegateTo: Address | undefined;
   nonceless: boolean;
   txSigner: WalletSigner | null;
   error: string;
@@ -965,7 +877,6 @@ function ReviewBody({
   metaField,
   gasMode,
   gasEstimate,
-  delegateTo,
   nonceless,
   txSigner,
   error,
@@ -973,21 +884,6 @@ function ReviewBody({
   const gasLabel = gasMode === 'eth' ? 'Pay in ETH' : gasMode === 'free' ? 'Sponsored' : 'USDV · payer';
   return (
     <div className="flex flex-col gap-4">
-      {delegateTo ? (
-        <div className="flex items-start gap-2 rounded-lg border border-bds-blue-15 bg-bds-blue-0 p-3 text-[13px]">
-          <Badge>Delegate</Badge>
-          <span className="text-bds-gray-70">
-            {delegateTo === zeroAddress ? (
-              'This transaction clears your EOA’s code delegation.'
-            ) : (
-              <>
-                This transaction delegates your EOA’s code to <AddressChip accounts={accounts} address={delegateTo} />.
-              </>
-            )}
-          </span>
-        </div>
-      ) : null}
-
       <ul className="flex flex-col gap-2">
         {calls.map((r, i) => {
           const usdv = tryDecodeUsdvTransfer(r);

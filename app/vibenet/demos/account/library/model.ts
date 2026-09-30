@@ -1,6 +1,6 @@
 // App-level account model for the EIP-8130 demo. With the Keystore disabled an
-// account is a plain secp256k1 EOA: its key signs `sender_auth`, its address is
-// the account, and it can optionally point its code at a delegation target.
+// account is a plain secp256k1 EOA: its key signs `sender_auth` and its address
+// is the account.
 
 import type { Address, Hex } from "@aa";
 
@@ -10,7 +10,7 @@ import type { WalletSigner } from "../shared";
 // Activity log.
 // ---------------------------------------------------------------------------
 
-export type ActivityKind = "create" | "transact" | "delegate";
+export type ActivityKind = "create" | "transact";
 
 export type ActivityEntry = {
   id: string;
@@ -92,7 +92,7 @@ export function deserializeState<T>(raw: string): T {
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const PRIVATE_KEY_RE = /^0x[0-9a-fA-F]{64}$/;
-const ACTIVITY_KINDS: readonly ActivityKind[] = ["create", "transact", "delegate"];
+const ACTIVITY_KINDS: readonly ActivityKind[] = ["create", "transact"];
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;

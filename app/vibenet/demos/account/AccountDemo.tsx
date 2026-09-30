@@ -2,8 +2,8 @@
 
 // Account demo (EIP-8130): in-browser K1 keys, EOA accounts, balances/assets,
 // native transact (batched calls, nonce-free sends, payer-sponsored or
-// token-paid gas) and optional EIP-7702-style code delegation. Per-account
-// detail (balances, delegation, activity) lives on the explorer address page
+// token-paid gas). Per-account detail (balances, activity) lives on the
+// explorer address page
 // (/vibenet/explorer/address/<addr>) when the address is a local account.
 //
 // The shared account engine + transact dialog are consumed from context, so this
@@ -92,7 +92,7 @@ function AccountDemoInner() {
       <AccountDemoShell
         activity={<ActivityLog activity={activity} accounts={accounts} />}
         activityCount={activity.length}
-        activityEmptyMessage="No activity yet. Transactions and delegation changes will appear here."
+        activityEmptyMessage="No activity yet. Transactions and account changes will appear here."
         className="gap-10"
       >
         {FEATURES.map((feature) => (
@@ -114,7 +114,6 @@ function AccountDemoInner() {
             {renderSponsorship()}
             {renderBatchedCalls()}
             {renderGasToken()}
-            {renderDelegation()}
             {renderTransact()}
           </motion.div>
         </AnimatePresence>
@@ -139,7 +138,7 @@ function AccountDemoInner() {
         }
       >
         <Text variant="body" tone="muted">
-          The vibenet devnet has been regenesised — its onchain state was wiped, including any code delegation. Your
+          The vibenet devnet has been regenesised — its onchain state was wiped. Your
           accounts and keys are still here and their addresses are unchanged; top up to transact again.
         </Text>
       </Modal>
@@ -209,35 +208,6 @@ function AccountDemoInner() {
           }}
         >
           Send Transaction
-        </Button>
-      </FeatureGridCard>
-    );
-  }
-
-  function renderDelegation() {
-    if (!acct) {
-      return (
-        <FeatureGridPlaceholder title="Code Delegation" message="Create and select an account to delegate code." />
-      );
-    }
-    return (
-      <FeatureGridCard
-        icon={
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M7 5L2 10L7 15M13 5L18 10L13 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        }
-        title="Code Delegation"
-        description="Point your EOA at a contract so it runs that code, or clear it again — set in the same transaction as your calls."
-      >
-        <Button
-          size="sm"
-          onClick={() => {
-            trackAccountAction('code_delegation');
-            openTransaction({ delegation: 'set', metadata: 'Code delegation' });
-          }}
-        >
-          Delegate Code
         </Button>
       </FeatureGridCard>
     );

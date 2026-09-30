@@ -5,7 +5,6 @@
 //   New key      — generate a fresh K1 key in this browser
 //   Unused key   — reuse a K1 key already in the wallet that backs no account
 //   Import       — paste an existing private key
-// Code delegation is never set here; it's an explicit transaction afterwards.
 //
 // Owns its own form state; reads the shared store + account-building primitives
 // from the account-engine context.
@@ -104,7 +103,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
     pushActivity({
       kind: 'create',
       title: `EOA account · ${account.label}`,
-      detail: 'Stored locally · no code delegation',
+      detail: 'Stored locally · ready to transact',
       account: account.address,
     });
     autoFundNewAccount(account.address);
@@ -234,7 +233,7 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
       ) : (
         <Text variant="footnote" tone="muted">
           A new secp256k1 key is generated and kept in this browser. Its address is the account — no deployment,
-          no salt. Delegate code to it later from Transact if you want contract behavior.
+          no salt.
         </Text>
       )}
     </Drawer>

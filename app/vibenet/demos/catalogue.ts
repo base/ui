@@ -39,7 +39,7 @@ export const DEMOS: DemoEntry[] = [
     summary:
       'Send native account-abstraction transactions from in-browser EOA keys, fund them from the faucet, and inspect balances across networks.',
     points: [
-      'EOA accounts with optional code delegation',
+      'EOA accounts from in-browser secp256k1 keys',
       'Batched, nonce-free and sponsored sends',
       'Transactions land in the next 200 ms block',
     ],

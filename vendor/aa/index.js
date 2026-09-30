@@ -18199,7 +18199,6 @@ var aaTransactionType = "0x79";
 var aaPayerType = "0x7a";
 var k1AuthCost = 5100n;
 var txValueCost = 6000n;
-var delegationCost = 4600n;
 var nonceFreeCost = 13000n;
 var nonceFreeDefaultExpiryWindow = 15000n;
 var accountChangeType = {
@@ -18871,7 +18870,6 @@ export {
   encodeTokenTransfer,
   encodeFunctionData,
   encodeAbiParameters,
-  delegationCost,
   decodeAbiParameters,
   createPublicClient,
   createPayerClient,

@@ -1,4 +1,4 @@
-import { delegationCost, k1AuthCost, nonceFreeCost, txValueCost } from "@aa";
+import { k1AuthCost, nonceFreeCost, txValueCost } from "@aa";
 
 // omni-ui has no account backend of its own; the payer resolves to vibenet's
 // cross-origin route (see library/config.ts).
@@ -25,7 +25,7 @@ export type DemoChain = {
 
 export const VIBENET: DemoChain = {
   // Base "vibenet" devnet running native EIP-8130 (Cobalt) with the Keystore
-  // disabled: senders are secp256k1 EOAs with optional code delegation.
+  // disabled: senders are secp256k1 EOAs.
   id: 84538453,
   name: "Vibenet",
   shortName: "vibenet",
@@ -58,8 +58,6 @@ export function estimateTxGas(params: {
   // pays the intrinsic TX_VALUE_COST, plus headroom for creating a cold
   // recipient (G_newaccount) that the node estimate can miss.
   valueCalls?: number;
-  // A `delegation` account change (set or clear EIP-7702-style code).
-  delegation?: boolean;
   // Nonce-free mode prices the replay ring buffer instead of a nonce slot.
   nonceless?: boolean;
   // A sponsoring payer adds its own K1 authentication.
@@ -77,7 +75,6 @@ export function estimateTxGas(params: {
   const {
     calls,
     valueCalls = 0,
-    delegation = false,
     nonceless = false,
     payer = false,
     tokenPayment = false,
@@ -86,8 +83,6 @@ export function estimateTxGas(params: {
   const base = 45_000;
   const perCall = 22_000;
   const perValueCall = Number(txValueCost) + 25_000;
-  // Delegation entry intrinsic plus headroom for writing the delegation code.
-  const delegationGas = delegation ? Number(delegationCost) + 25_000 : 0;
   const nonceGas = nonceless ? Number(nonceFreeCost) : 0;
   const payerGas = payer ? Number(k1AuthCost) + 3_000 : 0;
   const tokenPaymentGas = tokenPayment ? 30_000 : 0;
@@ -97,7 +92,6 @@ export function estimateTxGas(params: {
     (base +
       calls * perCall +
       valueCalls * perValueCall +
-      delegationGas +
       nonceGas +
       payerGas +
       tokenPaymentGas)

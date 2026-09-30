@@ -3,8 +3,11 @@
 // The EIP-8130 account engine shared by every vibenet demo that transacts from
 // local accounts (Account demo, B20, …): chain/network resolution, key +
 // account CRUD, and the native-8130 signing/broadcast primitives. An account
-// is a secp256k1 EOA: its key is the account, and it can optionally carry
-// EIP-7702-style code delegation set by a `delegation` account change.
+// is a secp256k1 EOA: its key is the account.
+//
+// Keystore features (owners, session keys, policies, passkeys, sub-accounts)
+// and EOA code delegation are intentionally not supported on vibenet right
+// now; the prior implementation is in git history (main at cd24bff).
 //
 // Demo-specific UI (the Transact modal's calls builder and gas-mode picker)
 // stays in each demo and calls into this engine's shared primitives
@@ -12,7 +15,6 @@
 // Transact modal, not the engine, so nothing surfaces on the page behind it.
 
 import {
-  type AaAccountChange,
   type AaCall,
   type Address,
   createPublicClient,
@@ -56,7 +58,6 @@ import {
 import { connectJsonRpcStream } from '../validity/lib/stream';
 import { estimateTxGas, getDemoChain } from './library/chains';
 import { buildPhases, type CallRow, newCallRow, safeGasLimit, valueBearingCallCount } from './library/calls';
-import { parseDelegation } from './library/delegation';
 import type { StoredAccount } from './library/model';
 import { requiredTokenAmount } from './library/payer';
 import { type AaReceiptLike, aaReceiptSucceeded } from './library/receipt';
@@ -170,8 +171,6 @@ export type ComposePayer = {
 export type ComposeOptions = {
   rows: CallRow[];
   metadata?: Hex;
-  /** Set this EOA's code delegation to `target` (the zero address clears it). */
-  delegateTo?: Address;
   /** Send nonce-free (expiring) instead of on the sequential nonce, valid for this many seconds. */
   noncelessSeconds?: number;
   payer?: ComposePayer;
@@ -248,37 +247,6 @@ function useAccountEngineCore() {
   );
   const activeSigner = acct ? signerForAccount(acct) : null;
 
-  // --- code delegation -----------------------------------------------------
-  // The active account's delegation target, read from its code
-  // (`0xef0100 || target`). `undefined` while unknown; `null` when undelegated.
-  const [delegation, setDelegation] = useState<{ address: Address; target: Address | null } | null>(null);
-  const activeAddress = acct?.address;
-  const readDelegation = useCallback(async () => {
-    if (!activeAddress) return null;
-    try {
-      const code = (await makeRpcClient().request({ method: 'eth_getCode', params: [activeAddress, 'latest'] })) as Hex;
-      return { address: activeAddress, target: parseDelegation(code) ?? null };
-    } catch (err) {
-      console.error('Failed to read account code for delegation', err);
-      return null;
-    }
-  }, [activeAddress, makeRpcClient]);
-  const refreshDelegation = useCallback(async () => {
-    const next = await readDelegation();
-    if (next) setDelegation(next);
-  }, [readDelegation]);
-  useEffect(() => {
-    let cancelled = false;
-    readDelegation().then((next) => {
-      if (next && !cancelled) setDelegation(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [readDelegation]);
-  const delegationTarget =
-    acct && delegation?.address.toLowerCase() === acct.address.toLowerCase() ? delegation.target : undefined;
-
   // --- regenesis detection ----------------------------------------------
   useEffect(() => {
     if (!hydrated) return;
@@ -293,11 +261,7 @@ function useAccountEngineCore() {
       }
       if (!hash || cancelled) return;
       setGenesisHash((prev) => {
-        if (prev && prev !== hash) {
-          // A reset wipes all code, so every delegation is gone.
-          setDelegation((d) => (d ? { ...d, target: null } : d));
-          setRegenesisNotice(true);
-        }
+        if (prev && prev !== hash) setRegenesisNotice(true);
         return hash;
       });
     };
@@ -528,8 +492,8 @@ function useAccountEngineCore() {
   };
 
   // Compose and sign one EOA transaction:
-  // phases `[payerPayment?, userPhase0?, userPhase1]`, an optional delegation
-  // change, sequential or nonce-free replay protection, and an optional payer.
+  // phases `[payerPayment?, userPhase0?, userPhase1]`, sequential or nonce-free
+  // replay protection, and an optional payer.
   // Gas comes from the node's 8130 `eth_estimateGas` (priced with the exact
   // auth shapes), floored by the structural estimate.
   const signComposed = async (a: StoredAccount, opts: ComposeOptions): Promise<ComposedTransaction> => {
@@ -539,7 +503,6 @@ function useAccountEngineCore() {
     const client = makeRpcClient();
     const { rows, metadata, payer } = opts;
 
-    const accountChanges: AaAccountChange[] = opts.delegateTo ? [account.delegate(opts.delegateTo)] : [];
     const { phase0: userPhase0, phase1: userPhase1 } = buildPhases(rows, account.address);
     const userPhases: AaCall[][] = [...(userPhase0.length > 0 ? [userPhase0] : []), userPhase1];
     const phasesWith = (paymentAmount: bigint | undefined): AaCall[][] => {
@@ -571,7 +534,6 @@ function useAccountEngineCore() {
         estimateTxGas({
           calls: totalCalls,
           valueCalls: valueBearingCallCount(rows, account.address),
-          delegation: accountChanges.length > 0,
           nonceless: !!nonceless,
           payer: !!payer,
           tokenPayment: !!payer?.tokenPayment,
@@ -583,7 +545,6 @@ function useAccountEngineCore() {
     try {
       const estimated = await estimateGas(client, {
         sender: account.address,
-        accountChanges,
         calls: phasesWith(payer?.tokenPayment?.amount),
         nonceKey,
         ...(validBefore !== undefined ? { validBefore } : {}),
@@ -626,7 +587,6 @@ function useAccountEngineCore() {
       maxFeePerGas: fees.maxFeePerGas,
       maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
       gas: gasLimit,
-      ...(accountChanges.length > 0 ? { accountChanges } : {}),
       calls: phasesWith(paymentAmount),
       ...(metadata ? { metadata } : {}),
       ...(payer ? { payer: payer.address } : {}),
@@ -708,10 +668,6 @@ function useAccountEngineCore() {
     importSigner,
     pushActivity,
     autoFundNewAccount,
-
-    // Code delegation of the active account
-    delegationTarget,
-    refreshDelegation,
 
     // Signing engine (also used by each surface's own Transact flow)
     latestAnchor,

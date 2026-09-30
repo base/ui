@@ -15,7 +15,6 @@ export const FEATURES: VibenetFeature[] = [
     highlights: [
       { title: 'Your EOA Is the Account', detail: 'Any secp256k1 key sends native AA transactions — nothing to deploy.' },
       { title: 'Portable Everywhere', detail: 'Same key and address on any EVM chain.' },
-      { title: 'Optional Code Delegation', detail: 'Point your EOA at contract code, or clear it, in any transaction.' },
       { title: 'Nonce-Free Sends', detail: 'Short-lived transactions with no nonce to track or collide on.' },
       { title: 'Sponsored & ERC-20 Gas', detail: 'Native payer support via the ERC-8168 payer service.' },
       { title: 'Batch Everything', detail: 'Atomic, phased multicall with per-call value and top-level metadata.' },

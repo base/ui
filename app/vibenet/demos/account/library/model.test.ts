@@ -24,14 +24,17 @@ describe('normalizePersistedState', () => {
         },
       ],
       activeAccountId: 'a1',
-      activity: [{ id: 'e1', ts: 1, kind: 'session', title: 'Session key staged' }],
+      activity: [
+        { id: 'e1', ts: 1, kind: 'session', title: 'Session key staged' },
+        { id: 'e2', ts: 2, kind: 'delegate', title: 'Code delegation set' },
+      ],
     });
     expect(state.signers).toEqual([{ id: 's1', kind: 'k1', label: 'K1 1', privateKey: KEY, address: ADDRESS }]);
     expect(state.accounts).toEqual([
       { id: 'a1', label: 'Default', type: 'eoa', signerId: 's1', address: ADDRESS, createdAt: 5 },
     ]);
     expect(state.activeAccountId).toBe('a1');
-    expect(state.activity[0].kind).toBe('transact');
+    expect(state.activity.map((e) => e.kind)).toEqual(['transact', 'transact']);
   });
 
   it('drops smart accounts, sub-accounts, and non-K1 keys without throwing', () => {
