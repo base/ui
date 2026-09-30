@@ -59,25 +59,27 @@ export function buildPhases(rows: CallRow[], fallback: Address) {
   return { phase0, phase1 };
 }
 
-/** Flat list of all calls regardless of phase (used for the ERC-4337 / payer path). */
+/** Flat list of all calls regardless of phase (the payer's `payer_getTerms` intent). */
 export function buildCalls(rows: CallRow[], fallback: Address) {
   return rows.map((r) => rowToCall(r, fallback));
 }
 
 /**
- * Count call rows that transfer a non-zero native ETH value. Each such inner
- * CALL needs the ~9k value-transfer surcharge (G_callvalue) and, for a
- * not-yet-existent recipient, the ~25k new-account creation cost (G_newaccount)
- * — gas the node's EIP-8130 `eth_estimateGas`
- * omits (a phase whose inner CALL OOGs is still a valid inclusion, so the
- * estimator converges below what the transfer actually needs to SUCCEED). The
- * structural floor budgets these via `estimateTxGas`'s `valueCalls`. Rows whose
- * value is empty, zero, or unparseable count as non-value-bearing.
+ * Count call rows that transfer a non-zero native ETH value to someone other
+ * than the sender. Each pays the intrinsic `TX_VALUE_COST`, and a transfer to a
+ * not-yet-existent recipient also pays the new-account creation cost, which the
+ * node's estimate can miss (a phase whose inner CALL OOGs is still a valid
+ * inclusion). The structural floor budgets these via `estimateTxGas`'s
+ * `valueCalls`. Rows whose value is empty, zero, or unparseable count as
+ * non-value-bearing; rows with an empty `to` default to the sender.
  */
-export function valueBearingCallCount(rows: CallRow[]): number {
+export function valueBearingCallCount(rows: CallRow[], sender?: string): number {
+  const self = sender?.toLowerCase();
   return rows.reduce((n, r) => {
     const v = r.value.trim();
     if (!v) return n;
+    const to = r.to.trim().toLowerCase();
+    if (self && (!to || to === self)) return n;
     try {
       return parseEther(v) > 0n ? n + 1 : n;
     } catch {

@@ -5,17 +5,13 @@ import type { Address, Hex } from '@aa';
 import type { AccountBalancesResponse } from '../../library/api-types';
 import type { ActivityEntry, SignerKind, StoredAccount } from './library/model';
 
-/** An in-browser signer key held in the demo wallet. */
+/** An in-browser secp256k1 key held in the demo wallet. */
 export type WalletSigner = {
   id: string;
   kind: SignerKind;
   label: string;
-  actorId: Hex;
-  authenticator: Address;
-  privateKey?: Hex;
-  address?: Address;
-  publicKey?: { x: Hex; y: Hex };
-  credential?: { id: string; publicKey: Hex };
+  privateKey: Hex;
+  address: Address;
 };
 
 export type Balances = AccountBalancesResponse;
@@ -32,17 +28,11 @@ export type Persisted = {
   genesisHash?: string;
 };
 
-/**
- * Top-level choice in the create-account modal's "Account Type" selector.
- * `default`/`passkey` are one-click flows (auto-pick or mint a key); `advanced`
- * exposes the full smart-vs-EOA + keys + salt controls.
- */
-export type CreateMode = 'default' | 'passkey' | 'advanced';
+/** How the create-account drawer sources the account's key. */
+export type CreateMode = 'generate' | 'existing' | 'import';
 
 export const KIND_LABEL: Record<SignerKind, string> = {
   k1: 'K1',
-  p256: 'P-256',
-  passkey: 'Passkey',
 };
 
 /** Abbreviate a hash/address as `0x1234...abcd`. */
@@ -66,11 +56,4 @@ export function formatTokenAmount(
   const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const fraction = raw.slice(-decimals).replace(/0+$/, '').slice(0, 6);
   return `${groupedWhole}${fraction ? `.${fraction}` : ''}`;
-}
-
-/** Display identity for a signer: address (k1), pubkey.x (p256), or credential id. */
-export function signerIdentity(s: WalletSigner): string {
-  if (s.kind === 'k1') return s.address ?? '0x';
-  if (s.publicKey) return s.publicKey.x;
-  return s.credential?.id ?? '';
 }
