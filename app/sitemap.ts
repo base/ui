@@ -26,6 +26,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/vibenet/demos/validity', priority: 0.5, changeFrequency: 'weekly' },
     { path: '/vibenet/demos/validity/conditional-swaps', priority: 0.5, changeFrequency: 'weekly' },
     { path: '/vibenet/demos/validity/race-the-agent', priority: 0.5, changeFrequency: 'weekly' },
+    { path: '/vibenet/demos/validity/liquidations', priority: 0.5, changeFrequency: 'weekly' },
   ];
 
   return routes.map(({ path, priority, changeFrequency }) => ({
