@@ -4,12 +4,10 @@
 // account. "Key" is the only real choice:
 //   New key      — generate a fresh K1 key in this browser
 //   Unused key   — reuse a K1 key already in the wallet that backs no account
-//   Import       — paste an existing private key
 //
 // Owns its own form state; reads the shared store + account-building primitives
 // from the account-engine context.
 
-import { type Hex } from '@aa';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '../../../../components/ui/Button';
@@ -30,8 +28,6 @@ type CreateAccountModalProps = {
   onClose: () => void;
 };
 
-const PRIVATE_KEY_RE = /^0x[0-9a-fA-F]{64}$/;
-
 export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
   const {
     signers,
@@ -41,7 +37,6 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
     usedSignerIds,
     deleteSigner,
     createSigner,
-    importSigner,
     pushActivity,
     autoFundNewAccount,
   } = useAccountEngine();
@@ -49,8 +44,6 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
   const [createMode, setCreateMode] = useState<CreateMode>('generate');
   const [modalLabel, setModalLabel] = useState('');
   const [existingId, setExistingId] = useState<string | null>(null);
-  const [importKey, setImportKey] = useState('');
-  const [importError, setImportError] = useState('');
 
   const unusedSigners = useMemo(() => signers.filter((s) => !usedSignerIds.has(s.id)), [signers, usedSignerIds]);
 
@@ -60,8 +53,6 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
     setCreateMode('generate');
     setModalLabel('');
     setExistingId(null);
-    setImportKey('');
-    setImportError('');
   }, [open]);
 
   const modes = useMemo(
@@ -71,13 +62,11 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
         ...(unusedSigners.length > 0
           ? [{ value: 'existing' as const, title: 'Unused Key', description: 'Reuse a key in your wallet' }]
           : []),
-        { value: 'import' as const, title: 'Import', description: 'Paste a private key' },
       ] satisfies ReadonlyArray<{ value: CreateMode; title: string; description: string }>,
     [unusedSigners.length],
   );
 
   const existingSigner = unusedSigners.find((s) => s.id === existingId) ?? null;
-  const importValid = PRIVATE_KEY_RE.test(importKey.trim());
 
   // Keep the auto-suggested fallback name unique (Account, Account 2, …). A name
   // the user typed by hand is respected as-is, collisions and all.
@@ -111,35 +100,13 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
 
   const createAccount = () => {
     const name = modalLabel.trim() || uniqueAccountName('Account');
-    let signer: WalletSigner | null = null;
-    if (createMode === 'generate') {
-      signer = createSigner();
-    } else if (createMode === 'existing') {
-      signer = existingSigner;
-    } else {
-      if (!importValid) {
-        setImportError('Enter a 32-byte hex private key (0x + 64 hex characters).');
-        return;
-      }
-      try {
-        signer = importSigner(importKey.trim() as Hex);
-      } catch {
-        setImportError('That is not a valid secp256k1 private key.');
-        return;
-      }
-      if (accounts.some((a) => a.address.toLowerCase() === signer?.address.toLowerCase())) {
-        setImportError('An account for this key already exists.');
-        return;
-      }
-    }
+    const signer = createMode === 'generate' ? createSigner() : existingSigner;
     if (!signer) return;
     buildEoaAccount(signer, name);
-    setImportKey('');
     onClose();
   };
 
-  const canCreate =
-    createMode === 'generate' ? true : createMode === 'existing' ? Boolean(existingSigner) : importValid;
+  const canCreate = createMode === 'generate' || Boolean(existingSigner);
 
   const submit = () => {
     if (canCreate && !busy) createAccount();
@@ -182,25 +149,23 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
         />
       </Field.Root>
 
-      <Field.Root>
-        <Field.Label>Key</Field.Label>
-        <RadioGroup
-          value={createMode}
-          onValueChange={setCreateMode}
-          className={modes.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}
-        >
-          {modes.map((option) => (
-            <Radio.Root key={option.value} value={option.value}>
-              <Text as="span" variant="label.regular">
-                {option.title}
-              </Text>
-              <Text as="span" variant="footnote" tone="muted">
-                {option.description}
-              </Text>
-            </Radio.Root>
-          ))}
-        </RadioGroup>
-      </Field.Root>
+      {modes.length > 1 ? (
+        <Field.Root>
+          <Field.Label>Key</Field.Label>
+          <RadioGroup value={createMode} onValueChange={setCreateMode} className="grid-cols-2">
+            {modes.map((option) => (
+              <Radio.Root key={option.value} value={option.value}>
+                <Text as="span" variant="label.regular">
+                  {option.title}
+                </Text>
+                <Text as="span" variant="footnote" tone="muted">
+                  {option.description}
+                </Text>
+              </Radio.Root>
+            ))}
+          </RadioGroup>
+        </Field.Root>
+      ) : null}
 
       {createMode === 'existing' ? (
         <KeyPicker
@@ -212,24 +177,6 @@ export function CreateAccountModal({ open, onClose }: CreateAccountModalProps) {
             if (existingId === id) setExistingId(null);
           }}
         />
-      ) : createMode === 'import' ? (
-        <Field.Root>
-          <Field.Label>Private key</Field.Label>
-          <Input
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={importKey}
-            placeholder="0x…"
-            onValueChange={(v) => {
-              setImportKey(v);
-              setImportError('');
-            }}
-          />
-          <Field.Description className={importError ? 'text-bds-red-60' : undefined}>
-            {importError || 'Stored only in this browser. Use a throwaway devnet key, never a real wallet key.'}
-          </Field.Description>
-        </Field.Root>
       ) : (
         <Text variant="footnote" tone="muted">
           A new secp256k1 key is generated and kept in this browser. Its address is the account — no deployment,

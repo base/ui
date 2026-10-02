@@ -29,7 +29,7 @@ export type Persisted = {
 };
 
 /** How the create-account drawer sources the account's key. */
-export type CreateMode = 'generate' | 'existing' | 'import';
+export type CreateMode = 'generate' | 'existing';
 
 export const KIND_LABEL: Record<SignerKind, string> = {
   k1: 'K1',

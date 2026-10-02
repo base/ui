@@ -343,23 +343,6 @@ function useAccountEngineCore() {
     }
   };
 
-  // Adds an existing private key to the wallet, reusing the stored key when the
-  // same address is already held. Throws on a malformed key.
-  const importSigner = (privateKey: Hex): WalletSigner => {
-    const address = privateKeyToAccount(privateKey).address;
-    const existing = signers.find((s) => s.address.toLowerCase() === address.toLowerCase());
-    if (existing) return existing;
-    const ws: WalletSigner = {
-      id: crypto.randomUUID(),
-      kind: 'k1',
-      label: nextSignerLabel(),
-      privateKey,
-      address,
-    };
-    setSigners((prev) => [...prev, ws]);
-    return ws;
-  };
-
   // Signer ids backing an account. Keys outside this set are unused and safe to delete.
   const usedSignerIds = useMemo(() => new Set(accounts.map((a) => a.signerId)), [accounts]);
 
@@ -665,7 +648,6 @@ function useAccountEngineCore() {
     usedSignerIds,
     deleteSigner,
     createSigner,
-    importSigner,
     pushActivity,
     autoFundNewAccount,
 
