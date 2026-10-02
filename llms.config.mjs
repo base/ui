@@ -8,5 +8,6 @@
 import { disabledRouteGlobs } from './deploy.config.mjs';
 
 export default {
-  exclude: disabledRouteGlobs(),
+  // Reflex is an easter egg reached from transaction popups, so keep it out of the indexes.
+  exclude: [...disabledRouteGlobs(), '/vibenet/demos/reflex'],
 };
