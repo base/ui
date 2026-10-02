@@ -9,12 +9,11 @@ import { Card } from '../../../components/ui/Card';
 import { cn } from '../../../components/ui/cn';
 import { Text } from '../../../components/ui/Text';
 import { VIBENET_EXPLORER_PATH } from '../../library/config';
-import { walletErrorMessage } from '../../library/wallet';
 import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { ViewTransactionButton } from '../_shared/ViewTransactionButton';
 import type { Inclusion } from '../_shared/inclusion';
 import { AccountEngineProvider, useAccountEngine } from '../account/useAccountEngine';
-import { outcomeCopy, reflexOutcome, type ReflexOutcome } from './lib/game';
+import { MIN_RACE_BALANCE_WEI, outcomeCopy, raceErrorMessage, reflexOutcome, type ReflexOutcome } from './lib/game';
 
 const TARGETS = Array.from({ length: 9 }, (_, index) => index);
 
@@ -58,6 +57,7 @@ function ReflexGameInner() {
   const [hasReacted, setHasReacted] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState('');
+  const [toppingUp, setToppingUp] = useState(false);
   const startedAt = useRef(0);
   const reactionMs = useRef<number | null>(null);
   const transactionHash = useRef<Hex | null>(null);
@@ -112,6 +112,15 @@ function ReflexGameInner() {
 
     try {
       const account = engine.acct;
+      // Accounts persist in the browser across Vibenet resets, but their ETH
+      // does not, and Reflex pays its own gas. Top up before signing instead of
+      // letting the node reject the send after the countdown.
+      const balances = await engine.refreshVibenetBalances();
+      if (balances && BigInt(balances.eth_wei ?? '0') < MIN_RACE_BALANCE_WEI) {
+        setToppingUp(true);
+        const credited = await engine.requestFaucet().finally(() => setToppingUp(false));
+        if (!credited) throw new Error('Could not top up this account from the faucet. Try again shortly.');
+      }
       const response = await engine.sendActiveCalls({
         calls: [{ to: account.address, data: '0x', value: '0' }],
         metadata: '200ms Reflex',
@@ -147,7 +156,7 @@ function ReflexGameInner() {
     } catch (cause) {
       setTarget(null);
       setCountdown(null);
-      setError(walletErrorMessage(cause));
+      setError(raceErrorMessage(cause));
       setPhase('error');
       trackReflexRun('error');
     }
@@ -226,7 +235,7 @@ function ReflexGameInner() {
 
             {phase === 'preparing' || phase === 'countdown' ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/90 backdrop-blur-[2px] dark:bg-black/80">
-                <Text variant="caption" tone="muted">{phase === 'preparing' ? 'Preparing transaction' : 'Get ready'}</Text>
+                <Text variant="caption" tone="muted">{phase === 'countdown' ? 'Get ready' : toppingUp ? 'Topping up account from the faucet' : 'Preparing transaction'}</Text>
                 <div className="mt-2 text-[88px] leading-none font-[550] tracking-[-0.08em] text-base-blue dark:text-white">
                   {phase === 'preparing' ? '…' : countdown}
                 </div>

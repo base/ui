@@ -287,8 +287,9 @@ function useAccountEngineCore() {
     return vibenetApi.account.balances(acct.address, 'vibenet').catch(() => null);
   };
 
-  const requestFaucet = async () => {
-    if (!acct) return;
+  /** Drip ETH + USDV to the active account and wait for the ETH to land. Resolves true once credited. */
+  const requestFaucet = async (): Promise<boolean> => {
+    if (!acct) return false;
     setFaucetBusy('eth+usdv');
     try {
       // Capture the pre-drip balance as the baseline for the "did it credit?" poll.
@@ -310,8 +311,10 @@ function useAccountEngineCore() {
       } else {
         toast.error("Top up didn't go through — Vibenet may be down for maintenance. Please try again shortly.");
       }
+      return credited;
     } catch {
       toast.error('Top up failed');
+      return false;
     } finally {
       setFaucetBusy(null);
     }
@@ -661,6 +664,7 @@ function useAccountEngineCore() {
     // Faucet
     faucetBusy,
     requestFaucet,
+    refreshVibenetBalances,
 
     // Key + account-building primitives (used by CreateAccountModal)
     usedSignerIds,
