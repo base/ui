@@ -1,67 +1,58 @@
 // Bundle entry for the self-contained "account abstraction" vendor module.
 //
-// We can't `npm/bun install` viem 2.52.2 here: the cbhq registry mirror lacks
-// its exact-pinned transitive deps (ox@0.14.29, @noble/*), and npmjs.org is
-// unreachable. So we bundle the needed viem (+ ox/@noble) surface into a single
-// self-contained ESM artifact (vendor/aa/index.js) with no external deps.
+// The EIP-8130 / ERC-8168 surface isn't in a published viem release, so we
+// bundle the needed viem (+ ox/@noble) surface into a single self-contained ESM
+// artifact (vendor/aa/index.js) with no external deps. Only what the app
+// imports from `@aa` is exported; keep index.d.ts in sync.
 //
-// Source: the sibling viem checkout (../viem) on branch
-// feat/eip-8130-production, built to src/_esm. Rebuild with:
+// Source: the sibling viem checkout (../viem) on branch feat/aa-tx-split,
+// bundled straight from its TypeScript sources (the Keystore-free `eip8130`
+// core, not `experimental/keystore`). Rebuild with:
 // `bun run vendor/aa/build.mjs` (see build.mjs).
 
 // Core viem
 export {
-  concatHex,
   createPublicClient,
-  createWalletClient,
-  custom,
   decodeAbiParameters,
   encodeAbiParameters,
   encodeFunctionData,
-  formatEther,
-  hexToBigInt,
   http,
-  keccak256,
   parseAbi,
   parseEther,
   parseUnits,
-  slice,
   toHex,
   zeroAddress,
-} from '../../../viem/src/_esm/index.js'
+} from '../../../viem/src/index.ts'
 
 // Local accounts
 export {
   generatePrivateKey,
   privateKeyToAccount,
-} from '../../../viem/src/_esm/accounts/index.js'
+} from '../../../viem/src/accounts/index.ts'
 
-// ERC-4337 / WebAuthn
+// EIP-8130 (native account abstraction) — secp256k1 EOA senders.
 export {
-  createBundlerClient,
-  createWebAuthnCredential,
-  entryPoint07Abi,
-  entryPoint07Address,
-  toWebAuthnAccount,
-} from '../../../viem/src/_esm/account-abstraction/index.js'
-
-// EIP-8130 (native account abstraction) — includes toDelegateSigner /
-// delegateAuthSize (sub-account delegate signing).
-export * from '../../../viem/src/_esm/eip8130/index.js'
+  allPhasesSucceeded,
+  estimateGas,
+  getTransactionCount,
+  getTransactionReceipt,
+  k1AuthCost,
+  k1Authenticator,
+  nonceFreeCost,
+  nonceKeyMax,
+  parseReceiptFields,
+  prepareTransactionRequest,
+  sendTransaction,
+  toEoaAccount,
+  txValueCost,
+} from '../../../viem/src/eip8130/index.ts'
 
 // ERC-8168 (payer / sponsorship)
 export {
-  buildSponsoredCalls,
   createPayerClient,
   encodeTokenTransfer,
   isDeclinedOffer,
-  isSelectableOffer,
-  isSponsoredOffer,
   isTokenOffer,
   parsePayerError,
-  payerErrorCode,
-  payerRejectedCode,
   selectPaymentOption,
-  sendSponsoredCalls,
-  sponsorshipDeclineCode,
-} from '../../../viem/src/_esm/eip8168/index.js'
+} from '../../../viem/src/eip8168/index.ts'

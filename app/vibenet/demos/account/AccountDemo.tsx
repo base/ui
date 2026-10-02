@@ -1,10 +1,10 @@
 'use client';
 
-// Account demo (EIP-8130): in-browser signer keys, portable account creation
-// (smart + EOA), balances/assets, native transact, session keys, and the apps
-// directory. Account management (owners / session keys / sub-accounts / balances)
-// now lives on the explorer address page (/vibenet/explorer/address/<addr>) when
-// the address is a local account; this demo links there.
+// Account demo (EIP-8130): in-browser K1 keys, EOA accounts, balances/assets,
+// native transact (batched calls, nonce-free sends, payer-sponsored or
+// token-paid gas). Per-account detail (balances, activity) lives on the
+// explorer address page
+// (/vibenet/explorer/address/<addr>) when the address is a local account.
 //
 // The shared account engine + transact dialog are consumed from context, so this
 // demo, B20, and the account page all behave identically.
@@ -12,7 +12,6 @@
 import { trackAccountAction } from '../../../analytics/events';
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { toast } from 'sonner';
 
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -21,12 +20,9 @@ import { AccountDemoShell } from '../_components/AccountDemoShell';
 import { FeatureCard } from '../../components/FeatureCard';
 import { FEATURES } from '../../data/features';
 import { ActivityLog } from './components/ActivityLog';
-import { AppCard, AppCardPlaceholder, AppsNetworkNotice } from './components/AppsView';
 import { FeatureGridCard, FeatureGridPlaceholder } from '../_shared/FeatureGridCard';
-import { TransactionModal, type ApplyTarget, type TransactPreset } from './components/TransactionModal';
-import { DEMO_APPS, type DemoApp } from './library/apps';
+import { TransactionModal, type TransactPreset } from './components/TransactionModal';
 import { encodeUsdvTransfer, isAddressStr, newCallRow } from './library/calls';
-import { EXPIRY_PRESETS, type AppSessionKey, type AppSubAccount } from './library/model';
 import { AccountEngineProvider, useAccountEngine } from './useAccountEngine';
 import { vibenetApi } from '../../library/client';
 import type { Address } from '@aa';
@@ -41,48 +37,19 @@ export function AccountDemo() {
 
 function AccountDemoInner() {
   const engine = useAccountEngine();
-  const {
-    signers,
-    accounts,
-    activeAccountId,
-    activity,
-    networkShort,
-    setNetworkShort,
-    deleteAccount,
+  const { accounts, activeAccountId, activity, regenesisNotice, setRegenesisNotice, acct } = engine;
 
-    activeSigner,
-
-    chain,
-    regenesisNotice,
-    setRegenesisNotice,
-
-    acct,
-
-    deleteSigner,
-    revokeSessionKey,
-    undoStagedRevoke,
-    doAuthorizeSession,
-    doCreateSubAccount,
-    mintAppKey,
-  } = engine;
-
-  // Apps directory.
-  const [appBusy, setAppBusy] = useState<string | null>(null);
   const [transactionRequest, setTransactionRequest] = useState<{
     preset?: TransactPreset;
-    applyTarget?: ApplyTarget;
     contentKey: string;
   } | null>(null);
 
-  // Crossfade key for the dashboard (transact + apps). Capture it in the modal
-  // request so changing "From" doesn't remount the content behind an open dialog.
+  // Crossfade key for the dashboard. Capture it in the modal request so
+  // changing "From" doesn't remount the content behind an open dialog.
   const activeAccountKey = activeAccountId ?? 'empty';
   const contentKey = transactionRequest?.contentKey ?? activeAccountKey;
   const openTransaction = (preset?: TransactPreset) => {
     setTransactionRequest({ preset, contentKey: activeAccountKey });
-  };
-  const openApply = (applyTarget: ApplyTarget) => {
-    setTransactionRequest({ applyTarget, contentKey: activeAccountKey });
   };
 
   const resolveUsdvAddress = async (): Promise<Address | null> => {
@@ -120,71 +87,6 @@ function AccountDemoInner() {
     });
   };
 
-  // Session-app config changes use the same transaction review popup as every
-  // other account-demo send. A never-landed authorization is only local, so
-  // revoking it simply discards it without opening a transaction.
-  const unsubscribeApp = async (sk: AppSessionKey) => {
-    const outcome = await revokeSessionKey(sk.id);
-    if (outcome === 'staged' || outcome === 'noop') openApply({ session: sk.id });
-  };
-
-  const sessionKeyFor = (name: string) => acct?.sessionKeys.find((sk) => sk.label === name);
-  const subAccountFor = (name: string) => acct?.subAccounts.find((sa) => sa.label === name);
-
-  // "Delete Account" on a connected Spending Account app card.
-  const deleteVault = (sub: AppSubAccount) => {
-    const rec = accounts.find((a) => a.address.toLowerCase() === sub.address.toLowerCase());
-    if (rec) deleteAccount(rec.id);
-  };
-
-  // Connect a session-key app: mint a dedicated key and stage its owner-signed
-  // authorization, then hand submission to the common transaction popup.
-  const connectSessionApp = async (app: DemoApp) => {
-    if (!acct || !activeSigner) return;
-    setAppBusy(app.id);
-    let mintedKeyId: string | null = null;
-    try {
-      const target = mintAppKey(app.name);
-      if (!target) {
-        toast.error("Couldn't mint an app key — try again.");
-        return;
-      }
-      mintedKeyId = target.id;
-      const expirySecs = EXPIRY_PRESETS.find((p) => p.id === app.expiryId)?.seconds ?? 0;
-      const sk = await doAuthorizeSession(target, {
-        expirySecs,
-        policyLabel: app.policyLabel ?? 'Policy',
-        spec: app.spec?.(acct.address) ?? {},
-        label: app.name,
-        chainShort: chain.shortName,
-      });
-      if (sk) {
-        mintedKeyId = null;
-        openApply({ session: sk.id });
-      }
-    } catch (err) {
-      const e = err as { message?: string; name?: string };
-      toast.error(e.name === 'NotAllowedError' ? 'Signature was dismissed.' : (e.message ?? String(err)));
-    } finally {
-      if (mintedKeyId) deleteSigner(mintedKeyId);
-      setAppBusy(null);
-    }
-  };
-
-  // Connect a sub-account app ("spending account"): derive a delegated account
-  // with a spare owner key you hold.
-  const connectVault = (app: DemoApp) => {
-    if (!acct) return;
-    setAppBusy(app.id);
-    try {
-      doCreateSubAccount(app.name, { withSpareKey: true });
-    } catch (err) {
-      toast.error((err as { message?: string }).message ?? String(err));
-    } finally {
-      setAppBusy(null);
-    }
-  };
-
   return (
     <>
       <AccountDemoShell
@@ -212,9 +114,7 @@ function AccountDemoInner() {
             {renderSponsorship()}
             {renderBatchedCalls()}
             {renderGasToken()}
-            {renderOwners()}
             {renderTransact()}
-            {renderApps()}
           </motion.div>
         </AnimatePresence>
       </AccountDemoShell>
@@ -224,7 +124,6 @@ function AccountDemoInner() {
           key={activeAccountId ?? 'no-account'}
           onClose={() => setTransactionRequest(null)}
           preset={transactionRequest.preset}
-          applyTarget={transactionRequest.applyTarget}
         />
       ) : null}
 
@@ -239,44 +138,12 @@ function AccountDemoInner() {
         }
       >
         <Text variant="body" tone="muted">
-          The vibenet devnet has been regenesised — its onchain state was wiped. Your accounts and keys are still here
-          and their addresses are unchanged; they&apos;ve been marked undeployed and will redeploy on their next
-          transaction.
+          The vibenet devnet has been regenesised — its onchain state was wiped. Your
+          accounts and keys are still here and their addresses are unchanged; top up to transact again.
         </Text>
       </Modal>
     </>
   );
-
-  function renderApps() {
-    if (!acct) {
-      return DEMO_APPS.map((app) => <AppCardPlaceholder key={app.id} app={app} />);
-    }
-    const native = chain.mode === 'eip8130-native';
-    return (
-      <>
-        {!native ? <AppsNetworkNotice onSwitchToVibenet={() => setNetworkShort('vibenet')} /> : null}
-        {DEMO_APPS.map((app) => (
-          <AppCard
-            key={app.id}
-            acct={acct}
-            native={native}
-            app={app}
-            appBusy={appBusy}
-            activeSigner={activeSigner}
-            signers={signers}
-            sessionKeyFor={sessionKeyFor}
-            subAccountFor={subAccountFor}
-            connectSessionApp={connectSessionApp}
-            connectVault={connectVault}
-            unsubscribeApp={unsubscribeApp}
-            reviewSessionApp={(sessionKey) => openApply({ session: sessionKey.id })}
-            undoSessionRevoke={undoStagedRevoke}
-            deleteVault={deleteVault}
-          />
-        ))}
-      </>
-    );
-  }
 
   function renderTransact() {
     if (!acct)
@@ -341,34 +208,6 @@ function AccountDemoInner() {
           }}
         >
           Send Transaction
-        </Button>
-      </FeatureGridCard>
-    );
-  }
-
-  function renderOwners() {
-    if (!acct) {
-      return (
-        <FeatureGridPlaceholder title="Modify Owners" message="Create and select an account to manage owners." />
-      );
-    }
-    return (
-      <FeatureGridCard
-        icon={
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.6" />
-            <path d="M9 9L18 18M14 14L17 11M16 16L18.5 13.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        }
-        title="Modify Owners"
-        description="Add or revoke owner keys and rotate signers — swap keys anytime without ever migrating accounts."
-      >
-        <Button
-          size="sm"
-          href={`/vibenet/explorer/address/${acct.address}?section=owners`}
-          onClick={() => trackAccountAction('modify_owners')}
-        >
-          Manage Owners
         </Button>
       </FeatureGridCard>
     );

@@ -897,14 +897,14 @@ var init_exports = __esm(() => {
   init_parseAbiParameters();
 });
 
-// ../viem/src/_esm/accounts/utils/parseAccount.js
+// ../viem/src/accounts/utils/parseAccount.ts
 function parseAccount(account) {
   if (typeof account === "string")
     return { address: account, type: "json-rpc" };
   return account;
 }
 
-// ../viem/src/_esm/constants/abis.js
+// ../viem/src/constants/abis.ts
 var multicall3Abi, batchGatewayAbi, universalResolverErrors, universalResolverResolveAbi, universalResolverReverseAbi, textResolverAbi, addressResolverAbi, erc1271Abi, erc6492SignatureValidatorAbi, erc20Abi;
 var init_abis = __esm(() => {
   multicall3Abi = [
@@ -1448,7 +1448,7 @@ var init_abis = __esm(() => {
   ];
 });
 
-// ../viem/src/_esm/utils/abi/formatAbiItem.js
+// ../viem/src/utils/abi/formatAbiItem.ts
 function formatAbiItem2(abiItem, { includeName = false } = {}) {
   if (abiItem.type !== "function" && abiItem.type !== "event" && abiItem.type !== "error")
     throw new InvalidDefinitionTypeError(abiItem.type);
@@ -1469,7 +1469,7 @@ var init_formatAbiItem2 = __esm(() => {
   init_abi();
 });
 
-// ../viem/src/_esm/utils/data/isHex.js
+// ../viem/src/utils/data/isHex.ts
 function isHex(value, { strict = true } = {}) {
   if (!value)
     return false;
@@ -1478,7 +1478,7 @@ function isHex(value, { strict = true } = {}) {
   return strict ? /^0x[0-9a-fA-F]*$/.test(value) : value.startsWith("0x");
 }
 
-// ../viem/src/_esm/utils/data/size.js
+// ../viem/src/utils/data/size.ts
 function size2(value) {
   if (isHex(value, { strict: false }))
     return Math.ceil((value.length - 2) / 2);
@@ -1486,10 +1486,10 @@ function size2(value) {
 }
 var init_size = () => {};
 
-// ../viem/src/_esm/errors/version.js
+// ../viem/src/errors/version.ts
 var version2 = "2.56.0";
 
-// ../viem/src/_esm/errors/base.js
+// ../viem/src/errors/base.ts
 function walk(err, fn) {
   if (fn?.(err))
     return err;
@@ -1500,10 +1500,20 @@ function walk(err, fn) {
 var errorConfig, BaseError2;
 var init_base = __esm(() => {
   errorConfig = {
-    getDocsUrl: ({ docsBaseUrl, docsPath = "", docsSlug }) => docsPath ? `${docsBaseUrl ?? "https://viem.sh"}${docsPath}${docsSlug ? `#${docsSlug}` : ""}` : undefined,
+    getDocsUrl: ({
+      docsBaseUrl,
+      docsPath = "",
+      docsSlug
+    }) => docsPath ? `${docsBaseUrl ?? "https://viem.sh"}${docsPath}${docsSlug ? `#${docsSlug}` : ""}` : undefined,
     version: `viem@${version2}`
   };
   BaseError2 = class BaseError2 extends Error {
+    details;
+    docsPath;
+    metaMessages;
+    shortMessage;
+    version;
+    name = "BaseError";
     constructor(shortMessage, args = {}) {
       const details = (() => {
         if (args.cause instanceof BaseError2)
@@ -1528,42 +1538,6 @@ var init_base = __esm(() => {
       ].join(`
 `);
       super(message, args.cause ? { cause: args.cause } : undefined);
-      Object.defineProperty(this, "details", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "docsPath", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "metaMessages", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "shortMessage", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "version", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "name", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: "BaseError"
-      });
       this.details = details;
       this.docsPath = docsPath;
       this.metaMessages = args.metaMessages;
@@ -1577,7 +1551,7 @@ var init_base = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/errors/abi.js
+// ../viem/src/errors/abi.ts
 var AbiConstructorNotFoundError, AbiConstructorParamsNotFoundError, AbiDecodingDataSizeTooSmallError, AbiDecodingZeroDataError, AbiEncodingArrayLengthMismatchError, AbiEncodingBytesSizeMismatchError, AbiEncodingLengthMismatchError, AbiErrorInputsNotFoundError, AbiErrorNotFoundError, AbiErrorSignatureNotFoundError, AbiEventSignatureEmptyTopicsError, AbiEventSignatureNotFoundError, AbiEventNotFoundError, AbiFunctionNotFoundError, AbiFunctionOutputsNotFoundError, AbiFunctionSignatureNotFoundError, AbiItemAmbiguityError, BytesSizeMismatchError, DecodeLogDataMismatch, DecodeLogTopicsMismatch, InvalidAbiEncodingTypeError, InvalidAbiDecodingTypeError, InvalidArrayError, InvalidDefinitionTypeError;
 var init_abi = __esm(() => {
   init_formatAbiItem2();
@@ -1608,7 +1582,14 @@ var init_abi = __esm(() => {
     }
   };
   AbiDecodingDataSizeTooSmallError = class AbiDecodingDataSizeTooSmallError extends BaseError2 {
-    constructor({ data, params, size: size3 }) {
+    data;
+    params;
+    size;
+    constructor({
+      data,
+      params,
+      size: size3
+    }) {
       super([`Data size of ${size3} bytes is too small for given parameters.`].join(`
 `), {
         metaMessages: [
@@ -1616,24 +1597,6 @@ var init_abi = __esm(() => {
           `Data:   ${data} (${size3} bytes)`
         ],
         name: "AbiDecodingDataSizeTooSmallError"
-      });
-      Object.defineProperty(this, "data", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "params", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "size", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
       });
       this.data = data;
       this.params = params;
@@ -1649,7 +1612,11 @@ var init_abi = __esm(() => {
     }
   };
   AbiEncodingArrayLengthMismatchError = class AbiEncodingArrayLengthMismatchError extends BaseError2 {
-    constructor({ expectedLength, givenLength, type }) {
+    constructor({
+      expectedLength,
+      givenLength,
+      type
+    }) {
       super([
         `ABI encoding array length mismatch for type ${type}.`,
         `Expected length: ${expectedLength}`,
@@ -1664,7 +1631,10 @@ var init_abi = __esm(() => {
     }
   };
   AbiEncodingLengthMismatchError = class AbiEncodingLengthMismatchError extends BaseError2 {
-    constructor({ expectedLength, givenLength }) {
+    constructor({
+      expectedLength,
+      givenLength
+    }) {
       super([
         "ABI encoding params/values length mismatch.",
         `Expected length (params): ${expectedLength}`,
@@ -1699,7 +1669,11 @@ var init_abi = __esm(() => {
     }
   };
   AbiErrorSignatureNotFoundError = class AbiErrorSignatureNotFoundError extends BaseError2 {
-    constructor(signature, { docsPath, cause }) {
+    signature;
+    constructor(signature, {
+      docsPath,
+      cause
+    }) {
       super([
         `Encoded error signature "${signature}" not found on ABI.`,
         "Make sure you are using the correct ABI and that the error exists on it.",
@@ -1709,12 +1683,6 @@ var init_abi = __esm(() => {
         docsPath,
         name: "AbiErrorSignatureNotFoundError",
         cause
-      });
-      Object.defineProperty(this, "signature", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
       });
       this.signature = signature;
     }
@@ -1805,14 +1773,26 @@ var init_abi = __esm(() => {
     }
   };
   BytesSizeMismatchError = class BytesSizeMismatchError extends BaseError2 {
-    constructor({ expectedSize, givenSize }) {
+    constructor({
+      expectedSize,
+      givenSize
+    }) {
       super(`Expected bytes${expectedSize}, got bytes${givenSize}.`, {
         name: "BytesSizeMismatchError"
       });
     }
   };
   DecodeLogDataMismatch = class DecodeLogDataMismatch extends BaseError2 {
-    constructor({ abiItem, data, params, size: size3 }) {
+    abiItem;
+    data;
+    params;
+    size;
+    constructor({
+      abiItem,
+      data,
+      params,
+      size: size3
+    }) {
       super([
         `Data size of ${size3} bytes is too small for non-indexed event parameters.`
       ].join(`
@@ -1823,30 +1803,6 @@ var init_abi = __esm(() => {
         ],
         name: "DecodeLogDataMismatch"
       });
-      Object.defineProperty(this, "abiItem", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "data", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "params", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "size", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.abiItem = abiItem;
       this.data = data;
       this.params = params;
@@ -1854,17 +1810,15 @@ var init_abi = __esm(() => {
     }
   };
   DecodeLogTopicsMismatch = class DecodeLogTopicsMismatch extends BaseError2 {
-    constructor({ abiItem, param }) {
+    abiItem;
+    constructor({
+      abiItem,
+      param
+    }) {
       super([
         `Expected a topic for indexed event parameter${param.name ? ` "${param.name}"` : ""} on event "${formatAbiItem2(abiItem, { includeName: true })}".`
       ].join(`
 `), { name: "DecodeLogTopicsMismatch" });
-      Object.defineProperty(this, "abiItem", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.abiItem = abiItem;
     }
   };
@@ -1905,7 +1859,7 @@ var init_abi = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/errors/address.js
+// ../viem/src/errors/address.ts
 var InvalidAddressError;
 var init_address = __esm(() => {
   init_base();
@@ -1922,28 +1876,40 @@ var init_address = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/errors/data.js
+// ../viem/src/errors/data.ts
 var SliceOffsetOutOfBoundsError, SizeExceedsPaddingSizeError, InvalidBytesLengthError;
 var init_data = __esm(() => {
   init_base();
   SliceOffsetOutOfBoundsError = class SliceOffsetOutOfBoundsError extends BaseError2 {
-    constructor({ offset, position, size: size3 }) {
+    constructor({
+      offset,
+      position,
+      size: size3
+    }) {
       super(`Slice ${position === "start" ? "starting" : "ending"} at offset "${offset}" is out-of-bounds (size: ${size3}).`, { name: "SliceOffsetOutOfBoundsError" });
     }
   };
   SizeExceedsPaddingSizeError = class SizeExceedsPaddingSizeError extends BaseError2 {
-    constructor({ size: size3, targetSize, type }) {
+    constructor({
+      size: size3,
+      targetSize,
+      type
+    }) {
       super(`${type.charAt(0).toUpperCase()}${type.slice(1).toLowerCase()} size (${size3}) exceeds padding size (${targetSize}).`, { name: "SizeExceedsPaddingSizeError" });
     }
   };
   InvalidBytesLengthError = class InvalidBytesLengthError extends BaseError2 {
-    constructor({ size: size3, targetSize, type }) {
+    constructor({
+      size: size3,
+      targetSize,
+      type
+    }) {
       super(`${type.charAt(0).toUpperCase()}${type.slice(1).toLowerCase()} is expected to be ${targetSize} ${type} long, but is ${size3} ${type} long.`, { name: "InvalidBytesLengthError" });
     }
   };
 });
 
-// ../viem/src/_esm/utils/data/pad.js
+// ../viem/src/utils/data/pad.ts
 function pad(hexOrBytes, { dir, size: size3 = 32 } = {}) {
   if (typeof hexOrBytes === "string")
     return padHex(hexOrBytes, { dir, size: size3 });
@@ -1981,12 +1947,18 @@ var init_pad = __esm(() => {
   init_data();
 });
 
-// ../viem/src/_esm/errors/encoding.js
-var IntegerOutOfRangeError, InvalidBytesBooleanError, InvalidHexBooleanError, InvalidHexValueError, RlpDepthLimitExceededError, RlpListBoundaryExceededError, RlpTrailingBytesError, SizeOverflowError;
+// ../viem/src/errors/encoding.ts
+var IntegerOutOfRangeError, InvalidBytesBooleanError, InvalidHexBooleanError, SizeOverflowError;
 var init_encoding = __esm(() => {
   init_base();
   IntegerOutOfRangeError = class IntegerOutOfRangeError extends BaseError2 {
-    constructor({ max, min, signed, size: size3, value }) {
+    constructor({
+      max,
+      min,
+      signed,
+      size: size3,
+      value
+    }) {
       super(`Number "${value}" is not in safe ${size3 ? `${size3 * 8}-bit ${signed ? "signed" : "unsigned"} ` : ""}integer range ${max ? `(${min} to ${max})` : `(above ${min})`}`, { name: "IntegerOutOfRangeError" });
     }
   };
@@ -2002,28 +1974,6 @@ var init_encoding = __esm(() => {
       super(`Hex value "${hex}" is not a valid boolean. The hex value must be "0x0" (false) or "0x1" (true).`, { name: "InvalidHexBooleanError" });
     }
   };
-  InvalidHexValueError = class InvalidHexValueError extends BaseError2 {
-    constructor(value) {
-      super(`Hex value "${value}" is an odd length (${value.length}). It must be an even length.`, { name: "InvalidHexValueError" });
-    }
-  };
-  RlpDepthLimitExceededError = class RlpDepthLimitExceededError extends BaseError2 {
-    constructor({ limit }) {
-      super(`RLP depth limit of \`${limit}\` exceeded.`, {
-        name: "RlpDepthLimitExceededError"
-      });
-    }
-  };
-  RlpListBoundaryExceededError = class RlpListBoundaryExceededError extends BaseError2 {
-    constructor({ consumed, declared }) {
-      super(`RLP list items consumed \`${consumed}\` bytes but the list declared a length of \`${declared}\`.`, { name: "RlpListBoundaryExceededError" });
-    }
-  };
-  RlpTrailingBytesError = class RlpTrailingBytesError extends BaseError2 {
-    constructor({ count }) {
-      super(`RLP payload encodes a single item, but \`${count}\` trailing ${count === 1 ? "byte remains" : "bytes remain"}.`, { name: "RlpTrailingBytesError" });
-    }
-  };
   SizeOverflowError = class SizeOverflowError extends BaseError2 {
     constructor({ givenSize, maxSize }) {
       super(`Size cannot exceed ${maxSize} bytes. Given size: ${givenSize} bytes.`, { name: "SizeOverflowError" });
@@ -2031,7 +1981,7 @@ var init_encoding = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/data/trim.js
+// ../viem/src/utils/data/trim.ts
 function trim(hexOrBytes, { dir = "left" } = {}) {
   let data = typeof hexOrBytes === "string" ? hexOrBytes.replace("0x", "") : hexOrBytes;
   let sliceLength = 0;
@@ -2050,7 +2000,7 @@ function trim(hexOrBytes, { dir = "left" } = {}) {
   return data;
 }
 
-// ../viem/src/_esm/utils/encoding/fromHex.js
+// ../viem/src/utils/encoding/fromHex.ts
 function assertSize(hexOrBytes, { size: size3 }) {
   if (size2(hexOrBytes) > size3)
     throw new SizeOverflowError({
@@ -2101,7 +2051,7 @@ var init_fromHex = __esm(() => {
   init_size();
 });
 
-// ../viem/src/_esm/utils/encoding/toHex.js
+// ../viem/src/utils/encoding/toHex.ts
 function toHex(value, opts = {}) {
   if (typeof value === "number" || typeof value === "bigint")
     return numberToHex(value, opts);
@@ -2173,7 +2123,7 @@ var init_toHex = __esm(() => {
   encoder = /* @__PURE__ */ new TextEncoder;
 });
 
-// ../viem/src/_esm/utils/encoding/toBytes.js
+// ../viem/src/utils/encoding/toBytes.ts
 function toBytes(value, opts = {}) {
   if (typeof value === "number" || typeof value === "bigint")
     return numberToBytes(value, opts);
@@ -2267,11 +2217,7 @@ function split(lst, le = false) {
   }
   return [Ah, Al];
 }
-function add(Ah, Al, Bh, Bl) {
-  const l = (Al >>> 0) + (Bl >>> 0);
-  return { h: Ah + Bh + (l / 2 ** 32 | 0) | 0, l: l | 0 };
-}
-var U32_MASK64, _32n, shrSH = (h, _l, s) => h >>> s, shrSL = (h, l, s) => h << 32 - s | l >>> s, rotrSH = (h, l, s) => h >>> s | l << 32 - s, rotrSL = (h, l, s) => h << 32 - s | l >>> s, rotrBH = (h, l, s) => h << 64 - s | l >>> s - 32, rotrBL = (h, l, s) => h >>> s - 32 | l << 64 - s, rotlSH = (h, l, s) => h << s | l >>> 32 - s, rotlSL = (h, l, s) => l << s | h >>> 32 - s, rotlBH = (h, l, s) => l << s - 32 | h >>> 64 - s, rotlBL = (h, l, s) => h << s - 32 | l >>> 64 - s, add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0), add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0, add4L = (Al, Bl, Cl, Dl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0), add4H = (low, Ah, Bh, Ch, Dh) => Ah + Bh + Ch + Dh + (low / 2 ** 32 | 0) | 0, add5L = (Al, Bl, Cl, Dl, El) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0) + (El >>> 0), add5H = (low, Ah, Bh, Ch, Dh, Eh) => Ah + Bh + Ch + Dh + Eh + (low / 2 ** 32 | 0) | 0;
+var U32_MASK64, _32n, rotlSH = (h, l, s) => h << s | l >>> 32 - s, rotlSL = (h, l, s) => l << s | h >>> 32 - s, rotlBH = (h, l, s) => l << s - 32 | h >>> 64 - s, rotlBL = (h, l, s) => h << s - 32 | l >>> 64 - s;
 var init__u64 = __esm(() => {
   U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
   _32n = /* @__PURE__ */ BigInt(32);
@@ -2575,7 +2521,7 @@ var init_sha3 = __esm(() => {
   keccak_256 = /* @__PURE__ */ (() => gen(1, 136, 256 / 8))();
 });
 
-// ../viem/src/_esm/utils/hash/keccak256.js
+// ../viem/src/utils/hash/keccak256.ts
 function keccak256(value, to_) {
   const to = to_ || "hex";
   const bytes = keccak_256(isHex(value, { strict: false }) ? toBytes(value) : value);
@@ -2589,18 +2535,13 @@ var init_keccak256 = __esm(() => {
   init_toHex();
 });
 
-// ../viem/src/_esm/utils/lru.js
+// ../viem/src/utils/lru.ts
 var LruMap;
 var init_lru = __esm(() => {
   LruMap = class LruMap extends Map {
+    maxSize;
     constructor(size3) {
       super();
-      Object.defineProperty(this, "maxSize", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.maxSize = size3;
     }
     get(key) {
@@ -2625,7 +2566,7 @@ var init_lru = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/address/isAddress.js
+// ../viem/src/utils/address/isAddress.ts
 function isAddress(address, options) {
   const { strict = true } = options ?? {};
   const cacheKey = `${address}.${strict}`;
@@ -2651,7 +2592,7 @@ var init_isAddress = __esm(() => {
   isAddressCache = /* @__PURE__ */ new LruMap(8192);
 });
 
-// ../viem/src/_esm/utils/address/getAddress.js
+// ../viem/src/utils/address/getAddress.ts
 function checksumAddress(address_, chainId) {
   if (checksumAddressCache.has(`${address_}.${chainId}`))
     return checksumAddressCache.get(`${address_}.${chainId}`);
@@ -2685,7 +2626,7 @@ var init_getAddress = __esm(() => {
   checksumAddressCache = /* @__PURE__ */ new LruMap(8192);
 });
 
-// ../viem/src/_esm/errors/cursor.js
+// ../viem/src/errors/cursor.ts
 var NegativeOffsetError, PositionOutOfBoundsError, RecursiveReadLimitExceededError;
 var init_cursor = __esm(() => {
   init_base();
@@ -2708,7 +2649,7 @@ var init_cursor = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/cursor.js
+// ../viem/src/utils/cursor.ts
 function createCursor(bytes, { recursiveReadLimit = 8192 } = {}) {
   const cursor = Object.create(staticCursor);
   cursor.bytes = bytes;
@@ -2881,7 +2822,7 @@ var init_cursor2 = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/data/slice.js
+// ../viem/src/utils/data/slice.ts
 function slice(value, start, end, { strict } = {}) {
   if (isHex(value, { strict: false }))
     return sliceHex(value, start, end, {
@@ -2927,7 +2868,7 @@ var init_slice = __esm(() => {
   init_size();
 });
 
-// ../viem/src/_esm/utils/encoding/fromBytes.js
+// ../viem/src/utils/encoding/fromBytes.ts
 function bytesToBigInt(bytes, opts = {}) {
   if (typeof opts.size !== "undefined")
     assertSize(bytes, { size: opts.size });
@@ -2964,7 +2905,7 @@ var init_fromBytes = __esm(() => {
   init_toHex();
 });
 
-// ../viem/src/_esm/utils/data/concat.js
+// ../viem/src/utils/data/concat.ts
 function concat(values) {
   if (typeof values[0] === "string")
     return concatHex(values);
@@ -2987,14 +2928,14 @@ function concatHex(values) {
   return `0x${values.reduce((acc, x) => acc + x.replace("0x", ""), "")}`;
 }
 
-// ../viem/src/_esm/utils/regex.js
+// ../viem/src/utils/regex.ts
 var bytesRegex2, integerRegex2;
 var init_regex2 = __esm(() => {
   bytesRegex2 = /^bytes([1-9]|1[0-9]|2[0-9]|3[0-2])?$/;
   integerRegex2 = /^(u?int)(8|16|24|32|40|48|56|64|72|80|88|96|104|112|120|128|136|144|152|160|168|176|184|192|200|208|216|224|232|240|248|256)?$/;
 });
 
-// ../viem/src/_esm/utils/abi/encodeAbiParameters.js
+// ../viem/src/utils/abi/encodeAbiParameters.ts
 function encodeAbiParameters(params, values) {
   if (params.length !== values.length)
     throw new AbiEncodingLengthMismatchError({
@@ -3007,14 +2948,20 @@ function encodeAbiParameters(params, values) {
   });
   return encodeParams(preparedParams);
 }
-function prepareParams({ params, values }) {
+function prepareParams({
+  params,
+  values
+}) {
   const preparedParams = [];
   for (let i = 0;i < params.length; i++) {
     preparedParams.push(prepareParam({ param: params[i], value: values[i] }));
   }
   return preparedParams;
 }
-function prepareParam({ param, value }) {
+function prepareParam({
+  param,
+  value
+}) {
   const arrayComponents = getArrayComponents(param.type);
   if (arrayComponents) {
     const [length, type] = arrayComponents;
@@ -3078,7 +3025,10 @@ function encodeAddress(value) {
     throw new InvalidAddressError({ address: value });
   return { dynamic: false, encoded: padHex(value.toLowerCase()) };
 }
-function encodeArray(value, { length, param }) {
+function encodeArray(value, {
+  length,
+  param
+}) {
   const dynamic = length === null;
   if (!Array.isArray(value))
     throw new InvalidArrayError(value);
@@ -3232,7 +3182,7 @@ var init_encodeAbiParameters = __esm(() => {
   init_regex2();
 });
 
-// ../viem/src/_esm/utils/abi/decodeAbiParameters.js
+// ../viem/src/utils/abi/decodeAbiParameters.ts
 function decodeAbiParameters(params, data) {
   const bytes = typeof data === "string" ? hexToBytes(data) : data;
   const cursor = createCursor(bytes);
@@ -3438,7 +3388,7 @@ var init_decodeAbiParameters = __esm(() => {
   init_encodeAbiParameters();
 });
 
-// ../viem/src/_esm/utils/hash/hashSignature.js
+// ../viem/src/utils/hash/hashSignature.ts
 function hashSignature(sig) {
   return hash(sig);
 }
@@ -3448,7 +3398,7 @@ var init_hashSignature = __esm(() => {
   init_keccak256();
 });
 
-// ../viem/src/_esm/utils/hash/normalizeSignature.js
+// ../viem/src/utils/hash/normalizeSignature.ts
 function normalizeSignature(signature) {
   let active = true;
   let current = "";
@@ -3495,7 +3445,7 @@ var init_normalizeSignature = __esm(() => {
   init_base();
 });
 
-// ../viem/src/_esm/utils/hash/toSignature.js
+// ../viem/src/utils/hash/toSignature.ts
 var toSignature = (def) => {
   const def_ = (() => {
     if (typeof def === "string")
@@ -3509,7 +3459,7 @@ var init_toSignature = __esm(() => {
   init_normalizeSignature();
 });
 
-// ../viem/src/_esm/utils/hash/toSignatureHash.js
+// ../viem/src/utils/hash/toSignatureHash.ts
 function toSignatureHash(fn) {
   return hashSignature(toSignature(fn));
 }
@@ -3518,21 +3468,21 @@ var init_toSignatureHash = __esm(() => {
   init_toSignature();
 });
 
-// ../viem/src/_esm/utils/hash/toEventSelector.js
+// ../viem/src/utils/hash/toEventSelector.ts
 var toEventSelector;
 var init_toEventSelector = __esm(() => {
   init_toSignatureHash();
   toEventSelector = toSignatureHash;
 });
 
-// ../viem/src/_esm/utils/hash/toFunctionSelector.js
+// ../viem/src/utils/hash/toFunctionSelector.ts
 var toFunctionSelector = (fn) => slice(toSignatureHash(fn), 0, 4);
 var init_toFunctionSelector = __esm(() => {
   init_slice();
   init_toSignatureHash();
 });
 
-// ../viem/src/_esm/utils/abi/getAbiItem.js
+// ../viem/src/utils/abi/getAbiItem.ts
 function getAbiItem(parameters) {
   const { abi, args = [], name } = parameters;
   const isSelector = isHex(name, { strict: false });
@@ -3649,7 +3599,7 @@ var init_getAbiItem = __esm(() => {
   init_toFunctionSelector();
 });
 
-// ../viem/src/_esm/utils/abi/decodeFunctionResult.js
+// ../viem/src/utils/abi/decodeFunctionResult.ts
 function decodeFunctionResult(parameters) {
   const { abi, args, functionName, data } = parameters;
   let abiItem = abi[0];
@@ -3677,7 +3627,7 @@ var init_decodeFunctionResult = __esm(() => {
   init_getAbiItem();
 });
 
-// ../viem/src/_esm/utils/abi/prepareEncodeFunctionData.js
+// ../viem/src/utils/abi/prepareEncodeFunctionData.ts
 function prepareEncodeFunctionData(parameters) {
   const { abi, args, functionName } = parameters;
   let abiItem = abi[0];
@@ -3706,7 +3656,7 @@ var init_prepareEncodeFunctionData = __esm(() => {
   init_getAbiItem();
 });
 
-// ../viem/src/_esm/utils/abi/encodeFunctionData.js
+// ../viem/src/utils/abi/encodeFunctionData.ts
 function encodeFunctionData(parameters) {
   const { args } = parameters;
   const { abi, functionName } = (() => {
@@ -3724,12 +3674,16 @@ var init_encodeFunctionData = __esm(() => {
   init_prepareEncodeFunctionData();
 });
 
-// ../viem/src/_esm/errors/chain.js
-var ChainDoesNotSupportContract, ChainMismatchError, ChainNotFoundError, ClientChainNotConfiguredError, InvalidChainIdError;
+// ../viem/src/errors/chain.ts
+var ChainDoesNotSupportContract, ClientChainNotConfiguredError, InvalidChainIdError;
 var init_chain = __esm(() => {
   init_base();
   ChainDoesNotSupportContract = class ChainDoesNotSupportContract extends BaseError2 {
-    constructor({ blockNumber, chain, contract }) {
+    constructor({
+      blockNumber,
+      chain,
+      contract
+    }) {
       super(`Chain "${chain.name}" does not support contract "${contract.name}".`, {
         metaMessages: [
           "This could be due to any of the following:",
@@ -3740,28 +3694,6 @@ var init_chain = __esm(() => {
           ]
         ],
         name: "ChainDoesNotSupportContract"
-      });
-    }
-  };
-  ChainMismatchError = class ChainMismatchError extends BaseError2 {
-    constructor({ chain, currentChainId }) {
-      super(`The current chain of the wallet (id: ${currentChainId}) does not match the target chain for the transaction (id: ${chain.id} – ${chain.name}).`, {
-        metaMessages: [
-          `Current Chain ID:  ${currentChainId}`,
-          `Expected Chain ID: ${chain.id} – ${chain.name}`
-        ],
-        name: "ChainMismatchError"
-      });
-    }
-  };
-  ChainNotFoundError = class ChainNotFoundError extends BaseError2 {
-    constructor() {
-      super([
-        "No chain was provided to the request.",
-        "Please provide a chain with the `chain` argument on the Action, or by supplying a `chain` to WalletClient."
-      ].join(`
-`), {
-        name: "ChainNotFoundError"
       });
     }
   };
@@ -3779,8 +3711,12 @@ var init_chain = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/chain/getChainContractAddress.js
-function getChainContractAddress({ blockNumber, chain, contract: name }) {
+// ../viem/src/utils/chain/getChainContractAddress.ts
+function getChainContractAddress({
+  blockNumber,
+  chain,
+  contract: name
+}) {
   const contract = chain?.contracts?.[name];
   if (!contract)
     throw new ChainDoesNotSupportContract({
@@ -3802,7 +3738,7 @@ var init_getChainContractAddress = __esm(() => {
   init_chain();
 });
 
-// ../viem/src/_esm/constants/solidity.js
+// ../viem/src/constants/solidity.ts
 var panicReasons, solidityError, solidityPanic;
 var init_solidity = __esm(() => {
   panicReasons = {
@@ -3838,7 +3774,7 @@ var init_solidity = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/abi/decodeErrorResult.js
+// ../viem/src/utils/abi/decodeErrorResult.ts
 function decodeErrorResult(parameters) {
   const { abi, data, cause } = parameters;
   const signature = slice(data, 0, 4);
@@ -3866,14 +3802,19 @@ var init_decodeErrorResult = __esm(() => {
   init_formatAbiItem2();
 });
 
-// ../viem/src/_esm/utils/stringify.js
+// ../viem/src/utils/stringify.ts
 var stringify = (value, replacer, space) => JSON.stringify(value, (key, value_) => {
   const value2 = typeof value_ === "bigint" ? value_.toString() : value_;
   return typeof replacer === "function" ? replacer(key, value2) : value2;
 }, space);
 
-// ../viem/src/_esm/utils/abi/formatAbiItemWithArgs.js
-function formatAbiItemWithArgs({ abiItem, args, includeFunctionName = true, includeName = false }) {
+// ../viem/src/utils/abi/formatAbiItemWithArgs.ts
+function formatAbiItemWithArgs({
+  abiItem,
+  args,
+  includeFunctionName = true,
+  includeName = false
+}) {
   if (!("name" in abiItem))
     return;
   if (!("inputs" in abiItem))
@@ -3884,7 +3825,7 @@ function formatAbiItemWithArgs({ abiItem, args, includeFunctionName = true, incl
 }
 var init_formatAbiItemWithArgs = () => {};
 
-// ../viem/src/_esm/utils/unit/Value.js
+// ../viem/src/utils/unit/Value.ts
 function format(value, decimals = 0) {
   if (!Number.isInteger(decimals) || decimals < 0)
     throw new InvalidDecimalsError({ decimals });
@@ -3968,30 +3909,20 @@ var init_Value = __esm(() => {
     ether: 18
   };
   InvalidDecimalNumberError = class InvalidDecimalNumberError extends Error {
+    name = "Value.InvalidDecimalNumberError";
     constructor({ value }) {
       super(`Value \`${value}\` is not a valid decimal number.`);
-      Object.defineProperty(this, "name", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: "Value.InvalidDecimalNumberError"
-      });
     }
   };
   InvalidDecimalsError = class InvalidDecimalsError extends Error {
+    name = "Value.InvalidDecimalsError";
     constructor({ decimals }) {
       super(`\`decimals\` must be a non-negative integer. Got \`${decimals}\`.`);
-      Object.defineProperty(this, "name", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: "Value.InvalidDecimalsError"
-      });
     }
   };
 });
 
-// ../viem/src/_esm/utils/unit/formatEther.js
+// ../viem/src/utils/unit/formatEther.ts
 function formatEther2(wei, unit = "wei") {
   return formatEther(wei, unit);
 }
@@ -3999,7 +3930,7 @@ var init_formatEther = __esm(() => {
   init_Value();
 });
 
-// ../viem/src/_esm/utils/unit/formatGwei.js
+// ../viem/src/utils/unit/formatGwei.ts
 function formatGwei2(wei, unit = "wei") {
   return formatGwei(wei, unit);
 }
@@ -4007,7 +3938,7 @@ var init_formatGwei = __esm(() => {
   init_Value();
 });
 
-// ../viem/src/_esm/errors/stateOverride.js
+// ../viem/src/errors/stateOverride.ts
 function prettyStateMapping(stateMapping) {
   return stateMapping.reduce((pretty, { slot, value }) => {
     return `${pretty}        ${slot}: ${value}
@@ -4060,7 +3991,7 @@ var init_stateOverride = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/errors/transaction.js
+// ../viem/src/errors/transaction.ts
 function prettyPrint(args) {
   const entries = Object.entries(args).map(([key, value]) => {
     if (value === undefined || value === false)
@@ -4077,7 +4008,10 @@ var init_transaction = __esm(() => {
   init_formatGwei();
   init_base();
   FeePayerNonceMismatchError = class FeePayerNonceMismatchError extends BaseError2 {
-    constructor({ filledNonce, requestedNonce }) {
+    constructor({
+      filledNonce,
+      requestedNonce
+    }) {
       super("The filled transaction nonce does not match the requested nonce.", {
         metaMessages: [
           `Requested Nonce: ${requestedNonce}`,
@@ -4121,7 +4055,20 @@ var init_transaction = __esm(() => {
     }
   };
   TransactionExecutionError = class TransactionExecutionError extends BaseError2 {
-    constructor(cause, { account, docsPath: docsPath3, chain, data, gas, gasPrice, maxFeePerGas, maxPriorityFeePerGas, nonce, to, value }) {
+    cause;
+    constructor(cause, {
+      account,
+      docsPath: docsPath3,
+      chain,
+      data,
+      gas,
+      gasPrice,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      to,
+      value
+    }) {
       const prettyArgs = prettyPrint({
         chain: chain && `${chain?.name} (id: ${chain?.id})`,
         from: account?.address,
@@ -4144,17 +4091,17 @@ var init_transaction = __esm(() => {
         ].filter(Boolean),
         name: "TransactionExecutionError"
       });
-      Object.defineProperty(this, "cause", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.cause = cause;
     }
   };
   TransactionNotFoundError = class TransactionNotFoundError extends BaseError2 {
-    constructor({ blockHash, blockNumber, blockTag, hash: hash2, index: index2 }) {
+    constructor({
+      blockHash,
+      blockNumber,
+      blockTag,
+      hash: hash2,
+      index: index2
+    }) {
       let identifier = "Transaction";
       if (blockTag && index2 !== undefined)
         identifier = `Transaction at block time "${blockTag}" at index "${index2}"`;
@@ -4177,6 +4124,7 @@ var init_transaction = __esm(() => {
     }
   };
   TransactionReceiptRevertedError = class TransactionReceiptRevertedError extends BaseError2 {
+    receipt;
     constructor({ receipt }) {
       super(`Transaction with hash "${receipt.transactionHash}" reverted.`, {
         metaMessages: [
@@ -4188,12 +4136,6 @@ var init_transaction = __esm(() => {
         ],
         name: "TransactionReceiptRevertedError"
       });
-      Object.defineProperty(this, "receipt", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.receipt = receipt;
     }
   };
@@ -4204,7 +4146,7 @@ var init_transaction = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/errors/utils.js
+// ../viem/src/errors/utils.ts
 function getAbortError(signal) {
   if (signal?.reason)
     return signal.reason;
@@ -4230,7 +4172,7 @@ var getContractAddress = (address) => address, getUrl = (url) => {
   }
 };
 
-// ../viem/src/_esm/errors/contract.js
+// ../viem/src/errors/contract.ts
 var CallExecutionError, ContractFunctionExecutionError, ContractFunctionRevertedError, ContractFunctionZeroDataError, CounterfactualDeploymentFailedError, RawContractError;
 var init_contract = __esm(() => {
   init_solidity();
@@ -4245,7 +4187,21 @@ var init_contract = __esm(() => {
   init_stateOverride();
   init_transaction();
   CallExecutionError = class CallExecutionError extends BaseError2 {
-    constructor(cause, { account: account_, docsPath: docsPath3, chain, data, gas, gasPrice, maxFeePerGas, maxPriorityFeePerGas, nonce, to, value, stateOverride }) {
+    cause;
+    constructor(cause, {
+      account: account_,
+      docsPath: docsPath3,
+      chain,
+      data,
+      gas,
+      gasPrice,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      to,
+      value,
+      stateOverride
+    }) {
       const account = account_ ? parseAccount(account_) : undefined;
       let prettyArgs = prettyPrint({
         from: account?.address,
@@ -4272,17 +4228,25 @@ ${prettyStateOverride(stateOverride)}`;
         ].filter(Boolean),
         name: "CallExecutionError"
       });
-      Object.defineProperty(this, "cause", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.cause = cause;
     }
   };
   ContractFunctionExecutionError = class ContractFunctionExecutionError extends BaseError2 {
-    constructor(cause, { abi, args, contractAddress, docsPath: docsPath3, functionName, sender }) {
+    abi;
+    args;
+    cause;
+    contractAddress;
+    formattedArgs;
+    functionName;
+    sender;
+    constructor(cause, {
+      abi,
+      args,
+      contractAddress,
+      docsPath: docsPath3,
+      functionName,
+      sender
+    }) {
       const abiItem = getAbiItem({ abi, args, name: functionName });
       const formattedArgs = abiItem ? formatAbiItemWithArgs({
         abiItem,
@@ -4307,48 +4271,6 @@ ${prettyStateOverride(stateOverride)}`;
         ].filter(Boolean),
         name: "ContractFunctionExecutionError"
       });
-      Object.defineProperty(this, "abi", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "args", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "cause", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "contractAddress", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "formattedArgs", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "functionName", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "sender", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.abi = abi;
       this.args = args;
       this.cause = cause;
@@ -4358,7 +4280,17 @@ ${prettyStateOverride(stateOverride)}`;
     }
   };
   ContractFunctionRevertedError = class ContractFunctionRevertedError extends BaseError2 {
-    constructor({ abi, data, functionName, message, cause: error }) {
+    data;
+    raw;
+    reason;
+    signature;
+    constructor({
+      abi,
+      data,
+      functionName,
+      message,
+      cause: error
+    }) {
       let cause;
       let decodedData;
       let metaMessages;
@@ -4408,30 +4340,6 @@ ${prettyStateOverride(stateOverride)}`;
         metaMessages,
         name: "ContractFunctionRevertedError"
       });
-      Object.defineProperty(this, "data", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "raw", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "reason", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "signature", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.data = decodedData;
       this.raw = data;
       this.reason = reason;
@@ -4439,7 +4347,10 @@ ${prettyStateOverride(stateOverride)}`;
     }
   };
   ContractFunctionZeroDataError = class ContractFunctionZeroDataError extends BaseError2 {
-    constructor({ functionName, cause }) {
+    constructor({
+      functionName,
+      cause
+    }) {
       super(`The contract function "${functionName}" returned no data ("0x").`, {
         metaMessages: [
           "This could be due to any of the following:",
@@ -4465,26 +4376,19 @@ ${prettyStateOverride(stateOverride)}`;
     }
   };
   RawContractError = class RawContractError extends BaseError2 {
-    constructor({ data, message }) {
+    code = 3;
+    data;
+    constructor({
+      data,
+      message
+    }) {
       super(message || "", { name: "RawContractError" });
-      Object.defineProperty(this, "code", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: 3
-      });
-      Object.defineProperty(this, "data", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.data = data;
     }
   };
 });
 
-// ../viem/src/_esm/utils/abi/decodeFunctionData.js
+// ../viem/src/utils/abi/decodeFunctionData.ts
 function decodeFunctionData(parameters) {
   const { abi, data } = parameters;
   const signature = slice(data, 0, 4);
@@ -4506,7 +4410,7 @@ var init_decodeFunctionData = __esm(() => {
   init_formatAbiItem2();
 });
 
-// ../viem/src/_esm/utils/abi/encodeErrorResult.js
+// ../viem/src/utils/abi/encodeErrorResult.ts
 function encodeErrorResult(parameters) {
   const { abi, errorName, args } = parameters;
   let abiItem = abi[0];
@@ -4537,7 +4441,7 @@ var init_encodeErrorResult = __esm(() => {
   init_getAbiItem();
 });
 
-// ../viem/src/_esm/utils/abi/encodeFunctionResult.js
+// ../viem/src/utils/abi/encodeFunctionResult.ts
 function encodeFunctionResult(parameters) {
   const { abi, functionName, result } = parameters;
   let abiItem = abi[0];
@@ -4569,10 +4473,12 @@ var init_encodeFunctionResult = __esm(() => {
   init_getAbiItem();
 });
 
-// ../viem/src/_esm/utils/ens/localBatchGatewayRequest.js
+// ../viem/src/utils/ens/localBatchGatewayRequest.ts
 async function localBatchGatewayRequest(parameters) {
   const { data, ccipRequest } = parameters;
-  const { args: [queries] } = decodeFunctionData({ abi: batchGatewayAbi, data });
+  const {
+    args: [queries]
+  } = decodeFunctionData({ abi: batchGatewayAbi, data });
   const failures = [];
   const responses = [];
   await Promise.all(queries.map(async (query, i) => {
@@ -4612,12 +4518,23 @@ var init_localBatchGatewayRequest = __esm(() => {
   init_encodeFunctionResult();
 });
 
-// ../viem/src/_esm/errors/request.js
+// ../viem/src/errors/request.ts
 var HttpRequestError, ResponseBodyTooLargeError, RpcRequestError, TimeoutError;
 var init_request = __esm(() => {
   init_base();
   HttpRequestError = class HttpRequestError extends BaseError2 {
-    constructor({ body, cause, details, headers, status, url }) {
+    body;
+    headers;
+    status;
+    url;
+    constructor({
+      body,
+      cause,
+      details,
+      headers,
+      status,
+      url
+    }) {
       super("HTTP request failed.", {
         cause,
         details,
@@ -4628,30 +4545,6 @@ var init_request = __esm(() => {
         ].filter(Boolean),
         name: "HttpRequestError"
       });
-      Object.defineProperty(this, "body", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "headers", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "status", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "url", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.body = body;
       this.headers = headers;
       this.status = status;
@@ -4659,52 +4552,31 @@ var init_request = __esm(() => {
     }
   };
   ResponseBodyTooLargeError = class ResponseBodyTooLargeError extends BaseError2 {
+    maxSize;
+    size;
     constructor({ maxSize, size: size3 }) {
       super("HTTP response body exceeded the size limit.", {
         metaMessages: [`Max: ${maxSize} bytes`, `Received: ${size3} bytes`],
         name: "ResponseBodyTooLargeError"
-      });
-      Object.defineProperty(this, "maxSize", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "size", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
       });
       this.maxSize = maxSize;
       this.size = size3;
     }
   };
   RpcRequestError = class RpcRequestError extends BaseError2 {
-    constructor({ body, error, url }) {
+    code;
+    data;
+    url;
+    constructor({
+      body,
+      error,
+      url
+    }) {
       super("RPC Request failed.", {
         cause: error,
         details: error.message,
         metaMessages: [`URL: ${getUrl(url)}`, `Request body: ${stringify(body)}`],
         name: "RpcRequestError"
-      });
-      Object.defineProperty(this, "code", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "data", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
-      Object.defineProperty(this, "url", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
       });
       this.code = error.code;
       this.data = error.data;
@@ -4712,59 +4584,54 @@ var init_request = __esm(() => {
     }
   };
   TimeoutError = class TimeoutError extends BaseError2 {
-    constructor({ body, url }) {
+    url;
+    constructor({
+      body,
+      url
+    }) {
       super("The request took too long to respond.", {
         details: "The request timed out.",
         metaMessages: [`URL: ${getUrl(url)}`, `Request body: ${stringify(body)}`],
         name: "TimeoutError"
-      });
-      Object.defineProperty(this, "url", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
       });
       this.url = url;
     }
   };
 });
 
-// ../viem/src/_esm/errors/rpc.js
+// ../viem/src/errors/rpc.ts
 var unknownErrorCode = -1, RpcError, ProviderRpcError, ParseRpcError, InvalidRequestRpcError, MethodNotFoundRpcError, InvalidParamsRpcError, InternalRpcError, InvalidInputRpcError, ResourceNotFoundRpcError, ResourceUnavailableRpcError, TransactionRejectedRpcError, MethodNotSupportedRpcError, LimitExceededRpcError, JsonRpcVersionUnsupportedError, UserRejectedRequestError, UnauthorizedProviderError, UnsupportedProviderMethodError, ProviderDisconnectedError, ChainDisconnectedError, SwitchChainError, UnsupportedNonOptionalCapabilityError, UnsupportedChainIdError, DuplicateIdError, UnknownBundleIdError, BundleTooLargeError, AtomicReadyWalletRejectedUpgradeError, AtomicityNotSupportedError, WalletConnectSessionSettlementError, UnknownRpcError;
 var init_rpc = __esm(() => {
   init_base();
   init_request();
   RpcError = class RpcError extends BaseError2 {
-    constructor(cause, { code, docsPath: docsPath5, metaMessages, name, shortMessage }) {
+    code;
+    constructor(cause, {
+      code,
+      docsPath: docsPath5,
+      metaMessages,
+      name,
+      shortMessage
+    }) {
       super(shortMessage, {
         cause,
         docsPath: docsPath5,
         metaMessages: metaMessages || cause?.metaMessages,
         name: name || "RpcError"
       });
-      Object.defineProperty(this, "code", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.name = name || cause.name;
       this.code = cause instanceof RpcRequestError ? cause.code : code ?? unknownErrorCode;
     }
   };
   ProviderRpcError = class ProviderRpcError extends RpcError {
+    data;
     constructor(cause, options) {
       super(cause, options);
-      Object.defineProperty(this, "data", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: undefined
-      });
       this.data = options.data;
     }
   };
   ParseRpcError = class ParseRpcError extends RpcError {
+    static code = -32700;
     constructor(cause) {
       super(cause, {
         code: ParseRpcError.code,
@@ -4773,13 +4640,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(ParseRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32700
-  });
   InvalidRequestRpcError = class InvalidRequestRpcError extends RpcError {
+    static code = -32600;
     constructor(cause) {
       super(cause, {
         code: InvalidRequestRpcError.code,
@@ -4788,13 +4650,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(InvalidRequestRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32600
-  });
   MethodNotFoundRpcError = class MethodNotFoundRpcError extends RpcError {
+    static code = -32601;
     constructor(cause, { method } = {}) {
       super(cause, {
         code: MethodNotFoundRpcError.code,
@@ -4803,13 +4660,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(MethodNotFoundRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32601
-  });
   InvalidParamsRpcError = class InvalidParamsRpcError extends RpcError {
+    static code = -32602;
     constructor(cause) {
       super(cause, {
         code: InvalidParamsRpcError.code,
@@ -4822,13 +4674,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(InvalidParamsRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32602
-  });
   InternalRpcError = class InternalRpcError extends RpcError {
+    static code = -32603;
     constructor(cause) {
       super(cause, {
         code: InternalRpcError.code,
@@ -4837,13 +4684,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(InternalRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32603
-  });
   InvalidInputRpcError = class InvalidInputRpcError extends RpcError {
+    static code = -32000;
     constructor(cause) {
       super(cause, {
         code: InvalidInputRpcError.code,
@@ -4856,34 +4698,19 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(InvalidInputRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32000
-  });
   ResourceNotFoundRpcError = class ResourceNotFoundRpcError extends RpcError {
+    name = "ResourceNotFoundRpcError";
+    static code = -32001;
     constructor(cause) {
       super(cause, {
         code: ResourceNotFoundRpcError.code,
         name: "ResourceNotFoundRpcError",
         shortMessage: "Requested resource not found."
       });
-      Object.defineProperty(this, "name", {
-        enumerable: true,
-        configurable: true,
-        writable: true,
-        value: "ResourceNotFoundRpcError"
-      });
     }
   };
-  Object.defineProperty(ResourceNotFoundRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32001
-  });
   ResourceUnavailableRpcError = class ResourceUnavailableRpcError extends RpcError {
+    static code = -32002;
     constructor(cause) {
       super(cause, {
         code: ResourceUnavailableRpcError.code,
@@ -4892,13 +4719,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(ResourceUnavailableRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32002
-  });
   TransactionRejectedRpcError = class TransactionRejectedRpcError extends RpcError {
+    static code = -32003;
     constructor(cause) {
       super(cause, {
         code: TransactionRejectedRpcError.code,
@@ -4907,13 +4729,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(TransactionRejectedRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32003
-  });
   MethodNotSupportedRpcError = class MethodNotSupportedRpcError extends RpcError {
+    static code = -32004;
     constructor(cause, { method } = {}) {
       super(cause, {
         code: MethodNotSupportedRpcError.code,
@@ -4922,13 +4739,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(MethodNotSupportedRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32004
-  });
   LimitExceededRpcError = class LimitExceededRpcError extends RpcError {
+    static code = -32005;
     constructor(cause) {
       super(cause, {
         code: LimitExceededRpcError.code,
@@ -4937,13 +4749,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(LimitExceededRpcError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32005
-  });
   JsonRpcVersionUnsupportedError = class JsonRpcVersionUnsupportedError extends RpcError {
+    static code = -32006;
     constructor(cause) {
       super(cause, {
         code: JsonRpcVersionUnsupportedError.code,
@@ -4952,13 +4759,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(JsonRpcVersionUnsupportedError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: -32006
-  });
   UserRejectedRequestError = class UserRejectedRequestError extends ProviderRpcError {
+    static code = 4001;
     constructor(cause) {
       super(cause, {
         code: UserRejectedRequestError.code,
@@ -4967,13 +4769,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(UserRejectedRequestError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 4001
-  });
   UnauthorizedProviderError = class UnauthorizedProviderError extends ProviderRpcError {
+    static code = 4100;
     constructor(cause) {
       super(cause, {
         code: UnauthorizedProviderError.code,
@@ -4982,13 +4779,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(UnauthorizedProviderError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 4100
-  });
   UnsupportedProviderMethodError = class UnsupportedProviderMethodError extends ProviderRpcError {
+    static code = 4200;
     constructor(cause, { method } = {}) {
       super(cause, {
         code: UnsupportedProviderMethodError.code,
@@ -4997,13 +4789,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(UnsupportedProviderMethodError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 4200
-  });
   ProviderDisconnectedError = class ProviderDisconnectedError extends ProviderRpcError {
+    static code = 4900;
     constructor(cause) {
       super(cause, {
         code: ProviderDisconnectedError.code,
@@ -5012,13 +4799,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(ProviderDisconnectedError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 4900
-  });
   ChainDisconnectedError = class ChainDisconnectedError extends ProviderRpcError {
+    static code = 4901;
     constructor(cause) {
       super(cause, {
         code: ChainDisconnectedError.code,
@@ -5027,13 +4809,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(ChainDisconnectedError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 4901
-  });
   SwitchChainError = class SwitchChainError extends ProviderRpcError {
+    static code = 4902;
     constructor(cause) {
       super(cause, {
         code: SwitchChainError.code,
@@ -5042,13 +4819,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(SwitchChainError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 4902
-  });
   UnsupportedNonOptionalCapabilityError = class UnsupportedNonOptionalCapabilityError extends ProviderRpcError {
+    static code = 5700;
     constructor(cause) {
       super(cause, {
         code: UnsupportedNonOptionalCapabilityError.code,
@@ -5057,13 +4829,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(UnsupportedNonOptionalCapabilityError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 5700
-  });
   UnsupportedChainIdError = class UnsupportedChainIdError extends ProviderRpcError {
+    static code = 5710;
     constructor(cause) {
       super(cause, {
         code: UnsupportedChainIdError.code,
@@ -5072,13 +4839,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(UnsupportedChainIdError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 5710
-  });
   DuplicateIdError = class DuplicateIdError extends ProviderRpcError {
+    static code = 5720;
     constructor(cause) {
       super(cause, {
         code: DuplicateIdError.code,
@@ -5087,13 +4849,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(DuplicateIdError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 5720
-  });
   UnknownBundleIdError = class UnknownBundleIdError extends ProviderRpcError {
+    static code = 5730;
     constructor(cause) {
       super(cause, {
         code: UnknownBundleIdError.code,
@@ -5102,13 +4859,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(UnknownBundleIdError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 5730
-  });
   BundleTooLargeError = class BundleTooLargeError extends ProviderRpcError {
+    static code = 5740;
     constructor(cause) {
       super(cause, {
         code: BundleTooLargeError.code,
@@ -5117,13 +4869,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(BundleTooLargeError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 5740
-  });
   AtomicReadyWalletRejectedUpgradeError = class AtomicReadyWalletRejectedUpgradeError extends ProviderRpcError {
+    static code = 5750;
     constructor(cause) {
       super(cause, {
         code: AtomicReadyWalletRejectedUpgradeError.code,
@@ -5132,13 +4879,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(AtomicReadyWalletRejectedUpgradeError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 5750
-  });
   AtomicityNotSupportedError = class AtomicityNotSupportedError extends ProviderRpcError {
+    static code = 5760;
     constructor(cause) {
       super(cause, {
         code: AtomicityNotSupportedError.code,
@@ -5147,13 +4889,8 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(AtomicityNotSupportedError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 5760
-  });
   WalletConnectSessionSettlementError = class WalletConnectSessionSettlementError extends ProviderRpcError {
+    static code = 7000;
     constructor(cause) {
       super(cause, {
         code: WalletConnectSessionSettlementError.code,
@@ -5162,12 +4899,6 @@ var init_rpc = __esm(() => {
       });
     }
   };
-  Object.defineProperty(WalletConnectSessionSettlementError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 7000
-  });
   UnknownRpcError = class UnknownRpcError extends RpcError {
     constructor(cause) {
       super(cause, {
@@ -5888,10 +5619,10 @@ function assert2(value, options = {}) {
     throw new InvalidHexTypeError(value);
   if (strict) {
     if (!/^0x[0-9a-fA-F]*$/.test(value))
-      throw new InvalidHexValueError2(value);
+      throw new InvalidHexValueError(value);
   }
   if (!value.startsWith("0x"))
-    throw new InvalidHexValueError2(value);
+    throw new InvalidHexValueError(value);
 }
 function concat2(...values) {
   return `0x${values.reduce((acc, x) => acc + x.replace("0x", ""), "")}`;
@@ -6003,7 +5734,7 @@ function validate2(value, options = {}) {
     return false;
   }
 }
-var encoder4, hexes3, IntegerOutOfRangeError2, InvalidHexTypeError, InvalidHexValueError2, SizeOverflowError3, SliceOffsetOutOfBoundsError3, SizeExceedsPaddingSizeError3;
+var encoder4, hexes3, IntegerOutOfRangeError2, InvalidHexTypeError, InvalidHexValueError, SizeOverflowError3, SliceOffsetOutOfBoundsError3, SizeExceedsPaddingSizeError3;
 var init_Hex = __esm(() => {
   init_Errors();
   init_hex();
@@ -6033,7 +5764,7 @@ var init_Hex = __esm(() => {
       });
     }
   };
-  InvalidHexValueError2 = class InvalidHexValueError2 extends BaseError3 {
+  InvalidHexValueError = class InvalidHexValueError extends BaseError3 {
     constructor(value) {
       super(`Value \`${value}\` is an invalid hex value.`, {
         metaMessages: [
@@ -6130,13 +5861,13 @@ var init_BlockOverrides = __esm(() => {
   init_Withdrawal();
 });
 
-// ../viem/src/_esm/constants/contract.js
+// ../viem/src/constants/contract.ts
 var aggregate3Signature = "0x82ad56cb";
 
-// ../viem/src/_esm/constants/contracts.js
+// ../viem/src/constants/contracts.ts
 var deploylessCallViaBytecodeBytecode = "0x608060405234801561001057600080fd5b5060405161018e38038061018e83398101604081905261002f91610124565b6000808351602085016000f59050803b61004857600080fd5b6000808351602085016000855af16040513d6000823e81610067573d81fd5b3d81f35b634e487b7160e01b600052604160045260246000fd5b600082601f83011261009257600080fd5b81516001600160401b038111156100ab576100ab61006b565b604051601f8201601f19908116603f011681016001600160401b03811182821017156100d9576100d961006b565b6040528181528382016020018510156100f157600080fd5b60005b82811015610110576020818601810151838301820152016100f4565b506000918101602001919091529392505050565b6000806040838503121561013757600080fd5b82516001600160401b0381111561014d57600080fd5b61015985828601610081565b602085015190935090506001600160401b0381111561017757600080fd5b61018385828601610081565b915050925092905056fe", deploylessCallViaFactoryBytecode = "0x608060405234801561001057600080fd5b506040516102c03803806102c083398101604081905261002f916101e6565b836001600160a01b03163b6000036100e457600080836001600160a01b03168360405161005c9190610270565b6000604051808303816000865af19150503d8060008114610099576040519150601f19603f3d011682016040523d82523d6000602084013e61009e565b606091505b50915091508115806100b857506001600160a01b0386163b155b156100e1578060405163101bb98d60e01b81526004016100d8919061028c565b60405180910390fd5b50505b6000808451602086016000885af16040513d6000823e81610103573d81fd5b3d81f35b80516001600160a01b038116811461011e57600080fd5b919050565b634e487b7160e01b600052604160045260246000fd5b60005b8381101561015457818101518382015260200161013c565b50506000910152565b600082601f83011261016e57600080fd5b81516001600160401b0381111561018757610187610123565b604051601f8201601f19908116603f011681016001600160401b03811182821017156101b5576101b5610123565b6040528181528382016020018510156101cd57600080fd5b6101de826020830160208701610139565b949350505050565b600080600080608085870312156101fc57600080fd5b61020585610107565b60208601519094506001600160401b0381111561022157600080fd5b61022d8782880161015d565b93505061023c60408601610107565b60608601519092506001600160401b0381111561025857600080fd5b6102648782880161015d565b91505092959194509250565b60008251610282818460208701610139565b9190910192915050565b60208152600082518060208401526102ab816040850160208701610139565b601f01601f1916919091016040019291505056fe", erc6492SignatureValidatorByteCode = "0x608060405234801561001057600080fd5b5060405161069438038061069483398101604081905261002f9161051e565b600061003c848484610048565b9050806000526001601ff35b60007f64926492649264926492649264926492649264926492649264926492649264926100748361040c565b036101e7576000606080848060200190518101906100929190610577565b60405192955090935091506000906001600160a01b038516906100b69085906105dd565b6000604051808303816000865af19150503d80600081146100f3576040519150601f19603f3d011682016040523d82523d6000602084013e6100f8565b606091505b50509050876001600160a01b03163b60000361016057806101605760405162461bcd60e51b815260206004820152601e60248201527f5369676e617475726556616c696461746f723a206465706c6f796d656e74000060448201526064015b60405180910390fd5b604051630b135d3f60e11b808252906001600160a01b038a1690631626ba7e90610190908b9087906004016105f9565b602060405180830381865afa1580156101ad573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101d19190610633565b6001600160e01b03191614945050505050610405565b6001600160a01b0384163b1561027a57604051630b135d3f60e11b808252906001600160a01b03861690631626ba7e9061022790879087906004016105f9565b602060405180830381865afa158015610244573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102689190610633565b6001600160e01b031916149050610405565b81516041146102df5760405162461bcd60e51b815260206004820152603a602482015260008051602061067483398151915260448201527f3a20696e76616c6964207369676e6174757265206c656e6774680000000000006064820152608401610157565b6102e7610425565b5060208201516040808401518451859392600091859190811061030c5761030c61065d565b016020015160f81c9050601b811480159061032b57508060ff16601c14155b1561038c5760405162461bcd60e51b815260206004820152603b602482015260008051602061067483398151915260448201527f3a20696e76616c6964207369676e617475726520762076616c756500000000006064820152608401610157565b60408051600081526020810180835289905260ff83169181019190915260608101849052608081018390526001600160a01b0389169060019060a0016020604051602081039080840390855afa1580156103ea573d6000803e3d6000fd5b505050602060405103516001600160a01b0316149450505050505b9392505050565b600060208251101561041d57600080fd5b508051015190565b60405180606001604052806003906020820280368337509192915050565b6001600160a01b038116811461045857600080fd5b50565b634e487b7160e01b600052604160045260246000fd5b60005b8381101561048c578181015183820152602001610474565b50506000910152565b600082601f8301126104a657600080fd5b81516001600160401b038111156104bf576104bf61045b565b604051601f8201601f19908116603f011681016001600160401b03811182821017156104ed576104ed61045b565b60405281815283820160200185101561050557600080fd5b610516826020830160208701610471565b949350505050565b60008060006060848603121561053357600080fd5b835161053e81610443565b6020850151604086015191945092506001600160401b0381111561056157600080fd5b61056d86828701610495565b9150509250925092565b60008060006060848603121561058c57600080fd5b835161059781610443565b60208501519093506001600160401b038111156105b357600080fd5b6105bf86828701610495565b604086015190935090506001600160401b0381111561056157600080fd5b600082516105ef818460208701610471565b9190910192915050565b828152604060208201526000825180604084015261061e816060850160208701610471565b601f01601f1916919091016060019392505050565b60006020828403121561064557600080fd5b81516001600160e01b03198116811461040557600080fd5b634e487b7160e01b600052603260045260246000fdfe5369676e617475726556616c696461746f72237265636f7665725369676e6572", multicall3Bytecode = "0x608060405234801561001057600080fd5b506115b9806100206000396000f3fe6080604052600436106100f35760003560e01c80634d2301cc1161008a578063a8b0574e11610059578063a8b0574e14610325578063bce38bd714610350578063c3077fa914610380578063ee82ac5e146103b2576100f3565b80634d2301cc1461026257806372425d9d1461029f57806382ad56cb146102ca57806386d516e8146102fa576100f3565b80633408e470116100c65780633408e470146101af578063399542e9146101da5780633e64a6961461020c57806342cbb15c14610237576100f3565b80630f28c97d146100f8578063174dea7114610123578063252dba421461015357806327e86d6e14610184575b600080fd5b34801561010457600080fd5b5061010d6103ef565b60405161011a9190610c0a565b60405180910390f35b61013d60048036038101906101389190610c94565b6103f7565b60405161014a9190610e94565b60405180910390f35b61016d60048036038101906101689190610f0c565b610615565b60405161017b92919061101b565b60405180910390f35b34801561019057600080fd5b506101996107ab565b6040516101a69190611064565b60405180910390f35b3480156101bb57600080fd5b506101c46107b7565b6040516101d19190610c0a565b60405180910390f35b6101f460048036038101906101ef91906110ab565b6107bf565b6040516102039392919061110b565b60405180910390f35b34801561021857600080fd5b506102216107e1565b60405161022e9190610c0a565b60405180910390f35b34801561024357600080fd5b5061024c6107e9565b6040516102599190610c0a565b60405180910390f35b34801561026e57600080fd5b50610289600480360381019061028491906111a7565b6107f1565b6040516102969190610c0a565b60405180910390f35b3480156102ab57600080fd5b506102b4610812565b6040516102c19190610c0a565b60405180910390f35b6102e460048036038101906102df919061122a565b61081a565b6040516102f19190610e94565b60405180910390f35b34801561030657600080fd5b5061030f6109e4565b60405161031c9190610c0a565b60405180910390f35b34801561033157600080fd5b5061033a6109ec565b6040516103479190611286565b60405180910390f35b61036a600480360381019061036591906110ab565b6109f4565b6040516103779190610e94565b60405180910390f35b61039a60048036038101906103959190610f0c565b610ba6565b6040516103a99392919061110b565b60405180910390f35b3480156103be57600080fd5b506103d960048036038101906103d491906112cd565b610bca565b6040516103e69190611064565b60405180910390f35b600042905090565b60606000808484905090508067ffffffffffffffff81111561041c5761041b6112fa565b5b60405190808252806020026020018201604052801561045557816020015b610442610bd5565b81526020019060019003908161043a5790505b5092503660005b828110156105c957600085828151811061047957610478611329565b5b6020026020010151905087878381811061049657610495611329565b5b90506020028101906104a89190611367565b925060008360400135905080860195508360000160208101906104cb91906111a7565b73ffffffffffffffffffffffffffffffffffffffff16818580606001906104f2919061138f565b604051610500929190611431565b60006040518083038185875af1925050503d806000811461053d576040519150601f19603f3d011682016040523d82523d6000602084013e610542565b606091505b5083600001846020018290528215151515815250505081516020850135176105bc577f08c379a000000000000000000000000000000000000000000000000000000000600052602060045260176024527f4d756c746963616c6c333a2063616c6c206661696c656400000000000000000060445260846000fd5b826001019250505061045c565b5082341461060c576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610603906114a7565b60405180910390fd5b50505092915050565b6000606043915060008484905090508067ffffffffffffffff81111561063e5761063d6112fa565b5b60405190808252806020026020018201604052801561067157816020015b606081526020019060019003908161065c5790505b5091503660005b828110156107a157600087878381811061069557610694611329565b5b90506020028101906106a791906114c7565b92508260000160208101906106bc91906111a7565b73ffffffffffffffffffffffffffffffffffffffff168380602001906106e2919061138f565b6040516106f0929190611431565b6000604051808303816000865af19150503d806000811461072d576040519150601f19603f3d011682016040523d82523d6000602084013e610732565b606091505b5086848151811061074657610745611329565b5b60200260200101819052819250505080610795576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161078c9061153b565b60405180910390fd5b81600101915050610678565b5050509250929050565b60006001430340905090565b600046905090565b6000806060439250434091506107d68686866109f4565b905093509350939050565b600048905090565b600043905090565b60008173ffffffffffffffffffffffffffffffffffffffff16319050919050565b600044905090565b606060008383905090508067ffffffffffffffff81111561083e5761083d6112fa565b5b60405190808252806020026020018201604052801561087757816020015b610864610bd5565b81526020019060019003908161085c5790505b5091503660005b828110156109db57600084828151811061089b5761089a611329565b5b602002602001015190508686838181106108b8576108b7611329565b5b90506020028101906108ca919061155b565b92508260000160208101906108df91906111a7565b73ffffffffffffffffffffffffffffffffffffffff16838060400190610905919061138f565b604051610913929190611431565b6000604051808303816000865af19150503d8060008114610950576040519150601f19603f3d011682016040523d82523d6000602084013e610955565b606091505b5082600001836020018290528215151515815250505080516020840135176109cf577f08c379a000000000000000000000000000000000000000000000000000000000600052602060045260176024527f4d756c746963616c6c333a2063616c6c206661696c656400000000000000000060445260646000fd5b8160010191505061087e565b50505092915050565b600045905090565b600041905090565b606060008383905090508067ffffffffffffffff811115610a1857610a176112fa565b5b604051908082528060200260200182016040528015610a5157816020015b610a3e610bd5565b815260200190600190039081610a365790505b5091503660005b82811015610b9c576000848281518110610a7557610a74611329565b5b60200260200101519050868683818110610a9257610a91611329565b5b9050602002810190610aa491906114c7565b9250826000016020810190610ab991906111a7565b73ffffffffffffffffffffffffffffffffffffffff16838060200190610adf919061138f565b604051610aed929190611431565b6000604051808303816000865af19150503d8060008114610b2a576040519150601f19603f3d011682016040523d82523d6000602084013e610b2f565b606091505b508260000183602001829052821515151581525050508715610b90578060000151610b8f576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610b869061153b565b60405180910390fd5b5b81600101915050610a58565b5050509392505050565b6000806060610bb7600186866107bf565b8093508194508295505050509250925092565b600081409050919050565b6040518060400160405280600015158152602001606081525090565b6000819050919050565b610c0481610bf1565b82525050565b6000602082019050610c1f6000830184610bfb565b92915050565b600080fd5b600080fd5b600080fd5b600080fd5b600080fd5b60008083601f840112610c5457610c53610c2f565b5b8235905067ffffffffffffffff811115610c7157610c70610c34565b5b602083019150836020820283011115610c8d57610c8c610c39565b5b9250929050565b60008060208385031215610cab57610caa610c25565b5b600083013567ffffffffffffffff811115610cc957610cc8610c2a565b5b610cd585828601610c3e565b92509250509250929050565b600081519050919050565b600082825260208201905092915050565b6000819050602082019050919050565b60008115159050919050565b610d2281610d0d565b82525050565b600081519050919050565b600082825260208201905092915050565b60005b83811015610d62578082015181840152602081019050610d47565b83811115610d71576000848401525b50505050565b6000601f19601f8301169050919050565b6000610d9382610d28565b610d9d8185610d33565b9350610dad818560208601610d44565b610db681610d77565b840191505092915050565b6000604083016000830151610dd96000860182610d19565b5060208301518482036020860152610df18282610d88565b9150508091505092915050565b6000610e0a8383610dc1565b905092915050565b6000602082019050919050565b6000610e2a82610ce1565b610e348185610cec565b935083602082028501610e4685610cfd565b8060005b85811015610e825784840389528151610e638582610dfe565b9450610e6e83610e12565b925060208a01995050600181019050610e4a565b50829750879550505050505092915050565b60006020820190508181036000830152610eae8184610e1f565b905092915050565b60008083601f840112610ecc57610ecb610c2f565b5b8235905067ffffffffffffffff811115610ee957610ee8610c34565b5b602083019150836020820283011115610f0557610f04610c39565b5b9250929050565b60008060208385031215610f2357610f22610c25565b5b600083013567ffffffffffffffff811115610f4157610f40610c2a565b5b610f4d85828601610eb6565b92509250509250929050565b600081519050919050565b600082825260208201905092915050565b6000819050602082019050919050565b6000610f918383610d88565b905092915050565b6000602082019050919050565b6000610fb182610f59565b610fbb8185610f64565b935083602082028501610fcd85610f75565b8060005b858110156110095784840389528151610fea8582610f85565b9450610ff583610f99565b925060208a01995050600181019050610fd1565b50829750879550505050505092915050565b60006040820190506110306000830185610bfb565b81810360208301526110428184610fa6565b90509392505050565b6000819050919050565b61105e8161104b565b82525050565b60006020820190506110796000830184611055565b92915050565b61108881610d0d565b811461109357600080fd5b50565b6000813590506110a58161107f565b92915050565b6000806000604084860312156110c4576110c3610c25565b5b60006110d286828701611096565b935050602084013567ffffffffffffffff8111156110f3576110f2610c2a565b5b6110ff86828701610eb6565b92509250509250925092565b60006060820190506111206000830186610bfb565b61112d6020830185611055565b818103604083015261113f8184610e1f565b9050949350505050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061117482611149565b9050919050565b61118481611169565b811461118f57600080fd5b50565b6000813590506111a18161117b565b92915050565b6000602082840312156111bd576111bc610c25565b5b60006111cb84828501611192565b91505092915050565b60008083601f8401126111ea576111e9610c2f565b5b8235905067ffffffffffffffff81111561120757611206610c34565b5b60208301915083602082028301111561122357611222610c39565b5b9250929050565b6000806020838503121561124157611240610c25565b5b600083013567ffffffffffffffff81111561125f5761125e610c2a565b5b61126b858286016111d4565b92509250509250929050565b61128081611169565b82525050565b600060208201905061129b6000830184611277565b92915050565b6112aa81610bf1565b81146112b557600080fd5b50565b6000813590506112c7816112a1565b92915050565b6000602082840312156112e3576112e2610c25565b5b60006112f1848285016112b8565b91505092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b600080fd5b600080fd5b600080fd5b60008235600160800383360303811261138357611382611358565b5b80830191505092915050565b600080833560016020038436030381126113ac576113ab611358565b5b80840192508235915067ffffffffffffffff8211156113ce576113cd61135d565b5b6020830192506001820236038313156113ea576113e9611362565b5b509250929050565b600081905092915050565b82818337600083830152505050565b600061141883856113f2565b93506114258385846113fd565b82840190509392505050565b600061143e82848661140c565b91508190509392505050565b600082825260208201905092915050565b7f4d756c746963616c6c333a2076616c7565206d69736d61746368000000000000600082015250565b6000611491601a8361144a565b915061149c8261145b565b602082019050919050565b600060208201905081810360008301526114c081611484565b9050919050565b6000823560016040038336030381126114e3576114e2611358565b5b80830191505092915050565b7f4d756c746963616c6c333a2063616c6c206661696c6564000000000000000000600082015250565b600061152560178361144a565b9150611530826114ef565b602082019050919050565b6000602082019050818103600083015261155481611518565b9050919050565b60008235600160600383360303811261157757611576611358565b5b8083019150509291505056fea264697066735822122020c1bc9aacf8e4a6507193432a895a8e77094f45a1395583f07b24e860ef06cd64736f6c634300080c0033";
 
-// ../viem/src/_esm/utils/abi/encodeDeployData.js
+// ../viem/src/utils/abi/encodeDeployData.ts
 function encodeDeployData(parameters) {
   const { abi, args, bytecode } = parameters;
   if (!args || args.length === 0)
@@ -6157,7 +5888,7 @@ var init_encodeDeployData = __esm(() => {
   init_encodeAbiParameters();
 });
 
-// ../viem/src/_esm/utils/address/isAddressEqual.js
+// ../viem/src/utils/address/isAddressEqual.ts
 function isAddressEqual(a, b) {
   if (!isAddress(a, { strict: false }))
     throw new InvalidAddressError({ address: a });
@@ -6170,7 +5901,7 @@ var init_isAddressEqual = __esm(() => {
   init_isAddress();
 });
 
-// ../viem/src/_esm/utils/block/formatBlockParameter.js
+// ../viem/src/utils/block/formatBlockParameter.ts
 function formatBlockParameter(parameters) {
   const { blockHash, blockNumber, blockTag, requireCanonical } = parameters;
   if (requireCanonical !== undefined && !blockHash)
@@ -6186,13 +5917,18 @@ var init_formatBlockParameter = __esm(() => {
   init_toHex();
 });
 
-// ../viem/src/_esm/errors/node.js
+// ../viem/src/errors/node.ts
 var ExecutionRevertedError, FeeCapTooHighError, FeeCapTooLowError, NonceTooHighError, NonceTooLowError, NonceMaxValueError, InsufficientFundsError, IntrinsicGasTooHighError, IntrinsicGasTooLowError, TransactionTypeNotSupportedError, TipAboveFeeCapError, UnknownNodeError;
 var init_node = __esm(() => {
   init_formatGwei();
   init_base();
   ExecutionRevertedError = class ExecutionRevertedError extends BaseError2 {
-    constructor({ cause, message } = {}) {
+    static code = 3;
+    static nodeMessage = /execution reverted|gas required exceeds allowance/;
+    constructor({
+      cause,
+      message
+    } = {}) {
       const reason = message?.replace("execution reverted: ", "")?.replace("execution reverted", "");
       super(`Execution reverted ${reason ? `with reason: ${reason}` : "for an unknown reason"}.`, {
         cause,
@@ -6200,59 +5936,45 @@ var init_node = __esm(() => {
       });
     }
   };
-  Object.defineProperty(ExecutionRevertedError, "code", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: 3
-  });
-  Object.defineProperty(ExecutionRevertedError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /execution reverted|gas required exceeds allowance/
-  });
   FeeCapTooHighError = class FeeCapTooHighError extends BaseError2 {
-    constructor({ cause, maxFeePerGas } = {}) {
+    static nodeMessage = /max fee per gas higher than 2\^256-1|fee cap higher than 2\^256-1/;
+    constructor({
+      cause,
+      maxFeePerGas
+    } = {}) {
       super(`The fee cap (\`maxFeePerGas\`${maxFeePerGas ? ` = ${formatGwei2(maxFeePerGas)} gwei` : ""}) cannot be higher than the maximum allowed value (2^256-1).`, {
         cause,
         name: "FeeCapTooHighError"
       });
     }
   };
-  Object.defineProperty(FeeCapTooHighError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /max fee per gas higher than 2\^256-1|fee cap higher than 2\^256-1/
-  });
   FeeCapTooLowError = class FeeCapTooLowError extends BaseError2 {
-    constructor({ cause, maxFeePerGas } = {}) {
+    static nodeMessage = /max fee per gas less than block base fee|fee cap less than block base fee|transaction is outdated/;
+    constructor({
+      cause,
+      maxFeePerGas
+    } = {}) {
       super(`The fee cap (\`maxFeePerGas\`${maxFeePerGas ? ` = ${formatGwei2(maxFeePerGas)}` : ""} gwei) cannot be lower than the block base fee.`, {
         cause,
         name: "FeeCapTooLowError"
       });
     }
   };
-  Object.defineProperty(FeeCapTooLowError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /max fee per gas less than block base fee|fee cap less than block base fee|transaction is outdated/
-  });
   NonceTooHighError = class NonceTooHighError extends BaseError2 {
-    constructor({ cause, nonce } = {}) {
+    static nodeMessage = /nonce too high/;
+    constructor({
+      cause,
+      nonce
+    } = {}) {
       super(`Nonce provided for the transaction ${nonce ? `(${nonce}) ` : ""}is higher than the next one expected.`, { cause, name: "NonceTooHighError" });
     }
   };
-  Object.defineProperty(NonceTooHighError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /nonce too high/
-  });
   NonceTooLowError = class NonceTooLowError extends BaseError2 {
-    constructor({ cause, nonce } = {}) {
+    static nodeMessage = /nonce too low|transaction already imported|already known/;
+    constructor({
+      cause,
+      nonce
+    } = {}) {
       super([
         `Nonce provided for the transaction ${nonce ? `(${nonce}) ` : ""}is lower than the current nonce of the account.`,
         "Try increasing the nonce or find the latest nonce with `getTransactionCount`."
@@ -6260,24 +5982,17 @@ var init_node = __esm(() => {
 `), { cause, name: "NonceTooLowError" });
     }
   };
-  Object.defineProperty(NonceTooLowError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /nonce too low|transaction already imported|already known/
-  });
   NonceMaxValueError = class NonceMaxValueError extends BaseError2 {
-    constructor({ cause, nonce } = {}) {
+    static nodeMessage = /nonce has max value/;
+    constructor({
+      cause,
+      nonce
+    } = {}) {
       super(`Nonce provided for the transaction ${nonce ? `(${nonce}) ` : ""}exceeds the maximum allowed nonce.`, { cause, name: "NonceMaxValueError" });
     }
   };
-  Object.defineProperty(NonceMaxValueError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /nonce has max value/
-  });
   InsufficientFundsError = class InsufficientFundsError extends BaseError2 {
+    static nodeMessage = /insufficient funds|exceeds transaction sender account balance/;
     constructor({ cause } = {}) {
       super([
         "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account."
@@ -6298,41 +6013,32 @@ var init_node = __esm(() => {
       });
     }
   };
-  Object.defineProperty(InsufficientFundsError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /insufficient funds|exceeds transaction sender account balance/
-  });
   IntrinsicGasTooHighError = class IntrinsicGasTooHighError extends BaseError2 {
-    constructor({ cause, gas } = {}) {
+    static nodeMessage = /intrinsic gas too high|gas limit reached/;
+    constructor({
+      cause,
+      gas
+    } = {}) {
       super(`The amount of gas ${gas ? `(${gas}) ` : ""}provided for the transaction exceeds the limit allowed for the block.`, {
         cause,
         name: "IntrinsicGasTooHighError"
       });
     }
   };
-  Object.defineProperty(IntrinsicGasTooHighError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /intrinsic gas too high|gas limit reached/
-  });
   IntrinsicGasTooLowError = class IntrinsicGasTooLowError extends BaseError2 {
-    constructor({ cause, gas } = {}) {
+    static nodeMessage = /intrinsic gas too low/;
+    constructor({
+      cause,
+      gas
+    } = {}) {
       super(`The amount of gas ${gas ? `(${gas}) ` : ""}provided for the transaction is too low.`, {
         cause,
         name: "IntrinsicGasTooLowError"
       });
     }
   };
-  Object.defineProperty(IntrinsicGasTooLowError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /intrinsic gas too low/
-  });
   TransactionTypeNotSupportedError = class TransactionTypeNotSupportedError extends BaseError2 {
+    static nodeMessage = /transaction type not valid/;
     constructor({ cause }) {
       super("The transaction type is not supported for this chain.", {
         cause,
@@ -6340,14 +6046,13 @@ var init_node = __esm(() => {
       });
     }
   };
-  Object.defineProperty(TransactionTypeNotSupportedError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /transaction type not valid/
-  });
   TipAboveFeeCapError = class TipAboveFeeCapError extends BaseError2 {
-    constructor({ cause, maxPriorityFeePerGas, maxFeePerGas } = {}) {
+    static nodeMessage = /max priority fee per gas higher than max fee per gas|tip higher than fee cap/;
+    constructor({
+      cause,
+      maxPriorityFeePerGas,
+      maxFeePerGas
+    } = {}) {
       super([
         `The provided tip (\`maxPriorityFeePerGas\`${maxPriorityFeePerGas ? ` = ${formatGwei2(maxPriorityFeePerGas)} gwei` : ""}) cannot be higher than the fee cap (\`maxFeePerGas\`${maxFeePerGas ? ` = ${formatGwei2(maxFeePerGas)} gwei` : ""}).`
       ].join(`
@@ -6357,12 +6062,6 @@ var init_node = __esm(() => {
       });
     }
   };
-  Object.defineProperty(TipAboveFeeCapError, "nodeMessage", {
-    enumerable: true,
-    configurable: true,
-    writable: true,
-    value: /max priority fee per gas higher than max fee per gas|tip higher than fee cap/
-  });
   UnknownNodeError = class UnknownNodeError extends BaseError2 {
     constructor({ cause }) {
       super(`An error occurred while executing: ${cause?.shortMessage}`, {
@@ -6373,7 +6072,7 @@ var init_node = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/errors/getNodeError.js
+// ../viem/src/utils/errors/getNodeError.ts
 function getNodeError(err, args) {
   const message = (err.details || "").toLowerCase();
   const executionRevertedError = err instanceof BaseError2 ? err.walk((e) => e?.code === ExecutionRevertedError.code) : err;
@@ -6426,8 +6125,11 @@ var init_getNodeError = __esm(() => {
   init_node();
 });
 
-// ../viem/src/_esm/utils/errors/getCallError.js
-function getCallError(err, { docsPath: docsPath6, ...args }) {
+// ../viem/src/utils/errors/getCallError.ts
+function getCallError(err, {
+  docsPath: docsPath6,
+  ...args
+}) {
   const cause = (() => {
     const cause2 = getNodeError(err, args);
     if (cause2 instanceof UnknownNodeError)
@@ -6445,7 +6147,7 @@ var init_getCallError = __esm(() => {
   init_getNodeError();
 });
 
-// ../viem/src/_esm/utils/formatters/extract.js
+// ../viem/src/utils/formatters/extract.ts
 function extract(value_, { format: format2 }) {
   if (!format2)
     return {};
@@ -6464,29 +6166,7 @@ function extract(value_, { format: format2 }) {
   return value;
 }
 
-// ../viem/src/_esm/utils/formatters/formatter.js
-function defineFormatter(type, format2) {
-  return ({ exclude, format: overrides }) => {
-    return {
-      exclude,
-      format: (args, action) => {
-        const formatted = format2(args, action);
-        if (exclude) {
-          for (const key of exclude) {
-            delete formatted[key];
-          }
-        }
-        return {
-          ...formatted,
-          ...overrides(args, action)
-        };
-      },
-      type
-    };
-  };
-}
-
-// ../viem/src/_esm/utils/formatters/transactionRequest.js
+// ../viem/src/utils/formatters/transactionRequest.ts
 function formatTransactionRequest(request, _) {
   const rpcRequest = {};
   if (typeof request.authorizationList !== "undefined")
@@ -6550,7 +6230,7 @@ var init_transactionRequest = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/promise/withResolvers.js
+// ../viem/src/utils/promise/withResolvers.ts
 function withResolvers() {
   let resolve = () => {
     return;
@@ -6565,8 +6245,14 @@ function withResolvers() {
   return { promise, resolve, reject };
 }
 
-// ../viem/src/_esm/utils/promise/createBatchScheduler.js
-function createBatchScheduler({ fn, id, shouldSplitBatch, wait = 0, sort }) {
+// ../viem/src/utils/promise/createBatchScheduler.ts
+function createBatchScheduler({
+  fn,
+  id,
+  shouldSplitBatch,
+  wait = 0,
+  sort
+}) {
   const exec = async () => {
     const scheduler = getScheduler();
     flush();
@@ -6614,7 +6300,7 @@ var init_createBatchScheduler = __esm(() => {
   schedulerCache = /* @__PURE__ */ new Map;
 });
 
-// ../viem/src/_esm/utils/stateOverride.js
+// ../viem/src/utils/stateOverride.ts
 function serializeStateMapping(stateMapping) {
   if (!stateMapping || stateMapping.length === 0)
     return;
@@ -6674,7 +6360,7 @@ var init_stateOverride2 = __esm(() => {
   init_toHex();
 });
 
-// ../viem/src/_esm/constants/number.js
+// ../viem/src/constants/number.ts
 var maxInt8, maxInt16, maxInt24, maxInt32, maxInt40, maxInt48, maxInt56, maxInt64, maxInt72, maxInt80, maxInt88, maxInt96, maxInt104, maxInt112, maxInt120, maxInt128, maxInt136, maxInt144, maxInt152, maxInt160, maxInt168, maxInt176, maxInt184, maxInt192, maxInt200, maxInt208, maxInt216, maxInt224, maxInt232, maxInt240, maxInt248, maxInt256, minInt8, minInt16, minInt24, minInt32, minInt40, minInt48, minInt56, minInt64, minInt72, minInt80, minInt88, minInt96, minInt104, minInt112, minInt120, minInt128, minInt136, minInt144, minInt152, minInt160, minInt168, minInt176, minInt184, minInt192, minInt200, minInt208, minInt216, minInt224, minInt232, minInt240, minInt248, minInt256, maxUint8, maxUint16, maxUint24, maxUint32, maxUint40, maxUint48, maxUint56, maxUint64, maxUint72, maxUint80, maxUint88, maxUint96, maxUint104, maxUint112, maxUint120, maxUint128, maxUint136, maxUint144, maxUint152, maxUint160, maxUint168, maxUint176, maxUint184, maxUint192, maxUint200, maxUint208, maxUint216, maxUint224, maxUint232, maxUint240, maxUint248, maxUint256;
 var init_number = __esm(() => {
   maxInt8 = 2n ** (8n - 1n) - 1n;
@@ -6775,7 +6461,7 @@ var init_number = __esm(() => {
   maxUint256 = 2n ** 256n - 1n;
 });
 
-// ../viem/src/_esm/utils/transaction/assertRequest.js
+// ../viem/src/utils/transaction/assertRequest.ts
 function assertRequest(args) {
   const { account: account_, maxFeePerGas, maxPriorityFeePerGas, to } = args;
   const account = account_ ? parseAccount(account_) : undefined;
@@ -6795,12 +6481,19 @@ var init_assertRequest = __esm(() => {
   init_isAddress();
 });
 
-// ../viem/src/_esm/errors/ccip.js
+// ../viem/src/errors/ccip.ts
 var OffchainLookupError, OffchainLookupResponseMalformedError, OffchainLookupSenderMismatchError;
 var init_ccip = __esm(() => {
   init_base();
   OffchainLookupError = class OffchainLookupError extends BaseError2 {
-    constructor({ callbackSelector, cause, data, extraData, sender, urls }) {
+    constructor({
+      callbackSelector,
+      cause,
+      data,
+      extraData,
+      sender,
+      urls
+    }) {
       super(cause.shortMessage || "An error occurred while fetching for an offchain result.", {
         cause,
         metaMessages: [
@@ -6844,7 +6537,7 @@ var init_ccip = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/utils/ccip.js
+// ../viem/src/utils/ccip.ts
 var exports_ccip = {};
 __export(exports_ccip, {
   offchainLookupSignature: () => offchainLookupSignature,
@@ -6852,7 +6545,13 @@ __export(exports_ccip, {
   offchainLookup: () => offchainLookup,
   ccipRequest: () => ccipRequest
 });
-async function offchainLookup(client, { blockNumber, blockTag, data, requestOptions, to }) {
+async function offchainLookup(client, {
+  blockNumber,
+  blockTag,
+  data,
+  requestOptions,
+  to
+}) {
   const { args } = decodeErrorResult({
     data,
     abi: [offchainLookupAbiItem]
@@ -6893,7 +6592,12 @@ async function offchainLookup(client, { blockNumber, blockTag, data, requestOpti
     });
   }
 }
-async function ccipRequest({ data, requestOptions, sender, urls }) {
+async function ccipRequest({
+  data,
+  requestOptions,
+  sender,
+  urls
+}) {
   let error = new Error("An unknown error occurred.");
   for (let i = 0;i < urls.length; i++) {
     if (requestOptions?.signal?.aborted)
@@ -6984,9 +6688,35 @@ var init_ccip2 = __esm(() => {
   };
 });
 
-// ../viem/src/_esm/actions/public/call.js
+// ../viem/src/actions/public/call.ts
 async function call(client, args) {
-  const { account: account_ = client.account, authorizationList, batch = Boolean(client.batch?.multicall), blockHash, blockNumber, blockTag = client.experimental_blockTag ?? "latest", requireCanonical, accessList, blobs, blockOverrides, code, data: data_, factory, factoryData, gas, gasPrice, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, nonce, requestOptions, to, value, stateOverride, ...rest } = args;
+  const {
+    account: account_ = client.account,
+    authorizationList,
+    batch = Boolean(client.batch?.multicall),
+    blockHash,
+    blockNumber,
+    blockTag = client.experimental_blockTag ?? "latest",
+    requireCanonical,
+    accessList,
+    blobs,
+    blockOverrides,
+    code,
+    data: data_,
+    factory,
+    factoryData,
+    gas,
+    gasPrice,
+    maxFeePerBlobGas,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    nonce,
+    requestOptions,
+    to,
+    value,
+    stateOverride,
+    ...rest
+  } = args;
   const account = account_ ? parseAccount(account_) : undefined;
   if (code && (factory || factoryData))
     throw new BaseError2("Cannot provide both `code` & `factory`/`factoryData` as parameters.");
@@ -7124,8 +6854,22 @@ function getRequestOptionsId(requestOptions) {
   return nextId;
 }
 async function scheduleMulticall(client, args) {
-  const { batchSize = 1024, deployless = false, wait = 0 } = typeof client.batch?.multicall === "object" ? client.batch.multicall : {};
-  const { blockHash, blockNumber, blockTag = client.experimental_blockTag ?? "latest", requireCanonical, data, multicallAddress: multicallAddress_, requestOptions, rpcStateOverride, to } = args;
+  const {
+    batchSize = 1024,
+    deployless = false,
+    wait = 0
+  } = typeof client.batch?.multicall === "object" ? client.batch.multicall : {};
+  const {
+    blockHash,
+    blockNumber,
+    blockTag = client.experimental_blockTag ?? "latest",
+    requireCanonical,
+    data,
+    multicallAddress: multicallAddress_,
+    requestOptions,
+    rpcStateOverride,
+    to
+  } = args;
   const multicallAddress = multicallAddress_ !== undefined ? multicallAddress_ : getMulticallAddress(client, {
     blockNumber,
     deployless
@@ -7263,7 +7007,7 @@ function Chi(a, b, c) {
 function Maj(a, b, c) {
   return a & b ^ a & c ^ b & c;
 }
-var HashMD, SHA256_IV, SHA384_IV, SHA512_IV;
+var HashMD, SHA256_IV;
 var init__md = __esm(() => {
   init_utils2();
   HashMD = class HashMD extends Hash {
@@ -7366,49 +7110,12 @@ var init__md = __esm(() => {
     528734635,
     1541459225
   ]);
-  SHA384_IV = /* @__PURE__ */ Uint32Array.from([
-    3418070365,
-    3238371032,
-    1654270250,
-    914150663,
-    2438529370,
-    812702999,
-    355462360,
-    4144912697,
-    1731405415,
-    4290775857,
-    2394180231,
-    1750603025,
-    3675008525,
-    1694076839,
-    1203062813,
-    3204075428
-  ]);
-  SHA512_IV = /* @__PURE__ */ Uint32Array.from([
-    1779033703,
-    4089235720,
-    3144134277,
-    2227873595,
-    1013904242,
-    4271175723,
-    2773480762,
-    1595750129,
-    1359893119,
-    2917565137,
-    2600822924,
-    725511199,
-    528734635,
-    4215389547,
-    1541459225,
-    327033209
-  ]);
 });
 
 // ../viem/node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/sha2.js
-var SHA256_K, SHA256_W, SHA256, K512, SHA512_Kh, SHA512_Kl, SHA512_W_H, SHA512_W_L, SHA512, SHA384, sha256, sha512, sha384;
+var SHA256_K, SHA256_W, SHA256, sha256;
 var init_sha2 = __esm(() => {
   init__md();
-  init__u64();
   init_utils2();
   SHA256_K = /* @__PURE__ */ Uint32Array.from([
     1116352408,
@@ -7546,225 +7253,7 @@ var init_sha2 = __esm(() => {
       clean(this.buffer);
     }
   };
-  K512 = /* @__PURE__ */ (() => split([
-    "0x428a2f98d728ae22",
-    "0x7137449123ef65cd",
-    "0xb5c0fbcfec4d3b2f",
-    "0xe9b5dba58189dbbc",
-    "0x3956c25bf348b538",
-    "0x59f111f1b605d019",
-    "0x923f82a4af194f9b",
-    "0xab1c5ed5da6d8118",
-    "0xd807aa98a3030242",
-    "0x12835b0145706fbe",
-    "0x243185be4ee4b28c",
-    "0x550c7dc3d5ffb4e2",
-    "0x72be5d74f27b896f",
-    "0x80deb1fe3b1696b1",
-    "0x9bdc06a725c71235",
-    "0xc19bf174cf692694",
-    "0xe49b69c19ef14ad2",
-    "0xefbe4786384f25e3",
-    "0x0fc19dc68b8cd5b5",
-    "0x240ca1cc77ac9c65",
-    "0x2de92c6f592b0275",
-    "0x4a7484aa6ea6e483",
-    "0x5cb0a9dcbd41fbd4",
-    "0x76f988da831153b5",
-    "0x983e5152ee66dfab",
-    "0xa831c66d2db43210",
-    "0xb00327c898fb213f",
-    "0xbf597fc7beef0ee4",
-    "0xc6e00bf33da88fc2",
-    "0xd5a79147930aa725",
-    "0x06ca6351e003826f",
-    "0x142929670a0e6e70",
-    "0x27b70a8546d22ffc",
-    "0x2e1b21385c26c926",
-    "0x4d2c6dfc5ac42aed",
-    "0x53380d139d95b3df",
-    "0x650a73548baf63de",
-    "0x766a0abb3c77b2a8",
-    "0x81c2c92e47edaee6",
-    "0x92722c851482353b",
-    "0xa2bfe8a14cf10364",
-    "0xa81a664bbc423001",
-    "0xc24b8b70d0f89791",
-    "0xc76c51a30654be30",
-    "0xd192e819d6ef5218",
-    "0xd69906245565a910",
-    "0xf40e35855771202a",
-    "0x106aa07032bbd1b8",
-    "0x19a4c116b8d2d0c8",
-    "0x1e376c085141ab53",
-    "0x2748774cdf8eeb99",
-    "0x34b0bcb5e19b48a8",
-    "0x391c0cb3c5c95a63",
-    "0x4ed8aa4ae3418acb",
-    "0x5b9cca4f7763e373",
-    "0x682e6ff3d6b2b8a3",
-    "0x748f82ee5defb2fc",
-    "0x78a5636f43172f60",
-    "0x84c87814a1f0ab72",
-    "0x8cc702081a6439ec",
-    "0x90befffa23631e28",
-    "0xa4506cebde82bde9",
-    "0xbef9a3f7b2c67915",
-    "0xc67178f2e372532b",
-    "0xca273eceea26619c",
-    "0xd186b8c721c0c207",
-    "0xeada7dd6cde0eb1e",
-    "0xf57d4f7fee6ed178",
-    "0x06f067aa72176fba",
-    "0x0a637dc5a2c898a6",
-    "0x113f9804bef90dae",
-    "0x1b710b35131c471b",
-    "0x28db77f523047d84",
-    "0x32caab7b40c72493",
-    "0x3c9ebe0a15c9bebc",
-    "0x431d67c49c100d4c",
-    "0x4cc5d4becb3e42b6",
-    "0x597f299cfc657e2a",
-    "0x5fcb6fab3ad6faec",
-    "0x6c44198c4a475817"
-  ].map((n) => BigInt(n))))();
-  SHA512_Kh = /* @__PURE__ */ (() => K512[0])();
-  SHA512_Kl = /* @__PURE__ */ (() => K512[1])();
-  SHA512_W_H = /* @__PURE__ */ new Uint32Array(80);
-  SHA512_W_L = /* @__PURE__ */ new Uint32Array(80);
-  SHA512 = class SHA512 extends HashMD {
-    constructor(outputLen = 64) {
-      super(128, outputLen, 16, false);
-      this.Ah = SHA512_IV[0] | 0;
-      this.Al = SHA512_IV[1] | 0;
-      this.Bh = SHA512_IV[2] | 0;
-      this.Bl = SHA512_IV[3] | 0;
-      this.Ch = SHA512_IV[4] | 0;
-      this.Cl = SHA512_IV[5] | 0;
-      this.Dh = SHA512_IV[6] | 0;
-      this.Dl = SHA512_IV[7] | 0;
-      this.Eh = SHA512_IV[8] | 0;
-      this.El = SHA512_IV[9] | 0;
-      this.Fh = SHA512_IV[10] | 0;
-      this.Fl = SHA512_IV[11] | 0;
-      this.Gh = SHA512_IV[12] | 0;
-      this.Gl = SHA512_IV[13] | 0;
-      this.Hh = SHA512_IV[14] | 0;
-      this.Hl = SHA512_IV[15] | 0;
-    }
-    get() {
-      const { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
-      return [Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl];
-    }
-    set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl) {
-      this.Ah = Ah | 0;
-      this.Al = Al | 0;
-      this.Bh = Bh | 0;
-      this.Bl = Bl | 0;
-      this.Ch = Ch | 0;
-      this.Cl = Cl | 0;
-      this.Dh = Dh | 0;
-      this.Dl = Dl | 0;
-      this.Eh = Eh | 0;
-      this.El = El | 0;
-      this.Fh = Fh | 0;
-      this.Fl = Fl | 0;
-      this.Gh = Gh | 0;
-      this.Gl = Gl | 0;
-      this.Hh = Hh | 0;
-      this.Hl = Hl | 0;
-    }
-    process(view, offset) {
-      for (let i = 0;i < 16; i++, offset += 4) {
-        SHA512_W_H[i] = view.getUint32(offset);
-        SHA512_W_L[i] = view.getUint32(offset += 4);
-      }
-      for (let i = 16;i < 80; i++) {
-        const W15h = SHA512_W_H[i - 15] | 0;
-        const W15l = SHA512_W_L[i - 15] | 0;
-        const s0h = rotrSH(W15h, W15l, 1) ^ rotrSH(W15h, W15l, 8) ^ shrSH(W15h, W15l, 7);
-        const s0l = rotrSL(W15h, W15l, 1) ^ rotrSL(W15h, W15l, 8) ^ shrSL(W15h, W15l, 7);
-        const W2h = SHA512_W_H[i - 2] | 0;
-        const W2l = SHA512_W_L[i - 2] | 0;
-        const s1h = rotrSH(W2h, W2l, 19) ^ rotrBH(W2h, W2l, 61) ^ shrSH(W2h, W2l, 6);
-        const s1l = rotrSL(W2h, W2l, 19) ^ rotrBL(W2h, W2l, 61) ^ shrSL(W2h, W2l, 6);
-        const SUMl = add4L(s0l, s1l, SHA512_W_L[i - 7], SHA512_W_L[i - 16]);
-        const SUMh = add4H(SUMl, s0h, s1h, SHA512_W_H[i - 7], SHA512_W_H[i - 16]);
-        SHA512_W_H[i] = SUMh | 0;
-        SHA512_W_L[i] = SUMl | 0;
-      }
-      let { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
-      for (let i = 0;i < 80; i++) {
-        const sigma1h = rotrSH(Eh, El, 14) ^ rotrSH(Eh, El, 18) ^ rotrBH(Eh, El, 41);
-        const sigma1l = rotrSL(Eh, El, 14) ^ rotrSL(Eh, El, 18) ^ rotrBL(Eh, El, 41);
-        const CHIh = Eh & Fh ^ ~Eh & Gh;
-        const CHIl = El & Fl ^ ~El & Gl;
-        const T1ll = add5L(Hl, sigma1l, CHIl, SHA512_Kl[i], SHA512_W_L[i]);
-        const T1h = add5H(T1ll, Hh, sigma1h, CHIh, SHA512_Kh[i], SHA512_W_H[i]);
-        const T1l = T1ll | 0;
-        const sigma0h = rotrSH(Ah, Al, 28) ^ rotrBH(Ah, Al, 34) ^ rotrBH(Ah, Al, 39);
-        const sigma0l = rotrSL(Ah, Al, 28) ^ rotrBL(Ah, Al, 34) ^ rotrBL(Ah, Al, 39);
-        const MAJh = Ah & Bh ^ Ah & Ch ^ Bh & Ch;
-        const MAJl = Al & Bl ^ Al & Cl ^ Bl & Cl;
-        Hh = Gh | 0;
-        Hl = Gl | 0;
-        Gh = Fh | 0;
-        Gl = Fl | 0;
-        Fh = Eh | 0;
-        Fl = El | 0;
-        ({ h: Eh, l: El } = add(Dh | 0, Dl | 0, T1h | 0, T1l | 0));
-        Dh = Ch | 0;
-        Dl = Cl | 0;
-        Ch = Bh | 0;
-        Cl = Bl | 0;
-        Bh = Ah | 0;
-        Bl = Al | 0;
-        const All = add3L(T1l, sigma0l, MAJl);
-        Ah = add3H(All, T1h, sigma0h, MAJh);
-        Al = All | 0;
-      }
-      ({ h: Ah, l: Al } = add(this.Ah | 0, this.Al | 0, Ah | 0, Al | 0));
-      ({ h: Bh, l: Bl } = add(this.Bh | 0, this.Bl | 0, Bh | 0, Bl | 0));
-      ({ h: Ch, l: Cl } = add(this.Ch | 0, this.Cl | 0, Ch | 0, Cl | 0));
-      ({ h: Dh, l: Dl } = add(this.Dh | 0, this.Dl | 0, Dh | 0, Dl | 0));
-      ({ h: Eh, l: El } = add(this.Eh | 0, this.El | 0, Eh | 0, El | 0));
-      ({ h: Fh, l: Fl } = add(this.Fh | 0, this.Fl | 0, Fh | 0, Fl | 0));
-      ({ h: Gh, l: Gl } = add(this.Gh | 0, this.Gl | 0, Gh | 0, Gl | 0));
-      ({ h: Hh, l: Hl } = add(this.Hh | 0, this.Hl | 0, Hh | 0, Hl | 0));
-      this.set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl);
-    }
-    roundClean() {
-      clean(SHA512_W_H, SHA512_W_L);
-    }
-    destroy() {
-      clean(this.buffer);
-      this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-    }
-  };
-  SHA384 = class SHA384 extends SHA512 {
-    constructor() {
-      super(48);
-      this.Ah = SHA384_IV[0] | 0;
-      this.Al = SHA384_IV[1] | 0;
-      this.Bh = SHA384_IV[2] | 0;
-      this.Bl = SHA384_IV[3] | 0;
-      this.Ch = SHA384_IV[4] | 0;
-      this.Cl = SHA384_IV[5] | 0;
-      this.Dh = SHA384_IV[6] | 0;
-      this.Dl = SHA384_IV[7] | 0;
-      this.Eh = SHA384_IV[8] | 0;
-      this.El = SHA384_IV[9] | 0;
-      this.Fh = SHA384_IV[10] | 0;
-      this.Fl = SHA384_IV[11] | 0;
-      this.Gh = SHA384_IV[12] | 0;
-      this.Gl = SHA384_IV[13] | 0;
-      this.Hh = SHA384_IV[14] | 0;
-      this.Hl = SHA384_IV[15] | 0;
-    }
-  };
   sha256 = /* @__PURE__ */ createHasher(() => new SHA256);
-  sha512 = /* @__PURE__ */ createHasher(() => new SHA512);
-  sha384 = /* @__PURE__ */ createHasher(() => new SHA384);
 });
 
 // ../viem/node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/hmac.js
@@ -8132,7 +7621,7 @@ function calcWOpts(W, scalarBits) {
   const shiftBy = BigInt(W);
   return { windows, windowSize, mask, maxNumber, shiftBy };
 }
-function calcOffsets(n, window2, wOpts) {
+function calcOffsets(n, window, wOpts) {
   const { windowSize, mask, maxNumber, shiftBy } = wOpts;
   let wbits = Number(n & mask);
   let nextN = n >> shiftBy;
@@ -8140,11 +7629,11 @@ function calcOffsets(n, window2, wOpts) {
     wbits -= maxNumber;
     nextN += _1n4;
   }
-  const offsetStart = window2 * windowSize;
+  const offsetStart = window * windowSize;
   const offset = offsetStart + Math.abs(wbits) - 1;
   const isZero = wbits === 0;
   const isNeg = wbits < 0;
-  const isNegF = window2 % 2 !== 0;
+  const isNegF = window % 2 !== 0;
   const offsetF = offsetStart;
   return { nextN, offset, isZero, isNeg, isNegF, offsetF };
 }
@@ -8188,7 +7677,7 @@ function wNAF(c, bits) {
       const points = [];
       let p = elm;
       let base = p;
-      for (let window2 = 0;window2 < windows; window2++) {
+      for (let window = 0;window < windows; window++) {
         base = p;
         points.push(base);
         for (let i = 1;i < windowSize; i++) {
@@ -8203,8 +7692,8 @@ function wNAF(c, bits) {
       let p = c.ZERO;
       let f = c.BASE;
       const wo = calcWOpts(W, bits);
-      for (let window2 = 0;window2 < wo.windows; window2++) {
-        const { nextN, offset, isZero, isNeg, isNegF, offsetF } = calcOffsets(n, window2, wo);
+      for (let window = 0;window < wo.windows; window++) {
+        const { nextN, offset, isZero, isNeg, isNegF, offsetF } = calcOffsets(n, window, wo);
         n = nextN;
         if (isZero) {
           f = f.add(constTimeNegate(isNegF, precomputes[offsetF]));
@@ -8216,10 +7705,10 @@ function wNAF(c, bits) {
     },
     wNAFUnsafe(W, precomputes, n, acc = c.ZERO) {
       const wo = calcWOpts(W, bits);
-      for (let window2 = 0;window2 < wo.windows; window2++) {
+      for (let window = 0;window < wo.windows; window++) {
         if (n === _0n4)
           break;
-        const { nextN, offset, isZero, isNeg } = calcOffsets(n, window2, wo);
+        const { nextN, offset, isZero, isNeg } = calcOffsets(n, window, wo);
         n = nextN;
         if (isZero) {
           continue;
@@ -9618,9 +9107,9 @@ var init_secp256k1 = __esm(() => {
   encodeToCurve = /* @__PURE__ */ (() => secp256k1_hasher.encodeToCurve)();
 });
 
-// ../viem/src/_esm/index.js
+// ../viem/src/index.ts
 init_exports();
-// ../viem/src/_esm/utils/uid.js
+// ../viem/src/utils/uid.ts
 var size = 256;
 var index = size;
 var buffer;
@@ -9635,9 +9124,18 @@ function uid(length = 11) {
   return buffer.substring(index, index++ + length);
 }
 
-// ../viem/src/_esm/clients/createClient.js
+// ../viem/src/clients/createClient.ts
 function createClient(parameters) {
-  const { batch, chain, ccipRead, dataSuffix, key = "base", name = "Base Client", tokens, type = "base" } = parameters;
+  const {
+    batch,
+    chain,
+    ccipRead,
+    dataSuffix,
+    key = "base",
+    name = "Base Client",
+    tokens,
+    type = "base"
+  } = parameters;
   const experimental_blockTag = parameters.experimental_blockTag ?? (typeof chain?.experimental_preconfirmationTime === "number" ? "pending" : undefined);
   const blockTime = chain?.blockTime ?? 12000;
   const defaultPollingInterval = Math.min(Math.max(Math.floor(blockTime / 2), 500), 4000);
@@ -9716,7 +9214,7 @@ function bindActionDecorators(client, action) {
   return wrapped;
 }
 
-// ../viem/src/_esm/actions/ens/getEnsAddress.js
+// ../viem/src/actions/ens/getEnsAddress.ts
 init_abis();
 init_decodeFunctionResult();
 init_encodeFunctionData();
@@ -9725,7 +9223,7 @@ init_getChainContractAddress();
 init_size();
 init_toHex();
 
-// ../viem/src/_esm/utils/ens/errors.js
+// ../viem/src/utils/ens/errors.ts
 init_base();
 init_contract();
 function isNullUniversalResolverError(err) {
@@ -9749,15 +9247,15 @@ function isNullUniversalResolverError(err) {
   return false;
 }
 
-// ../viem/src/_esm/actions/ens/getEnsAddress.js
+// ../viem/src/actions/ens/getEnsAddress.ts
 init_localBatchGatewayRequest();
 
-// ../viem/src/_esm/utils/ens/namehash.js
+// ../viem/src/utils/ens/namehash.ts
 init_toBytes();
 init_toHex();
 init_keccak256();
 
-// ../viem/src/_esm/utils/ens/encodedLabelToLabelhash.js
+// ../viem/src/utils/ens/encodedLabelToLabelhash.ts
 function encodedLabelToLabelhash(label) {
   if (label.length !== 66)
     return null;
@@ -9771,7 +9269,7 @@ function encodedLabelToLabelhash(label) {
   return hash2;
 }
 
-// ../viem/src/_esm/utils/ens/namehash.js
+// ../viem/src/utils/ens/namehash.ts
 function namehash(name) {
   let result = new Uint8Array(32).fill(0);
   if (!name)
@@ -9785,15 +9283,15 @@ function namehash(name) {
   return bytesToHex(result);
 }
 
-// ../viem/src/_esm/utils/ens/packetToBytes.js
+// ../viem/src/utils/ens/packetToBytes.ts
 init_toBytes();
 
-// ../viem/src/_esm/utils/ens/encodeLabelhash.js
+// ../viem/src/utils/ens/encodeLabelhash.ts
 function encodeLabelhash(hash2) {
   return `[${hash2.slice(2)}]`;
 }
 
-// ../viem/src/_esm/utils/ens/labelhash.js
+// ../viem/src/utils/ens/labelhash.ts
 init_toBytes();
 init_toHex();
 init_keccak256();
@@ -9804,7 +9302,7 @@ function labelhash(label) {
   return encodedLabelToLabelhash(label) || keccak256(stringToBytes(label));
 }
 
-// ../viem/src/_esm/utils/ens/packetToBytes.js
+// ../viem/src/utils/ens/packetToBytes.ts
 function packetToBytes(packet) {
   const value = packet.replace(/^\.|\.$/gm, "");
   if (value.length === 0)
@@ -9825,7 +9323,7 @@ function packetToBytes(packet) {
   return bytes;
 }
 
-// ../viem/src/_esm/utils/getAction.js
+// ../viem/src/utils/getAction.ts
 function getAction(client, actionFn, name) {
   const action_implicit = client[actionFn.name];
   if (typeof action_implicit === "function")
@@ -9836,18 +9334,25 @@ function getAction(client, actionFn, name) {
   return (params) => actionFn(client, params);
 }
 
-// ../viem/src/_esm/actions/public/readContract.js
+// ../viem/src/actions/public/readContract.ts
 init_decodeFunctionResult();
 init_encodeFunctionData();
 
-// ../viem/src/_esm/utils/errors/getContractError.js
+// ../viem/src/utils/errors/getContractError.ts
 init_abi();
 init_base();
 init_contract();
 init_request();
 init_rpc();
 var EXECUTION_REVERTED_ERROR_CODE = 3;
-function getContractError(err, { abi, address, args, docsPath: docsPath5, functionName, sender }) {
+function getContractError(err, {
+  abi,
+  address,
+  args,
+  docsPath: docsPath5,
+  functionName,
+  sender
+}) {
   const error = err instanceof RawContractError ? err : err instanceof BaseError2 ? err.walk((err2) => ("data" in err2)) || err.walk() : {};
   const { code, data, details, message, shortMessage } = error;
   const cause = (() => {
@@ -9874,7 +9379,7 @@ function getContractError(err, { abi, address, args, docsPath: docsPath5, functi
   });
 }
 
-// ../viem/src/_esm/actions/public/readContract.js
+// ../viem/src/actions/public/readContract.ts
 init_call();
 async function readContract(client, parameters) {
   const { abi, address, args, functionName, ...rest } = parameters;
@@ -9906,7 +9411,7 @@ async function readContract(client, parameters) {
   }
 }
 
-// ../viem/src/_esm/actions/ens/getEnsAddress.js
+// ../viem/src/actions/ens/getEnsAddress.ts
 async function getEnsAddress(client, parameters) {
   const { blockNumber, blockTag, coinType, name, gatewayUrls, strict } = parameters;
   const { chain } = client;
@@ -9965,7 +9470,11 @@ async function getEnsAddress(client, parameters) {
     throw err;
   }
 }
-function decodeAddress2({ coinType, data, args }) {
+function decodeAddress2({
+  coinType,
+  data,
+  args
+}) {
   try {
     return decodeFunctionResult({
       abi: addressResolverAbi,
@@ -9983,7 +9492,7 @@ function decodeAddress2({ coinType, data, args }) {
   }
 }
 
-// ../viem/src/_esm/errors/ens.js
+// ../viem/src/errors/ens.ts
 init_base();
 
 class EnsAvatarInvalidMetadataError extends BaseError2 {
@@ -10019,7 +9528,7 @@ class EnsAvatarUnsupportedNamespaceError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/utils/ens/avatar/utils.js
+// ../viem/src/utils/ens/avatar/utils.ts
 var networkRegex = /(?<protocol>https?:\/\/[^/]*|ipfs:\/|ipns:\/|ar:\/)?(?<root>\/)?(?<subpath>ipfs\/|ipns\/)?(?<target>[\w\-.]+)(?<subtarget>\/.*)?/;
 var ipfsHashRegex = /^(Qm[1-9A-HJ-NP-Za-km-z]{44,}|b[A-Za-z2-7]{58,}|B[A-Z2-7]{58,}|z[1-9A-HJ-NP-Za-km-z]{48,}|F[0-9A-F]{50,})(\/(?<target>[\w\-.]+))?(?<subtarget>\/.*)?$/;
 var base64Regex = /^data:([a-zA-Z\-/+]*);base64,([^"].*)/;
@@ -10057,14 +9566,22 @@ function getGateway(custom, defaultGateway) {
     return custom.slice(0, -1);
   return custom;
 }
-function resolveAvatarUri({ uri, gatewayUrls }) {
+function resolveAvatarUri({
+  uri,
+  gatewayUrls
+}) {
   const isEncoded = base64Regex.test(uri);
   if (isEncoded)
     return { uri, isOnChain: true, isEncoded };
   const ipfsGateway = getGateway(gatewayUrls?.ipfs, "https://ipfs.io");
   const arweaveGateway = getGateway(gatewayUrls?.arweave, "https://arweave.net");
   const networkRegexMatch = uri.match(networkRegex);
-  const { protocol, subpath, target, subtarget = "" } = networkRegexMatch?.groups || {};
+  const {
+    protocol,
+    subpath,
+    target,
+    subtarget = ""
+  } = networkRegexMatch?.groups || {};
   const isIPNS = protocol === "ipns:/" || subpath === "ipns/";
   const isIPFS = protocol === "ipfs:/" || subpath === "ipfs/" || ipfsHashRegex.test(uri);
   if (uri.startsWith("http") && !isIPNS && !isIPFS) {
@@ -10106,7 +9623,10 @@ function getJsonImage(data) {
   }
   return data.image || data.image_url || data.image_data;
 }
-async function getMetadataAvatarUri({ gatewayUrls, uri }) {
+async function getMetadataAvatarUri({
+  gatewayUrls,
+  uri
+}) {
   try {
     const res = await fetch(uri).then((res2) => res2.json());
     const image = await parseAvatarUri({
@@ -10118,7 +9638,10 @@ async function getMetadataAvatarUri({ gatewayUrls, uri }) {
     throw new EnsAvatarUriResolutionError({ uri });
   }
 }
-async function parseAvatarUri({ gatewayUrls, uri }) {
+async function parseAvatarUri({
+  gatewayUrls,
+  uri
+}) {
   const { uri: resolvedURI, isOnChain } = resolveAvatarUri({ uri, gatewayUrls });
   if (isOnChain)
     return resolvedURI;
@@ -10190,16 +9713,26 @@ async function getNftTokenUri(client, { nft }) {
   throw new EnsAvatarUnsupportedNamespaceError({ namespace: nft.namespace });
 }
 
-// ../viem/src/_esm/utils/ens/avatar/parseAvatarRecord.js
-async function parseAvatarRecord(client, { gatewayUrls, record }) {
+// ../viem/src/utils/ens/avatar/parseAvatarRecord.ts
+async function parseAvatarRecord(client, {
+  gatewayUrls,
+  record
+}) {
   if (/eip155:/i.test(record))
     return parseNftAvatarUri(client, { gatewayUrls, record });
   return parseAvatarUri({ uri: record, gatewayUrls });
 }
-async function parseNftAvatarUri(client, { gatewayUrls, record }) {
+async function parseNftAvatarUri(client, {
+  gatewayUrls,
+  record
+}) {
   const nft = parseNftUri(record);
   const nftUri = await getNftTokenUri(client, { nft });
-  const { uri: resolvedNftUri, isOnChain, isEncoded } = resolveAvatarUri({ uri: nftUri, gatewayUrls });
+  const {
+    uri: resolvedNftUri,
+    isOnChain,
+    isEncoded
+  } = resolveAvatarUri({ uri: nftUri, gatewayUrls });
   if (isOnChain && (resolvedNftUri.includes("data:application/json;base64,") || resolvedNftUri.startsWith("{"))) {
     const encodedJson = isEncoded ? atob(resolvedNftUri.replace("data:application/json;base64,", "")) : resolvedNftUri;
     const decoded = JSON.parse(encodedJson);
@@ -10214,7 +9747,7 @@ async function parseNftAvatarUri(client, { gatewayUrls, record }) {
   });
 }
 
-// ../viem/src/_esm/actions/ens/getEnsText.js
+// ../viem/src/actions/ens/getEnsText.ts
 init_abis();
 init_decodeFunctionResult();
 init_encodeFunctionData();
@@ -10274,8 +9807,16 @@ async function getEnsText(client, parameters) {
   }
 }
 
-// ../viem/src/_esm/actions/ens/getEnsAvatar.js
-async function getEnsAvatar(client, { blockNumber, blockTag, assetGatewayUrls, name, gatewayUrls, strict, universalResolverAddress }) {
+// ../viem/src/actions/ens/getEnsAvatar.ts
+async function getEnsAvatar(client, {
+  blockNumber,
+  blockTag,
+  assetGatewayUrls,
+  name,
+  gatewayUrls,
+  strict,
+  universalResolverAddress
+}) {
   const record = await getAction(client, getEnsText, "getEnsText")({
     blockNumber,
     blockTag,
@@ -10297,12 +9838,19 @@ async function getEnsAvatar(client, { blockNumber, blockTag, assetGatewayUrls, n
   }
 }
 
-// ../viem/src/_esm/actions/ens/getEnsName.js
+// ../viem/src/actions/ens/getEnsName.ts
 init_abis();
 init_getChainContractAddress();
 init_localBatchGatewayRequest();
 async function getEnsName(client, parameters) {
-  const { address, blockNumber, blockTag, coinType = 60n, gatewayUrls, strict } = parameters;
+  const {
+    address,
+    blockNumber,
+    blockTag,
+    coinType = 60n,
+    gatewayUrls,
+    strict
+  } = parameters;
   const { chain } = client;
   const universalResolverAddress = (() => {
     if (parameters.universalResolverAddress)
@@ -10336,7 +9884,7 @@ async function getEnsName(client, parameters) {
   }
 }
 
-// ../viem/src/_esm/actions/ens/getEnsResolver.js
+// ../viem/src/actions/ens/getEnsResolver.ts
 init_getChainContractAddress();
 init_toHex();
 async function getEnsResolver(client, parameters) {
@@ -10379,17 +9927,31 @@ async function getEnsResolver(client, parameters) {
   return resolverAddress;
 }
 
-// ../viem/src/_esm/clients/decorators/public.js
+// ../viem/src/clients/decorators/public.ts
 init_call();
 
-// ../viem/src/_esm/actions/public/createAccessList.js
+// ../viem/src/actions/public/createAccessList.ts
 init_base();
 init_toHex();
 init_getCallError();
 init_transactionRequest();
 init_assertRequest();
 async function createAccessList(client, args) {
-  const { account: account_ = client.account, blockNumber, blockTag = "latest", blobs, data, gas, gasPrice, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, to, value, ...rest } = args;
+  const {
+    account: account_ = client.account,
+    blockNumber,
+    blockTag = "latest",
+    blobs,
+    data,
+    gas,
+    gasPrice,
+    maxFeePerBlobGas,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    to,
+    value,
+    ...rest
+  } = args;
   const account = account_ ? parseAccount(account_) : undefined;
   try {
     assertRequest(args);
@@ -10429,18 +9991,23 @@ async function createAccessList(client, args) {
   }
 }
 
-// ../viem/src/_esm/utils/filters/createFilterRequestScope.js
+// ../viem/src/utils/filters/createFilterRequestScope.ts
 function createFilterRequestScope(client, { method }) {
   const requestMap = {};
   if (client.transport.type === "fallback")
-    client.transport.onResponse?.(({ method: method_, response: id, status, transport }) => {
+    client.transport.onResponse?.(({
+      method: method_,
+      response: id,
+      status,
+      transport
+    }) => {
       if (status === "success" && method === method_)
         requestMap[id] = transport.request;
     });
   return (id) => requestMap[id] || client.request;
 }
 
-// ../viem/src/_esm/actions/public/createBlockFilter.js
+// ../viem/src/actions/public/createBlockFilter.ts
 async function createBlockFilter(client) {
   const getRequest = createFilterRequestScope(client, {
     method: "eth_newBlockFilter"
@@ -10451,10 +10018,10 @@ async function createBlockFilter(client) {
   return { id, request: getRequest(id), type: "block" };
 }
 
-// ../viem/src/_esm/utils/abi/encodeEventTopics.js
+// ../viem/src/utils/abi/encodeEventTopics.ts
 init_abi();
 
-// ../viem/src/_esm/errors/log.js
+// ../viem/src/errors/log.ts
 init_base();
 
 class FilterTypeNotSupportedError extends BaseError2 {
@@ -10465,7 +10032,7 @@ class FilterTypeNotSupportedError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/utils/abi/encodeEventTopics.js
+// ../viem/src/utils/abi/encodeEventTopics.ts
 init_toBytes();
 init_keccak256();
 init_toEventSelector();
@@ -10502,7 +10069,10 @@ function encodeEventTopics(parameters) {
   const signature = toEventSelector(definition);
   return [signature, ...topics];
 }
-function encodeArg({ param, value }) {
+function encodeArg({
+  param,
+  value
+}) {
   if (param.type === "string" || param.type === "bytes")
     return keccak256(toBytes(value));
   if (param.type === "tuple" || param.type.match(/^(.*)\[(\d+)?\]$/))
@@ -10510,7 +10080,7 @@ function encodeArg({ param, value }) {
   return encodeAbiParameters([param], [value]);
 }
 
-// ../viem/src/_esm/actions/public/createContractEventFilter.js
+// ../viem/src/actions/public/createContractEventFilter.ts
 init_toHex();
 async function createContractEventFilter(client, parameters) {
   const { address, abi, args, eventName, fromBlock, strict, toBlock } = parameters;
@@ -10544,9 +10114,17 @@ async function createContractEventFilter(client, parameters) {
   };
 }
 
-// ../viem/src/_esm/actions/public/createEventFilter.js
+// ../viem/src/actions/public/createEventFilter.ts
 init_toHex();
-async function createEventFilter(client, { address, args, event, events: events_, fromBlock, strict, toBlock } = {}) {
+async function createEventFilter(client, {
+  address,
+  args,
+  event,
+  events: events_,
+  fromBlock,
+  strict,
+  toBlock
+} = {}) {
   const events = events_ ?? (event ? [event] : undefined);
   const getRequest = createFilterRequestScope(client, {
     method: "eth_newFilter"
@@ -10586,7 +10164,7 @@ async function createEventFilter(client, { address, args, event, events: events_
   };
 }
 
-// ../viem/src/_esm/actions/public/createPendingTransactionFilter.js
+// ../viem/src/actions/public/createPendingTransactionFilter.ts
 async function createPendingTransactionFilter(client) {
   const getRequest = createFilterRequestScope(client, {
     method: "eth_newPendingTransactionFilter"
@@ -10597,13 +10175,13 @@ async function createPendingTransactionFilter(client) {
   return { id, request: getRequest(id), type: "transaction" };
 }
 
-// ../viem/src/_esm/actions/public/estimateContractGas.js
+// ../viem/src/actions/public/estimateContractGas.ts
 init_encodeFunctionData();
 
-// ../viem/src/_esm/actions/public/estimateGas.js
+// ../viem/src/actions/public/estimateGas.ts
 init_base();
 
-// ../viem/src/_esm/accounts/utils/publicKeyToAddress.js
+// ../viem/src/accounts/utils/publicKeyToAddress.ts
 init_getAddress();
 init_keccak256();
 function publicKeyToAddress(publicKey) {
@@ -10611,11 +10189,14 @@ function publicKeyToAddress(publicKey) {
   return checksumAddress(`0x${address}`);
 }
 
-// ../viem/src/_esm/utils/signature/recoverPublicKey.js
+// ../viem/src/utils/signature/recoverPublicKey.ts
 init_size();
 init_fromHex();
 init_toHex();
-async function recoverPublicKey({ hash: hash2, signature }) {
+async function recoverPublicKey({
+  hash: hash2,
+  signature
+}) {
   const hashHex = isHex(hash2) ? hash2 : toHex(hash2);
   const { secp256k1: secp256k12 } = await Promise.resolve().then(() => (init_secp256k1(), exports_secp256k1));
   const signature_ = (() => {
@@ -10645,16 +10226,19 @@ function toRecoveryBit(yParityOrV) {
   throw new Error("Invalid yParityOrV value");
 }
 
-// ../viem/src/_esm/utils/signature/recoverAddress.js
-async function recoverAddress({ hash: hash2, signature }) {
+// ../viem/src/utils/signature/recoverAddress.ts
+async function recoverAddress({
+  hash: hash2,
+  signature
+}) {
   return publicKeyToAddress(await recoverPublicKey({ hash: hash2, signature }));
 }
 
-// ../viem/src/_esm/utils/authorization/hashAuthorization.js
+// ../viem/src/utils/authorization/hashAuthorization.ts
 init_toBytes();
 init_toHex();
 
-// ../viem/src/_esm/utils/encoding/toRlp.js
+// ../viem/src/utils/encoding/toRlp.ts
 init_base();
 init_cursor2();
 init_toBytes();
@@ -10747,7 +10331,7 @@ function getSizeOfLength(length) {
   throw new BaseError2("Length is too large.");
 }
 
-// ../viem/src/_esm/utils/authorization/hashAuthorization.js
+// ../viem/src/utils/authorization/hashAuthorization.ts
 init_keccak256();
 function hashAuthorization(parameters) {
   const { chainId, nonce, to } = parameters;
@@ -10765,7 +10349,7 @@ function hashAuthorization(parameters) {
   return hash2;
 }
 
-// ../viem/src/_esm/utils/authorization/recoverAuthorizationAddress.js
+// ../viem/src/utils/authorization/recoverAuthorizationAddress.ts
 async function recoverAuthorizationAddress(parameters) {
   const { authorization, signature } = parameters;
   return recoverAddress({
@@ -10774,17 +10358,30 @@ async function recoverAuthorizationAddress(parameters) {
   });
 }
 
-// ../viem/src/_esm/actions/public/estimateGas.js
+// ../viem/src/actions/public/estimateGas.ts
 init_toHex();
 
-// ../viem/src/_esm/errors/estimateGas.js
+// ../viem/src/errors/estimateGas.ts
 init_formatEther();
 init_formatGwei();
 init_base();
 init_transaction();
 
 class EstimateGasExecutionError extends BaseError2 {
-  constructor(cause, { account, docsPath: docsPath7, chain, data, gas, gasPrice, maxFeePerGas, maxPriorityFeePerGas, nonce, to, value }) {
+  cause;
+  constructor(cause, {
+    account,
+    docsPath: docsPath7,
+    chain,
+    data,
+    gas,
+    gasPrice,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    nonce,
+    to,
+    value
+  }) {
     const prettyArgs = prettyPrint({
       from: account?.address,
       to,
@@ -10806,20 +10403,17 @@ class EstimateGasExecutionError extends BaseError2 {
       ].filter(Boolean),
       name: "EstimateGasExecutionError"
     });
-    Object.defineProperty(this, "cause", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: undefined
-    });
     this.cause = cause;
   }
 }
 
-// ../viem/src/_esm/utils/errors/getEstimateGasError.js
+// ../viem/src/utils/errors/getEstimateGasError.ts
 init_node();
 init_getNodeError();
-function getEstimateGasError(err, { docsPath: docsPath7, ...args }) {
+function getEstimateGasError(err, {
+  docsPath: docsPath7,
+  ...args
+}) {
   const cause = (() => {
     const cause2 = getNodeError(err, args);
     if (cause2 instanceof UnknownNodeError)
@@ -10832,11 +10426,11 @@ function getEstimateGasError(err, { docsPath: docsPath7, ...args }) {
   });
 }
 
-// ../viem/src/_esm/actions/public/estimateGas.js
+// ../viem/src/actions/public/estimateGas.ts
 init_transactionRequest();
 init_stateOverride2();
 init_assertRequest();
-// ../viem/src/_esm/errors/fee.js
+// ../viem/src/errors/fee.ts
 init_formatGwei();
 init_base();
 
@@ -10862,14 +10456,17 @@ class MaxFeePerGasTooLowError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/actions/public/estimateMaxPriorityFeePerGas.js
+// ../viem/src/actions/public/estimateMaxPriorityFeePerGas.ts
 init_fromHex();
 
-// ../viem/src/_esm/errors/block.js
+// ../viem/src/errors/block.ts
 init_base();
 
 class BlockNotFoundError extends BaseError2 {
-  constructor({ blockHash, blockNumber }) {
+  constructor({
+    blockHash,
+    blockNumber
+  }) {
     let identifier = "Block";
     if (blockHash)
       identifier = `Block at hash "${blockHash}"`;
@@ -10879,10 +10476,10 @@ class BlockNotFoundError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/actions/public/getBlock.js
+// ../viem/src/actions/public/getBlock.ts
 init_toHex();
 
-// ../viem/src/_esm/utils/formatters/transaction.js
+// ../viem/src/utils/formatters/transaction.ts
 init_fromHex();
 var transactionType = {
   "0x0": "legacy",
@@ -10956,7 +10553,7 @@ function formatAuthorizationList2(authorizationList) {
   }));
 }
 
-// ../viem/src/_esm/utils/formatters/block.js
+// ../viem/src/utils/formatters/block.ts
 function formatBlock(block, _) {
   const transactions = (block.transactions ?? []).map((transaction) => {
     if (typeof transaction === "string")
@@ -10982,8 +10579,13 @@ function formatBlock(block, _) {
   };
 }
 
-// ../viem/src/_esm/actions/public/getBlock.js
-async function getBlock(client, { blockHash, blockNumber, blockTag = client.experimental_blockTag ?? "latest", includeTransactions: includeTransactions_ } = {}) {
+// ../viem/src/actions/public/getBlock.ts
+async function getBlock(client, {
+  blockHash,
+  blockNumber,
+  blockTag = client.experimental_blockTag ?? "latest",
+  includeTransactions: includeTransactions_
+} = {}) {
   const includeTransactions = includeTransactions_ ?? false;
   const blockNumberHex = blockNumber !== undefined ? numberToHex(blockNumber) : undefined;
   let block = null;
@@ -11004,7 +10606,7 @@ async function getBlock(client, { blockHash, blockNumber, blockTag = client.expe
   return format2(block, "getBlock");
 }
 
-// ../viem/src/_esm/actions/public/getGasPrice.js
+// ../viem/src/actions/public/getGasPrice.ts
 async function getGasPrice(client) {
   const gasPrice = await client.request({
     method: "eth_gasPrice"
@@ -11012,7 +10614,7 @@ async function getGasPrice(client) {
   return BigInt(gasPrice);
 }
 
-// ../viem/src/_esm/actions/public/estimateMaxPriorityFeePerGas.js
+// ../viem/src/actions/public/estimateMaxPriorityFeePerGas.ts
 async function estimateMaxPriorityFeePerGas(client, args) {
   return internal_estimateMaxPriorityFeePerGas(client, args);
 }
@@ -11051,12 +10653,17 @@ async function internal_estimateMaxPriorityFeePerGas(client, args) {
   }
 }
 
-// ../viem/src/_esm/actions/public/estimateFeesPerGas.js
+// ../viem/src/actions/public/estimateFeesPerGas.ts
 async function estimateFeesPerGas(client, args) {
   return internal_estimateFeesPerGas(client, args);
 }
 async function internal_estimateFeesPerGas(client, args) {
-  const { block: block_, chain = client.chain, request, type = "eip1559" } = args || {};
+  const {
+    block: block_,
+    chain = client.chain,
+    request,
+    type = "eip1559"
+  } = args || {};
   const baseFeeMultiplier = await (async () => {
     if (typeof chain?.fees?.baseFeeMultiplier === "function")
       return chain.fees.baseFeeMultiplier({
@@ -11104,10 +10711,16 @@ async function internal_estimateFeesPerGas(client, args) {
   };
 }
 
-// ../viem/src/_esm/actions/public/getTransactionCount.js
+// ../viem/src/actions/public/getTransactionCount.ts
 init_formatBlockParameter();
 init_fromHex();
-async function getTransactionCount(client, { address, blockHash, blockNumber, blockTag = "latest", requireCanonical }) {
+async function getTransactionCount(client, {
+  address,
+  blockHash,
+  blockNumber,
+  blockTag = "latest",
+  requireCanonical
+}) {
   const block = formatBlockParameter({
     blockHash,
     blockNumber,
@@ -11123,10 +10736,10 @@ async function getTransactionCount(client, { address, blockHash, blockNumber, bl
   return hexToNumber(count);
 }
 
-// ../viem/src/_esm/actions/wallet/prepareTransactionRequest.js
+// ../viem/src/actions/wallet/prepareTransactionRequest.ts
 init_transaction();
 
-// ../viem/src/_esm/utils/blob/blobsToCommitments.js
+// ../viem/src/utils/blob/blobsToCommitments.ts
 init_toBytes();
 init_toHex();
 function blobsToCommitments(parameters) {
@@ -11139,7 +10752,7 @@ function blobsToCommitments(parameters) {
   return to === "bytes" ? commitments : commitments.map((x) => bytesToHex(x));
 }
 
-// ../viem/src/_esm/utils/blob/blobsToProofs.js
+// ../viem/src/utils/blob/blobsToProofs.ts
 init_toBytes();
 init_toHex();
 function blobsToProofs(parameters) {
@@ -11156,14 +10769,14 @@ function blobsToProofs(parameters) {
   return to === "bytes" ? proofs : proofs.map((x) => bytesToHex(x));
 }
 
-// ../viem/src/_esm/utils/blob/commitmentToVersionedHash.js
+// ../viem/src/utils/blob/commitmentToVersionedHash.ts
 init_toHex();
 
 // ../viem/node_modules/.pnpm/@noble+hashes@1.8.0/node_modules/@noble/hashes/esm/sha256.js
 init_sha2();
 var sha2562 = sha256;
 
-// ../viem/src/_esm/utils/hash/sha256.js
+// ../viem/src/utils/hash/sha256.ts
 init_toBytes();
 init_toHex();
 function sha2563(value, to_) {
@@ -11174,7 +10787,7 @@ function sha2563(value, to_) {
   return toHex(bytes);
 }
 
-// ../viem/src/_esm/utils/blob/commitmentToVersionedHash.js
+// ../viem/src/utils/blob/commitmentToVersionedHash.ts
 function commitmentToVersionedHash(parameters) {
   const { commitment, version: version4 = 1 } = parameters;
   const to = parameters.to ?? (typeof commitment === "string" ? "hex" : "bytes");
@@ -11183,7 +10796,7 @@ function commitmentToVersionedHash(parameters) {
   return to === "bytes" ? versionedHash : bytesToHex(versionedHash);
 }
 
-// ../viem/src/_esm/utils/blob/commitmentsToVersionedHashes.js
+// ../viem/src/utils/blob/commitmentsToVersionedHashes.ts
 function commitmentsToVersionedHashes(parameters) {
   const { commitments, version: version4 } = parameters;
   const to = parameters.to ?? (typeof commitments[0] === "string" ? "hex" : "bytes");
@@ -11198,17 +10811,17 @@ function commitmentsToVersionedHashes(parameters) {
   return hashes;
 }
 
-// ../viem/src/_esm/constants/blob.js
+// ../viem/src/constants/blob.ts
 var blobsPerTransaction = 6;
 var bytesPerFieldElement = 32;
 var fieldElementsPerBlob = 4096;
 var bytesPerBlob = bytesPerFieldElement * fieldElementsPerBlob;
 var maxBytesPerTransaction = bytesPerBlob * blobsPerTransaction - 1 - 1 * fieldElementsPerBlob * blobsPerTransaction;
 
-// ../viem/src/_esm/constants/kzg.js
+// ../viem/src/constants/kzg.ts
 var versionedHashVersionKzg = 1;
 
-// ../viem/src/_esm/errors/blob.js
+// ../viem/src/errors/blob.ts
 init_base();
 
 class BlobSizeTooLargeError extends BaseError2 {
@@ -11227,7 +10840,10 @@ class EmptyBlobError extends BaseError2 {
 }
 
 class InvalidVersionedHashSizeError extends BaseError2 {
-  constructor({ hash: hash2, size: size5 }) {
+  constructor({
+    hash: hash2,
+    size: size5
+  }) {
     super(`Versioned hash "${hash2}" size is invalid.`, {
       metaMessages: ["Expected: 32", `Received: ${size5}`],
       name: "InvalidVersionedHashSizeError"
@@ -11236,7 +10852,10 @@ class InvalidVersionedHashSizeError extends BaseError2 {
 }
 
 class InvalidVersionedHashVersionError extends BaseError2 {
-  constructor({ hash: hash2, version: version4 }) {
+  constructor({
+    hash: hash2,
+    version: version4
+  }) {
     super(`Versioned hash "${hash2}" version is invalid.`, {
       metaMessages: [
         `Expected: ${versionedHashVersionKzg}`,
@@ -11247,7 +10866,7 @@ class InvalidVersionedHashVersionError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/utils/blob/toBlobs.js
+// ../viem/src/utils/blob/toBlobs.ts
 init_cursor2();
 init_size();
 init_toBytes();
@@ -11286,7 +10905,7 @@ function toBlobs(parameters) {
   return to === "bytes" ? blobs.map((x) => x.bytes) : blobs.map((x) => bytesToHex(x.bytes));
 }
 
-// ../viem/src/_esm/utils/blob/toBlobSidecars.js
+// ../viem/src/utils/blob/toBlobSidecars.ts
 function toBlobSidecars(parameters) {
   const { data, kzg, to } = parameters;
   const blobs = parameters.blobs ?? toBlobs({ data, to });
@@ -11302,11 +10921,11 @@ function toBlobSidecars(parameters) {
   return sidecars;
 }
 
-// ../viem/src/_esm/actions/wallet/prepareTransactionRequest.js
+// ../viem/src/actions/wallet/prepareTransactionRequest.ts
 init_lru();
 init_assertRequest();
 
-// ../viem/src/_esm/utils/transaction/getTransactionType.js
+// ../viem/src/utils/transaction/getTransactionType.ts
 init_transaction();
 function getTransactionType(transaction) {
   if (transaction.type)
@@ -11325,10 +10944,10 @@ function getTransactionType(transaction) {
   }
   throw new InvalidSerializableTransactionError({ transaction });
 }
-// ../viem/src/_esm/actions/public/fillTransaction.js
+// ../viem/src/actions/public/fillTransaction.ts
 init_transaction();
 
-// ../viem/src/_esm/utils/errors/getTransactionError.js
+// ../viem/src/utils/errors/getTransactionError.ts
 init_node();
 init_transaction();
 init_getNodeError();
@@ -11344,11 +10963,11 @@ function getTransactionError(err, { docsPath: docsPath7, ...args }) {
     ...args
   });
 }
-// ../viem/src/_esm/actions/public/fillTransaction.js
+// ../viem/src/actions/public/fillTransaction.ts
 init_transactionRequest();
 init_assertRequest();
 
-// ../viem/src/_esm/actions/public/getChainId.js
+// ../viem/src/actions/public/getChainId.ts
 init_fromHex();
 async function getChainId(client) {
   const chainIdHex = await client.request({
@@ -11357,9 +10976,28 @@ async function getChainId(client) {
   return hexToNumber(chainIdHex);
 }
 
-// ../viem/src/_esm/actions/public/fillTransaction.js
+// ../viem/src/actions/public/fillTransaction.ts
 async function fillTransaction(client, parameters) {
-  const { account = client.account, accessList, authorizationList, chain = client.chain, blobVersionedHashes, blobs, data, gas, gasPrice, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, nonce: nonce_, nonceManager, to, type, value, ...rest } = parameters;
+  const {
+    account = client.account,
+    accessList,
+    authorizationList,
+    chain = client.chain,
+    blobVersionedHashes,
+    blobs,
+    data,
+    gas,
+    gasPrice,
+    maxFeePerBlobGas,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    nonce: nonce_,
+    nonceManager,
+    to,
+    type,
+    value,
+    ...rest
+  } = parameters;
   const nonce = await (async () => {
     if (!account)
       return nonce_;
@@ -11467,7 +11105,7 @@ async function fillTransaction(client, parameters) {
   }
 }
 
-// ../viem/src/_esm/actions/wallet/prepareTransactionRequest.js
+// ../viem/src/actions/wallet/prepareTransactionRequest.ts
 var defaultParameters = [
   "blobVersionedHashes",
   "chainId",
@@ -11482,7 +11120,12 @@ async function prepareTransactionRequest(client, args) {
   let request = args;
   request.account ??= client.account;
   request.parameters ??= defaultParameters;
-  const { account: account_, chain = client.chain, nonceManager, parameters } = request;
+  const {
+    account: account_,
+    chain = client.chain,
+    nonceManager,
+    parameters
+  } = request;
   const prepareTransactionRequest2 = (() => {
     if (typeof chain?.prepareTransactionRequest === "function")
       return {
@@ -11548,7 +11191,18 @@ async function prepareTransactionRequest(client, args) {
     return false;
   })();
   const fillResult = attemptFill ? await getAction(client, fillTransaction, "fillTransaction")({ ...request, nonce }).then((result) => {
-    const { chainId: chainId2, from: from4, gas: gas2, gasPrice, nonce: nonce2, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, type: type2, ...rest } = result.transaction;
+    const {
+      chainId: chainId2,
+      from: from4,
+      gas: gas2,
+      gasPrice,
+      nonce: nonce2,
+      maxFeePerBlobGas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      type: type2,
+      ...rest
+    } = result.transaction;
     const feeToken = "feeToken" in rest ? rest.feeToken : undefined;
     const hasFilledFeePayerSignature = "feePayerSignature" in rest && rest.feePayerSignature !== null && typeof rest.feePayerSignature !== "undefined";
     const shouldUseFilledFeeToken = typeof feeToken !== "undefined" && feeToken !== null && (!("feeToken" in request) || hasFilledFeePayerSignature);
@@ -11698,7 +11352,7 @@ async function prepareTransactionRequest(client, args) {
   return request;
 }
 
-// ../viem/src/_esm/actions/public/estimateGas.js
+// ../viem/src/actions/public/estimateGas.ts
 async function estimateGas(client, args) {
   const { account: account_ = client.account, prepare = true } = args;
   const account = account_ ? parseAccount(account_) : undefined;
@@ -11721,7 +11375,24 @@ async function estimateGas(client, args) {
         });
       return;
     })();
-    const { accessList, authorizationList, blobs, blobVersionedHashes, blockNumber, blockTag, data, gas, gasPrice, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, nonce, value, stateOverride, ...rest } = prepare ? await prepareTransactionRequest(client, {
+    const {
+      accessList,
+      authorizationList,
+      blobs,
+      blobVersionedHashes,
+      blockNumber,
+      blockTag,
+      data,
+      gas,
+      gasPrice,
+      maxFeePerBlobGas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      value,
+      stateOverride,
+      ...rest
+    } = prepare ? await prepareTransactionRequest(client, {
       ...args,
       parameters,
       to
@@ -11767,9 +11438,16 @@ async function estimateGas(client, args) {
   }
 }
 
-// ../viem/src/_esm/actions/public/estimateContractGas.js
+// ../viem/src/actions/public/estimateContractGas.ts
 async function estimateContractGas(client, parameters) {
-  const { abi, address, args, functionName, dataSuffix = typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value, ...request } = parameters;
+  const {
+    abi,
+    address,
+    args,
+    functionName,
+    dataSuffix = typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value,
+    ...request
+  } = parameters;
   const data = encodeFunctionData({
     abi,
     args,
@@ -11795,13 +11473,19 @@ async function estimateContractGas(client, parameters) {
   }
 }
 
-// ../viem/src/_esm/actions/public/getBalance.js
+// ../viem/src/actions/public/getBalance.ts
 init_abis();
 init_decodeFunctionResult();
 init_encodeFunctionData();
 init_formatBlockParameter();
 init_call();
-async function getBalance(client, { address, blockHash, blockNumber, blockTag = client.experimental_blockTag ?? "latest", requireCanonical }) {
+async function getBalance(client, {
+  address,
+  blockHash,
+  blockNumber,
+  blockTag = client.experimental_blockTag ?? "latest",
+  requireCanonical
+}) {
   const block = formatBlockParameter({
     blockHash,
     blockNumber,
@@ -11837,7 +11521,7 @@ async function getBalance(client, { address, blockHash, blockNumber, blockTag = 
   return BigInt(balance);
 }
 
-// ../viem/src/_esm/actions/public/getBlobBaseFee.js
+// ../viem/src/actions/public/getBlobBaseFee.ts
 async function getBlobBaseFee(client) {
   const baseFee = await client.request({
     method: "eth_blobBaseFee"
@@ -11845,7 +11529,7 @@ async function getBlobBaseFee(client) {
   return BigInt(baseFee);
 }
 
-// ../viem/src/_esm/utils/promise/withCache.js
+// ../viem/src/utils/promise/withCache.ts
 var promiseCache = /* @__PURE__ */ new Map;
 var responseCache = /* @__PURE__ */ new Map;
 function getCache(cacheKey) {
@@ -11887,7 +11571,7 @@ async function withCache(fn, { cacheKey, cacheTime = Number.POSITIVE_INFINITY })
   }
 }
 
-// ../viem/src/_esm/actions/public/getBlockNumber.js
+// ../viem/src/actions/public/getBlockNumber.ts
 var cacheKey = (id) => `blockNumber.${id}`;
 async function getBlockNumber(client, { cacheTime = client.cacheTime } = {}) {
   const blockNumberHex = await withCache(() => client.request({
@@ -11896,14 +11580,17 @@ async function getBlockNumber(client, { cacheTime = client.cacheTime } = {}) {
   return BigInt(blockNumberHex);
 }
 
-// ../viem/src/_esm/actions/public/getBlockReceipts.js
+// ../viem/src/actions/public/getBlockReceipts.ts
 init_toHex();
 
-// ../viem/src/_esm/utils/formatters/transactionReceipt.js
+// ../viem/src/utils/formatters/transactionReceipt.ts
 init_fromHex();
 
-// ../viem/src/_esm/utils/formatters/log.js
-function formatLog(log, { args, eventName } = {}) {
+// ../viem/src/utils/formatters/log.ts
+function formatLog(log, {
+  args,
+  eventName
+} = {}) {
   return {
     ...log,
     blockHash: log.blockHash ? log.blockHash : null,
@@ -11916,7 +11603,7 @@ function formatLog(log, { args, eventName } = {}) {
   };
 }
 
-// ../viem/src/_esm/utils/formatters/transactionReceipt.js
+// ../viem/src/utils/formatters/transactionReceipt.ts
 var receiptStatuses = {
   "0x0": "reverted",
   "0x1": "success"
@@ -11941,10 +11628,13 @@ function formatTransactionReceipt(transactionReceipt, _) {
     receipt.blobGasUsed = BigInt(transactionReceipt.blobGasUsed);
   return receipt;
 }
-var defineTransactionReceipt = /* @__PURE__ */ defineFormatter("transactionReceipt", formatTransactionReceipt);
 
-// ../viem/src/_esm/actions/public/getBlockReceipts.js
-async function getBlockReceipts(client, { blockHash, blockNumber, blockTag = client.experimental_blockTag ?? "latest" } = {}) {
+// ../viem/src/actions/public/getBlockReceipts.ts
+async function getBlockReceipts(client, {
+  blockHash,
+  blockNumber,
+  blockTag = client.experimental_blockTag ?? "latest"
+} = {}) {
   const blockNumberHex = blockNumber !== undefined ? numberToHex(blockNumber) : undefined;
   const receipts = await client.request({
     method: "eth_getBlockReceipts",
@@ -11956,10 +11646,14 @@ async function getBlockReceipts(client, { blockHash, blockNumber, blockTag = cli
   return receipts.map((receipt) => format2(receipt, "getBlockReceipts"));
 }
 
-// ../viem/src/_esm/actions/public/getBlockTransactionCount.js
+// ../viem/src/actions/public/getBlockTransactionCount.ts
 init_fromHex();
 init_toHex();
-async function getBlockTransactionCount(client, { blockHash, blockNumber, blockTag = "latest" } = {}) {
+async function getBlockTransactionCount(client, {
+  blockHash,
+  blockNumber,
+  blockTag = "latest"
+} = {}) {
   const blockNumberHex = blockNumber !== undefined ? numberToHex(blockNumber) : undefined;
   let count;
   if (blockHash) {
@@ -11976,9 +11670,15 @@ async function getBlockTransactionCount(client, { blockHash, blockNumber, blockT
   return hexToNumber(count);
 }
 
-// ../viem/src/_esm/actions/public/getCode.js
+// ../viem/src/actions/public/getCode.ts
 init_formatBlockParameter();
-async function getCode(client, { address, blockHash, blockNumber, blockTag = "latest", requireCanonical }) {
+async function getCode(client, {
+  address,
+  blockHash,
+  blockNumber,
+  blockTag = "latest",
+  requireCanonical
+}) {
   const block = formatBlockParameter({
     blockHash,
     blockNumber,
@@ -11996,16 +11696,16 @@ async function getCode(client, { address, blockHash, blockNumber, blockTag = "la
   return hex;
 }
 
-// ../viem/src/_esm/actions/public/getContractEvents.js
+// ../viem/src/actions/public/getContractEvents.ts
 init_getAbiItem();
 
-// ../viem/src/_esm/utils/abi/parseEventLogs.js
+// ../viem/src/utils/abi/parseEventLogs.ts
 init_isAddressEqual();
 init_toBytes();
 init_keccak256();
 init_toEventSelector();
 
-// ../viem/src/_esm/utils/abi/decodeEventLog.js
+// ../viem/src/utils/abi/decodeEventLog.ts
 init_abi();
 init_cursor();
 init_size();
@@ -12014,7 +11714,12 @@ init_decodeAbiParameters();
 init_formatAbiItem2();
 var docsPath7 = "/docs/contract/decodeEventLog";
 function decodeEventLog(parameters) {
-  const { abi, data, strict: strict_, topics } = parameters;
+  const {
+    abi,
+    data,
+    strict: strict_,
+    topics
+  } = parameters;
   const strict = strict_ ?? true;
   const [signature, ...argTopics] = topics;
   if (!signature)
@@ -12098,7 +11803,7 @@ function decodeTopic({ param, value }) {
   return decodedArg[0];
 }
 
-// ../viem/src/_esm/utils/abi/parseEventLogs.js
+// ../viem/src/utils/abi/parseEventLogs.ts
 function parseEventLogs(parameters) {
   const { abi, args, logs, strict = true } = parameters;
   const eventName = (() => {
@@ -12202,9 +11907,18 @@ function includesArgs(parameters) {
   return false;
 }
 
-// ../viem/src/_esm/actions/public/getLogs.js
+// ../viem/src/actions/public/getLogs.ts
 init_toHex();
-async function getLogs(client, { address, blockHash, fromBlock, toBlock, event, events: events_, args, strict: strict_ } = {}) {
+async function getLogs(client, {
+  address,
+  blockHash,
+  fromBlock,
+  toBlock,
+  event,
+  events: events_,
+  args,
+  strict: strict_
+} = {}) {
   const strict = strict_ ?? false;
   const events = events_ ?? (event ? [event] : undefined);
   let topics = [];
@@ -12248,9 +11962,18 @@ async function getLogs(client, { address, blockHash, fromBlock, toBlock, event, 
   });
 }
 
-// ../viem/src/_esm/actions/public/getContractEvents.js
+// ../viem/src/actions/public/getContractEvents.ts
 async function getContractEvents(client, parameters) {
-  const { abi, address, args, blockHash, eventName, fromBlock, toBlock, strict } = parameters;
+  const {
+    abi,
+    address,
+    args,
+    blockHash,
+    eventName,
+    fromBlock,
+    toBlock,
+    strict
+  } = parameters;
   const event = eventName ? getAbiItem({ abi, name: eventName }) : undefined;
   const events = !event ? abi.filter((x) => x.type === "event") : undefined;
   return getAction(client, getLogs, "getLogs")({
@@ -12265,7 +11988,7 @@ async function getContractEvents(client, parameters) {
   });
 }
 
-// ../viem/src/_esm/actions/public/getDelegation.js
+// ../viem/src/actions/public/getDelegation.ts
 init_getAddress();
 init_size();
 init_slice();
@@ -12283,7 +12006,7 @@ async function getDelegation(client, { address, blockNumber, blockTag = "latest"
   return getAddress(slice(code, 3, 23));
 }
 
-// ../viem/src/_esm/errors/eip712.js
+// ../viem/src/errors/eip712.ts
 init_base();
 
 class Eip712DomainNotFoundError extends BaseError2 {
@@ -12300,11 +12023,19 @@ class Eip712DomainNotFoundError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/actions/public/getEip712Domain.js
+// ../viem/src/actions/public/getEip712Domain.ts
 async function getEip712Domain(client, parameters) {
   const { address, factory, factoryData } = parameters;
   try {
-    const [fields, name, version4, chainId, verifyingContract, salt, extensions] = await getAction(client, readContract, "readContract")({
+    const [
+      fields,
+      name,
+      version4,
+      chainId,
+      verifyingContract,
+      salt,
+      extensions
+    ] = await getAction(client, readContract, "readContract")({
       abi,
       address,
       functionName: "eip712Domain",
@@ -12348,10 +12079,10 @@ var abi = [
   }
 ];
 
-// ../viem/src/_esm/actions/public/getFeeHistory.js
+// ../viem/src/actions/public/getFeeHistory.ts
 init_toHex();
 
-// ../viem/src/_esm/utils/formatters/feeHistory.js
+// ../viem/src/utils/formatters/feeHistory.ts
 function formatFeeHistory(feeHistory) {
   return {
     baseFeePerGas: feeHistory.baseFeePerGas.map((value) => BigInt(value)),
@@ -12361,8 +12092,13 @@ function formatFeeHistory(feeHistory) {
   };
 }
 
-// ../viem/src/_esm/actions/public/getFeeHistory.js
-async function getFeeHistory(client, { blockCount, blockNumber, blockTag = "latest", rewardPercentiles }) {
+// ../viem/src/actions/public/getFeeHistory.ts
+async function getFeeHistory(client, {
+  blockCount,
+  blockNumber,
+  blockTag = "latest",
+  rewardPercentiles
+}) {
   const blockNumberHex = typeof blockNumber === "bigint" ? numberToHex(blockNumber) : undefined;
   const feeHistory = await client.request({
     method: "eth_feeHistory",
@@ -12375,8 +12111,10 @@ async function getFeeHistory(client, { blockCount, blockNumber, blockTag = "late
   return formatFeeHistory(feeHistory);
 }
 
-// ../viem/src/_esm/actions/public/getFilterChanges.js
-async function getFilterChanges(_client, { filter }) {
+// ../viem/src/actions/public/getFilterChanges.ts
+async function getFilterChanges(_client, {
+  filter
+}) {
   const strict = "strict" in filter && filter.strict;
   const logs = await filter.request({
     method: "eth_getFilterChanges",
@@ -12394,8 +12132,10 @@ async function getFilterChanges(_client, { filter }) {
   });
 }
 
-// ../viem/src/_esm/actions/public/getFilterLogs.js
-async function getFilterLogs(_client, { filter }) {
+// ../viem/src/actions/public/getFilterLogs.ts
+async function getFilterLogs(_client, {
+  filter
+}) {
   const strict = filter.strict ?? false;
   const logs = await filter.request({
     method: "eth_getFilterLogs",
@@ -12411,17 +12151,14 @@ async function getFilterLogs(_client, { filter }) {
   });
 }
 
-// ../viem/src/_esm/actions/public/getProof.js
+// ../viem/src/actions/public/getProof.ts
 init_formatBlockParameter();
 
-// ../viem/src/_esm/utils/index.js
+// ../viem/src/utils/index.ts
 init_encodeFunctionData();
-init_pad();
 init_fromHex();
-init_toHex();
-init_formatGwei();
 
-// ../viem/src/_esm/utils/formatters/proof.js
+// ../viem/src/utils/formatters/proof.ts
 function formatStorageProof(storageProof) {
   return storageProof.map((proof) => ({
     ...proof,
@@ -12437,8 +12174,15 @@ function formatProof(proof) {
   };
 }
 
-// ../viem/src/_esm/actions/public/getProof.js
-async function getProof(client, { address, blockHash, blockNumber, blockTag = "latest", requireCanonical, storageKeys }) {
+// ../viem/src/actions/public/getProof.ts
+async function getProof(client, {
+  address,
+  blockHash,
+  blockNumber,
+  blockTag = "latest",
+  requireCanonical,
+  storageKeys
+}) {
   const block = formatBlockParameter({
     blockHash,
     blockNumber,
@@ -12452,7 +12196,7 @@ async function getProof(client, { address, blockHash, blockNumber, blockTag = "l
   return formatProof(proof);
 }
 
-// ../viem/src/_esm/actions/public/getRawTransaction.js
+// ../viem/src/actions/public/getRawTransaction.ts
 init_transaction();
 async function getRawTransaction(client, { hash: hash2 }) {
   const rawTransaction = await client.request({
@@ -12464,9 +12208,16 @@ async function getRawTransaction(client, { hash: hash2 }) {
   return rawTransaction;
 }
 
-// ../viem/src/_esm/actions/public/getStorageAt.js
+// ../viem/src/actions/public/getStorageAt.ts
 init_formatBlockParameter();
-async function getStorageAt(client, { address, blockHash, blockNumber, blockTag = "latest", requireCanonical, slot }) {
+async function getStorageAt(client, {
+  address,
+  blockHash,
+  blockNumber,
+  blockTag = "latest",
+  requireCanonical,
+  slot
+}) {
   const block = formatBlockParameter({
     blockHash,
     blockNumber,
@@ -12480,10 +12231,18 @@ async function getStorageAt(client, { address, blockHash, blockNumber, blockTag 
   return data;
 }
 
-// ../viem/src/_esm/actions/public/getTransaction.js
+// ../viem/src/actions/public/getTransaction.ts
 init_transaction();
 init_toHex();
-async function getTransaction(client, { blockHash, blockNumber, blockTag: blockTag_, hash: hash2, index: index2, sender, nonce }) {
+async function getTransaction(client, {
+  blockHash,
+  blockNumber,
+  blockTag: blockTag_,
+  hash: hash2,
+  index: index2,
+  sender,
+  nonce
+}) {
   const blockTag = blockTag_ || "latest";
   const blockNumberHex = blockNumber !== undefined ? numberToHex(blockNumber) : undefined;
   let transaction = null;
@@ -12550,7 +12309,7 @@ async function getTransaction(client, { blockHash, blockNumber, blockTag: blockT
   return format2(transaction, "getTransaction");
 }
 
-// ../viem/src/_esm/actions/public/getTransactionConfirmations.js
+// ../viem/src/actions/public/getTransactionConfirmations.ts
 async function getTransactionConfirmations(client, { hash: hash2, transactionReceipt }) {
   const [blockNumber, transaction] = await Promise.all([
     getAction(client, getBlockNumber, "getBlockNumber")({}),
@@ -12562,7 +12321,7 @@ async function getTransactionConfirmations(client, { hash: hash2, transactionRec
   return blockNumber - transactionBlockNumber + 1n;
 }
 
-// ../viem/src/_esm/actions/public/getTransactionReceipt.js
+// ../viem/src/actions/public/getTransactionReceipt.ts
 init_transaction();
 async function getTransactionReceipt(client, { hash: hash2 }) {
   const receipt = await client.request({
@@ -12575,7 +12334,7 @@ async function getTransactionReceipt(client, { hash: hash2 }) {
   return format2(receipt, "getTransactionReceipt");
 }
 
-// ../viem/src/_esm/actions/public/multicall.js
+// ../viem/src/actions/public/multicall.ts
 init_abis();
 init_abi();
 init_base();
@@ -12585,7 +12344,17 @@ init_encodeFunctionData();
 init_getChainContractAddress();
 init_createBatchScheduler();
 async function multicall(client, parameters) {
-  const { account, authorizationList, allowFailure = true, blockHash, blockNumber, blockOverrides, blockTag, requireCanonical, stateOverride } = parameters;
+  const {
+    account,
+    authorizationList,
+    allowFailure = true,
+    blockHash,
+    blockNumber,
+    blockOverrides,
+    blockTag,
+    requireCanonical,
+    stateOverride
+  } = parameters;
   const contracts = parameters.contracts;
   const batch = typeof client.batch?.multicall === "object" ? client.batch.multicall : {};
   const batchSize = parameters.batchSize ?? batch.batchSize ?? 1024;
@@ -12752,7 +12521,7 @@ async function scheduleMulticall2(client, parameters) {
   return result;
 }
 
-// ../viem/src/_esm/actions/public/simulateBlocks.js
+// ../viem/src/actions/public/simulateBlocks.ts
 init_BlockOverrides();
 init_abi();
 init_contract();
@@ -12765,7 +12534,14 @@ init_transactionRequest();
 init_stateOverride2();
 init_assertRequest();
 async function simulateBlocks(client, parameters) {
-  const { blockNumber, blockTag = client.experimental_blockTag ?? "latest", blocks, returnFullTransactions, traceTransfers, validation } = parameters;
+  const {
+    blockNumber,
+    blockTag = client.experimental_blockTag ?? "latest",
+    blocks,
+    returnFullTransactions,
+    traceTransfers,
+    validation
+  } = parameters;
   try {
     const blockStateCalls = [];
     for (const block2 of blocks) {
@@ -12984,7 +12760,7 @@ function fromHex3(publicKey) {
     x
   };
 }
-function toHex2(publicKey, options = {}) {
+function toHex3(publicKey, options = {}) {
   assert3(publicKey);
   const { prefix, x, y } = publicKey;
   const { includePrefix = true } = options;
@@ -13110,7 +12886,7 @@ function from5(address, options = {}) {
   return address;
 }
 function fromPublicKey(publicKey, options = {}) {
-  const address = keccak2563(`0x${toHex2(publicKey).slice(4)}`).substring(26);
+  const address = keccak2563(`0x${toHex3(publicKey).slice(4)}`).substring(26);
   return from5(`0x${address}`, options);
 }
 function validate3(address, options = {}) {
@@ -14429,11 +14205,11 @@ function fromAbi3(abi2, name, options) {
 function getSelector3(abiItem) {
   return getSelector(abiItem);
 }
-// ../viem/src/_esm/constants/address.js
+// ../viem/src/constants/address.ts
 var ethAddress = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 var zeroAddress = "0x0000000000000000000000000000000000000000";
 
-// ../viem/src/_esm/actions/public/simulateCalls.js
+// ../viem/src/actions/public/simulateCalls.ts
 init_base();
 init_contract();
 init_node();
@@ -14450,7 +14226,15 @@ var tokenUriFunction = from10("function tokenURI(uint256) returns (string)");
 var symbolFunction = from10("function symbol() returns (string)");
 var staticCallFunction = from10("function query(address target, bytes data)");
 async function simulateCalls(client, parameters) {
-  const { blockNumber, blockTag, calls, stateOverrides, traceAssetChanges, traceTransfers, validation } = parameters;
+  const {
+    blockNumber,
+    blockTag,
+    calls,
+    stateOverrides,
+    traceAssetChanges,
+    traceTransfers,
+    validation
+  } = parameters;
   const account = parameters.account ? parseAccount(parameters.account) : undefined;
   if (traceAssetChanges && !account)
     throw new BaseError2("`account` is required when `traceAssetChanges` is true");
@@ -14572,7 +14356,13 @@ async function simulateCalls(client, parameters) {
     })
   ]);
   const block_results = blocks[0];
-  const [block_ethPost, block_assetsPost, block_decimals, block_tokenURI, block_symbols] = traceAssetChanges ? blocks.slice(1) : [];
+  const [
+    block_ethPost,
+    block_assetsPost,
+    block_decimals,
+    block_tokenURI,
+    block_symbols
+  ] = traceAssetChanges ? blocks.slice(1) : [];
   const { calls: block_calls, ...block } = block_results;
   const results = block_calls.slice(0, -1);
   const balancesPre = balanceCallsPre.map((call2) => isBalance(call2) ? hexToBigInt(call2.data) : null);
@@ -14649,7 +14439,15 @@ function decodeAssetResult(call2, abiFunction) {
   }
 }
 async function readBalance(client, parameters) {
-  const { account, address, blockNumber, blockTag, data, staticCallAddress, stateOverride } = parameters;
+  const {
+    account,
+    address,
+    blockNumber,
+    blockTag,
+    data,
+    staticCallAddress,
+    stateOverride
+  } = parameters;
   try {
     const result = await call({ ...client, ccipRead: false }, {
       account: address ? zeroAddress : account,
@@ -14676,12 +14474,19 @@ function getStaticCallAddress(addresses) {
   return `0x${value.toString(16).padStart(40, "0")}`;
 }
 
-// ../viem/src/_esm/actions/public/simulateContract.js
+// ../viem/src/actions/public/simulateContract.ts
 init_decodeFunctionResult();
 init_encodeFunctionData();
 init_call();
 async function simulateContract(client, parameters) {
-  const { abi: abi2, address, args, functionName, dataSuffix = typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value, ...callRequest } = parameters;
+  const {
+    abi: abi2,
+    address,
+    args,
+    functionName,
+    dataSuffix = typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value,
+    ...callRequest
+  } = parameters;
   const account = callRequest.account ? parseAccount(callRequest.account) : client.account;
   const calldata = encodeFunctionData({ abi: abi2, args, functionName });
   try {
@@ -14723,7 +14528,7 @@ async function simulateContract(client, parameters) {
   }
 }
 
-// ../viem/src/_esm/actions/public/uninstallFilter.js
+// ../viem/src/actions/public/uninstallFilter.ts
 async function uninstallFilter(_client, { filter }) {
   return filter.request({
     method: "eth_uninstallFilter",
@@ -15043,13 +14848,6 @@ function fromRpc2(signature) {
     yParity
   };
 }
-function toHex3(signature) {
-  assert6(signature);
-  const r = signature.r;
-  const s = signature.s;
-  const signature_ = concat2(fromNumber(r, { size: 32 }), fromNumber(s, { size: 32 }), typeof signature.yParity === "number" ? fromNumber(yParityToV(signature.yParity), { size: 1 }) : "0x");
-  return signature_;
-}
 function toTuple(signature) {
   const { r, s, yParity } = signature;
   return [
@@ -15067,14 +14865,6 @@ function vToYParity(v) {
     return v % 2 === 0 ? 1 : 0;
   throw new InvalidVError({ value: v });
 }
-function yParityToV(yParity) {
-  if (yParity === 0)
-    return 27;
-  if (yParity === 1)
-    return 28;
-  throw new InvalidYParityError({ value: yParity });
-}
-
 class InvalidSerializedSizeError2 extends BaseError3 {
   constructor({ signature }) {
     super(`Value \`${signature}\` is an invalid signature size.`, {
@@ -15197,11 +14987,6 @@ init_Hex();
 // ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/core/Secp256k1.js
 init_secp256k1();
 init_Hex();
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/core/internal/entropy.js
-var extraEntropy = false;
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/core/Secp256k1.js
 function recoverAddress3(options) {
   return fromPublicKey(recoverPublicKey3(options));
 }
@@ -15287,7 +15072,7 @@ class InvalidWrappedSignatureError2 extends BaseError3 {
     });
   }
 }
-// ../viem/src/_esm/actions/public/verifyHash.js
+// ../viem/src/actions/public/verifyHash.ts
 init_abis();
 init_contract();
 init_encodeDeployData();
@@ -15295,25 +15080,35 @@ init_encodeFunctionData();
 init_getAddress();
 init_isAddressEqual();
 
-// ../viem/src/_esm/utils/authorization/verifyAuthorization.js
+// ../viem/src/utils/authorization/verifyAuthorization.ts
 init_getAddress();
 init_isAddressEqual();
-async function verifyAuthorization2({ address, authorization, signature }) {
+async function verifyAuthorization2({
+  address,
+  authorization,
+  signature
+}) {
   return isAddressEqual(getAddress(address), await recoverAuthorizationAddress({
     authorization,
     signature
   }));
 }
 
-// ../viem/src/_esm/actions/public/verifyHash.js
+// ../viem/src/actions/public/verifyHash.ts
 init_fromHex();
 init_toHex();
 
-// ../viem/src/_esm/utils/signature/serializeSignature.js
+// ../viem/src/utils/signature/serializeSignature.ts
 init_secp256k1();
 init_fromHex();
 init_toBytes();
-function serializeSignature({ r, s, to = "hex", v, yParity }) {
+function serializeSignature({
+  r,
+  s,
+  to = "hex",
+  v,
+  yParity
+}) {
   const yParity_ = (() => {
     if (yParity === 0 || yParity === 1)
       return yParity;
@@ -15327,10 +15122,17 @@ function serializeSignature({ r, s, to = "hex", v, yParity }) {
   return hexToBytes(signature);
 }
 
-// ../viem/src/_esm/actions/public/verifyHash.js
+// ../viem/src/actions/public/verifyHash.ts
 init_call();
 async function verifyHash2(client, parameters) {
-  const { address, chain = client.chain, hash: hash3, erc6492VerifierAddress: verifierAddress = parameters.universalSignatureVerifierAddress ?? chain?.contracts?.erc6492Verifier?.address, multicallAddress = parameters.multicallAddress ?? chain?.contracts?.multicall3?.address, mode = "auto" } = parameters;
+  const {
+    address,
+    chain = client.chain,
+    hash: hash3,
+    erc6492VerifierAddress: verifierAddress = parameters.universalSignatureVerifierAddress ?? chain?.contracts?.erc6492Verifier?.address,
+    multicallAddress = parameters.multicallAddress ?? chain?.contracts?.multicall3?.address,
+    mode = "auto"
+  } = parameters;
   if (chain?.verifyHash)
     return await chain.verifyHash(client, parameters);
   const signature = (() => {
@@ -15375,8 +15177,21 @@ async function verifyHash2(client, parameters) {
   }
 }
 async function verifyErc8010(client, parameters) {
-  const { address, blockHash, blockNumber, blockTag, hash: hash3, multicallAddress, requireCanonical } = parameters;
-  const { authorization: authorization_ox, data: initData, signature, to } = exports_SignatureErc8010.unwrap(parameters.signature);
+  const {
+    address,
+    blockHash,
+    blockNumber,
+    blockTag,
+    hash: hash3,
+    multicallAddress,
+    requireCanonical
+  } = parameters;
+  const {
+    authorization: authorization_ox,
+    data: initData,
+    signature,
+    to
+  } = exports_SignatureErc8010.unwrap(parameters.signature);
   const code = await getCode(client, {
     address,
     blockHash,
@@ -15439,7 +15254,15 @@ async function verifyErc8010(client, parameters) {
   throw new VerificationError;
 }
 async function verifyErc6492(client, parameters) {
-  const { address, factory, factoryData, hash: hash3, signature, verifierAddress, ...rest } = parameters;
+  const {
+    address,
+    factory,
+    factoryData,
+    hash: hash3,
+    signature,
+    verifierAddress,
+    ...rest
+  } = parameters;
   const wrappedSignature = await (async () => {
     if (!factory && !factoryData)
       return signature;
@@ -15477,7 +15300,15 @@ async function verifyErc6492(client, parameters) {
   throw new VerificationError;
 }
 async function verifyErc1271(client, parameters) {
-  const { address, blockHash, blockNumber, blockTag, hash: hash3, requireCanonical, signature } = parameters;
+  const {
+    address,
+    blockHash,
+    blockNumber,
+    blockTag,
+    hash: hash3,
+    requireCanonical,
+    signature
+  } = parameters;
   const result = await getAction(client, readContract, "readContract")({
     address,
     abi: erc1271Abi,
@@ -15500,14 +15331,14 @@ async function verifyErc1271(client, parameters) {
 class VerificationError extends Error {
 }
 
-// ../viem/src/_esm/utils/signature/hashMessage.js
+// ../viem/src/utils/signature/hashMessage.ts
 init_keccak256();
 
-// ../viem/src/_esm/constants/strings.js
+// ../viem/src/constants/strings.ts
 var presignMessagePrefix = `\x19Ethereum Signed Message:
 `;
 
-// ../viem/src/_esm/utils/signature/toPrefixedMessage.js
+// ../viem/src/utils/signature/toPrefixedMessage.ts
 init_size();
 init_toHex();
 function toPrefixedMessage(message_) {
@@ -15522,13 +15353,20 @@ function toPrefixedMessage(message_) {
   return concat([prefix, message]);
 }
 
-// ../viem/src/_esm/utils/signature/hashMessage.js
+// ../viem/src/utils/signature/hashMessage.ts
 function hashMessage2(message, to_) {
   return keccak256(toPrefixedMessage(message), to_);
 }
 
-// ../viem/src/_esm/actions/public/verifyMessage.js
-async function verifyMessage2(client, { address, message, factory, factoryData, signature, ...callRequest }) {
+// ../viem/src/actions/public/verifyMessage.ts
+async function verifyMessage2(client, {
+  address,
+  message,
+  factory,
+  factoryData,
+  signature,
+  ...callRequest
+}) {
   const hash3 = hashMessage2(message);
   return getAction(client, verifyHash2, "verifyHash")({
     address,
@@ -15540,16 +15378,16 @@ async function verifyMessage2(client, { address, message, factory, factoryData, 
   });
 }
 
-// ../viem/src/_esm/utils/signature/hashTypedData.js
+// ../viem/src/utils/signature/hashTypedData.ts
 init_encodeAbiParameters();
 init_toHex();
 init_keccak256();
 
-// ../viem/src/_esm/utils/typedData.js
+// ../viem/src/utils/typedData.ts
 init_abi();
 init_address();
 
-// ../viem/src/_esm/errors/typedData.js
+// ../viem/src/errors/typedData.ts
 init_base();
 
 class InvalidDomainError extends BaseError2 {
@@ -15561,7 +15399,10 @@ class InvalidDomainError extends BaseError2 {
 }
 
 class InvalidPrimaryTypeError extends BaseError2 {
-  constructor({ primaryType, types }) {
+  constructor({
+    primaryType,
+    types
+  }) {
     super(`Invalid primary type \`${primaryType}\` must be one of \`${JSON.stringify(Object.keys(types))}\`.`, {
       docsPath: "/api/glossary/Errors#typeddatainvalidprimarytypeerror",
       metaMessages: ["Check that the primary type is a key in `types`."]
@@ -15588,36 +15429,11 @@ class InvalidTypedDataTypeError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/utils/typedData.js
+// ../viem/src/utils/typedData.ts
 init_isAddress();
 init_size();
 init_toHex();
 init_regex2();
-function serializeTypedData2(parameters) {
-  const { domain: domain_, message: message_, primaryType, types } = parameters;
-  const normalizeData = (struct, data_) => {
-    const data = { ...data_ };
-    for (const param of struct) {
-      const { name, type } = param;
-      if (type === "address")
-        data[name] = data[name].toLowerCase();
-    }
-    return data;
-  };
-  const domain = (() => {
-    if (!types.EIP712Domain)
-      return {};
-    if (!domain_)
-      return {};
-    return normalizeData(types.EIP712Domain, domain_);
-  })();
-  const message = (() => {
-    if (primaryType === "EIP712Domain")
-      return;
-    return normalizeData(types[primaryType], message_);
-  })();
-  return stringify({ domain, message, primaryType, types });
-}
 function validateTypedData2(parameters) {
   const { domain, message, primaryType, types } = parameters;
   const validateData = (struct, data) => {
@@ -15665,7 +15481,9 @@ function validateTypedData2(parameters) {
       throw new InvalidPrimaryTypeError({ primaryType, types });
   }
 }
-function getTypesForEIP712Domain({ domain }) {
+function getTypesForEIP712Domain({
+  domain
+}) {
   return [
     typeof domain?.name === "string" && { name: "name", type: "string" },
     domain?.version && { name: "version", type: "string" },
@@ -15685,9 +15503,13 @@ function validateReference(type) {
     throw new InvalidStructTypeError({ type });
 }
 
-// ../viem/src/_esm/utils/signature/hashTypedData.js
+// ../viem/src/utils/signature/hashTypedData.ts
 function hashTypedData2(parameters) {
-  const { domain = {}, message, primaryType } = parameters;
+  const {
+    domain = {},
+    message,
+    primaryType
+  } = parameters;
   const types = {
     EIP712Domain: getTypesForEIP712Domain({ domain }),
     ...parameters.types
@@ -15712,14 +15534,21 @@ function hashTypedData2(parameters) {
     }));
   return keccak256(concat(parts));
 }
-function hashDomain({ domain, types }) {
+function hashDomain({
+  domain,
+  types
+}) {
   return hashStruct2({
     data: domain,
     primaryType: "EIP712Domain",
     types
   });
 }
-function hashStruct2({ data, primaryType, types }) {
+function hashStruct2({
+  data,
+  primaryType,
+  types
+}) {
   const encoded = encodeData2({
     data,
     primaryType,
@@ -15727,7 +15556,11 @@ function hashStruct2({ data, primaryType, types }) {
   });
   return keccak256(encoded);
 }
-function encodeData2({ data, primaryType, types }) {
+function encodeData2({
+  data,
+  primaryType,
+  types
+}) {
   const encodedTypes = [{ type: "bytes32" }];
   const encodedValues = [hashType({ primaryType, types })];
   for (const field of types[primaryType]) {
@@ -15742,11 +15575,17 @@ function encodeData2({ data, primaryType, types }) {
   }
   return encodeAbiParameters(encodedTypes, encodedValues);
 }
-function hashType({ primaryType, types }) {
+function hashType({
+  primaryType,
+  types
+}) {
   const encodedHashType = toHex(encodeType({ primaryType, types }));
   return keccak256(encodedHashType);
 }
-function encodeType({ primaryType, types }) {
+function encodeType({
+  primaryType,
+  types
+}) {
   let result = "";
   const unsortedDeps = findTypeDependencies({ primaryType, types });
   unsortedDeps.delete(primaryType);
@@ -15756,7 +15595,10 @@ function encodeType({ primaryType, types }) {
   }
   return result;
 }
-function findTypeDependencies({ primaryType: primaryType_, types }, results = new Set) {
+function findTypeDependencies({
+  primaryType: primaryType_,
+  types
+}, results = new Set) {
   const match = primaryType_.match(/^\w*/u);
   const primaryType = match?.[0];
   if (results.has(primaryType) || types[primaryType] === undefined) {
@@ -15768,7 +15610,12 @@ function findTypeDependencies({ primaryType: primaryType_, types }, results = ne
   }
   return results;
 }
-function encodeField({ types, name, type, value }) {
+function encodeField({
+  types,
+  name,
+  type,
+  value
+}) {
   if (types[type] !== undefined) {
     return [
       { type: "bytes32" },
@@ -15795,9 +15642,19 @@ function encodeField({ types, name, type, value }) {
   return [{ type }, value];
 }
 
-// ../viem/src/_esm/actions/public/verifyTypedData.js
+// ../viem/src/actions/public/verifyTypedData.ts
 async function verifyTypedData2(client, parameters) {
-  const { address, factory, factoryData, signature, message, primaryType, types, domain, ...callRequest } = parameters;
+  const {
+    address,
+    factory,
+    factoryData,
+    signature,
+    message,
+    primaryType,
+    types,
+    domain,
+    ...callRequest
+  } = parameters;
   const hash3 = hashTypedData2({ message, primaryType, types, domain });
   return getAction(client, verifyHash2, "verifyHash")({
     address,
@@ -15809,10 +15666,10 @@ async function verifyTypedData2(client, parameters) {
   });
 }
 
-// ../viem/src/_esm/actions/public/waitForTransactionReceipt.js
+// ../viem/src/actions/public/waitForTransactionReceipt.ts
 init_transaction();
 
-// ../viem/src/_esm/utils/observe.js
+// ../viem/src/utils/observe.ts
 var listenersCache = /* @__PURE__ */ new Map;
 var cleanupCache = /* @__PURE__ */ new Map;
 var callbackCount = 0;
@@ -15863,7 +15720,7 @@ function observe(observerId, callbacks, fn) {
     cleanupCache.set(observerId, cleanup);
   return unwatch;
 }
-// ../viem/src/_esm/utils/wait.js
+// ../viem/src/utils/wait.ts
 async function wait(time, { signal } = {}) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -15884,8 +15741,13 @@ async function wait(time, { signal } = {}) {
   });
 }
 
-// ../viem/src/_esm/utils/promise/withRetry.js
-function withRetry(fn, { delay: delay_ = 100, retryCount = 2, shouldRetry = () => true, signal } = {}) {
+// ../viem/src/utils/promise/withRetry.ts
+function withRetry(fn, {
+  delay: delay_ = 100,
+  retryCount = 2,
+  shouldRetry = () => true,
+  signal
+} = {}) {
   return new Promise((resolve, reject) => {
     const attemptRetry = async ({ count = 0 } = {}) => {
       if (signal?.aborted) {
@@ -15924,10 +15786,10 @@ function withRetry(fn, { delay: delay_ = 100, retryCount = 2, shouldRetry = () =
     attemptRetry().catch(reject);
   });
 }
-// ../viem/src/_esm/actions/public/watchBlockNumber.js
+// ../viem/src/actions/public/watchBlockNumber.ts
 init_fromHex();
 
-// ../viem/src/_esm/utils/poll.js
+// ../viem/src/utils/poll.ts
 function poll(fn, { emitOnBegin, initialWaitTime, interval }) {
   let active = true;
   const unwatch = () => active = false;
@@ -15949,8 +15811,15 @@ function poll(fn, { emitOnBegin, initialWaitTime, interval }) {
   watch();
   return unwatch;
 }
-// ../viem/src/_esm/actions/public/watchBlockNumber.js
-function watchBlockNumber(client, { emitOnBegin = false, emitMissed = false, onBlockNumber, onError, poll: poll_, pollingInterval = client.pollingInterval }) {
+// ../viem/src/actions/public/watchBlockNumber.ts
+function watchBlockNumber(client, {
+  emitOnBegin = false,
+  emitMissed = false,
+  onBlockNumber,
+  onError,
+  poll: poll_,
+  pollingInterval = client.pollingInterval
+}) {
   const enablePolling = (() => {
     if (typeof poll_ !== "undefined")
       return poll_;
@@ -16041,7 +15910,7 @@ function watchBlockNumber(client, { emitOnBegin = false, emitMissed = false, onB
   return enablePolling ? pollBlockNumber() : subscribeBlockNumber();
 }
 
-// ../viem/src/_esm/actions/public/waitForTransactionReceipt.js
+// ../viem/src/actions/public/waitForTransactionReceipt.ts
 async function waitForTransactionReceipt(client, parameters) {
   const {
     checkReplacement = client.chain?.supportsTransactionReplacementDetection ?? true,
@@ -16174,7 +16043,7 @@ async function waitForTransactionReceipt(client, parameters) {
   return promise;
 }
 
-// ../viem/src/_esm/actions/public/watchBlockHeaders.js
+// ../viem/src/actions/public/watchBlockHeaders.ts
 var blockFields = [
   "size",
   "totalDifficulty",
@@ -16182,7 +16051,10 @@ var blockFields = [
   "uncles",
   "withdrawals"
 ];
-function watchBlockHeaders(client, { onBlockHeader, onError }) {
+function watchBlockHeaders(client, {
+  onBlockHeader,
+  onError
+}) {
   let prevBlockHeader;
   const observerId = stringify(["watchBlockHeaders", client.uid]);
   return observe(observerId, { onBlockHeader, onError }, (emit) => {
@@ -16227,8 +16099,17 @@ function watchBlockHeaders(client, { onBlockHeader, onError }) {
     return () => unsubscribe();
   });
 }
-// ../viem/src/_esm/actions/public/watchBlocks.js
-function watchBlocks(client, { blockTag = client.experimental_blockTag ?? "latest", emitMissed = false, emitOnBegin = false, onBlock, onError, includeTransactions: includeTransactions_, poll: poll_, pollingInterval = client.pollingInterval }) {
+// ../viem/src/actions/public/watchBlocks.ts
+function watchBlocks(client, {
+  blockTag = client.experimental_blockTag ?? "latest",
+  emitMissed = false,
+  emitOnBegin = false,
+  onBlock,
+  onError,
+  includeTransactions: includeTransactions_,
+  poll: poll_,
+  pollingInterval = client.pollingInterval
+}) {
   const enablePolling = (() => {
     if (typeof poll_ !== "undefined")
       return poll_;
@@ -16341,11 +16222,23 @@ function watchBlocks(client, { blockTag = client.experimental_blockTag ?? "lates
   return enablePolling ? pollBlocks() : subscribeBlocks();
 }
 
-// ../viem/src/_esm/actions/public/watchContractEvent.js
+// ../viem/src/actions/public/watchContractEvent.ts
 init_abi();
 init_rpc();
 function watchContractEvent(client, parameters) {
-  const { abi: abi2, address, args, batch = true, eventName, fromBlock, onError, onLogs, poll: poll_, pollingInterval = client.pollingInterval, strict: strict_ } = parameters;
+  const {
+    abi: abi2,
+    address,
+    args,
+    batch = true,
+    eventName,
+    fromBlock,
+    onError,
+    onLogs,
+    poll: poll_,
+    pollingInterval = client.pollingInterval,
+    strict: strict_
+  } = parameters;
   const enablePolling = (() => {
     if (typeof poll_ !== "undefined")
       return poll_;
@@ -16517,10 +16410,22 @@ function watchContractEvent(client, parameters) {
   return enablePolling ? pollContractEvent() : subscribeContractEvent();
 }
 
-// ../viem/src/_esm/actions/public/watchEvent.js
+// ../viem/src/actions/public/watchEvent.ts
 init_abi();
 init_rpc();
-function watchEvent(client, { address, args, batch = true, event, events, fromBlock, onError, onLogs, poll: poll_, pollingInterval = client.pollingInterval, strict: strict_ }) {
+function watchEvent(client, {
+  address,
+  args,
+  batch = true,
+  event,
+  events,
+  fromBlock,
+  onError,
+  onLogs,
+  poll: poll_,
+  pollingInterval = client.pollingInterval,
+  strict: strict_
+}) {
   const enablePolling = (() => {
     if (typeof poll_ !== "undefined")
       return poll_;
@@ -16680,8 +16585,14 @@ function watchEvent(client, { address, args, batch = true, event, events, fromBl
   };
   return enablePolling ? pollEvent() : subscribeEvent();
 }
-// ../viem/src/_esm/actions/public/watchPendingTransactions.js
-function watchPendingTransactions(client, { batch = true, onError, onTransactions, poll: poll_, pollingInterval = client.pollingInterval }) {
+// ../viem/src/actions/public/watchPendingTransactions.ts
+function watchPendingTransactions(client, {
+  batch = true,
+  onError,
+  onTransactions,
+  poll: poll_,
+  pollingInterval = client.pollingInterval
+}) {
   const enablePolling = typeof poll_ !== "undefined" ? poll_ : client.transport.type !== "webSocket" && client.transport.type !== "ipc";
   const pollPendingTransactions = () => {
     const observerId = stringify([
@@ -16754,7 +16665,7 @@ function watchPendingTransactions(client, { batch = true, onError, onTransaction
   return enablePolling ? pollPendingTransactions() : subscribePendingTransactions();
 }
 
-// ../viem/src/_esm/utils/siwe/parseSiweMessage.js
+// ../viem/src/utils/siwe/parseSiweMessage.ts
 var siweDateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 function isValidSiweDateTime(value) {
   if (!siweDateTimeRegex.test(value))
@@ -16787,11 +16698,18 @@ function parseSiweMessage(message) {
 var prefixRegex = /^(?:(?<scheme>[a-zA-Z][a-zA-Z0-9+-.]*):\/\/)?(?<domain>[a-zA-Z0-9+-.]*(?::[0-9]{1,5})?) (?:wants you to sign in with your Ethereum account:\n)(?<address>0x[a-fA-F0-9]{40})\n\n(?:(?<statement>.*)\n\n)?/;
 var suffixRegex = /(?:URI: (?<uri>.+))\n(?:Version: (?<version>.+))\n(?:Chain ID: (?<chainId>\d+))\n(?:Nonce: (?<nonce>[a-zA-Z0-9]+))\n(?:Issued At: (?<issuedAt>.+))(?:\nExpiration Time: (?<expirationTime>.+))?(?:\nNot Before: (?<notBefore>.+))?(?:\nRequest ID: (?<requestId>.+))?/;
 
-// ../viem/src/_esm/utils/siwe/validateSiweMessage.js
+// ../viem/src/utils/siwe/validateSiweMessage.ts
 init_isAddress();
 init_isAddressEqual();
 function validateSiweMessage(parameters) {
-  const { address, domain, message, nonce, scheme, time = new Date } = parameters;
+  const {
+    address,
+    domain,
+    message,
+    nonce,
+    scheme,
+    time = new Date
+  } = parameters;
   if (domain && message.domain !== domain)
     return false;
   if (nonce && message.nonce !== nonce)
@@ -16825,9 +16743,18 @@ function validateSiweMessage(parameters) {
   return true;
 }
 
-// ../viem/src/_esm/actions/siwe/verifySiweMessage.js
+// ../viem/src/actions/siwe/verifySiweMessage.ts
 async function verifySiweMessage(client, parameters) {
-  const { address, domain, message, nonce, scheme, signature, time = new Date, ...callRequest } = parameters;
+  const {
+    address,
+    domain,
+    message,
+    nonce,
+    scheme,
+    signature,
+    time = new Date,
+    ...callRequest
+  } = parameters;
   const parsed = parseSiweMessage(message);
   if (!parsed.address)
     return false;
@@ -16849,298 +16776,29 @@ async function verifySiweMessage(client, parameters) {
     ...callRequest
   });
 }
-
-// ../viem/src/_esm/actions/token/approve.js
+// ../viem/src/actions/token/getAllowance.ts
 init_abis();
-// ../viem/src/_esm/errors/account.js
-init_base();
 
-class AccountNotFoundError extends BaseError2 {
-  constructor({ docsPath: docsPath8 } = {}) {
-    super([
-      "Could not find an Account to execute with this Action.",
-      "Please provide an Account with the `account` argument on the Action, or by supplying an `account` to the Client."
-    ].join(`
-`), {
-      docsPath: docsPath8,
-      docsSlug: "account",
-      name: "AccountNotFoundError"
-    });
-  }
-}
-
-class AccountTypeNotSupportedError extends BaseError2 {
-  constructor({ docsPath: docsPath8, metaMessages, type }) {
-    super(`Account type "${type}" is not supported.`, {
-      docsPath: docsPath8,
-      metaMessages,
-      name: "AccountTypeNotSupportedError"
-    });
-  }
-}
-
-// ../viem/src/_esm/actions/wallet/writeContract.js
-init_encodeFunctionData();
-// ../viem/src/_esm/actions/wallet/sendTransaction.js
-init_base();
-
-// ../viem/src/_esm/utils/chain/assertCurrentChain.js
-init_chain();
-function assertCurrentChain2({ chain, currentChainId }) {
-  if (!chain)
-    throw new ChainNotFoundError;
-  if (currentChainId !== chain.id)
-    throw new ChainMismatchError({ chain, currentChainId });
-}
-// ../viem/src/_esm/actions/wallet/sendTransaction.js
-init_transactionRequest();
-init_lru();
-init_assertRequest();
-
-// ../viem/src/_esm/actions/wallet/sendRawTransaction.js
-async function sendRawTransaction(client, { serializedTransaction }) {
-  return client.request({
-    method: "eth_sendRawTransaction",
-    params: [serializedTransaction]
-  }, { retryCount: 0 });
-}
-
-// ../viem/src/_esm/actions/wallet/sendTransaction.js
-var supportsWalletNamespace = new LruMap(128);
-async function sendTransaction(client, parameters) {
-  const { account: account_ = client.account, assertChainId = true, chain = client.chain, accessList, authorizationList, blobs, data, dataSuffix = typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value, gas, gasPrice, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, nonce, type, value, ...rest } = parameters;
-  if (typeof account_ === "undefined")
-    throw new AccountNotFoundError({
-      docsPath: "/docs/actions/wallet/sendTransaction"
-    });
-  const account = account_ ? parseAccount(account_) : null;
-  let nonceManagerParameters;
-  try {
-    assertRequest(parameters);
-    const to = await (async () => {
-      if (parameters.to)
-        return parameters.to;
-      if (parameters.to === null)
-        return;
-      if (authorizationList && authorizationList.length > 0)
-        return await recoverAuthorizationAddress({
-          authorization: authorizationList[0]
-        }).catch(() => {
-          throw new BaseError2("`to` is required. Could not infer from `authorizationList`.");
-        });
-      return;
-    })();
-    if (account?.type === "json-rpc" || account === null) {
-      let chainId;
-      if (chain !== null) {
-        chainId = await getAction(client, getChainId, "getChainId")({});
-        if (assertChainId)
-          assertCurrentChain2({
-            currentChainId: chainId,
-            chain
-          });
-      }
-      const chainFormat = client.chain?.formatters?.transactionRequest?.format;
-      const format2 = chainFormat || formatTransactionRequest;
-      const request = format2({
-        ...extract(rest, { format: chainFormat }),
-        accessList,
-        account,
-        authorizationList,
-        blobs,
-        chainId,
-        data: dataSuffix ? concat([data ?? "0x", dataSuffix]) : data,
-        gas,
-        gasPrice,
-        maxFeePerBlobGas,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        nonce,
-        to,
-        type,
-        value
-      }, "sendTransaction");
-      const isWalletNamespaceSupported = supportsWalletNamespace.get(client.uid);
-      const method = isWalletNamespaceSupported ? "wallet_sendTransaction" : "eth_sendTransaction";
-      try {
-        return await client.request({
-          method,
-          params: [request]
-        }, { retryCount: 0 });
-      } catch (e) {
-        if (isWalletNamespaceSupported === false)
-          throw e;
-        const error = e;
-        if (error.name === "InvalidInputRpcError" || error.name === "InvalidParamsRpcError" || error.name === "MethodNotFoundRpcError" || error.name === "MethodNotSupportedRpcError") {
-          return await client.request({
-            method: "wallet_sendTransaction",
-            params: [request]
-          }, { retryCount: 0 }).then((hash3) => {
-            supportsWalletNamespace.set(client.uid, true);
-            return hash3;
-          }).catch((e2) => {
-            const walletNamespaceError = e2;
-            if (walletNamespaceError.name === "MethodNotFoundRpcError" || walletNamespaceError.name === "MethodNotSupportedRpcError") {
-              supportsWalletNamespace.set(client.uid, false);
-              throw error;
-            }
-            throw walletNamespaceError;
-          });
-        }
-        throw error;
-      }
-    }
-    if (account?.type === "local") {
-      const nonceManager2 = (() => {
-        if (!account.nonceManager || typeof nonce !== "undefined")
-          return account.nonceManager;
-        const nonceManager3 = account.nonceManager;
-        return {
-          consume(parameters2) {
-            nonceManagerParameters = {
-              address: parameters2.address,
-              chainId: parameters2.chainId
-            };
-            return nonceManager3.consume(parameters2);
-          },
-          get(parameters2) {
-            return nonceManager3.get(parameters2);
-          },
-          increment(parameters2) {
-            return nonceManager3.increment(parameters2);
-          },
-          reset(parameters2) {
-            return nonceManager3.reset(parameters2);
-          }
-        };
-      })();
-      const request = await getAction(client, prepareTransactionRequest, "prepareTransactionRequest")({
-        account,
-        accessList,
-        authorizationList,
-        blobs,
-        chain,
-        data: dataSuffix ? concat([data ?? "0x", dataSuffix]) : data,
-        gas,
-        gasPrice,
-        maxFeePerBlobGas,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        nonce,
-        nonceManager: nonceManager2,
-        parameters: [...defaultParameters, "sidecars"],
-        type,
-        value,
-        ...rest,
-        to
-      });
-      const serializer = chain?.serializers?.transaction;
-      const serializedTransaction = await account.signTransaction(request, {
-        serializer
-      });
-      return await getAction(client, sendRawTransaction, "sendRawTransaction")({
-        serializedTransaction
-      });
-    }
-    if (account?.type === "smart")
-      throw new AccountTypeNotSupportedError({
-        metaMessages: [
-          "Consider using the `sendUserOperation` Action instead."
-        ],
-        docsPath: "/docs/actions/bundler/sendUserOperation",
-        type: "smart"
-      });
-    throw new AccountTypeNotSupportedError({
-      docsPath: "/docs/actions/wallet/sendTransaction",
-      type: account?.type
-    });
-  } catch (err) {
-    if (err instanceof AccountTypeNotSupportedError)
-      throw err;
-    if (nonceManagerParameters)
-      account?.nonceManager?.reset(nonceManagerParameters);
-    throw getTransactionError(err, {
-      ...parameters,
-      account,
-      chain: parameters.chain || undefined
-    });
-  }
-}
-
-// ../viem/src/_esm/actions/wallet/writeContract.js
-async function writeContract(client, parameters) {
-  return writeContract.internal(client, sendTransaction, "sendTransaction", parameters);
-}
-(function(writeContract2) {
-  async function internal(client, actionFn, name, parameters) {
-    const { abi: abi2, account: account_ = client.account, address, args, functionName, ...request } = parameters;
-    if (typeof account_ === "undefined")
-      throw new AccountNotFoundError({
-        docsPath: "/docs/contract/writeContract"
-      });
-    const account = account_ ? parseAccount(account_) : null;
-    const data = encodeFunctionData({
-      abi: abi2,
-      args,
-      functionName
-    });
-    try {
-      return await getAction(client, actionFn, name)({
-        data,
-        to: address,
-        account,
-        ...request
-      });
-    } catch (error) {
-      throw getContractError(error, {
-        abi: abi2,
-        address,
-        args,
-        docsPath: "/docs/contract/writeContract",
-        functionName,
-        sender: account?.address
-      });
-    }
-  }
-  writeContract2.internal = internal;
-})(writeContract || (writeContract = {}));
-
-// ../viem/src/_esm/actions/token/internal.js
+// ../viem/src/actions/token/internal.ts
 init_abis();
 init_isAddress();
 init_isAddressEqual();
 
-// ../viem/src/_esm/utils/unit/formatUnits.js
+// ../viem/src/utils/unit/formatUnits.ts
 init_Value();
 function formatUnits2(value, decimals) {
   return format(value, decimals);
 }
 
-// ../viem/src/_esm/utils/unit/parseUnits.js
+// ../viem/src/utils/unit/parseUnits.ts
 init_Value();
 function parseUnits2(value, decimals) {
   return from(value, decimals);
 }
 
-// ../viem/src/_esm/actions/token/internal.js
+// ../viem/src/actions/token/internal.ts
 function toAmount(amount, decimals) {
   return { amount, decimals, formatted: formatUnits2(amount, decimals) };
-}
-function toBaseUnits(amount, decimals) {
-  if (typeof amount === "bigint")
-    return amount;
-  const resolved = amount.decimals ?? decimals;
-  return parseUnits2(amount.formatted, requireTokenDecimals(resolved));
-}
-function requireTokenDecimals(decimals) {
-  if (decimals === undefined)
-    throw new Error("Token decimals are required. Pass `amount.decimals` or select a declared token.");
-  return decimals;
-}
-function resolveAmountDecimals(amount, decimals) {
-  if (typeof amount === "bigint")
-    return decimals;
-  return amount.decimals ?? decimals;
 }
 function resolveToken(client, parameters) {
   const { decimals, token } = parameters;
@@ -17218,10 +16876,6 @@ async function resolveTokenWithDecimals(client, parameters) {
     })
   };
 }
-function pickWriteParameters(parameters) {
-  const { account, chain, gas, maxFeePerGas, maxPriorityFeePerGas, nonce } = parameters;
-  return { account, chain, gas, maxFeePerGas, maxPriorityFeePerGas, nonce };
-}
 function defineCall(call2) {
   return {
     ...call2,
@@ -17230,279 +16884,7 @@ function defineCall(call2) {
   };
 }
 
-// ../viem/src/_esm/actions/token/approve.js
-async function approve(client, parameters) {
-  return approve.inner(writeContract, client, parameters);
-}
-(function(approve2) {
-  async function inner(action, client, parameters) {
-    return await action(client, {
-      ...parameters,
-      ...approve2.call(client, parameters)
-    });
-  }
-  approve2.inner = inner;
-  function call2(client, parameters) {
-    return defineCall(getCall(client, parameters));
-  }
-  approve2.call = call2;
-  async function estimateGas2(client, parameters) {
-    return estimateContractGas(client, {
-      ...pickWriteParameters(parameters),
-      ...approve2.call(client, parameters)
-    });
-  }
-  approve2.estimateGas = estimateGas2;
-  async function simulate(client, parameters) {
-    return simulateContract(client, {
-      ...pickWriteParameters(parameters),
-      ...approve2.call(client, parameters)
-    });
-  }
-  approve2.simulate = simulate;
-  function extractEvent(logs) {
-    const [log] = parseEventLogs({
-      abi: erc20Abi,
-      logs,
-      eventName: "Approval",
-      strict: true
-    });
-    if (!log)
-      throw new Error("`Approval` event not found.");
-    return log;
-  }
-  approve2.extractEvent = extractEvent;
-})(approve || (approve = {}));
-function getCall(client, parameters) {
-  const { amount, spender, token } = parameters;
-  const { address, decimals } = resolveToken(client, { token });
-  return {
-    abi: erc20Abi,
-    address,
-    args: [spender, toBaseUnits(amount, decimals)],
-    functionName: "approve"
-  };
-}
-// ../viem/src/_esm/actions/wallet/sendTransactionSync.js
-init_base();
-init_transaction();
-init_transactionRequest();
-init_lru();
-init_assertRequest();
-
-// ../viem/src/_esm/actions/wallet/sendRawTransactionSync.js
-init_transaction();
-async function sendRawTransactionSync(client, { serializedTransaction, throwOnReceiptRevert, timeout }) {
-  const receipt = await client.request({
-    method: "eth_sendRawTransactionSync",
-    params: timeout ? [serializedTransaction, timeout] : [serializedTransaction]
-  }, { retryCount: 0 });
-  const format2 = client.chain?.formatters?.transactionReceipt?.format || formatTransactionReceipt;
-  const formatted = format2(receipt);
-  if (formatted.status === "reverted" && throwOnReceiptRevert)
-    throw new TransactionReceiptRevertedError({ receipt: formatted });
-  return formatted;
-}
-
-// ../viem/src/_esm/actions/wallet/sendTransactionSync.js
-var supportsWalletNamespace2 = new LruMap(128);
-async function sendTransactionSync(client, parameters) {
-  const { account: account_ = client.account, assertChainId = true, chain = client.chain, accessList, authorizationList, blobs, data, dataSuffix = typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value, gas, gasPrice, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, nonce, pollingInterval, throwOnReceiptRevert, type, value, ...rest } = parameters;
-  const timeout = parameters.timeout ?? Math.max((chain?.blockTime ?? 0) * 3, 5000);
-  if (typeof account_ === "undefined")
-    throw new AccountNotFoundError({
-      docsPath: "/docs/actions/wallet/sendTransactionSync"
-    });
-  const account = account_ ? parseAccount(account_) : null;
-  let nonceManagerParameters;
-  try {
-    assertRequest(parameters);
-    const to = await (async () => {
-      if (parameters.to)
-        return parameters.to;
-      if (parameters.to === null)
-        return;
-      if (authorizationList && authorizationList.length > 0)
-        return await recoverAuthorizationAddress({
-          authorization: authorizationList[0]
-        }).catch(() => {
-          throw new BaseError2("`to` is required. Could not infer from `authorizationList`.");
-        });
-      return;
-    })();
-    if (account?.type === "json-rpc" || account === null) {
-      let chainId;
-      if (chain !== null) {
-        chainId = await getAction(client, getChainId, "getChainId")({});
-        if (assertChainId)
-          assertCurrentChain2({
-            currentChainId: chainId,
-            chain
-          });
-      }
-      const chainFormat = client.chain?.formatters?.transactionRequest?.format;
-      const format2 = chainFormat || formatTransactionRequest;
-      const request = format2({
-        ...extract(rest, { format: chainFormat }),
-        accessList,
-        account,
-        authorizationList,
-        blobs,
-        chainId,
-        data: dataSuffix ? concat([data ?? "0x", dataSuffix]) : data,
-        gas,
-        gasPrice,
-        maxFeePerBlobGas,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        nonce,
-        to,
-        type,
-        value
-      }, "sendTransaction");
-      const isWalletNamespaceSupported = supportsWalletNamespace2.get(client.uid);
-      const method = isWalletNamespaceSupported ? "wallet_sendTransaction" : "eth_sendTransaction";
-      const hash3 = await (async () => {
-        try {
-          return await client.request({
-            method,
-            params: [request]
-          }, { retryCount: 0 });
-        } catch (e) {
-          if (isWalletNamespaceSupported === false)
-            throw e;
-          const error = e;
-          if (error.name === "InvalidInputRpcError" || error.name === "InvalidParamsRpcError" || error.name === "MethodNotFoundRpcError" || error.name === "MethodNotSupportedRpcError") {
-            return await client.request({
-              method: "wallet_sendTransaction",
-              params: [request]
-            }, { retryCount: 0 }).then((hash4) => {
-              supportsWalletNamespace2.set(client.uid, true);
-              return hash4;
-            }).catch((e2) => {
-              const walletNamespaceError = e2;
-              if (walletNamespaceError.name === "MethodNotFoundRpcError" || walletNamespaceError.name === "MethodNotSupportedRpcError") {
-                supportsWalletNamespace2.set(client.uid, false);
-                throw error;
-              }
-              throw walletNamespaceError;
-            });
-          }
-          throw error;
-        }
-      })();
-      const receipt = await getAction(client, waitForTransactionReceipt, "waitForTransactionReceipt")({
-        checkReplacement: false,
-        hash: hash3,
-        pollingInterval,
-        timeout
-      });
-      if (throwOnReceiptRevert && receipt.status === "reverted")
-        throw new TransactionReceiptRevertedError({ receipt });
-      return receipt;
-    }
-    if (account?.type === "local") {
-      const nonceManager2 = (() => {
-        if (!account.nonceManager || typeof nonce !== "undefined")
-          return account.nonceManager;
-        const nonceManager3 = account.nonceManager;
-        return {
-          consume(parameters2) {
-            nonceManagerParameters = {
-              address: parameters2.address,
-              chainId: parameters2.chainId
-            };
-            return nonceManager3.consume(parameters2);
-          },
-          get(parameters2) {
-            return nonceManager3.get(parameters2);
-          },
-          increment(parameters2) {
-            return nonceManager3.increment(parameters2);
-          },
-          reset(parameters2) {
-            return nonceManager3.reset(parameters2);
-          }
-        };
-      })();
-      const request = await getAction(client, prepareTransactionRequest, "prepareTransactionRequest")({
-        account,
-        accessList,
-        authorizationList,
-        blobs,
-        chain,
-        data: dataSuffix ? concat([data ?? "0x", dataSuffix]) : data,
-        gas,
-        gasPrice,
-        maxFeePerBlobGas,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        nonce,
-        nonceManager: nonceManager2,
-        parameters: [...defaultParameters, "sidecars"],
-        type,
-        value,
-        ...rest,
-        to
-      });
-      const serializer = chain?.serializers?.transaction;
-      const serializedTransaction = await account.signTransaction(request, {
-        serializer
-      });
-      return await getAction(client, sendRawTransactionSync, "sendRawTransactionSync")({
-        serializedTransaction,
-        throwOnReceiptRevert,
-        timeout: parameters.timeout
-      });
-    }
-    if (account?.type === "smart")
-      throw new AccountTypeNotSupportedError({
-        metaMessages: [
-          "Consider using the `sendUserOperation` Action instead."
-        ],
-        docsPath: "/docs/actions/bundler/sendUserOperation",
-        type: "smart"
-      });
-    throw new AccountTypeNotSupportedError({
-      docsPath: "/docs/actions/wallet/sendTransactionSync",
-      type: account?.type
-    });
-  } catch (err) {
-    if (err instanceof AccountTypeNotSupportedError)
-      throw err;
-    if (nonceManagerParameters && !(err instanceof TransactionReceiptRevertedError))
-      account?.nonceManager?.reset(nonceManagerParameters);
-    throw getTransactionError(err, {
-      ...parameters,
-      account,
-      chain: parameters.chain || undefined
-    });
-  }
-}
-
-// ../viem/src/_esm/actions/wallet/writeContractSync.js
-async function writeContractSync(client, parameters) {
-  return writeContract.internal(client, sendTransactionSync, "sendTransactionSync", parameters);
-}
-
-// ../viem/src/_esm/actions/token/approveSync.js
-async function approveSync(client, parameters) {
-  const { amount, token, throwOnReceiptRevert = true } = parameters;
-  const { decimals } = resolveToken(client, { token });
-  const resolved = resolveAmountDecimals(amount, decimals);
-  const receipt = await approve.inner(writeContractSync, client, {
-    ...parameters,
-    throwOnReceiptRevert
-  });
-  const { args } = approve.extractEvent(receipt.logs);
-  return {
-    ...args,
-    ...resolved === undefined ? {} : { decimals: resolved, formatted: formatUnits2(args.value, resolved) },
-    receipt
-  };
-}
-// ../viem/src/_esm/actions/token/getAllowance.js
-init_abis();
+// ../viem/src/actions/token/getAllowance.ts
 async function getAllowance(client, parameters) {
   const { account, decimals, spender, token, ...rest } = parameters;
   const [amount, { decimals: resolved }] = await Promise.all([
@@ -17517,7 +16899,7 @@ async function getAllowance(client, parameters) {
   ]);
   return toAmount(amount, resolved);
 }
-(function(getAllowance2) {
+((getAllowance) => {
   function call2(client, args) {
     return defineCall({
       address: resolveToken(client, args).address,
@@ -17526,12 +16908,36 @@ async function getAllowance(client, parameters) {
       args: [args.account, args.spender]
     });
   }
-  getAllowance2.call = call2;
-})(getAllowance || (getAllowance = {}));
-// ../viem/src/_esm/actions/token/getBalance.js
+  getAllowance.call = call2;
+})(getAllowance ||= {});
+// ../viem/src/actions/token/getBalance.ts
 init_abis();
+
+// ../viem/src/errors/account.ts
+init_base();
+
+class AccountNotFoundError extends BaseError2 {
+  constructor({ docsPath: docsPath8 } = {}) {
+    super([
+      "Could not find an Account to execute with this Action.",
+      "Please provide an Account with the `account` argument on the Action, or by supplying an `account` to the Client."
+    ].join(`
+`), {
+      docsPath: docsPath8,
+      docsSlug: "account",
+      name: "AccountNotFoundError"
+    });
+  }
+}
+
+// ../viem/src/actions/token/getBalance.ts
 async function getBalance2(client, parameters) {
-  const { account: account_ = client.account, decimals, token, ...rest } = parameters;
+  const {
+    account: account_ = client.account,
+    decimals,
+    token,
+    ...rest
+  } = parameters;
   if (!account_)
     throw new AccountNotFoundError;
   const account = parseAccount(account_).address;
@@ -17547,7 +16953,7 @@ async function getBalance2(client, parameters) {
   ]);
   return toAmount(amount, resolved);
 }
-(function(getBalance3) {
+((getBalance) => {
   function call2(client, args) {
     const account_ = args.account ?? client.account;
     if (!account_)
@@ -17560,9 +16966,9 @@ async function getBalance2(client, parameters) {
       args: [account]
     });
   }
-  getBalance3.call = call2;
-})(getBalance2 || (getBalance2 = {}));
-// ../viem/src/_esm/actions/token/getMetadata.js
+  getBalance.call = call2;
+})(getBalance2 ||= {});
+// ../viem/src/actions/token/getMetadata.ts
 init_abis();
 async function getMetadata(client, parameters) {
   const { token, ...rest } = parameters;
@@ -17594,7 +17000,7 @@ async function getMetadata(client, parameters) {
     symbol
   };
 }
-// ../viem/src/_esm/actions/token/getTotalSupply.js
+// ../viem/src/actions/token/getTotalSupply.ts
 init_abis();
 async function getTotalSupply(client, parameters) {
   const { decimals, token, ...rest } = parameters;
@@ -17610,7 +17016,7 @@ async function getTotalSupply(client, parameters) {
   ]);
   return toAmount(amount, resolved);
 }
-(function(getTotalSupply2) {
+((getTotalSupply) => {
   function call2(client, args) {
     return defineCall({
       address: resolveToken(client, args).address,
@@ -17619,87 +17025,35 @@ async function getTotalSupply(client, parameters) {
       functionName: "totalSupply"
     });
   }
-  getTotalSupply2.call = call2;
-})(getTotalSupply || (getTotalSupply = {}));
-// ../viem/src/_esm/actions/token/transfer.js
-init_abis();
-async function transfer(client, parameters) {
-  return transfer.inner(writeContract, client, parameters);
+  getTotalSupply.call = call2;
+})(getTotalSupply ||= {});
+// ../viem/src/actions/wallet/sendRawTransaction.ts
+async function sendRawTransaction(client, { serializedTransaction }) {
+  return client.request({
+    method: "eth_sendRawTransaction",
+    params: [serializedTransaction]
+  }, { retryCount: 0 });
 }
-(function(transfer2) {
-  async function inner(action, client, parameters) {
-    return await action(client, {
-      ...parameters,
-      ...transfer2.call(client, parameters)
-    });
-  }
-  transfer2.inner = inner;
-  function call2(client, parameters) {
-    return defineCall(getCall2(client, parameters));
-  }
-  transfer2.call = call2;
-  async function estimateGas2(client, parameters) {
-    return estimateContractGas(client, {
-      ...pickWriteParameters(parameters),
-      ...transfer2.call(client, parameters)
-    });
-  }
-  transfer2.estimateGas = estimateGas2;
-  async function simulate(client, parameters) {
-    return simulateContract(client, {
-      ...pickWriteParameters(parameters),
-      ...transfer2.call(client, parameters)
-    });
-  }
-  transfer2.simulate = simulate;
-  function extractEvent(logs) {
-    const [log] = parseEventLogs({
-      abi: erc20Abi,
-      logs,
-      eventName: "Transfer",
-      strict: true
-    });
-    if (!log)
-      throw new Error("`Transfer` event not found.");
-    return log;
-  }
-  transfer2.extractEvent = extractEvent;
-})(transfer || (transfer = {}));
-function getCall2(client, parameters) {
-  const { amount, from: from16, to, token } = parameters;
-  const { address, decimals } = resolveToken(client, { token });
-  const value = toBaseUnits(amount, decimals);
-  if (from16)
-    return {
-      abi: erc20Abi,
-      address,
-      args: [from16, to, value],
-      functionName: "transferFrom"
-    };
-  return {
-    abi: erc20Abi,
-    address,
-    args: [to, value],
-    functionName: "transfer"
-  };
+
+// ../viem/src/actions/wallet/sendRawTransactionSync.ts
+init_transaction();
+async function sendRawTransactionSync(client, {
+  serializedTransaction,
+  throwOnReceiptRevert,
+  timeout
+}) {
+  const receipt = await client.request({
+    method: "eth_sendRawTransactionSync",
+    params: timeout ? [serializedTransaction, timeout] : [serializedTransaction]
+  }, { retryCount: 0 });
+  const format2 = client.chain?.formatters?.transactionReceipt?.format || formatTransactionReceipt;
+  const formatted = format2(receipt);
+  if (formatted.status === "reverted" && throwOnReceiptRevert)
+    throw new TransactionReceiptRevertedError({ receipt: formatted });
+  return formatted;
 }
-// ../viem/src/_esm/actions/token/transferSync.js
-async function transferSync(client, parameters) {
-  const { amount, token, throwOnReceiptRevert = true } = parameters;
-  const { decimals } = resolveToken(client, { token });
-  const resolved = resolveAmountDecimals(amount, decimals);
-  const receipt = await transfer.inner(writeContractSync, client, {
-    ...parameters,
-    throwOnReceiptRevert
-  });
-  const { args } = transfer.extractEvent(receipt.logs);
-  return {
-    ...args,
-    ...resolved === undefined ? {} : { decimals: resolved, formatted: formatUnits2(args.value, resolved) },
-    receipt
-  };
-}
-// ../viem/src/_esm/clients/decorators/public.js
+
+// ../viem/src/clients/decorators/public.ts
 function publicActions(client) {
   return {
     call: (args) => call(client, args),
@@ -17775,7 +17129,7 @@ function bindPublicToken(client) {
   };
 }
 
-// ../viem/src/_esm/clients/createPublicClient.js
+// ../viem/src/clients/createPublicClient.ts
 function createPublicClient(parameters) {
   const { key = "public", name = "Public Client" } = parameters;
   const client = createClient({
@@ -17786,797 +17140,10 @@ function createPublicClient(parameters) {
   });
   return client.extend(publicActions);
 }
-// ../viem/src/_esm/actions/wallet/addChain.js
-init_toHex();
-async function addChain(client, { chain }) {
-  const { id, name, nativeCurrency, rpcUrls, blockExplorers } = chain;
-  await client.request({
-    method: "wallet_addEthereumChain",
-    params: [
-      {
-        chainId: numberToHex(id),
-        chainName: name,
-        nativeCurrency,
-        rpcUrls: rpcUrls.default.http,
-        blockExplorerUrls: blockExplorers ? Object.values(blockExplorers).map(({ url }) => url) : undefined
-      }
-    ]
-  }, { dedupe: true, retryCount: 0 });
-}
-
-// ../viem/src/_esm/actions/wallet/deployContract.js
-init_encodeDeployData();
-function deployContract(walletClient, parameters) {
-  const { abi: abi2, args, bytecode, ...request } = parameters;
-  const calldata = encodeDeployData({ abi: abi2, args, bytecode });
-  return sendTransaction(walletClient, {
-    ...request,
-    ...request.authorizationList ? { to: null } : {},
-    data: calldata
-  });
-}
-
-// ../viem/src/_esm/actions/wallet/getAddresses.js
-init_getAddress();
-async function getAddresses(client) {
-  if (client.account?.type === "local")
-    return [client.account.address];
-  const addresses = await client.request({ method: "eth_accounts" }, { dedupe: true });
-  return addresses.map((address) => checksumAddress(address));
-}
-
-// ../viem/src/_esm/actions/wallet/getCallsStatus.js
-init_slice();
-init_fromHex();
-
-// ../viem/src/_esm/actions/wallet/sendCalls.js
-init_base();
-init_rpc();
-init_encodeFunctionData();
-init_fromHex();
-init_toHex();
-var fallbackMagicIdentifier = "0x5792579257925792579257925792579257925792579257925792579257925792";
-var fallbackTransactionErrorMagicIdentifier = numberToHex(0, {
-  size: 32
-});
-async function sendCalls(client, parameters) {
-  const { account: account_ = client.account, chain = client.chain, experimental_fallback, experimental_fallbackDelay = 32, forceAtomic = false, id, version: version4 = "2.0.0" } = parameters;
-  const account = account_ ? parseAccount(account_) : null;
-  let capabilities = parameters.capabilities;
-  if (client.dataSuffix && !parameters.capabilities?.dataSuffix) {
-    if (typeof client.dataSuffix === "string")
-      capabilities = {
-        ...parameters.capabilities,
-        dataSuffix: { value: client.dataSuffix, optional: true }
-      };
-    else
-      capabilities = {
-        ...parameters.capabilities,
-        dataSuffix: {
-          value: client.dataSuffix.value,
-          ...client.dataSuffix.required ? {} : { optional: true }
-        }
-      };
-  }
-  const calls = parameters.calls.map((call_) => {
-    const call2 = call_;
-    const data = call2.abi ? encodeFunctionData({
-      abi: call2.abi,
-      functionName: call2.functionName,
-      args: call2.args
-    }) : call2.data;
-    return {
-      data: call2.dataSuffix && data ? concat([data, call2.dataSuffix]) : data,
-      to: call2.to,
-      value: call2.value ? numberToHex(call2.value) : undefined
-    };
-  });
-  try {
-    const response = await client.request({
-      method: "wallet_sendCalls",
-      params: [
-        {
-          atomicRequired: forceAtomic,
-          calls,
-          capabilities,
-          chainId: numberToHex(chain.id),
-          from: account?.address,
-          id,
-          version: version4
-        }
-      ]
-    }, { retryCount: 0 });
-    if (typeof response === "string")
-      return { id: response };
-    return response;
-  } catch (err) {
-    const error = err;
-    if (experimental_fallback && (error.name === "MethodNotFoundRpcError" || error.name === "MethodNotSupportedRpcError" || error.name === "UnknownRpcError" || error.details.toLowerCase().includes("does not exist / is not available") || error.details.toLowerCase().includes("missing or invalid. request()") || error.details.toLowerCase().includes("did not match any variant of untagged enum") || error.details.toLowerCase().includes("account upgraded to unsupported contract") || error.details.toLowerCase().includes("eip-7702 not supported") || error.details.toLowerCase().includes("unsupported wc_ method") || error.details.toLowerCase().includes("feature toggled misconfigured") || error.details.toLowerCase().includes("jsonrpcengine: response has no error or result for request"))) {
-      if (capabilities) {
-        const hasNonOptionalCapability = Object.values(capabilities).some((capability) => !capability.optional);
-        if (hasNonOptionalCapability) {
-          const message = "non-optional `capabilities` are not supported on fallback to `eth_sendTransaction`.";
-          throw new UnsupportedNonOptionalCapabilityError(new BaseError2(message, {
-            details: message
-          }));
-        }
-      }
-      if (forceAtomic && calls.length > 1) {
-        const message = "`forceAtomic` is not supported on fallback to `eth_sendTransaction`.";
-        throw new AtomicityNotSupportedError(new BaseError2(message, {
-          details: message
-        }));
-      }
-      const results = [];
-      for (const call2 of calls) {
-        try {
-          const value = await sendTransaction(client, {
-            account,
-            chain,
-            data: call2.data,
-            to: call2.to,
-            value: call2.value ? hexToBigInt(call2.value) : undefined
-          });
-          results.push({ status: "fulfilled", value });
-        } catch (reason) {
-          results.push({ reason, status: "rejected" });
-        }
-        if (experimental_fallbackDelay > 0)
-          await new Promise((resolve) => setTimeout(resolve, experimental_fallbackDelay));
-      }
-      if (results.every((r) => r.status === "rejected"))
-        throw results[0].reason;
-      const hashes = results.map((result) => {
-        if (result.status === "fulfilled")
-          return result.value;
-        return fallbackTransactionErrorMagicIdentifier;
-      });
-      return {
-        id: concat([
-          ...hashes,
-          numberToHex(chain.id, { size: 32 }),
-          fallbackMagicIdentifier
-        ])
-      };
-    }
-    throw getTransactionError(err, {
-      ...parameters,
-      account,
-      chain: parameters.chain
-    });
-  }
-}
-
-// ../viem/src/_esm/actions/wallet/getCallsStatus.js
-async function getCallsStatus(client, parameters) {
-  async function getStatus(id) {
-    const isTransactions = id.endsWith(fallbackMagicIdentifier.slice(2));
-    if (isTransactions) {
-      const chainId2 = trim(sliceHex(id, -64, -32));
-      const hashes = sliceHex(id, 0, -64).slice(2).match(/.{1,64}/g);
-      const receipts2 = await Promise.all(hashes.map((hash3) => fallbackTransactionErrorMagicIdentifier.slice(2) !== hash3 ? client.request({
-        method: "eth_getTransactionReceipt",
-        params: [`0x${hash3}`]
-      }, { dedupe: true }) : undefined));
-      const status2 = (() => {
-        if (receipts2.some((r) => r === null))
-          return 100;
-        if (receipts2.every((r) => r?.status === "0x1"))
-          return 200;
-        if (receipts2.every((r) => r?.status === "0x0"))
-          return 500;
-        return 600;
-      })();
-      return {
-        atomic: false,
-        chainId: hexToNumber(chainId2),
-        receipts: receipts2.filter(Boolean),
-        status: status2,
-        version: "2.0.0"
-      };
-    }
-    return client.request({
-      method: "wallet_getCallsStatus",
-      params: [id]
-    });
-  }
-  const { atomic = false, chainId, receipts, version: version4 = "2.0.0", ...response } = await getStatus(parameters.id);
-  const [status, statusCode] = (() => {
-    const statusCode2 = response.status;
-    if (statusCode2 >= 100 && statusCode2 < 200)
-      return ["pending", statusCode2];
-    if (statusCode2 >= 200 && statusCode2 < 300)
-      return ["success", statusCode2];
-    if (statusCode2 >= 300 && statusCode2 < 700)
-      return ["failure", statusCode2];
-    if (statusCode2 === "CONFIRMED")
-      return ["success", 200];
-    if (statusCode2 === "PENDING")
-      return ["pending", 100];
-    return [undefined, statusCode2];
-  })();
-  return {
-    ...response,
-    atomic,
-    chainId: chainId ? hexToNumber(chainId) : undefined,
-    receipts: receipts?.map((receipt) => ({
-      ...receipt,
-      blockNumber: hexToBigInt(receipt.blockNumber),
-      gasUsed: hexToBigInt(receipt.gasUsed),
-      status: receiptStatuses[receipt.status]
-    })) ?? [],
-    statusCode,
-    status,
-    version: version4
-  };
-}
-
-// ../viem/src/_esm/actions/wallet/getCapabilities.js
-init_toHex();
-async function getCapabilities(client, parameters = {}) {
-  const { account = client.account, chainId } = parameters;
-  const account_ = account ? parseAccount(account) : undefined;
-  const params = chainId ? [account_?.address, [numberToHex(chainId)]] : [account_?.address];
-  const capabilities_raw = await client.request({
-    method: "wallet_getCapabilities",
-    params
-  });
-  const capabilities = {};
-  for (const [chainId2, capabilities_] of Object.entries(capabilities_raw)) {
-    capabilities[Number(chainId2)] = {};
-    for (let [key, value] of Object.entries(capabilities_)) {
-      if (key === "addSubAccount")
-        key = "unstable_addSubAccount";
-      capabilities[Number(chainId2)][key] = value;
-    }
-  }
-  return typeof chainId === "number" ? capabilities[chainId] : capabilities;
-}
-
-// ../viem/src/_esm/actions/wallet/getPermissions.js
-async function getPermissions(client) {
-  const permissions = await client.request({ method: "wallet_getPermissions" }, { dedupe: true });
-  return permissions;
-}
-// ../viem/src/_esm/actions/wallet/prepareAuthorization.js
-init_isAddressEqual();
-async function prepareAuthorization(client, parameters) {
-  const { account: account_ = client.account, chainId, nonce } = parameters;
-  if (!account_)
-    throw new AccountNotFoundError({
-      docsPath: "/docs/eip7702/prepareAuthorization"
-    });
-  const account = parseAccount(account_);
-  const executor = (() => {
-    if (!parameters.executor)
-      return;
-    if (parameters.executor === "self")
-      return parameters.executor;
-    return parseAccount(parameters.executor);
-  })();
-  const authorization = {
-    address: parameters.contractAddress ?? parameters.address,
-    chainId,
-    nonce
-  };
-  if (typeof authorization.chainId === "undefined")
-    authorization.chainId = client.chain?.id ?? await getAction(client, getChainId, "getChainId")({});
-  if (typeof authorization.nonce === "undefined") {
-    authorization.nonce = await getAction(client, getTransactionCount, "getTransactionCount")({
-      address: account.address,
-      blockTag: "pending"
-    });
-    if (executor === "self" || executor?.address && isAddressEqual(executor.address, account.address))
-      authorization.nonce += 1;
-  }
-  return authorization;
-}
-
-// ../viem/src/_esm/actions/wallet/requestAddresses.js
-init_getAddress();
-async function requestAddresses(client) {
-  const addresses = await client.request({ method: "eth_requestAccounts" }, { dedupe: true, retryCount: 0 });
-  return addresses.map((address) => getAddress(address));
-}
-
-// ../viem/src/_esm/actions/wallet/requestPermissions.js
-async function requestPermissions(client, permissions) {
-  return client.request({
-    method: "wallet_requestPermissions",
-    params: [permissions]
-  }, { retryCount: 0 });
-}
-
-// ../viem/src/_esm/actions/wallet/waitForCallsStatus.js
-init_base();
-
-// ../viem/src/_esm/errors/calls.js
-init_base();
-
-class BundleFailedError extends BaseError2 {
-  constructor(result) {
-    super(`Call bundle failed with status: ${result.statusCode}`, {
-      name: "BundleFailedError"
-    });
-    Object.defineProperty(this, "result", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: undefined
-    });
-    this.result = result;
-  }
-}
-// ../viem/src/_esm/actions/wallet/waitForCallsStatus.js
-async function waitForCallsStatus(client, parameters) {
-  const {
-    id,
-    pollingInterval = client.pollingInterval,
-    status = ({ statusCode }) => statusCode === 200 || statusCode >= 300,
-    retryCount = 4,
-    retryDelay = ({ count }) => ~~(1 << count) * 200,
-    timeout = 60000,
-    throwOnFailure = false
-  } = parameters;
-  const observerId = stringify(["waitForCallsStatus", client.uid, id]);
-  const { promise, resolve, reject } = withResolvers();
-  let timer;
-  const unobserve = observe(observerId, { resolve, reject }, (emit) => {
-    const unpoll = poll(async () => {
-      const done = (fn) => {
-        clearTimeout(timer);
-        unpoll();
-        fn();
-        unobserve();
-      };
-      try {
-        const result = await withRetry(async () => {
-          const result2 = await getAction(client, getCallsStatus, "getCallsStatus")({ id });
-          if (throwOnFailure && result2.status === "failure")
-            throw new BundleFailedError(result2);
-          return result2;
-        }, {
-          retryCount,
-          delay: retryDelay
-        });
-        if (!status(result))
-          return;
-        done(() => emit.resolve(result));
-      } catch (error) {
-        done(() => emit.reject(error));
-      }
-    }, {
-      interval: pollingInterval,
-      emitOnBegin: true
-    });
-    return unpoll;
-  });
-  timer = timeout ? setTimeout(() => {
-    unobserve();
-    clearTimeout(timer);
-    reject(new WaitForCallsStatusTimeoutError({ id }));
-  }, timeout) : undefined;
-  return await promise;
-}
-
-class WaitForCallsStatusTimeoutError extends BaseError2 {
-  constructor({ id }) {
-    super(`Timed out while waiting for call bundle with id "${id}" to be confirmed.`, { name: "WaitForCallsStatusTimeoutError" });
-  }
-}
-
-// ../viem/src/_esm/actions/wallet/sendCallsSync.js
-async function sendCallsSync(client, parameters) {
-  const { chain = client.chain } = parameters;
-  const timeout = parameters.timeout ?? Math.max((chain?.blockTime ?? 0) * 3, 5000);
-  const result = await getAction(client, sendCalls, "sendCalls")(parameters);
-  const status = await getAction(client, waitForCallsStatus, "waitForCallsStatus")({
-    ...parameters,
-    id: result.id,
-    timeout
-  });
-  return status;
-}
-
-// ../viem/src/_esm/actions/wallet/showCallsStatus.js
-async function showCallsStatus(client, parameters) {
-  const { id } = parameters;
-  await client.request({
-    method: "wallet_showCallsStatus",
-    params: [id]
-  });
-  return;
-}
-// ../viem/src/_esm/actions/wallet/signAuthorization.js
-async function signAuthorization(client, parameters) {
-  const { account: account_ = client.account } = parameters;
-  if (!account_)
-    throw new AccountNotFoundError({
-      docsPath: "/docs/eip7702/signAuthorization"
-    });
-  const account = parseAccount(account_);
-  if (!account.signAuthorization)
-    throw new AccountTypeNotSupportedError({
-      docsPath: "/docs/eip7702/signAuthorization",
-      metaMessages: [
-        "The `signAuthorization` Action does not support JSON-RPC Accounts."
-      ],
-      type: account.type
-    });
-  const authorization = await prepareAuthorization(client, parameters);
-  return account.signAuthorization(authorization);
-}
-// ../viem/src/_esm/actions/wallet/signMessage.js
-init_toHex();
-async function signMessage(client, { account: account_ = client.account, message }) {
-  if (!account_)
-    throw new AccountNotFoundError({
-      docsPath: "/docs/actions/wallet/signMessage"
-    });
-  const account = parseAccount(account_);
-  if (account.signMessage)
-    return account.signMessage({ message });
-  const message_ = (() => {
-    if (typeof message === "string")
-      return stringToHex(message);
-    if (message.raw instanceof Uint8Array)
-      return toHex(message.raw);
-    return message.raw;
-  })();
-  return client.request({
-    method: "personal_sign",
-    params: [message_, account.address]
-  }, { retryCount: 0 });
-}
-// ../viem/src/_esm/actions/wallet/signTransaction.js
-init_toHex();
-init_transactionRequest();
-init_assertRequest();
-async function signTransaction(client, parameters) {
-  const { account: account_ = client.account, chain = client.chain, ...transaction } = parameters;
-  if (!account_)
-    throw new AccountNotFoundError({
-      docsPath: "/docs/actions/wallet/signTransaction"
-    });
-  const account = parseAccount(account_);
-  assertRequest({
-    account,
-    ...parameters
-  });
-  const chainId = await getAction(client, getChainId, "getChainId")({});
-  if (chain !== null)
-    assertCurrentChain2({
-      currentChainId: chainId,
-      chain
-    });
-  const formatters = chain?.formatters || client.chain?.formatters;
-  const format2 = formatters?.transactionRequest?.format || formatTransactionRequest;
-  if (account.signTransaction)
-    return account.signTransaction({
-      ...transaction,
-      account,
-      chainId
-    }, { serializer: client.chain?.serializers?.transaction });
-  return await client.request({
-    method: "eth_signTransaction",
-    params: [
-      {
-        ...format2({
-          ...transaction,
-          account
-        }, "signTransaction"),
-        chainId: numberToHex(chainId),
-        from: account.address
-      }
-    ]
-  }, { retryCount: 0 });
-}
-// ../viem/src/_esm/actions/wallet/signTypedData.js
-async function signTypedData(client, parameters) {
-  const { account: account_ = client.account, domain, message, primaryType } = parameters;
-  if (!account_)
-    throw new AccountNotFoundError({
-      docsPath: "/docs/actions/wallet/signTypedData"
-    });
-  const account = parseAccount(account_);
-  const types = {
-    EIP712Domain: getTypesForEIP712Domain({ domain }),
-    ...parameters.types
-  };
-  validateTypedData2({ domain, message, primaryType, types });
-  if (account.signTypedData)
-    return account.signTypedData({ domain, message, primaryType, types });
-  const typedData = serializeTypedData2({ domain, message, primaryType, types });
-  return client.request({
-    method: "eth_signTypedData_v4",
-    params: [account.address, typedData]
-  }, { retryCount: 0 });
-}
-
-// ../viem/src/_esm/actions/wallet/switchChain.js
-init_toHex();
-async function switchChain(client, { id }) {
-  await client.request({
-    method: "wallet_switchEthereumChain",
-    params: [
-      {
-        chainId: numberToHex(id)
-      }
-    ]
-  }, { retryCount: 0 });
-}
-
-// ../viem/src/_esm/actions/wallet/watchAsset.js
-async function watchAsset(client, params) {
-  const added = await client.request({
-    method: "wallet_watchAsset",
-    params
-  }, { retryCount: 0 });
-  return added;
-}
-
-// ../viem/src/_esm/clients/decorators/wallet.js
-function walletActions(client) {
-  return {
-    addChain: (args) => addChain(client, args),
-    deployContract: (args) => deployContract(client, args),
-    fillTransaction: (args) => fillTransaction(client, args),
-    getAddresses: () => getAddresses(client),
-    getCallsStatus: (args) => getCallsStatus(client, args),
-    getCapabilities: (args) => getCapabilities(client, args),
-    getChainId: () => getChainId(client),
-    getPermissions: () => getPermissions(client),
-    prepareAuthorization: (args) => prepareAuthorization(client, args),
-    prepareTransactionRequest: (args) => prepareTransactionRequest(client, args),
-    requestAddresses: () => requestAddresses(client),
-    requestPermissions: (args) => requestPermissions(client, args),
-    sendCalls: (args) => sendCalls(client, args),
-    sendCallsSync: (args) => sendCallsSync(client, args),
-    sendRawTransaction: (args) => sendRawTransaction(client, args),
-    sendRawTransactionSync: (args) => sendRawTransactionSync(client, args),
-    sendTransaction: (args) => sendTransaction(client, args),
-    sendTransactionSync: (args) => sendTransactionSync(client, args),
-    showCallsStatus: (args) => showCallsStatus(client, args),
-    signAuthorization: (args) => signAuthorization(client, args),
-    signMessage: (args) => signMessage(client, args),
-    signTransaction: (args) => signTransaction(client, args),
-    signTypedData: (args) => signTypedData(client, args),
-    switchChain: (args) => switchChain(client, args),
-    waitForCallsStatus: (args) => waitForCallsStatus(client, args),
-    watchAsset: (args) => watchAsset(client, args),
-    writeContract: (args) => writeContract(client, args),
-    writeContractSync: (args) => writeContractSync(client, args),
-    token: {
-      approve: bindActionDecorators(client, approve),
-      approveSync: bindActionDecorators(client, approveSync),
-      transfer: bindActionDecorators(client, transfer),
-      transferSync: bindActionDecorators(client, transferSync)
-    }
-  };
-}
-
-// ../viem/src/_esm/clients/createWalletClient.js
-function createWalletClient(parameters) {
-  const { key = "wallet", name = "Wallet Client", transport } = parameters;
-  const client = createClient({
-    ...parameters,
-    key,
-    name,
-    transport,
-    type: "walletClient"
-  });
-  return client.extend(walletActions);
-}
-// ../viem/src/_esm/utils/buildRequest.js
-init_base();
-init_request();
-init_rpc();
-
-// ../viem/src/_esm/utils/promise/withDedupe.js
-init_lru();
-var promiseCache2 = /* @__PURE__ */ new LruMap(8192);
-function withDedupe(fn, { enabled = true, id }) {
-  if (!enabled || !id)
-    return fn();
-  if (promiseCache2.get(id))
-    return promiseCache2.get(id);
-  const promise = fn().finally(() => promiseCache2.delete(id));
-  promiseCache2.set(id, promise);
-  return promise;
-}
-
-// ../viem/src/_esm/utils/buildRequest.js
-function buildRequest2(request, options = {}) {
-  return async (args, overrideOptions = {}) => {
-    const { dedupe = false, methods, retryDelay = 150, retryCount = 3, signal, uid: uid2 } = {
-      ...options,
-      ...overrideOptions
-    };
-    const { method } = args;
-    if (methods?.exclude?.includes(method))
-      throw new MethodNotSupportedRpcError(new Error("method not supported"), {
-        method
-      });
-    if (methods?.include && !methods.include.includes(method))
-      throw new MethodNotSupportedRpcError(new Error("method not supported"), {
-        method
-      });
-    if (signal?.aborted)
-      throw getAbortError(signal);
-    const requestId = dedupe ? hashString(`${uid2}.${stringify(args)}`) : undefined;
-    return withDedupe(() => withRetry(async () => {
-      try {
-        return await request(args, signal ? { signal } : undefined);
-      } catch (err_) {
-        if (signal?.aborted)
-          throw getAbortError(signal);
-        if (isAbortError(err_))
-          throw err_;
-        const err = err_;
-        switch (err.code) {
-          case ParseRpcError.code:
-            throw new ParseRpcError(err);
-          case InvalidRequestRpcError.code:
-            throw new InvalidRequestRpcError(err);
-          case MethodNotFoundRpcError.code:
-            throw new MethodNotFoundRpcError(err, { method: args.method });
-          case InvalidParamsRpcError.code:
-            throw new InvalidParamsRpcError(err);
-          case InternalRpcError.code:
-            throw new InternalRpcError(err);
-          case InvalidInputRpcError.code:
-            throw new InvalidInputRpcError(err);
-          case ResourceNotFoundRpcError.code:
-            throw new ResourceNotFoundRpcError(err);
-          case ResourceUnavailableRpcError.code:
-            throw new ResourceUnavailableRpcError(err);
-          case TransactionRejectedRpcError.code:
-            throw new TransactionRejectedRpcError(err);
-          case MethodNotSupportedRpcError.code:
-            throw new MethodNotSupportedRpcError(err, {
-              method: args.method
-            });
-          case LimitExceededRpcError.code:
-            throw new LimitExceededRpcError(err);
-          case JsonRpcVersionUnsupportedError.code:
-            throw new JsonRpcVersionUnsupportedError(err);
-          case UserRejectedRequestError.code:
-            throw new UserRejectedRequestError(err);
-          case UnauthorizedProviderError.code:
-            throw new UnauthorizedProviderError(err);
-          case UnsupportedProviderMethodError.code:
-            throw new UnsupportedProviderMethodError(err);
-          case ProviderDisconnectedError.code:
-            throw new ProviderDisconnectedError(err);
-          case ChainDisconnectedError.code:
-            throw new ChainDisconnectedError(err);
-          case SwitchChainError.code:
-            throw new SwitchChainError(err);
-          case UnsupportedNonOptionalCapabilityError.code:
-            throw new UnsupportedNonOptionalCapabilityError(err);
-          case UnsupportedChainIdError.code:
-            throw new UnsupportedChainIdError(err);
-          case DuplicateIdError.code:
-            throw new DuplicateIdError(err);
-          case UnknownBundleIdError.code:
-            throw new UnknownBundleIdError(err);
-          case BundleTooLargeError.code:
-            throw new BundleTooLargeError(err);
-          case AtomicReadyWalletRejectedUpgradeError.code:
-            throw new AtomicReadyWalletRejectedUpgradeError(err);
-          case AtomicityNotSupportedError.code:
-            throw new AtomicityNotSupportedError(err);
-          case 5000:
-            throw new UserRejectedRequestError(err);
-          case WalletConnectSessionSettlementError.code:
-            throw new WalletConnectSessionSettlementError(err);
-          default:
-            if (err_ instanceof BaseError2)
-              throw err_;
-            throw new UnknownRpcError(err);
-        }
-      }
-    }, {
-      delay: ({ count, error }) => {
-        if (error && error instanceof HttpRequestError) {
-          const retryAfter = error?.headers?.get("Retry-After");
-          if (retryAfter?.match(/\d/))
-            return Number.parseInt(retryAfter, 10) * 1000;
-        }
-        return ~~(1 << count) * retryDelay;
-      },
-      retryCount,
-      signal,
-      shouldRetry: ({ error }) => shouldRetry(error)
-    }), { enabled: dedupe, id: requestId });
-  };
-}
-function shouldRetry(error) {
-  if (isAbortError(error))
-    return false;
-  if ("code" in error && typeof error.code === "number") {
-    if (error.code === -1)
-      return true;
-    if (error.code === LimitExceededRpcError.code)
-      return true;
-    if (error.code === InternalRpcError.code)
-      return true;
-    if (error.code === 429)
-      return true;
-    return false;
-  }
-  if (error instanceof HttpRequestError && error.status) {
-    if (error.status === 403)
-      return true;
-    if (error.status === 408)
-      return true;
-    if (error.status === 413)
-      return true;
-    if (error.status === 429)
-      return true;
-    if (error.status === 500)
-      return true;
-    if (error.status === 502)
-      return true;
-    if (error.status === 503)
-      return true;
-    if (error.status === 504)
-      return true;
-    return false;
-  }
-  return true;
-}
-function hashString(str, seed = 0) {
-  let h1 = 3735928559 ^ seed;
-  let h2 = 1103547991 ^ seed;
-  for (let i = 0;i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507);
-  h1 ^= Math.imul(h2 ^ h2 >>> 16, 3266489909);
-  h2 = Math.imul(h2 ^ h2 >>> 16, 2246822507);
-  h2 ^= Math.imul(h1 ^ h1 >>> 16, 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
-}
-
-// ../viem/src/_esm/clients/transports/createTransport.js
-function createTransport({ key, methods, name, request, retryCount = 3, retryDelay = 150, timeout, type }, value) {
-  const uid2 = uid();
-  return {
-    config: {
-      key,
-      methods,
-      name,
-      request,
-      retryCount,
-      retryDelay,
-      timeout,
-      type
-    },
-    request: buildRequest2(request, { methods, retryCount, retryDelay, uid: uid2 }),
-    value
-  };
-}
-
-// ../viem/src/_esm/clients/transports/custom.js
-function custom(provider, config = {}) {
-  const { key = "custom", methods, name = "Custom Provider", retryDelay } = config;
-  return ({ retryCount: defaultRetryCount }) => createTransport({
-    key,
-    methods,
-    name,
-    request: provider.request.bind(provider),
-    retryCount: config.retryCount ?? defaultRetryCount,
-    retryDelay,
-    type: "custom"
-  });
-}
-// ../viem/src/_esm/clients/transports/http.js
+// ../viem/src/clients/transports/http.ts
 init_request();
 
-// ../viem/src/_esm/errors/transport.js
+// ../viem/src/errors/transport.ts
 init_base();
 
 class UrlRequiredError extends BaseError2 {
@@ -18588,14 +17155,18 @@ class UrlRequiredError extends BaseError2 {
   }
 }
 
-// ../viem/src/_esm/clients/transports/http.js
+// ../viem/src/clients/transports/http.ts
 init_createBatchScheduler();
 
-// ../viem/src/_esm/utils/rpc/http.js
+// ../viem/src/utils/rpc/http.ts
 init_request();
 
-// ../viem/src/_esm/utils/promise/withTimeout.js
-function withTimeout(fn, { errorInstance = new Error("timed out"), timeout, signal }) {
+// ../viem/src/utils/promise/withTimeout.ts
+function withTimeout(fn, {
+  errorInstance = new Error("timed out"),
+  timeout,
+  signal
+}) {
   return new Promise((resolve, reject) => {
     (async () => {
       let timeoutId;
@@ -18623,7 +17194,7 @@ function withTimeout(fn, { errorInstance = new Error("timed out"), timeout, sign
     })();
   });
 }
-// ../viem/src/_esm/utils/rpc/id.js
+// ../viem/src/utils/rpc/id.ts
 function createIdStore() {
   return {
     current: 0,
@@ -18637,13 +17208,20 @@ function createIdStore() {
 }
 var idCache = /* @__PURE__ */ createIdStore();
 
-// ../viem/src/_esm/utils/rpc/http.js
+// ../viem/src/utils/rpc/http.ts
 var defaultMaxResponseBodySize = 10485760;
 function getHttpRpcClient2(url_, options = {}) {
   const { url, headers: headers_url } = parseUrl(url_);
   return {
     async request(params) {
-      const { body, fetchFn = options.fetchFn ?? fetch, maxResponseBodySize = options.maxResponseBodySize ?? defaultMaxResponseBodySize, onRequest = options.onRequest, onResponse = options.onResponse, timeout = options.timeout ?? 1e4 } = params;
+      const {
+        body,
+        fetchFn = options.fetchFn ?? fetch,
+        maxResponseBodySize = options.maxResponseBodySize ?? defaultMaxResponseBodySize,
+        onRequest = options.onRequest,
+        onResponse = options.onResponse,
+        timeout = options.timeout ?? 1e4
+      } = params;
       const fetchOptions = {
         ...options.fetchOptions ?? {},
         ...params.fetchOptions ?? {}
@@ -18797,7 +17375,216 @@ function parseUrl(url_) {
   }
 }
 
-// ../viem/src/_esm/clients/transports/http.js
+// ../viem/src/utils/buildRequest.ts
+init_base();
+init_request();
+init_rpc();
+
+// ../viem/src/utils/promise/withDedupe.ts
+init_lru();
+var promiseCache2 = /* @__PURE__ */ new LruMap(8192);
+function withDedupe(fn, { enabled = true, id }) {
+  if (!enabled || !id)
+    return fn();
+  if (promiseCache2.get(id))
+    return promiseCache2.get(id);
+  const promise = fn().finally(() => promiseCache2.delete(id));
+  promiseCache2.set(id, promise);
+  return promise;
+}
+
+// ../viem/src/utils/buildRequest.ts
+function buildRequest2(request, options = {}) {
+  return async (args, overrideOptions = {}) => {
+    const {
+      dedupe = false,
+      methods,
+      retryDelay = 150,
+      retryCount = 3,
+      signal,
+      uid: uid2
+    } = {
+      ...options,
+      ...overrideOptions
+    };
+    const { method } = args;
+    if (methods?.exclude?.includes(method))
+      throw new MethodNotSupportedRpcError(new Error("method not supported"), {
+        method
+      });
+    if (methods?.include && !methods.include.includes(method))
+      throw new MethodNotSupportedRpcError(new Error("method not supported"), {
+        method
+      });
+    if (signal?.aborted)
+      throw getAbortError(signal);
+    const requestId = dedupe ? hashString(`${uid2}.${stringify(args)}`) : undefined;
+    return withDedupe(() => withRetry(async () => {
+      try {
+        return await request(args, signal ? { signal } : undefined);
+      } catch (err_) {
+        if (signal?.aborted)
+          throw getAbortError(signal);
+        if (isAbortError(err_))
+          throw err_;
+        const err = err_;
+        switch (err.code) {
+          case ParseRpcError.code:
+            throw new ParseRpcError(err);
+          case InvalidRequestRpcError.code:
+            throw new InvalidRequestRpcError(err);
+          case MethodNotFoundRpcError.code:
+            throw new MethodNotFoundRpcError(err, { method: args.method });
+          case InvalidParamsRpcError.code:
+            throw new InvalidParamsRpcError(err);
+          case InternalRpcError.code:
+            throw new InternalRpcError(err);
+          case InvalidInputRpcError.code:
+            throw new InvalidInputRpcError(err);
+          case ResourceNotFoundRpcError.code:
+            throw new ResourceNotFoundRpcError(err);
+          case ResourceUnavailableRpcError.code:
+            throw new ResourceUnavailableRpcError(err);
+          case TransactionRejectedRpcError.code:
+            throw new TransactionRejectedRpcError(err);
+          case MethodNotSupportedRpcError.code:
+            throw new MethodNotSupportedRpcError(err, {
+              method: args.method
+            });
+          case LimitExceededRpcError.code:
+            throw new LimitExceededRpcError(err);
+          case JsonRpcVersionUnsupportedError.code:
+            throw new JsonRpcVersionUnsupportedError(err);
+          case UserRejectedRequestError.code:
+            throw new UserRejectedRequestError(err);
+          case UnauthorizedProviderError.code:
+            throw new UnauthorizedProviderError(err);
+          case UnsupportedProviderMethodError.code:
+            throw new UnsupportedProviderMethodError(err);
+          case ProviderDisconnectedError.code:
+            throw new ProviderDisconnectedError(err);
+          case ChainDisconnectedError.code:
+            throw new ChainDisconnectedError(err);
+          case SwitchChainError.code:
+            throw new SwitchChainError(err);
+          case UnsupportedNonOptionalCapabilityError.code:
+            throw new UnsupportedNonOptionalCapabilityError(err);
+          case UnsupportedChainIdError.code:
+            throw new UnsupportedChainIdError(err);
+          case DuplicateIdError.code:
+            throw new DuplicateIdError(err);
+          case UnknownBundleIdError.code:
+            throw new UnknownBundleIdError(err);
+          case BundleTooLargeError.code:
+            throw new BundleTooLargeError(err);
+          case AtomicReadyWalletRejectedUpgradeError.code:
+            throw new AtomicReadyWalletRejectedUpgradeError(err);
+          case AtomicityNotSupportedError.code:
+            throw new AtomicityNotSupportedError(err);
+          case 5000:
+            throw new UserRejectedRequestError(err);
+          case WalletConnectSessionSettlementError.code:
+            throw new WalletConnectSessionSettlementError(err);
+          default:
+            if (err_ instanceof BaseError2)
+              throw err_;
+            throw new UnknownRpcError(err);
+        }
+      }
+    }, {
+      delay: ({ count, error }) => {
+        if (error && error instanceof HttpRequestError) {
+          const retryAfter = error?.headers?.get("Retry-After");
+          if (retryAfter?.match(/\d/))
+            return Number.parseInt(retryAfter, 10) * 1000;
+        }
+        return ~~(1 << count) * retryDelay;
+      },
+      retryCount,
+      signal,
+      shouldRetry: ({ error }) => shouldRetry(error)
+    }), { enabled: dedupe, id: requestId });
+  };
+}
+function shouldRetry(error) {
+  if (isAbortError(error))
+    return false;
+  if ("code" in error && typeof error.code === "number") {
+    if (error.code === -1)
+      return true;
+    if (error.code === LimitExceededRpcError.code)
+      return true;
+    if (error.code === InternalRpcError.code)
+      return true;
+    if (error.code === 429)
+      return true;
+    return false;
+  }
+  if (error instanceof HttpRequestError && error.status) {
+    if (error.status === 403)
+      return true;
+    if (error.status === 408)
+      return true;
+    if (error.status === 413)
+      return true;
+    if (error.status === 429)
+      return true;
+    if (error.status === 500)
+      return true;
+    if (error.status === 502)
+      return true;
+    if (error.status === 503)
+      return true;
+    if (error.status === 504)
+      return true;
+    return false;
+  }
+  return true;
+}
+function hashString(str, seed = 0) {
+  let h1 = 3735928559 ^ seed;
+  let h2 = 1103547991 ^ seed;
+  for (let i = 0;i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507);
+  h1 ^= Math.imul(h2 ^ h2 >>> 16, 3266489909);
+  h2 = Math.imul(h2 ^ h2 >>> 16, 2246822507);
+  h2 ^= Math.imul(h1 ^ h1 >>> 16, 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+// ../viem/src/clients/transports/createTransport.ts
+function createTransport({
+  key,
+  methods,
+  name,
+  request,
+  retryCount = 3,
+  retryDelay = 150,
+  timeout,
+  type
+}, value) {
+  const uid2 = uid();
+  return {
+    config: {
+      key,
+      methods,
+      name,
+      request,
+      retryCount,
+      retryDelay,
+      timeout,
+      type
+    },
+    request: buildRequest2(request, { methods, retryCount, retryDelay, uid: uid2 }),
+    value
+  };
+}
+
+// ../viem/src/clients/transports/http.ts
 var signalId = 0;
 var signalIds = new WeakMap;
 function getSignalId(signal) {
@@ -18811,7 +17598,19 @@ function getSignalId(signal) {
   return nextId;
 }
 function http(url, config = {}) {
-  const { batch, fetchFn, fetchOptions, key = "http", maxResponseBodySize, methods, name = "HTTP JSON-RPC", onFetchRequest, onFetchResponse, retryDelay, raw } = config;
+  const {
+    batch,
+    fetchFn,
+    fetchOptions,
+    key = "http",
+    maxResponseBodySize,
+    methods,
+    name = "HTTP JSON-RPC",
+    onFetchRequest,
+    onFetchResponse,
+    retryDelay,
+    raw
+  } = config;
   return ({ chain, retryCount: retryCount_, timeout: timeout_ }) => {
     const { batchSize = 1000, wait: wait2 = 0 } = typeof batch === "object" ? batch : {};
     const retryCount = config.retryCount ?? retryCount_;
@@ -18874,32 +17673,28 @@ function http(url, config = {}) {
   };
 }
 
-// ../viem/src/_esm/index.js
+// ../viem/src/index.ts
 init_decodeAbiParameters();
 init_encodeAbiParameters();
 init_encodeFunctionData();
-init_slice();
-init_fromHex();
 init_toHex();
-init_keccak256();
-init_formatEther();
 
-// ../viem/src/_esm/utils/unit/parseEther.js
+// ../viem/src/utils/unit/parseEther.ts
 init_Value();
 function parseEther2(ether, unit = "wei") {
   return fromEther(ether, unit);
 }
-// ../viem/src/_esm/accounts/generatePrivateKey.js
+// ../viem/src/accounts/generatePrivateKey.ts
 init_secp256k1();
 init_toHex();
 function generatePrivateKey() {
   return toHex(secp256k1.utils.randomPrivateKey());
 }
-// ../viem/src/_esm/accounts/privateKeyToAccount.js
+// ../viem/src/accounts/privateKeyToAccount.ts
 init_secp256k1();
 init_toHex();
 
-// ../viem/src/_esm/accounts/toAccount.js
+// ../viem/src/accounts/toAccount.ts
 init_address();
 init_isAddress();
 function toAccount(source) {
@@ -18926,15 +17721,19 @@ function toAccount(source) {
   };
 }
 
-// ../viem/src/_esm/accounts/utils/sign.js
+// ../viem/src/accounts/utils/sign.ts
 init_secp256k1();
 init_toBytes();
 init_toHex();
-var extraEntropy2 = false;
-async function sign({ hash: hash3, privateKey, to = "object" }) {
+var extraEntropy = false;
+async function sign({
+  hash: hash3,
+  privateKey,
+  to = "object"
+}) {
   const { r, s, recovery } = secp256k1.sign(hash3.slice(2), privateKey.slice(2), {
     lowS: true,
-    extraEntropy: isHex(extraEntropy2, { strict: false }) ? hexToBytes(extraEntropy2) : extraEntropy2
+    extraEntropy: isHex(extraEntropy, { strict: false }) ? hexToBytes(extraEntropy) : extraEntropy
   });
   const signature = {
     r: numberToHex(r, { size: 32 }),
@@ -18949,8 +17748,8 @@ async function sign({ hash: hash3, privateKey, to = "object" }) {
   })();
 }
 
-// ../viem/src/_esm/accounts/utils/signAuthorization.js
-async function signAuthorization2(parameters) {
+// ../viem/src/accounts/utils/signAuthorization.ts
+async function signAuthorization(parameters) {
   const { chainId, nonce, privateKey, to = "object" } = parameters;
   const address = parameters.contractAddress ?? parameters.address;
   const signature = await sign({
@@ -18968,18 +17767,21 @@ async function signAuthorization2(parameters) {
   return signature;
 }
 
-// ../viem/src/_esm/accounts/utils/signMessage.js
-async function signMessage2({ message, privateKey }) {
+// ../viem/src/accounts/utils/signMessage.ts
+async function signMessage({
+  message,
+  privateKey
+}) {
   return await sign({ hash: hashMessage2(message), privateKey, to: "hex" });
 }
 
-// ../viem/src/_esm/accounts/utils/signTransaction.js
+// ../viem/src/accounts/utils/signTransaction.ts
 init_keccak256();
 
-// ../viem/src/_esm/utils/transaction/serializeTransaction.js
+// ../viem/src/utils/transaction/serializeTransaction.ts
 init_transaction();
 
-// ../viem/src/_esm/utils/authorization/serializeAuthorizationList.js
+// ../viem/src/utils/authorization/serializeAuthorizationList.ts
 init_toHex();
 function serializeAuthorizationList2(authorizationList) {
   if (!authorizationList || authorizationList.length === 0)
@@ -18998,10 +17800,10 @@ function serializeAuthorizationList2(authorizationList) {
   return serializedAuthorizationList;
 }
 
-// ../viem/src/_esm/utils/transaction/serializeTransaction.js
+// ../viem/src/utils/transaction/serializeTransaction.ts
 init_toHex();
 
-// ../viem/src/_esm/utils/transaction/assertTransaction.js
+// ../viem/src/utils/transaction/assertTransaction.ts
 init_number();
 init_address();
 init_base();
@@ -19078,7 +17880,7 @@ function assertTransactionLegacy3(transaction) {
     throw new FeeCapTooHighError({ maxFeePerGas: gasPrice });
 }
 
-// ../viem/src/_esm/utils/transaction/serializeAccessList.js
+// ../viem/src/utils/transaction/serializeAccessList.ts
 init_address();
 init_transaction();
 init_isAddress();
@@ -19101,7 +17903,7 @@ function serializeAccessList3(accessList) {
   return serializedAccessList;
 }
 
-// ../viem/src/_esm/utils/transaction/serializeTransaction.js
+// ../viem/src/utils/transaction/serializeTransaction.ts
 function serializeTransaction3(transaction, signature) {
   const type = getTransactionType(transaction);
   if (type === "eip1559")
@@ -19115,7 +17917,18 @@ function serializeTransaction3(transaction, signature) {
   return serializeTransactionLegacy(transaction, signature);
 }
 function serializeTransactionEIP7702(transaction, signature) {
-  const { authorizationList, chainId, gas, nonce, to, value, maxFeePerGas, maxPriorityFeePerGas, accessList, data } = transaction;
+  const {
+    authorizationList,
+    chainId,
+    gas,
+    nonce,
+    to,
+    value,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    accessList,
+    data
+  } = transaction;
   assertTransactionEIP7702(transaction);
   const serializedAccessList = serializeAccessList3(accessList);
   const serializedAuthorizationList = serializeAuthorizationList2(authorizationList);
@@ -19137,7 +17950,18 @@ function serializeTransactionEIP7702(transaction, signature) {
   ]);
 }
 function serializeTransactionEIP4844(transaction, signature) {
-  const { chainId, gas, nonce, to, value, maxFeePerBlobGas, maxFeePerGas, maxPriorityFeePerGas, accessList, data } = transaction;
+  const {
+    chainId,
+    gas,
+    nonce,
+    to,
+    value,
+    maxFeePerBlobGas,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    accessList,
+    data
+  } = transaction;
   assertTransactionEIP4844(transaction);
   let blobVersionedHashes = transaction.blobVersionedHashes;
   let sidecars = transaction.sidecars;
@@ -19188,7 +18012,17 @@ function serializeTransactionEIP4844(transaction, signature) {
   ]);
 }
 function serializeTransactionEIP1559(transaction, signature) {
-  const { chainId, gas, nonce, to, value, maxFeePerGas, maxPriorityFeePerGas, accessList, data } = transaction;
+  const {
+    chainId,
+    gas,
+    nonce,
+    to,
+    value,
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    accessList,
+    data
+  } = transaction;
   assertTransactionEIP15593(transaction);
   const serializedAccessList = serializeAccessList3(accessList);
   const serializedTransaction = [
@@ -19295,9 +18129,13 @@ function toYParitySignatureArray(transaction, signature_) {
   return [yParity_, r === "0x00" ? "0x" : r, s === "0x00" ? "0x" : s];
 }
 
-// ../viem/src/_esm/accounts/utils/signTransaction.js
-async function signTransaction2(parameters) {
-  const { privateKey, transaction, serializer = serializeTransaction3 } = parameters;
+// ../viem/src/accounts/utils/signTransaction.ts
+async function signTransaction(parameters) {
+  const {
+    privateKey,
+    transaction,
+    serializer = serializeTransaction3
+  } = parameters;
   const signableTransaction = (() => {
     if (transaction.type === "eip4844")
       return {
@@ -19313,8 +18151,8 @@ async function signTransaction2(parameters) {
   return await serializer(transaction, signature);
 }
 
-// ../viem/src/_esm/accounts/utils/signTypedData.js
-async function signTypedData2(parameters) {
+// ../viem/src/accounts/utils/signTypedData.ts
+async function signTypedData(parameters) {
   const { privateKey, ...typedData } = parameters;
   return await sign({
     hash: hashTypedData2(typedData),
@@ -19323,7 +18161,7 @@ async function signTypedData2(parameters) {
   });
 }
 
-// ../viem/src/_esm/accounts/privateKeyToAccount.js
+// ../viem/src/accounts/privateKeyToAccount.ts
 function privateKeyToAccount(privateKey, options = {}) {
   const { nonceManager: nonceManager3 } = options;
   const publicKey = toHex(secp256k1.getPublicKey(privateKey.slice(2), false));
@@ -19335,16 +18173,16 @@ function privateKeyToAccount(privateKey, options = {}) {
       return sign({ hash: hash3, privateKey, to: "hex" });
     },
     async signAuthorization(authorization) {
-      return signAuthorization2({ ...authorization, privateKey });
+      return signAuthorization({ ...authorization, privateKey });
     },
     async signMessage({ message }) {
-      return signMessage2({ message, privateKey });
+      return signMessage({ message, privateKey });
     },
     async signTransaction(transaction, { serializer } = {}) {
-      return signTransaction2({ privateKey, transaction, serializer });
+      return signTransaction({ privateKey, transaction, serializer });
     },
     async signTypedData(typedData) {
-      return signTypedData2({ ...typedData, privateKey });
+      return signTypedData({ ...typedData, privateKey });
     }
   });
   return {
@@ -19353,2580 +18191,20 @@ function privateKeyToAccount(privateKey, options = {}) {
     source: "privateKey"
   };
 }
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/core/Base64.js
-var encoder5 = /* @__PURE__ */ new TextEncoder;
-var integerToCharacter = /* @__PURE__ */ Object.fromEntries(Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").map((a, i) => [i, a.charCodeAt(0)]));
-var characterToInteger = {
-  ...Object.fromEntries(Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/").map((a, i) => [a.charCodeAt(0), i])),
-  [61]: 0,
-  [45]: 62,
-  [95]: 63
-};
-function toBytes6(value) {
-  const base64 = value.replace(/=+$/, "");
-  const size7 = base64.length;
-  const decoded = new Uint8Array(size7 + 3);
-  encoder5.encodeInto(base64 + "===", decoded);
-  for (let i = 0, j = 0;i < base64.length; i += 4, j += 3) {
-    const x = (characterToInteger[decoded[i]] << 18) + (characterToInteger[decoded[i + 1]] << 12) + (characterToInteger[decoded[i + 2]] << 6) + characterToInteger[decoded[i + 3]];
-    decoded[j] = x >> 16;
-    decoded[j + 1] = x >> 8 & 255;
-    decoded[j + 2] = x & 255;
-  }
-  const decodedSize = (size7 >> 2) * 3 + (size7 % 4 && size7 % 4 - 1);
-  return new Uint8Array(decoded.buffer, 0, decodedSize);
-}
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/webauthn/Authentication.js
-init_Bytes();
-init_Errors();
-init_Hex();
-
-// ../viem/node_modules/.pnpm/@noble+curves@1.9.1/node_modules/@noble/curves/esm/nist.js
-init_sha2();
-init__shortw_utils();
-init_modular();
-/*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
-var Fp256 = Field(BigInt("0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff"));
-var p256_a = Fp256.create(BigInt("-3"));
-var p256_b = BigInt("0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b");
-var p256 = createCurve({
-  a: p256_a,
-  b: p256_b,
-  Fp: Fp256,
-  n: BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"),
-  Gx: BigInt("0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"),
-  Gy: BigInt("0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"),
-  h: BigInt(1),
-  lowS: false
-}, sha256);
-var Fp384 = Field(BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff"));
-var p384_a = Fp384.create(BigInt("-3"));
-var p384_b = BigInt("0xb3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef");
-var p384 = createCurve({
-  a: p384_a,
-  b: p384_b,
-  Fp: Fp384,
-  n: BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973"),
-  Gx: BigInt("0xaa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab7"),
-  Gy: BigInt("0x3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f"),
-  h: BigInt(1),
-  lowS: false
-}, sha384);
-var Fp521 = Field(BigInt("0x1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
-var p521_a = Fp521.create(BigInt("-3"));
-var p521_b = BigInt("0x0051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef109e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b503f00");
-var p521 = createCurve({
-  a: p521_a,
-  b: p521_b,
-  Fp: Fp521,
-  n: BigInt("0x01fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409"),
-  Gx: BigInt("0x00c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3dbaa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66"),
-  Gy: BigInt("0x011839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e662c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650"),
-  h: BigInt(1),
-  lowS: false,
-  allowedPrivateKeyLengths: [130, 131, 132]
-}, sha512);
-
-// ../viem/node_modules/.pnpm/@noble+curves@1.9.1/node_modules/@noble/curves/esm/p256.js
-/*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
-var p2562 = p256;
-var secp256r1 = p256;
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/webauthn/Registration.js
-init_Bytes();
-init_Errors();
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/core/P256.js
-init_Bytes();
-init_Hex();
-function getPublicKey(options) {
-  const { privateKey } = options;
-  const point = secp256r1.ProjectivePoint.fromPrivateKey(typeof privateKey === "string" ? privateKey.slice(2) : fromBytes(privateKey).slice(2));
-  return from4(point);
-}
-function sign3(options) {
-  const { extraEntropy: extraEntropy3 = extraEntropy, hash: hash3, payload, privateKey } = options;
-  const { r, s, recovery } = secp256r1.sign(payload instanceof Uint8Array ? payload : fromHex(payload), privateKey instanceof Uint8Array ? privateKey : fromHex(privateKey), {
-    extraEntropy: typeof extraEntropy3 === "boolean" ? extraEntropy3 : from3(extraEntropy3).slice(2),
-    lowS: true,
-    ...hash3 ? { prehash: true } : {}
-  });
-  return {
-    r,
-    s,
-    yParity: recovery
-  };
-}
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/webauthn/Registration.js
-var createChallenge = Uint8Array.from([
-  105,
-  171,
-  180,
-  181,
-  160,
-  222,
-  75,
-  198,
-  42,
-  42,
-  32,
-  31,
-  141,
-  37,
-  186,
-  233
-]);
-async function create2(options) {
-  const { createFn = (opts) => window.navigator.credentials.create(opts), ...rest } = options;
-  const creationOptions = "publicKey" in rest ? rest : getOptions(rest);
-  try {
-    const credential = await createFn(creationOptions);
-    if (!credential)
-      throw new CreateFailedError;
-    const response = credential.response;
-    const attestationObject = response.attestationObject;
-    const clientDataJSON = response.clientDataJSON;
-    const id = credential.id;
-    const publicKey = await parseCredentialPublicKey(response, attestationObject);
-    return {
-      attestationObject,
-      clientDataJSON,
-      id,
-      publicKey,
-      raw: credential
-    };
-  } catch (error) {
-    throw new CreateFailedError({
-      cause: error
-    });
-  }
-}
-function getOptions(options) {
-  const { attestation = "none", authenticatorSelection = {
-    residentKey: "preferred",
-    requireResidentKey: false,
-    userVerification: "required"
-  }, challenge: challenge2 = createChallenge, excludeCredentialIds, extensions, name: name_, rp = {
-    id: window.location.hostname,
-    name: window.document.title
-  }, user } = options;
-  const name = user?.name ?? name_;
-  return {
-    publicKey: {
-      attestation,
-      authenticatorSelection,
-      challenge: typeof challenge2 === "string" ? fromHex(challenge2) : challenge2,
-      ...excludeCredentialIds ? {
-        excludeCredentials: excludeCredentialIds?.map((id) => ({
-          id: toBytes6(id),
-          type: "public-key"
-        }))
-      } : {},
-      pubKeyCredParams: [
-        {
-          type: "public-key",
-          alg: -7
-        }
-      ],
-      rp,
-      user: {
-        id: user?.id ?? keccak2563(fromString(name), { as: "Bytes" }),
-        name,
-        displayName: user?.displayName ?? name
-      },
-      ...extensions && { extensions }
-    }
-  };
-}
-class CreateFailedError extends BaseError3 {
-  constructor({ cause } = {}) {
-    super("Failed to create credential.", {
-      cause
-    });
-    Object.defineProperty(this, "name", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: "Registration.CreateFailedError"
-    });
-  }
-}
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/core/internal/webauthn.js
-function parseAsn1Signature(bytes) {
-  const sig = p2562.Signature.fromDER(bytes).normalizeS();
-  return { r: sig.r, s: sig.s };
-}
-async function parseCredentialPublicKey(response, attestationObject) {
-  try {
-    const publicKeyBuffer = response.getPublicKey();
-    if (!publicKeyBuffer)
-      throw new CreateFailedError;
-    const publicKeyBytes = new Uint8Array(publicKeyBuffer);
-    const cryptoKey = await crypto.subtle.importKey("spki", new Uint8Array(publicKeyBytes), {
-      name: "ECDSA",
-      namedCurve: "P-256",
-      hash: "SHA-256"
-    }, true, ["verify"]);
-    const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", cryptoKey));
-    return from4(publicKey);
-  } catch (error) {
-    if (error.message !== "Permission denied to access object")
-      throw error;
-    const data = new Uint8Array(attestationObject ?? response.attestationObject);
-    const coordinateLength = 32;
-    const cborPrefix = 88;
-    const findStart = (key) => {
-      const coordinate = new Uint8Array([key, cborPrefix, coordinateLength]);
-      for (let i = 0;i < data.length - coordinate.length; i++)
-        if (coordinate.every((byte, j) => data[i + j] === byte))
-          return i + coordinate.length;
-      throw new CreateFailedError;
-    };
-    const xStart = findStart(33);
-    const yStart = findStart(34);
-    return from4(new Uint8Array([
-      4,
-      ...data.slice(xStart, xStart + coordinateLength),
-      ...data.slice(yStart, yStart + coordinateLength)
-    ]));
-  }
-}
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/webauthn/Authentication.js
-function getOptions2(options) {
-  const { credentialId, challenge: challenge2, extensions, rpId = window.location.hostname, userVerification = "required" } = options;
-  return {
-    publicKey: {
-      ...credentialId ? {
-        allowCredentials: Array.isArray(credentialId) ? credentialId.map((id) => ({
-          id: toBytes6(id),
-          type: "public-key"
-        })) : [
-          {
-            id: toBytes6(credentialId),
-            type: "public-key"
-          }
-        ]
-      } : {},
-      challenge: fromHex(challenge2),
-      ...extensions && { extensions },
-      rpId,
-      userVerification
-    }
-  };
-}
-async function sign4(options) {
-  const { getFn = (opts) => window.navigator.credentials.get(opts), ...rest } = options;
-  const requestOptions = "publicKey" in rest ? rest : getOptions2(rest);
-  try {
-    const credential = await getFn(requestOptions);
-    if (!credential)
-      throw new SignFailedError;
-    const response = credential.response;
-    const clientDataJSONBytes = new Uint8Array(response.clientDataJSON);
-    const authenticatorDataBytes = new Uint8Array(response.authenticatorData);
-    const signatureBytes = new Uint8Array(response.signature);
-    const id = credential.id;
-    const clientDataJSON = String.fromCharCode(...clientDataJSONBytes);
-    const challengeIndex = clientDataJSON.indexOf('"challenge"');
-    const typeIndex = clientDataJSON.indexOf('"type"');
-    const signature = parseAsn1Signature(signatureBytes);
-    return {
-      id,
-      metadata: {
-        authenticatorData: fromBytes(authenticatorDataBytes),
-        clientDataJSON,
-        challengeIndex,
-        typeIndex,
-        userVerificationRequired: requestOptions.publicKey.userVerification === "required"
-      },
-      signature,
-      raw: credential
-    };
-  } catch (error) {
-    throw new SignFailedError({
-      cause: error
-    });
-  }
-}
-
-class SignFailedError extends BaseError3 {
-  constructor({ cause } = {}) {
-    super("Failed to request credential.", {
-      cause
-    });
-    Object.defineProperty(this, "name", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: "Authentication.SignFailedError"
-    });
-  }
-}
-
-// ../viem/node_modules/.pnpm/ox@0.14.34_typescript@5.9.3_zod@4.4.3/node_modules/ox/_esm/core/WebAuthnP256.js
-async function createCredential(options) {
-  return create2(options);
-}
-async function sign5(options) {
-  return sign4(options);
-}
-
-// ../viem/src/_esm/account-abstraction/accounts/createWebAuthnCredential.js
-async function createWebAuthnCredential(parameters) {
-  const credential = await createCredential(parameters);
-  return {
-    id: credential.id,
-    publicKey: toHex2(credential.publicKey, { includePrefix: false }),
-    raw: credential.raw
-  };
-}
-// ../viem/src/_esm/account-abstraction/accounts/toWebAuthnAccount.js
-function toWebAuthnAccount(parameters) {
-  const { getFn, rpId } = parameters;
-  const { id, publicKey } = parameters.credential;
-  return {
-    id,
-    publicKey,
-    async sign({ hash: hash3 }) {
-      const { metadata, raw, signature } = await sign5({
-        credentialId: id,
-        getFn,
-        challenge: hash3,
-        rpId
-      });
-      return {
-        signature: toHex3(signature),
-        raw,
-        webauthn: metadata
-      };
-    },
-    async signMessage({ message }) {
-      return this.sign({ hash: hashMessage2(message) });
-    },
-    async signTypedData(parameters2) {
-      return this.sign({ hash: hashTypedData2(parameters2) });
-    },
-    type: "webAuthn"
-  };
-}
-// ../viem/src/_esm/account-abstraction/actions/bundler/estimateUserOperationGas.js
-init_stateOverride2();
-
-// ../viem/src/_esm/account-abstraction/utils/errors/getUserOperationError.js
-init_base();
-init_contract();
-init_decodeErrorResult();
-
-// ../viem/src/_esm/account-abstraction/errors/bundler.js
+// ../viem/src/eip8130/accounts/toEoaAccount.ts
 init_base();
 
-class AccountNotDeployedError extends BaseError2 {
-  constructor({ cause }) {
-    super("Smart Account is not deployed.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- No `factory`/`factoryData` or `initCode` properties are provided for Smart Account deployment.",
-        "- An incorrect `sender` address is provided."
-      ],
-      name: "AccountNotDeployedError"
-    });
-  }
-}
-Object.defineProperty(AccountNotDeployedError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa20/
-});
-
-class ExecutionRevertedError3 extends BaseError2 {
-  constructor({ cause, data, message } = {}) {
-    const reason = message?.replace("execution reverted: ", "")?.replace("execution reverted", "");
-    super(`Execution reverted ${reason ? `with reason: ${reason}` : "for an unknown reason"}.`, {
-      cause,
-      name: "ExecutionRevertedError"
-    });
-    Object.defineProperty(this, "data", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: undefined
-    });
-    this.data = data;
-  }
-}
-Object.defineProperty(ExecutionRevertedError3, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32521
-});
-Object.defineProperty(ExecutionRevertedError3, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /execution reverted/
-});
-
-class FailedToSendToBeneficiaryError extends BaseError2 {
-  constructor({ cause }) {
-    super("Failed to send funds to beneficiary.", {
-      cause,
-      name: "FailedToSendToBeneficiaryError"
-    });
-  }
-}
-Object.defineProperty(FailedToSendToBeneficiaryError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa91/
-});
-
-class GasValuesOverflowError extends BaseError2 {
-  constructor({ cause }) {
-    super("Gas value overflowed.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- one of the gas values exceeded 2**120 (uint120)"
-      ].filter(Boolean),
-      name: "GasValuesOverflowError"
-    });
-  }
-}
-Object.defineProperty(GasValuesOverflowError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa94/
-});
-
-class HandleOpsOutOfGasError extends BaseError2 {
-  constructor({ cause }) {
-    super("The `handleOps` function was called by the Bundler with a gas limit too low.", {
-      cause,
-      name: "HandleOpsOutOfGasError"
-    });
-  }
-}
-Object.defineProperty(HandleOpsOutOfGasError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa95/
-});
-
-class InitCodeFailedError extends BaseError2 {
-  constructor({ cause, factory, factoryData, initCode }) {
-    super("Failed to simulate deployment for Smart Account.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- Invalid `factory`/`factoryData` or `initCode` properties are present",
-        "- Smart Account deployment execution ran out of gas (low `verificationGasLimit` value)",
-        `- Smart Account deployment execution reverted with an error
-`,
-        factory && `factory: ${factory}`,
-        factoryData && `factoryData: ${factoryData}`,
-        initCode && `initCode: ${initCode}`
-      ].filter(Boolean),
-      name: "InitCodeFailedError"
-    });
-  }
-}
-Object.defineProperty(InitCodeFailedError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa13/
-});
-
-class InitCodeMustCreateSenderError extends BaseError2 {
-  constructor({ cause, factory, factoryData, initCode }) {
-    super("Smart Account initialization implementation did not create an account.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- `factory`/`factoryData` or `initCode` properties are invalid",
-        `- Smart Account initialization implementation is incorrect
-`,
-        factory && `factory: ${factory}`,
-        factoryData && `factoryData: ${factoryData}`,
-        initCode && `initCode: ${initCode}`
-      ].filter(Boolean),
-      name: "InitCodeMustCreateSenderError"
-    });
-  }
-}
-Object.defineProperty(InitCodeMustCreateSenderError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa15/
-});
-
-class InitCodeMustReturnSenderError extends BaseError2 {
-  constructor({ cause, factory, factoryData, initCode, sender }) {
-    super("Smart Account initialization implementation does not return the expected sender.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        `Smart Account initialization implementation does not return a sender address
-`,
-        factory && `factory: ${factory}`,
-        factoryData && `factoryData: ${factoryData}`,
-        initCode && `initCode: ${initCode}`,
-        sender && `sender: ${sender}`
-      ].filter(Boolean),
-      name: "InitCodeMustReturnSenderError"
-    });
-  }
-}
-Object.defineProperty(InitCodeMustReturnSenderError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa14/
-});
-
-class InsufficientPrefundError extends BaseError2 {
-  constructor({ cause }) {
-    super("Smart Account does not have sufficient funds to execute the User Operation.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the Smart Account does not have sufficient funds to cover the required prefund, or",
-        "- a Paymaster was not provided"
-      ].filter(Boolean),
-      name: "InsufficientPrefundError"
-    });
-  }
-}
-Object.defineProperty(InsufficientPrefundError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa21/
-});
-
-class InternalCallOnlyError extends BaseError2 {
-  constructor({ cause }) {
-    super("Bundler attempted to call an invalid function on the EntryPoint.", {
-      cause,
-      name: "InternalCallOnlyError"
-    });
-  }
-}
-Object.defineProperty(InternalCallOnlyError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa92/
-});
-
-class InvalidAggregatorError extends BaseError2 {
-  constructor({ cause }) {
-    super("Bundler used an invalid aggregator for handling aggregated User Operations.", {
-      cause,
-      name: "InvalidAggregatorError"
-    });
-  }
-}
-Object.defineProperty(InvalidAggregatorError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa96/
-});
-
-class InvalidAccountNonceError extends BaseError2 {
-  constructor({ cause, nonce }) {
-    super("Invalid Smart Account nonce used for User Operation.", {
-      cause,
-      metaMessages: [nonce && `nonce: ${nonce}`].filter(Boolean),
-      name: "InvalidAccountNonceError"
-    });
-  }
-}
-Object.defineProperty(InvalidAccountNonceError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa25/
-});
-
-class InvalidBeneficiaryError extends BaseError2 {
-  constructor({ cause }) {
-    super("Bundler has not set a beneficiary address.", {
-      cause,
-      name: "InvalidBeneficiaryError"
-    });
-  }
-}
-Object.defineProperty(InvalidBeneficiaryError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa90/
-});
-
-class InvalidFieldsError extends BaseError2 {
-  constructor({ cause }) {
-    super("Invalid fields set on User Operation.", {
-      cause,
-      name: "InvalidFieldsError"
-    });
-  }
-}
-Object.defineProperty(InvalidFieldsError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32602
-});
-
-class InvalidPaymasterAndDataError extends BaseError2 {
-  constructor({ cause, paymasterAndData }) {
-    super("Paymaster properties provided are invalid.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the `paymasterAndData` property is of an incorrect length\n",
-        paymasterAndData && `paymasterAndData: ${paymasterAndData}`
-      ].filter(Boolean),
-      name: "InvalidPaymasterAndDataError"
-    });
-  }
-}
-Object.defineProperty(InvalidPaymasterAndDataError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa93/
-});
-
-class PaymasterDepositTooLowError extends BaseError2 {
-  constructor({ cause }) {
-    super("Paymaster deposit for the User Operation is too low.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the Paymaster has deposited less than the expected amount via the `deposit` function"
-      ].filter(Boolean),
-      name: "PaymasterDepositTooLowError"
-    });
-  }
-}
-Object.defineProperty(PaymasterDepositTooLowError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32508
-});
-Object.defineProperty(PaymasterDepositTooLowError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa31/
-});
-
-class PaymasterFunctionRevertedError extends BaseError2 {
-  constructor({ cause }) {
-    super("The `validatePaymasterUserOp` function on the Paymaster reverted.", {
-      cause,
-      name: "PaymasterFunctionRevertedError"
-    });
-  }
-}
-Object.defineProperty(PaymasterFunctionRevertedError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa33/
-});
-
-class PaymasterNotDeployedError extends BaseError2 {
-  constructor({ cause }) {
-    super("The Paymaster contract has not been deployed.", {
-      cause,
-      name: "PaymasterNotDeployedError"
-    });
-  }
-}
-Object.defineProperty(PaymasterNotDeployedError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa30/
-});
-
-class PaymasterRateLimitError extends BaseError2 {
-  constructor({ cause }) {
-    super("UserOperation rejected because paymaster (or signature aggregator) is throttled/banned.", {
-      cause,
-      name: "PaymasterRateLimitError"
-    });
-  }
-}
-Object.defineProperty(PaymasterRateLimitError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32504
-});
-
-class PaymasterStakeTooLowError extends BaseError2 {
-  constructor({ cause }) {
-    super("UserOperation rejected because paymaster (or signature aggregator) stake or unstake-delay is too low.", {
-      cause,
-      name: "PaymasterStakeTooLowError"
-    });
-  }
-}
-Object.defineProperty(PaymasterStakeTooLowError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32505
-});
-
-class PaymasterPostOpFunctionRevertedError extends BaseError2 {
-  constructor({ cause }) {
-    super("Paymaster `postOp` function reverted.", {
-      cause,
-      name: "PaymasterPostOpFunctionRevertedError"
-    });
-  }
-}
-Object.defineProperty(PaymasterPostOpFunctionRevertedError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa50/
-});
-
-class SenderAlreadyConstructedError extends BaseError2 {
-  constructor({ cause, factory, factoryData, initCode }) {
-    super("Smart Account has already been deployed.", {
-      cause,
-      metaMessages: [
-        "Remove the following properties and try again:",
-        factory && "`factory`",
-        factoryData && "`factoryData`",
-        initCode && "`initCode`"
-      ].filter(Boolean),
-      name: "SenderAlreadyConstructedError"
-    });
-  }
-}
-Object.defineProperty(SenderAlreadyConstructedError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa10/
-});
-
-class SignatureCheckFailedError extends BaseError2 {
-  constructor({ cause }) {
-    super("UserOperation rejected because account signature check failed (or paymaster signature, if the paymaster uses its data as signature).", {
-      cause,
-      name: "SignatureCheckFailedError"
-    });
-  }
-}
-Object.defineProperty(SignatureCheckFailedError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32507
-});
-
-class SmartAccountFunctionRevertedError extends BaseError2 {
-  constructor({ cause }) {
-    super("The `validateUserOp` function on the Smart Account reverted.", {
-      cause,
-      name: "SmartAccountFunctionRevertedError"
-    });
-  }
-}
-Object.defineProperty(SmartAccountFunctionRevertedError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa23/
-});
-
-class UnsupportedSignatureAggregatorError extends BaseError2 {
-  constructor({ cause }) {
-    super("UserOperation rejected because account specified unsupported signature aggregator.", {
-      cause,
-      name: "UnsupportedSignatureAggregatorError"
-    });
-  }
-}
-Object.defineProperty(UnsupportedSignatureAggregatorError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32506
-});
-
-class UserOperationExpiredError extends BaseError2 {
-  constructor({ cause }) {
-    super("User Operation expired.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the `validAfter` or `validUntil` values returned from `validateUserOp` on the Smart Account are not satisfied"
-      ].filter(Boolean),
-      name: "UserOperationExpiredError"
-    });
-  }
-}
-Object.defineProperty(UserOperationExpiredError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa22/
-});
-
-class UserOperationPaymasterExpiredError extends BaseError2 {
-  constructor({ cause }) {
-    super("Paymaster for User Operation expired.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the `validAfter` or `validUntil` values returned from `validatePaymasterUserOp` on the Paymaster are not satisfied"
-      ].filter(Boolean),
-      name: "UserOperationPaymasterExpiredError"
-    });
-  }
-}
-Object.defineProperty(UserOperationPaymasterExpiredError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa32/
-});
-
-class UserOperationSignatureError extends BaseError2 {
-  constructor({ cause }) {
-    super("Signature provided for the User Operation is invalid.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the `signature` for the User Operation is incorrectly computed, and unable to be verified by the Smart Account"
-      ].filter(Boolean),
-      name: "UserOperationSignatureError"
-    });
-  }
-}
-Object.defineProperty(UserOperationSignatureError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa24/
-});
-
-class UserOperationPaymasterSignatureError extends BaseError2 {
-  constructor({ cause }) {
-    super("Signature provided for the User Operation is invalid.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the `signature` for the User Operation is incorrectly computed, and unable to be verified by the Paymaster"
-      ].filter(Boolean),
-      name: "UserOperationPaymasterSignatureError"
-    });
-  }
-}
-Object.defineProperty(UserOperationPaymasterSignatureError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa34/
-});
-
-class UserOperationRejectedByEntryPointError extends BaseError2 {
-  constructor({ cause }) {
-    super("User Operation rejected by EntryPoint's `simulateValidation` during account creation or validation.", {
-      cause,
-      name: "UserOperationRejectedByEntryPointError"
-    });
-  }
-}
-Object.defineProperty(UserOperationRejectedByEntryPointError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32500
-});
-
-class UserOperationRejectedByPaymasterError extends BaseError2 {
-  constructor({ cause }) {
-    super("User Operation rejected by Paymaster's `validatePaymasterUserOp`.", {
-      cause,
-      name: "UserOperationRejectedByPaymasterError"
-    });
-  }
-}
-Object.defineProperty(UserOperationRejectedByPaymasterError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32501
-});
-
-class UserOperationRejectedByOpCodeError extends BaseError2 {
-  constructor({ cause }) {
-    super("User Operation rejected with op code validation error.", {
-      cause,
-      name: "UserOperationRejectedByOpCodeError"
-    });
-  }
-}
-Object.defineProperty(UserOperationRejectedByOpCodeError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32502
-});
-
-class UserOperationOutOfTimeRangeError extends BaseError2 {
-  constructor({ cause }) {
-    super("UserOperation out of time-range: either wallet or paymaster returned a time-range, and it is already expired (or will expire soon).", {
-      cause,
-      name: "UserOperationOutOfTimeRangeError"
-    });
-  }
-}
-Object.defineProperty(UserOperationOutOfTimeRangeError, "code", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: -32503
-});
-
-class UnknownBundlerError extends BaseError2 {
-  constructor({ cause }) {
-    super(`An error occurred while executing user operation: ${cause?.shortMessage}`, {
-      cause,
-      name: "UnknownBundlerError"
-    });
-  }
-}
-
-class VerificationGasLimitExceededError extends BaseError2 {
-  constructor({ cause }) {
-    super("User Operation verification gas limit exceeded.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the gas used for verification exceeded the `verificationGasLimit`"
-      ].filter(Boolean),
-      name: "VerificationGasLimitExceededError"
-    });
-  }
-}
-Object.defineProperty(VerificationGasLimitExceededError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa40/
-});
-
-class VerificationGasLimitTooLowError extends BaseError2 {
-  constructor({ cause }) {
-    super("User Operation verification gas limit is too low.", {
-      cause,
-      metaMessages: [
-        "This could arise when:",
-        "- the `verificationGasLimit` is too low to verify the User Operation"
-      ].filter(Boolean),
-      name: "VerificationGasLimitTooLowError"
-    });
-  }
-}
-Object.defineProperty(VerificationGasLimitTooLowError, "message", {
-  enumerable: true,
-  configurable: true,
-  writable: true,
-  value: /aa41/
-});
-
-// ../viem/src/_esm/account-abstraction/errors/userOperation.js
-init_base();
-init_transaction();
-class UserOperationExecutionError extends BaseError2 {
-  constructor(cause, { callData, callGasLimit, docsPath: docsPath8, factory, factoryData, initCode, maxFeePerGas, maxPriorityFeePerGas, nonce, paymaster, paymasterAndData, paymasterData, paymasterPostOpGasLimit, paymasterVerificationGasLimit, preVerificationGas, sender, signature, verificationGasLimit }) {
-    const prettyArgs = prettyPrint({
-      callData,
-      callGasLimit,
-      factory,
-      factoryData,
-      initCode,
-      maxFeePerGas: typeof maxFeePerGas !== "undefined" && `${formatGwei2(maxFeePerGas)} gwei`,
-      maxPriorityFeePerGas: typeof maxPriorityFeePerGas !== "undefined" && `${formatGwei2(maxPriorityFeePerGas)} gwei`,
-      nonce,
-      paymaster,
-      paymasterAndData,
-      paymasterData,
-      paymasterPostOpGasLimit,
-      paymasterVerificationGasLimit,
-      preVerificationGas,
-      sender,
-      signature,
-      verificationGasLimit
-    });
-    super(cause.shortMessage, {
-      cause,
-      docsPath: docsPath8,
-      metaMessages: [
-        ...cause.metaMessages ? [...cause.metaMessages, " "] : [],
-        "Request Arguments:",
-        prettyArgs
-      ].filter(Boolean),
-      name: "UserOperationExecutionError"
-    });
-    Object.defineProperty(this, "cause", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: undefined
-    });
-    this.cause = cause;
-  }
-}
-
-class UserOperationReceiptNotFoundError extends BaseError2 {
-  constructor({ hash: hash3 }) {
-    super(`User Operation receipt with hash "${hash3}" could not be found. The User Operation may not have been processed yet.`, { name: "UserOperationReceiptNotFoundError" });
-  }
-}
-
-class UserOperationNotFoundError extends BaseError2 {
-  constructor({ hash: hash3 }) {
-    super(`User Operation with hash "${hash3}" could not be found.`, {
-      name: "UserOperationNotFoundError"
-    });
-  }
-}
-
-class WaitForUserOperationReceiptTimeoutError extends BaseError2 {
-  constructor({ hash: hash3 }) {
-    super(`Timed out while waiting for User Operation with hash "${hash3}" to be confirmed.`, { name: "WaitForUserOperationReceiptTimeoutError" });
-  }
-}
-
-// ../viem/src/_esm/account-abstraction/utils/errors/getBundlerError.js
-var bundlerErrors = [
-  ExecutionRevertedError3,
-  InvalidFieldsError,
-  PaymasterDepositTooLowError,
-  PaymasterRateLimitError,
-  PaymasterStakeTooLowError,
-  SignatureCheckFailedError,
-  UnsupportedSignatureAggregatorError,
-  UserOperationOutOfTimeRangeError,
-  UserOperationRejectedByEntryPointError,
-  UserOperationRejectedByPaymasterError,
-  UserOperationRejectedByOpCodeError
-];
-function getBundlerError(err, args) {
-  const message = (err.details || "").toLowerCase();
-  if (AccountNotDeployedError.message.test(message))
-    return new AccountNotDeployedError({
-      cause: err
-    });
-  if (FailedToSendToBeneficiaryError.message.test(message))
-    return new FailedToSendToBeneficiaryError({
-      cause: err
-    });
-  if (GasValuesOverflowError.message.test(message))
-    return new GasValuesOverflowError({
-      cause: err
-    });
-  if (HandleOpsOutOfGasError.message.test(message))
-    return new HandleOpsOutOfGasError({
-      cause: err
-    });
-  if (InitCodeFailedError.message.test(message))
-    return new InitCodeFailedError({
-      cause: err,
-      factory: args.factory,
-      factoryData: args.factoryData,
-      initCode: args.initCode
-    });
-  if (InitCodeMustCreateSenderError.message.test(message))
-    return new InitCodeMustCreateSenderError({
-      cause: err,
-      factory: args.factory,
-      factoryData: args.factoryData,
-      initCode: args.initCode
-    });
-  if (InitCodeMustReturnSenderError.message.test(message))
-    return new InitCodeMustReturnSenderError({
-      cause: err,
-      factory: args.factory,
-      factoryData: args.factoryData,
-      initCode: args.initCode,
-      sender: args.sender
-    });
-  if (InsufficientPrefundError.message.test(message))
-    return new InsufficientPrefundError({
-      cause: err
-    });
-  if (InternalCallOnlyError.message.test(message))
-    return new InternalCallOnlyError({
-      cause: err
-    });
-  if (InvalidAccountNonceError.message.test(message))
-    return new InvalidAccountNonceError({
-      cause: err,
-      nonce: args.nonce
-    });
-  if (InvalidAggregatorError.message.test(message))
-    return new InvalidAggregatorError({
-      cause: err
-    });
-  if (InvalidBeneficiaryError.message.test(message))
-    return new InvalidBeneficiaryError({
-      cause: err
-    });
-  if (InvalidPaymasterAndDataError.message.test(message))
-    return new InvalidPaymasterAndDataError({
-      cause: err
-    });
-  if (PaymasterDepositTooLowError.message.test(message))
-    return new PaymasterDepositTooLowError({
-      cause: err
-    });
-  if (PaymasterFunctionRevertedError.message.test(message))
-    return new PaymasterFunctionRevertedError({
-      cause: err
-    });
-  if (PaymasterNotDeployedError.message.test(message))
-    return new PaymasterNotDeployedError({
-      cause: err
-    });
-  if (PaymasterPostOpFunctionRevertedError.message.test(message))
-    return new PaymasterPostOpFunctionRevertedError({
-      cause: err
-    });
-  if (SmartAccountFunctionRevertedError.message.test(message))
-    return new SmartAccountFunctionRevertedError({
-      cause: err
-    });
-  if (SenderAlreadyConstructedError.message.test(message))
-    return new SenderAlreadyConstructedError({
-      cause: err,
-      factory: args.factory,
-      factoryData: args.factoryData,
-      initCode: args.initCode
-    });
-  if (UserOperationExpiredError.message.test(message))
-    return new UserOperationExpiredError({
-      cause: err
-    });
-  if (UserOperationPaymasterExpiredError.message.test(message))
-    return new UserOperationPaymasterExpiredError({
-      cause: err
-    });
-  if (UserOperationPaymasterSignatureError.message.test(message))
-    return new UserOperationPaymasterSignatureError({
-      cause: err
-    });
-  if (UserOperationSignatureError.message.test(message))
-    return new UserOperationSignatureError({
-      cause: err
-    });
-  if (VerificationGasLimitExceededError.message.test(message))
-    return new VerificationGasLimitExceededError({
-      cause: err
-    });
-  if (VerificationGasLimitTooLowError.message.test(message))
-    return new VerificationGasLimitTooLowError({
-      cause: err
-    });
-  const error = err.walk((e) => bundlerErrors.some((error2) => error2.code === e.code));
-  if (error) {
-    if (error.code === ExecutionRevertedError3.code)
-      return new ExecutionRevertedError3({
-        cause: err,
-        data: error.data,
-        message: error.details
-      });
-    if (error.code === InvalidFieldsError.code)
-      return new InvalidFieldsError({
-        cause: err
-      });
-    if (error.code === PaymasterDepositTooLowError.code)
-      return new PaymasterDepositTooLowError({
-        cause: err
-      });
-    if (error.code === PaymasterRateLimitError.code)
-      return new PaymasterRateLimitError({
-        cause: err
-      });
-    if (error.code === PaymasterStakeTooLowError.code)
-      return new PaymasterStakeTooLowError({
-        cause: err
-      });
-    if (error.code === SignatureCheckFailedError.code)
-      return new SignatureCheckFailedError({
-        cause: err
-      });
-    if (error.code === UnsupportedSignatureAggregatorError.code)
-      return new UnsupportedSignatureAggregatorError({
-        cause: err
-      });
-    if (error.code === UserOperationOutOfTimeRangeError.code)
-      return new UserOperationOutOfTimeRangeError({
-        cause: err
-      });
-    if (error.code === UserOperationRejectedByEntryPointError.code)
-      return new UserOperationRejectedByEntryPointError({
-        cause: err
-      });
-    if (error.code === UserOperationRejectedByPaymasterError.code)
-      return new UserOperationRejectedByPaymasterError({
-        cause: err
-      });
-    if (error.code === UserOperationRejectedByOpCodeError.code)
-      return new UserOperationRejectedByOpCodeError({
-        cause: err
-      });
-  }
-  return new UnknownBundlerError({
-    cause: err
-  });
-}
-
-// ../viem/src/_esm/account-abstraction/utils/errors/getUserOperationError.js
-function getUserOperationError(err, { calls, docsPath: docsPath8, ...args }) {
-  const cause = (() => {
-    const cause2 = getBundlerError(err, args);
-    if (calls && cause2 instanceof ExecutionRevertedError3) {
-      const revertData = getRevertData(cause2);
-      const contractCalls = calls?.filter((call2) => call2.abi);
-      if (revertData && contractCalls.length > 0)
-        return getContractError4({ calls: contractCalls, revertData });
-    }
-    return cause2;
-  })();
-  return new UserOperationExecutionError(cause, {
-    docsPath: docsPath8,
-    ...args
-  });
-}
-function getRevertData(error) {
-  let revertData;
-  error.walk((e) => {
-    const error2 = e;
-    if (typeof error2.data === "string" || typeof error2.data?.revertData === "string" || !(error2 instanceof BaseError2) && typeof error2.message === "string") {
-      const match = (error2.data?.revertData || error2.data || error2.message).match?.(/(0x[A-Za-z0-9]*)/);
-      if (match) {
-        revertData = match[1];
-        return true;
-      }
-    }
-    return false;
-  });
-  return revertData;
-}
-function getContractError4(parameters) {
-  const { calls, revertData } = parameters;
-  const { abi: abi2, functionName, args, to } = (() => {
-    const contractCalls = calls?.filter((call2) => Boolean(call2.abi));
-    if (contractCalls.length === 1)
-      return contractCalls[0];
-    const compatContractCalls = contractCalls.filter((call2) => {
-      try {
-        return Boolean(decodeErrorResult({
-          abi: call2.abi,
-          data: revertData
-        }));
-      } catch {
-        return false;
-      }
-    });
-    if (compatContractCalls.length === 1)
-      return compatContractCalls[0];
-    return {
-      abi: [],
-      functionName: contractCalls.reduce((acc, call2) => `${acc ? `${acc} | ` : ""}${call2.functionName}`, ""),
-      args: undefined,
-      to: undefined
-    };
-  })();
-  const cause = (() => {
-    if (revertData === "0x")
-      return new ContractFunctionZeroDataError({ functionName });
-    return new ContractFunctionRevertedError({
-      abi: abi2,
-      data: revertData,
-      functionName
-    });
-  })();
-  return new ContractFunctionExecutionError(cause, {
-    abi: abi2,
-    args,
-    contractAddress: to,
-    functionName
-  });
-}
-
-// ../viem/src/_esm/account-abstraction/utils/formatters/userOperationGas.js
-function formatUserOperationGas(parameters) {
-  const gas = {};
-  if (parameters.callGasLimit)
-    gas.callGasLimit = BigInt(parameters.callGasLimit);
-  if (parameters.preVerificationGas)
-    gas.preVerificationGas = BigInt(parameters.preVerificationGas);
-  if (parameters.verificationGasLimit)
-    gas.verificationGasLimit = BigInt(parameters.verificationGasLimit);
-  if (parameters.paymasterPostOpGasLimit)
-    gas.paymasterPostOpGasLimit = BigInt(parameters.paymasterPostOpGasLimit);
-  if (parameters.paymasterVerificationGasLimit)
-    gas.paymasterVerificationGasLimit = BigInt(parameters.paymasterVerificationGasLimit);
-  return gas;
-}
-
-// ../viem/src/_esm/account-abstraction/utils/formatters/userOperationRequest.js
-init_toHex();
-function formatUserOperationRequest(request) {
-  const rpcRequest = {};
-  if (typeof request.callData !== "undefined")
-    rpcRequest.callData = request.callData;
-  if (typeof request.callGasLimit !== "undefined")
-    rpcRequest.callGasLimit = numberToHex(request.callGasLimit);
-  if (typeof request.factory !== "undefined")
-    rpcRequest.factory = request.factory;
-  if (typeof request.factoryData !== "undefined")
-    rpcRequest.factoryData = request.factoryData;
-  if (typeof request.initCode !== "undefined")
-    rpcRequest.initCode = request.initCode;
-  if (typeof request.maxFeePerGas !== "undefined")
-    rpcRequest.maxFeePerGas = numberToHex(request.maxFeePerGas);
-  if (typeof request.maxPriorityFeePerGas !== "undefined")
-    rpcRequest.maxPriorityFeePerGas = numberToHex(request.maxPriorityFeePerGas);
-  if (typeof request.nonce !== "undefined")
-    rpcRequest.nonce = numberToHex(request.nonce);
-  if (typeof request.paymaster !== "undefined")
-    rpcRequest.paymaster = request.paymaster;
-  if (typeof request.paymasterAndData !== "undefined")
-    rpcRequest.paymasterAndData = request.paymasterAndData || "0x";
-  if (typeof request.paymasterData !== "undefined")
-    rpcRequest.paymasterData = request.paymasterData;
-  if (typeof request.paymasterPostOpGasLimit !== "undefined")
-    rpcRequest.paymasterPostOpGasLimit = numberToHex(request.paymasterPostOpGasLimit);
-  if (typeof request.paymasterSignature !== "undefined")
-    rpcRequest.paymasterSignature = request.paymasterSignature;
-  if (typeof request.paymasterVerificationGasLimit !== "undefined")
-    rpcRequest.paymasterVerificationGasLimit = numberToHex(request.paymasterVerificationGasLimit);
-  if (typeof request.preVerificationGas !== "undefined")
-    rpcRequest.preVerificationGas = numberToHex(request.preVerificationGas);
-  if (typeof request.sender !== "undefined")
-    rpcRequest.sender = request.sender;
-  if (typeof request.signature !== "undefined")
-    rpcRequest.signature = request.signature;
-  if (typeof request.verificationGasLimit !== "undefined")
-    rpcRequest.verificationGasLimit = numberToHex(request.verificationGasLimit);
-  if (typeof request.authorization !== "undefined")
-    rpcRequest.eip7702Auth = formatAuthorization(request.authorization);
-  return rpcRequest;
-}
-function formatAuthorization(authorization) {
-  return {
-    address: authorization.address,
-    chainId: numberToHex(authorization.chainId),
-    nonce: numberToHex(authorization.nonce),
-    r: authorization.r ? numberToHex(BigInt(authorization.r), { size: 32 }) : pad("0x", { size: 32 }),
-    s: authorization.s ? numberToHex(BigInt(authorization.s), { size: 32 }) : pad("0x", { size: 32 }),
-    yParity: typeof authorization.yParity !== "undefined" ? numberToHex(authorization.yParity, { size: 1 }) : pad("0x", { size: 32 })
-  };
-}
-// ../viem/src/_esm/account-abstraction/actions/bundler/prepareUserOperation.js
-init_encodeFunctionData();
-
-// ../viem/src/_esm/account-abstraction/actions/paymaster/getPaymasterData.js
-init_fromHex();
-init_toHex();
-async function getPaymasterData(client, parameters) {
-  const { chainId, entryPointAddress, context, ...userOperation } = parameters;
-  const request = formatUserOperationRequest(userOperation);
-  const { paymasterPostOpGasLimit, paymasterVerificationGasLimit, ...rest } = await client.request({
-    method: "pm_getPaymasterData",
-    params: [
-      {
-        ...request,
-        callGasLimit: request.callGasLimit ?? "0x0",
-        verificationGasLimit: request.verificationGasLimit ?? "0x0",
-        preVerificationGas: request.preVerificationGas ?? "0x0"
-      },
-      entryPointAddress,
-      numberToHex(chainId),
-      context
-    ]
-  });
-  return {
-    ...rest,
-    ...paymasterPostOpGasLimit && {
-      paymasterPostOpGasLimit: hexToBigInt(paymasterPostOpGasLimit)
-    },
-    ...paymasterVerificationGasLimit && {
-      paymasterVerificationGasLimit: hexToBigInt(paymasterVerificationGasLimit)
-    }
-  };
-}
-
-// ../viem/src/_esm/account-abstraction/actions/paymaster/getPaymasterStubData.js
-init_fromHex();
-init_toHex();
-async function getPaymasterStubData(client, parameters) {
-  const { chainId, entryPointAddress, context, ...userOperation } = parameters;
-  const request = formatUserOperationRequest(userOperation);
-  const { paymasterPostOpGasLimit, paymasterVerificationGasLimit, ...rest } = await client.request({
-    method: "pm_getPaymasterStubData",
-    params: [
-      {
-        ...request,
-        callGasLimit: request.callGasLimit ?? "0x0",
-        verificationGasLimit: request.verificationGasLimit ?? "0x0",
-        preVerificationGas: request.preVerificationGas ?? "0x0"
-      },
-      entryPointAddress,
-      numberToHex(chainId),
-      context
-    ]
-  });
-  return {
-    ...rest,
-    ...paymasterPostOpGasLimit && {
-      paymasterPostOpGasLimit: hexToBigInt(paymasterPostOpGasLimit)
-    },
-    ...paymasterVerificationGasLimit && {
-      paymasterVerificationGasLimit: hexToBigInt(paymasterVerificationGasLimit)
-    }
-  };
-}
-
-// ../viem/src/_esm/account-abstraction/actions/bundler/prepareUserOperation.js
-var defaultParameters3 = [
-  "factory",
-  "fees",
-  "gas",
-  "paymaster",
-  "nonce",
-  "signature",
-  "authorization"
-];
-async function prepareUserOperation(client, parameters_) {
-  const parameters = parameters_;
-  const { account: account_ = client.account, dataSuffix = typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value, parameters: properties = defaultParameters3, stateOverride } = parameters;
-  if (!account_)
-    throw new AccountNotFoundError;
-  const account = parseAccount(account_);
-  const bundlerClient = client;
-  const paymaster = parameters.paymaster ?? bundlerClient?.paymaster;
-  const paymasterAddress = typeof paymaster === "string" ? paymaster : undefined;
-  const { getPaymasterStubData: getPaymasterStubData2, getPaymasterData: getPaymasterData2 } = (() => {
-    if (paymaster === true)
-      return {
-        getPaymasterStubData: (parameters2) => getAction(bundlerClient, getPaymasterStubData, "getPaymasterStubData")(parameters2),
-        getPaymasterData: (parameters2) => getAction(bundlerClient, getPaymasterData, "getPaymasterData")(parameters2)
-      };
-    if (typeof paymaster === "object") {
-      const { getPaymasterStubData: getPaymasterStubData3, getPaymasterData: getPaymasterData3 } = paymaster;
-      return {
-        getPaymasterStubData: getPaymasterData3 && getPaymasterStubData3 ? getPaymasterStubData3 : getPaymasterData3,
-        getPaymasterData: getPaymasterData3 && getPaymasterStubData3 ? getPaymasterData3 : undefined
-      };
-    }
-    return {
-      getPaymasterStubData: undefined,
-      getPaymasterData: undefined
-    };
-  })();
-  const paymasterContext = parameters.paymasterContext ? parameters.paymasterContext : bundlerClient?.paymasterContext;
-  let request = {
-    ...parameters,
-    paymaster: paymasterAddress,
-    sender: account.address
-  };
-  const [callData, factory, fees, nonce, authorization] = await Promise.all([
-    (async () => {
-      if (parameters.calls)
-        return account.encodeCalls(parameters.calls.map((call_) => {
-          const call3 = call_;
-          if (call3.abi)
-            return {
-              data: encodeFunctionData(call3),
-              to: call3.to,
-              value: call3.value
-            };
-          return call3;
-        }));
-      return parameters.callData;
-    })(),
-    (async () => {
-      if (!properties.includes("factory"))
-        return;
-      if (parameters.initCode)
-        return { initCode: parameters.initCode };
-      if (parameters.factory && parameters.factoryData) {
-        return {
-          factory: parameters.factory,
-          factoryData: parameters.factoryData
-        };
-      }
-      const { factory: factory2, factoryData } = await account.getFactoryArgs();
-      if (account.entryPoint.version === "0.6")
-        return {
-          initCode: factory2 && factoryData ? concat([factory2, factoryData]) : undefined
-        };
-      return {
-        factory: factory2,
-        factoryData
-      };
-    })(),
-    (async () => {
-      if (!properties.includes("fees"))
-        return;
-      if (typeof parameters.maxFeePerGas === "bigint" && typeof parameters.maxPriorityFeePerGas === "bigint")
-        return request;
-      if (bundlerClient?.userOperation?.estimateFeesPerGas) {
-        const fees2 = await bundlerClient.userOperation.estimateFeesPerGas({
-          account,
-          bundlerClient,
-          userOperation: request
-        });
-        return {
-          ...request,
-          ...fees2
-        };
-      }
-      try {
-        const client_ = bundlerClient.client ?? client;
-        const fees2 = await getAction(client_, estimateFeesPerGas, "estimateFeesPerGas")({
-          chain: client_.chain,
-          type: "eip1559"
-        });
-        return {
-          maxFeePerGas: typeof parameters.maxFeePerGas === "bigint" ? parameters.maxFeePerGas : BigInt(2n * fees2.maxFeePerGas),
-          maxPriorityFeePerGas: typeof parameters.maxPriorityFeePerGas === "bigint" ? parameters.maxPriorityFeePerGas : BigInt(2n * fees2.maxPriorityFeePerGas)
-        };
-      } catch {
-        return;
-      }
-    })(),
-    (async () => {
-      if (!properties.includes("nonce"))
-        return;
-      if (typeof parameters.nonce === "bigint")
-        return parameters.nonce;
-      return account.getNonce();
-    })(),
-    (async () => {
-      if (!properties.includes("authorization"))
-        return;
-      if (typeof parameters.authorization === "object")
-        return parameters.authorization;
-      if (account.authorization && !await account.isDeployed()) {
-        const authorization2 = await prepareAuthorization(account.client, account.authorization);
-        return {
-          ...authorization2,
-          r: "0xfffffffffffffffffffffffffffffff000000000000000000000000000000000",
-          s: "0x7aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          yParity: 1
-        };
-      }
-      return;
-    })()
-  ]);
-  if (typeof callData !== "undefined")
-    request.callData = dataSuffix ? concat([callData, dataSuffix]) : callData;
-  if (typeof factory !== "undefined")
-    request = { ...request, ...factory };
-  if (typeof fees !== "undefined")
-    request = { ...request, ...fees };
-  if (typeof nonce !== "undefined")
-    request.nonce = nonce;
-  if (typeof authorization !== "undefined")
-    request.authorization = authorization;
-  if (properties.includes("signature")) {
-    if (typeof parameters.signature !== "undefined")
-      request.signature = parameters.signature;
-    else
-      request.signature = await account.getStubSignature(request);
-  }
-  if (account.entryPoint.version === "0.6" && !request.initCode)
-    request.initCode = "0x";
-  let chainId;
-  async function getChainId3() {
-    if (chainId)
-      return chainId;
-    if (client.chain)
-      return client.chain.id;
-    const chainId_ = await getAction(client, getChainId, "getChainId")({});
-    chainId = chainId_;
-    return chainId;
-  }
-  let isPaymasterPopulated = false;
-  if (properties.includes("paymaster") && getPaymasterStubData2 && !paymasterAddress && !parameters.paymasterAndData) {
-    const { isFinal = false, sponsor: _, ...paymasterArgs } = await getPaymasterStubData2({
-      chainId: await getChainId3(),
-      entryPointAddress: account.entryPoint.address,
-      context: paymasterContext,
-      ...request
-    });
-    isPaymasterPopulated = isFinal;
-    request = {
-      ...request,
-      ...paymasterArgs
-    };
-  }
-  if (account.entryPoint.version === "0.6" && !request.paymasterAndData)
-    request.paymasterAndData = "0x";
-  if (properties.includes("gas")) {
-    if (account.userOperation?.estimateGas) {
-      const gas = await account.userOperation.estimateGas(request);
-      request = {
-        ...request,
-        ...gas
-      };
-    }
-    if (typeof request.callGasLimit === "undefined" || typeof request.preVerificationGas === "undefined" || typeof request.verificationGasLimit === "undefined" || request.paymaster && typeof request.paymasterPostOpGasLimit === "undefined" || request.paymaster && typeof request.paymasterVerificationGasLimit === "undefined") {
-      const gas = await getAction(bundlerClient, estimateUserOperationGas, "estimateUserOperationGas")({
-        account,
-        callGasLimit: 0n,
-        preVerificationGas: 0n,
-        verificationGasLimit: 0n,
-        stateOverride,
-        ...request.paymaster ? {
-          paymasterPostOpGasLimit: 0n,
-          paymasterVerificationGasLimit: 0n
-        } : {},
-        ...request
-      });
-      request = {
-        ...request,
-        callGasLimit: request.callGasLimit ?? gas.callGasLimit,
-        preVerificationGas: request.preVerificationGas ?? gas.preVerificationGas,
-        verificationGasLimit: request.verificationGasLimit ?? gas.verificationGasLimit,
-        paymasterPostOpGasLimit: request.paymasterPostOpGasLimit ?? gas.paymasterPostOpGasLimit,
-        paymasterVerificationGasLimit: request.paymasterVerificationGasLimit ?? gas.paymasterVerificationGasLimit
-      };
-    }
-  }
-  if (properties.includes("paymaster") && getPaymasterData2 && !paymasterAddress && !parameters.paymasterAndData && !isPaymasterPopulated) {
-    const paymaster2 = await getPaymasterData2({
-      chainId: await getChainId3(),
-      entryPointAddress: account.entryPoint.address,
-      context: paymasterContext,
-      ...request
-    });
-    request = {
-      ...request,
-      ...paymaster2
-    };
-  }
-  delete request.calls;
-  delete request.parameters;
-  delete request.paymasterContext;
-  if (typeof request.paymaster !== "string")
-    delete request.paymaster;
-  return request;
-}
-
-// ../viem/src/_esm/account-abstraction/actions/bundler/estimateUserOperationGas.js
-async function estimateUserOperationGas(client, parameters) {
-  const { account: account_ = client.account, entryPointAddress, stateOverride } = parameters;
-  if (!account_ && !parameters.sender)
-    throw new AccountNotFoundError;
-  const account = account_ ? parseAccount(account_) : undefined;
-  const rpcStateOverride = serializeStateOverride(stateOverride);
-  const request = account ? await getAction(client, prepareUserOperation, "prepareUserOperation")({
-    ...parameters,
-    parameters: [
-      "authorization",
-      "factory",
-      "fees",
-      "nonce",
-      "paymaster",
-      "signature"
-    ]
-  }) : parameters;
-  try {
-    const params = [
-      formatUserOperationRequest(request),
-      entryPointAddress ?? account?.entryPoint?.address
-    ];
-    const result = await client.request({
-      method: "eth_estimateUserOperationGas",
-      params: rpcStateOverride ? [...params, rpcStateOverride] : [...params]
-    });
-    return formatUserOperationGas(result);
-  } catch (error) {
-    const calls = parameters.calls;
-    throw getUserOperationError(error, {
-      ...request,
-      ...calls ? { calls } : {}
-    });
-  }
-}
-
-// ../viem/src/_esm/account-abstraction/actions/bundler/getSupportedEntryPoints.js
-function getSupportedEntryPoints(client) {
-  return client.request({ method: "eth_supportedEntryPoints" });
-}
-
-// ../viem/src/_esm/account-abstraction/utils/formatters/userOperation.js
-function formatUserOperation(parameters) {
-  const userOperation = { ...parameters };
-  if (parameters.callGasLimit)
-    userOperation.callGasLimit = BigInt(parameters.callGasLimit);
-  if (parameters.maxFeePerGas)
-    userOperation.maxFeePerGas = BigInt(parameters.maxFeePerGas);
-  if (parameters.maxPriorityFeePerGas)
-    userOperation.maxPriorityFeePerGas = BigInt(parameters.maxPriorityFeePerGas);
-  if (parameters.nonce)
-    userOperation.nonce = BigInt(parameters.nonce);
-  if (parameters.paymasterPostOpGasLimit)
-    userOperation.paymasterPostOpGasLimit = BigInt(parameters.paymasterPostOpGasLimit);
-  if (parameters.paymasterVerificationGasLimit)
-    userOperation.paymasterVerificationGasLimit = BigInt(parameters.paymasterVerificationGasLimit);
-  if (parameters.preVerificationGas)
-    userOperation.preVerificationGas = BigInt(parameters.preVerificationGas);
-  if (parameters.verificationGasLimit)
-    userOperation.verificationGasLimit = BigInt(parameters.verificationGasLimit);
-  return userOperation;
-}
-
-// ../viem/src/_esm/account-abstraction/actions/bundler/getUserOperation.js
-async function getUserOperation(client, { hash: hash3 }) {
-  const result = await client.request({
-    method: "eth_getUserOperationByHash",
-    params: [hash3]
-  }, { dedupe: true });
-  if (!result)
-    throw new UserOperationNotFoundError({ hash: hash3 });
-  const { blockHash, blockNumber, entryPoint, transactionHash, userOperation } = result;
-  return {
-    blockHash,
-    blockNumber: BigInt(blockNumber),
-    entryPoint,
-    transactionHash,
-    userOperation: formatUserOperation(userOperation)
-  };
-}
-
-// ../viem/src/_esm/account-abstraction/utils/formatters/userOperationReceipt.js
-function formatUserOperationReceipt(parameters) {
-  const receipt = { ...parameters };
-  if (parameters.actualGasCost)
-    receipt.actualGasCost = BigInt(parameters.actualGasCost);
-  if (parameters.actualGasUsed)
-    receipt.actualGasUsed = BigInt(parameters.actualGasUsed);
-  if (parameters.logs)
-    receipt.logs = parameters.logs.map((log) => formatLog(log));
-  if (parameters.receipt)
-    receipt.receipt = formatTransactionReceipt(receipt.receipt);
-  return receipt;
-}
-
-// ../viem/src/_esm/account-abstraction/actions/bundler/getUserOperationReceipt.js
-async function getUserOperationReceipt(client, { hash: hash3 }) {
-  const receipt = await client.request({
-    method: "eth_getUserOperationReceipt",
-    params: [hash3]
-  }, { dedupe: true });
-  if (!receipt)
-    throw new UserOperationReceiptNotFoundError({ hash: hash3 });
-  return formatUserOperationReceipt(receipt);
-}
-// ../viem/src/_esm/account-abstraction/actions/bundler/sendUserOperation.js
-async function sendUserOperation(client, parameters) {
-  const { account: account_ = client.account, entryPointAddress } = parameters;
-  if (!account_ && !parameters.sender)
-    throw new AccountNotFoundError;
-  const account = account_ ? parseAccount(account_) : undefined;
-  const request = account ? await getAction(client, prepareUserOperation, "prepareUserOperation")(parameters) : parameters;
-  const signature = parameters.signature || await account?.signUserOperation?.(request);
-  const rpcParameters = formatUserOperationRequest({
-    ...request,
-    signature
-  });
-  try {
-    return await client.request({
-      method: "eth_sendUserOperation",
-      params: [
-        rpcParameters,
-        entryPointAddress ?? account?.entryPoint?.address
-      ]
-    }, { retryCount: 0 });
-  } catch (error) {
-    const calls = parameters.calls;
-    throw getUserOperationError(error, {
-      ...request,
-      ...calls ? { calls } : {},
-      signature
-    });
-  }
-}
-// ../viem/src/_esm/account-abstraction/actions/bundler/waitForUserOperationReceipt.js
-function waitForUserOperationReceipt(client, parameters) {
-  const { hash: hash3, pollingInterval = client.pollingInterval, retryCount, timeout = 120000 } = parameters;
-  let count = 0;
-  const observerId = stringify([
-    "waitForUserOperationReceipt",
-    client.uid,
-    hash3
-  ]);
-  return new Promise((resolve, reject) => {
-    const unobserve = observe(observerId, { resolve, reject }, (emit) => {
-      const done = (fn) => {
-        unpoll();
-        fn();
-        unobserve();
-      };
-      const timeoutId = timeout ? setTimeout(() => done(() => emit.reject(new WaitForUserOperationReceiptTimeoutError({ hash: hash3 }))), timeout) : undefined;
-      const unpoll = poll(async () => {
-        if (retryCount && count >= retryCount) {
-          clearTimeout(timeoutId);
-          done(() => emit.reject(new WaitForUserOperationReceiptTimeoutError({ hash: hash3 })));
-        }
-        try {
-          const receipt = await getAction(client, getUserOperationReceipt, "getUserOperationReceipt")({ hash: hash3 });
-          clearTimeout(timeoutId);
-          done(() => emit.resolve(receipt));
-        } catch (err) {
-          const error = err;
-          if (error.name !== "UserOperationReceiptNotFoundError") {
-            clearTimeout(timeoutId);
-            done(() => emit.reject(error));
-          }
-        }
-        count++;
-      }, {
-        emitOnBegin: true,
-        interval: pollingInterval
-      });
-      return unpoll;
-    });
-  });
-}
-
-// ../viem/src/_esm/account-abstraction/clients/decorators/bundler.js
-function bundlerActions(client) {
-  return {
-    estimateUserOperationGas: (parameters) => estimateUserOperationGas(client, parameters),
-    getChainId: () => getChainId(client),
-    getSupportedEntryPoints: () => getSupportedEntryPoints(client),
-    getUserOperation: (parameters) => getUserOperation(client, parameters),
-    getUserOperationReceipt: (parameters) => getUserOperationReceipt(client, parameters),
-    prepareUserOperation: (parameters) => prepareUserOperation(client, parameters),
-    sendUserOperation: (parameters) => sendUserOperation(client, parameters),
-    waitForUserOperationReceipt: (parameters) => waitForUserOperationReceipt(client, parameters)
-  };
-}
-
-// ../viem/src/_esm/account-abstraction/clients/createBundlerClient.js
-function createBundlerClient(parameters) {
-  const { client: client_, dataSuffix, key = "bundler", name = "Bundler Client", paymaster, paymasterContext, transport, userOperation } = parameters;
-  const client = Object.assign(createClient({
-    ...parameters,
-    chain: parameters.chain ?? client_?.chain,
-    key,
-    name,
-    transport,
-    type: "bundlerClient"
-  }), {
-    client: client_,
-    dataSuffix: dataSuffix ?? client_?.dataSuffix,
-    paymaster,
-    paymasterContext,
-    userOperation
-  });
-  return client.extend(bundlerActions);
-}
-// ../viem/src/_esm/account-abstraction/constants/abis.js
-var entryPoint07Abi = [
-  {
-    inputs: [
-      { name: "success", type: "bool" },
-      { name: "ret", type: "bytes" }
-    ],
-    name: "DelegateAndRevert",
-    type: "error"
-  },
-  {
-    inputs: [
-      { name: "opIndex", type: "uint256" },
-      { name: "reason", type: "string" }
-    ],
-    name: "FailedOp",
-    type: "error"
-  },
-  {
-    inputs: [
-      { name: "opIndex", type: "uint256" },
-      { name: "reason", type: "string" },
-      { name: "inner", type: "bytes" }
-    ],
-    name: "FailedOpWithRevert",
-    type: "error"
-  },
-  {
-    inputs: [{ name: "returnData", type: "bytes" }],
-    name: "PostOpReverted",
-    type: "error"
-  },
-  { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
-  {
-    inputs: [{ name: "sender", type: "address" }],
-    name: "SenderAddressResult",
-    type: "error"
-  },
-  {
-    inputs: [{ name: "aggregator", type: "address" }],
-    name: "SignatureValidationFailed",
-    type: "error"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "userOpHash",
-        type: "bytes32"
-      },
-      {
-        indexed: true,
-        name: "sender",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "factory",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "paymaster",
-        type: "address"
-      }
-    ],
-    name: "AccountDeployed",
-    type: "event"
-  },
-  { anonymous: false, inputs: [], name: "BeforeExecution", type: "event" },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "account",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "totalDeposit",
-        type: "uint256"
-      }
-    ],
-    name: "Deposited",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "userOpHash",
-        type: "bytes32"
-      },
-      {
-        indexed: true,
-        name: "sender",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "nonce",
-        type: "uint256"
-      },
-      {
-        indexed: false,
-        name: "revertReason",
-        type: "bytes"
-      }
-    ],
-    name: "PostOpRevertReason",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "aggregator",
-        type: "address"
-      }
-    ],
-    name: "SignatureAggregatorChanged",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "account",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "totalStaked",
-        type: "uint256"
-      },
-      {
-        indexed: false,
-        name: "unstakeDelaySec",
-        type: "uint256"
-      }
-    ],
-    name: "StakeLocked",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "account",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "withdrawTime",
-        type: "uint256"
-      }
-    ],
-    name: "StakeUnlocked",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "account",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "withdrawAddress",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "amount",
-        type: "uint256"
-      }
-    ],
-    name: "StakeWithdrawn",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "userOpHash",
-        type: "bytes32"
-      },
-      {
-        indexed: true,
-        name: "sender",
-        type: "address"
-      },
-      {
-        indexed: true,
-        name: "paymaster",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "nonce",
-        type: "uint256"
-      },
-      { indexed: false, name: "success", type: "bool" },
-      {
-        indexed: false,
-        name: "actualGasCost",
-        type: "uint256"
-      },
-      {
-        indexed: false,
-        name: "actualGasUsed",
-        type: "uint256"
-      }
-    ],
-    name: "UserOperationEvent",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "userOpHash",
-        type: "bytes32"
-      },
-      {
-        indexed: true,
-        name: "sender",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "nonce",
-        type: "uint256"
-      }
-    ],
-    name: "UserOperationPrefundTooLow",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "userOpHash",
-        type: "bytes32"
-      },
-      {
-        indexed: true,
-        name: "sender",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "nonce",
-        type: "uint256"
-      },
-      {
-        indexed: false,
-        name: "revertReason",
-        type: "bytes"
-      }
-    ],
-    name: "UserOperationRevertReason",
-    type: "event"
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        name: "account",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "withdrawAddress",
-        type: "address"
-      },
-      {
-        indexed: false,
-        name: "amount",
-        type: "uint256"
-      }
-    ],
-    name: "Withdrawn",
-    type: "event"
-  },
-  {
-    inputs: [{ name: "unstakeDelaySec", type: "uint32" }],
-    name: "addStake",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "target", type: "address" },
-      { name: "data", type: "bytes" }
-    ],
-    name: "delegateAndRevert",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "depositTo",
-    outputs: [],
-    stateMutability: "payable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "", type: "address" }],
-    name: "deposits",
-    outputs: [
-      { name: "deposit", type: "uint256" },
-      { name: "staked", type: "bool" },
-      { name: "stake", type: "uint112" },
-      { name: "unstakeDelaySec", type: "uint32" },
-      { name: "withdrawTime", type: "uint48" }
-    ],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "getDepositInfo",
-    outputs: [
-      {
-        components: [
-          { name: "deposit", type: "uint256" },
-          { name: "staked", type: "bool" },
-          { name: "stake", type: "uint112" },
-          { name: "unstakeDelaySec", type: "uint32" },
-          { name: "withdrawTime", type: "uint48" }
-        ],
-        name: "info",
-        type: "tuple"
-      }
-    ],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "sender", type: "address" },
-      { name: "key", type: "uint192" }
-    ],
-    name: "getNonce",
-    outputs: [{ name: "nonce", type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "initCode", type: "bytes" }],
-    name: "getSenderAddress",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { name: "sender", type: "address" },
-          { name: "nonce", type: "uint256" },
-          { name: "initCode", type: "bytes" },
-          { name: "callData", type: "bytes" },
-          {
-            name: "accountGasLimits",
-            type: "bytes32"
-          },
-          {
-            name: "preVerificationGas",
-            type: "uint256"
-          },
-          { name: "gasFees", type: "bytes32" },
-          { name: "paymasterAndData", type: "bytes" },
-          { name: "signature", type: "bytes" }
-        ],
-        name: "userOp",
-        type: "tuple"
-      }
-    ],
-    name: "getUserOpHash",
-    outputs: [{ name: "", type: "bytes32" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [
-      {
-        components: [
-          {
-            components: [
-              { name: "sender", type: "address" },
-              { name: "nonce", type: "uint256" },
-              { name: "initCode", type: "bytes" },
-              { name: "callData", type: "bytes" },
-              {
-                name: "accountGasLimits",
-                type: "bytes32"
-              },
-              {
-                name: "preVerificationGas",
-                type: "uint256"
-              },
-              { name: "gasFees", type: "bytes32" },
-              {
-                name: "paymasterAndData",
-                type: "bytes"
-              },
-              { name: "signature", type: "bytes" }
-            ],
-            name: "userOps",
-            type: "tuple[]"
-          },
-          {
-            name: "aggregator",
-            type: "address"
-          },
-          { name: "signature", type: "bytes" }
-        ],
-        name: "opsPerAggregator",
-        type: "tuple[]"
-      },
-      { name: "beneficiary", type: "address" }
-    ],
-    name: "handleAggregatedOps",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      {
-        components: [
-          { name: "sender", type: "address" },
-          { name: "nonce", type: "uint256" },
-          { name: "initCode", type: "bytes" },
-          { name: "callData", type: "bytes" },
-          {
-            name: "accountGasLimits",
-            type: "bytes32"
-          },
-          {
-            name: "preVerificationGas",
-            type: "uint256"
-          },
-          { name: "gasFees", type: "bytes32" },
-          { name: "paymasterAndData", type: "bytes" },
-          { name: "signature", type: "bytes" }
-        ],
-        name: "ops",
-        type: "tuple[]"
-      },
-      { name: "beneficiary", type: "address" }
-    ],
-    name: "handleOps",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "key", type: "uint192" }],
-    name: "incrementNonce",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "callData", type: "bytes" },
-      {
-        components: [
-          {
-            components: [
-              { name: "sender", type: "address" },
-              { name: "nonce", type: "uint256" },
-              {
-                name: "verificationGasLimit",
-                type: "uint256"
-              },
-              {
-                name: "callGasLimit",
-                type: "uint256"
-              },
-              {
-                name: "paymasterVerificationGasLimit",
-                type: "uint256"
-              },
-              {
-                name: "paymasterPostOpGasLimit",
-                type: "uint256"
-              },
-              {
-                name: "preVerificationGas",
-                type: "uint256"
-              },
-              { name: "paymaster", type: "address" },
-              {
-                name: "maxFeePerGas",
-                type: "uint256"
-              },
-              {
-                name: "maxPriorityFeePerGas",
-                type: "uint256"
-              }
-            ],
-            name: "mUserOp",
-            type: "tuple"
-          },
-          { name: "userOpHash", type: "bytes32" },
-          { name: "prefund", type: "uint256" },
-          { name: "contextOffset", type: "uint256" },
-          { name: "preOpGas", type: "uint256" }
-        ],
-        name: "opInfo",
-        type: "tuple"
-      },
-      { name: "context", type: "bytes" }
-    ],
-    name: "innerHandleOp",
-    outputs: [{ name: "actualGasCost", type: "uint256" }],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      { name: "", type: "address" },
-      { name: "", type: "uint192" }
-    ],
-    name: "nonceSequenceNumber",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [{ name: "interfaceId", type: "bytes4" }],
-    name: "supportsInterface",
-    outputs: [{ name: "", type: "bool" }],
-    stateMutability: "view",
-    type: "function"
-  },
-  {
-    inputs: [],
-    name: "unlockStake",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      {
-        name: "withdrawAddress",
-        type: "address"
-      }
-    ],
-    name: "withdrawStake",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  {
-    inputs: [
-      {
-        name: "withdrawAddress",
-        type: "address"
-      },
-      { name: "withdrawAmount", type: "uint256" }
-    ],
-    name: "withdrawTo",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function"
-  },
-  { stateMutability: "payable", type: "receive" }
-];
-// ../viem/src/_esm/account-abstraction/constants/address.js
-var entryPoint07Address = "0x0000000071727De22E5E9d8BAf0edAc6f37da032";
-// ../viem/src/_esm/eip8130/abis.js
-init_exports();
-var keystoreAbi = parseAbi([
-  "struct InitialActor { bytes32 actorId; address authenticator; uint16 scope; bytes policyData; }",
-  "struct ActorConfig { address authenticator; uint48 expiry; uint16 scope; }",
-  "struct Actor { bytes32 actorId; ActorConfig config; bytes policyData; }",
-  "struct AccountChange { uint8 changeType; bytes payload; }",
-  "struct SignedAccountChanges { uint8 channel; uint64 sequence; AccountChange[] changes; bytes signature; }",
-  "struct ChangeSequences { uint64 multichain; uint32 localEpoch; uint32 localSequence; }",
-  "event ActorAuthorized(address indexed account, bytes32 indexed actorId, bytes actorData)",
-  "event ActorRevoked(address indexed account, bytes32 indexed actorId)",
-  "event AccountCreated(address indexed account, bytes32 userSalt, bytes32 codeHash)",
-  "event AccountImported(address indexed account)",
-  "event DelegationApplied(address indexed account, address target)",
-  "event AccountLocked(address indexed account, uint16 unlockDelay)",
-  "event AccountUnlockInitiated(address indexed account, uint40 unlocksAt)",
-  "function createAccount(bytes32 userSalt, bytes bytecode, InitialActor[] initialActors) returns (address)",
-  "function computeAddress(bytes32 userSalt, bytes bytecode, InitialActor[] initialActors) view returns (address)",
-  "function importAccount()",
-  "function computeImportDigest(address account, InitialActor[] initialActors) pure returns (bytes32)",
-  "function applySignedAccountChanges(address account, SignedAccountChanges s)",
-  "function validateSignature(address account, bytes32 hash, bytes auth) view returns (bytes32 actorId, uint16 scope)",
-  "function authenticateActor(address account, bytes32 hash, bytes auth) view returns (bytes32 actorId, uint16 scope)",
-  "function getActorConfig(address account, bytes32 actorId) view returns (ActorConfig)",
-  "function getActorWithPolicy(address account, bytes32 actorId) view returns (ActorConfig config, address policyManager, bytes32 policyCommitment)",
-  "function getPolicyCommitment(address account, bytes32 actorId) view returns (bytes32)",
-  "function getPolicyManager(address account, bytes32 actorId) view returns (address)",
-  "function getChangeSequences(address account) view returns (ChangeSequences)",
-  "function isLocked(address account) view returns (bool)",
-  "function getLockStatus(address account) view returns (bool locked, bool hasInitiatedUnlock, uint40 unlocksAt, uint16 unlockDelay)"
-]);
-var erc4337AccountAbi = parseAbi([
-  "struct Call { address target; uint256 value; bytes data; }",
-  "struct PackedUserOperation { address sender; uint256 nonce; bytes initCode; bytes callData; bytes32 accountGasLimits; uint256 preVerificationGas; bytes32 gasFees; bytes paymasterAndData; bytes signature; }",
-  "event CallerAuthorized(address indexed caller)",
-  "event CallerRevoked(address indexed caller)",
-  "function executeBatch(Call[] calls)",
-  "function authorizeCaller(address caller)",
-  "function revokeCaller(address caller)",
-  "function isAuthorizedCaller(address caller) view returns (bool)",
-  "function validateUserOp(PackedUserOperation userOp, bytes32 userOpHash, uint256 missingAccountFunds) returns (uint256 validationData)",
-  "function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)"
-]);
-var authenticatorAbi = parseAbi([
-  "function authenticate(bytes32 hash, bytes data) view returns (bytes32 actorId)"
-]);
-var transactionContextAbi = parseAbi([
-  "function getTransactionSender() view returns (address)",
-  "function getTransactionPayer() view returns (address)",
-  "function getTransactionSenderActorId() view returns (bytes32)"
-]);
-var nonceManagerAbi = parseAbi([
-  "function getNonce(address account, uint256 nonceKey) view returns (uint64)"
-]);
-// ../viem/src/_esm/eip8130/accounts/toAccount.js
-init_base();
-init_fromHex();
-init_toHex();
-
-// ../viem/src/_esm/eip8130/constants.js
+// ../viem/src/eip8130/constants.ts
 var aaTransactionType = "0x79";
 var aaPayerType = "0x7a";
-var aaBaseCost = 15000n;
+var k1AuthCost = 5100n;
+var txValueCost = 6000n;
 var nonceFreeCost = 13000n;
-var nonceKeyFirstUseCost = 22100n;
-var nonceKeyExistingCost = 5000n;
-var replayIdType = "0x7901";
-var nonceFreeExpiryWindow = 30000n;
-var nonceFreeMaxExpiryWindow = 20000n;
-var replayBufferCapacity = 300000n;
+var nonceFreeDefaultExpiryWindow = 15000n;
 var accountChangeType = {
-  create: "0x",
-  config: "0x01",
-  delegation: "0x02"
+  delegation: "0x01",
+  create: "0x02",
+  config: "0x03"
 };
 var changeType = {
   authorizeActor: 0,
@@ -21935,307 +18213,22 @@ var changeType = {
   lock: 3,
   unlock: 4
 };
-var unsequencedLocalHalf = 0xffffffffn;
-var actorScope = {
-  operator: 1,
-  selfPayer: 2,
-  sponsorPayer: 4,
-  policy: 8,
-  nonce: 16
-};
-var scopeUnrestricted = 0;
-var accountStateFlags = {
-  revokeDefaultEoa: 1,
-  locked: 2,
-  unlockInitiated: 4
-};
-var policyDataLength = 52;
 var nonceKeyMax = 2n ** 256n - 1n;
-var ecrecoverAuthenticator = "0x0000000000000000000000000000000000000001";
-var revokedAuthenticator = "0xffffffffffffffffffffffffffffffffffffffff";
-var trustedExecutorAuthenticator = "0xbe114b191a3ac7519670cac0c5e74aac1d819a13";
-var externalPolicyAuthenticator = "0x8a22e6B3c724A7D0C3aCA1f7EbD089CfbD96B392";
-var canonicalAuthenticators = {
-  k1: "0x0000000000000000000000000000000000000001",
-  p256: "0x8130C89F65750431b564A4730397552a11CeA256",
-  passkey: "0x813007b6b1b48E75D91dEc5927ab515d12a0F1d0",
-  delegate: "0x81301AA52202f8C6b79Cde660440E3c6A7c5ade1"
-};
-var canonicalAuthDataLength = {
-  [canonicalAuthenticators.k1.toLowerCase()]: 65,
-  [canonicalAuthenticators.p256.toLowerCase()]: 128,
-  [canonicalAuthenticators.passkey.toLowerCase()]: 256
-};
-var nonceManagerAddress = "0x813000000000000000000000000000000000aa01";
-var txContextAddress = "0x813000000000000000000000000000000000aa02";
-var keystoreAddress = "0x813012Bd8D971928475235BBac6F0488c4A100AC";
-var defaultAccountAddress = "0x81309c54D6Bc190FbBc0FA9f296ea4C6A539ADEf";
-var deploymentHeaderSize = 14;
-var maxCodeSize = 24576;
+var k1Authenticator = "0x0000000000000000000000000000000000000001";
+var k1AuthDataLength = 65;
+var openPayer = "0x00";
 
-// ../viem/src/_esm/eip8130/deployments.js
-var canonicalEip8130Deployment = {
-  accounts: {
-    upgradeable: undefined,
-    default: "0x81309c54D6Bc190FbBc0FA9f296ea4C6A539ADEf",
-    defaultHighRate: "0x813002fFdd25C81CeF79781702176D453AF0Fa57"
-  },
-  authenticators: {
-    k1: "0x0000000000000000000000000000000000000001",
-    p256: "0x8130C89F65750431b564A4730397552a11CeA256",
-    webAuthn: "0x813007b6b1b48E75D91dEc5927ab515d12a0F1d0",
-    delegate: "0x81301AA52202f8C6b79Cde660440E3c6A7c5ade1",
-    alwaysValid: "0xA550545Da91720c23483c5B3493412A02D1cF9F9"
-  },
-  policies: {
-    manager: "0x8130E47Bc12CfDD6d2d2178B35Def9A51cae0aC1",
-    sessionPolicy: "0x8130A0D85473CeF9e888B4228F729b48F0c45E55"
-  }
-};
-var baseSepoliaDeployment = {
-  ...canonicalEip8130Deployment
-};
-var vibenetDevnetDeployment = {
-  ...canonicalEip8130Deployment
-};
-var eip8130Deployments = {
-  84532: baseSepoliaDeployment,
-  84538453: vibenetDevnetDeployment
-};
-function getEip8130Deployment(chainId) {
-  return eip8130Deployments[chainId];
-}
-
-// ../viem/src/_esm/eip8130/keys.js
+// ../viem/src/eip8130/utils/signTransaction.ts
 init_base();
-init_pad();
-init_size();
 
-// ../viem/src/_esm/eip8130/utils/actorId.js
-init_base();
-init_pad();
-init_size();
-init_keccak256();
-function actorIdFromAddress(address) {
-  return pad(address, { dir: "left", size: 32 });
-}
-function actorIdFromPublicKey(publicKey) {
-  if (typeof publicKey === "string") {
-    if (size2(publicKey) !== 64)
-      throw new BaseError2(`Public key must be 64 bytes (x || y); got ${size2(publicKey)} bytes.`);
-    return keccak256(publicKey);
-  }
-  const { x, y } = publicKey;
-  if (size2(x) !== 32 || size2(y) !== 32)
-    throw new BaseError2("Public key coordinates `x` and `y` must be 32 bytes.");
-  return keccak256(concatHex([x, y]));
-}
-
-// ../viem/src/_esm/eip8130/keys.js
-var key = {
-  k1(address) {
-    return {
-      actorId: actorIdFromAddress(address),
-      authenticator: ecrecoverAuthenticator
-    };
-  },
-  p256(publicKey, options = {}) {
-    return {
-      actorId: actorIdFromPublicKey(publicKey),
-      authenticator: options.authenticator ?? canonicalAuthenticators.p256
-    };
-  },
-  webAuthn(publicKey, options = {}) {
-    return {
-      actorId: actorIdFromPublicKey(publicKey),
-      authenticator: options.authenticator ?? canonicalAuthenticators.passkey
-    };
-  },
-  passkey(publicKey, options = {}) {
-    return {
-      actorId: actorIdFromPublicKey(publicKey),
-      authenticator: options.authenticator ?? canonicalAuthenticators.passkey
-    };
-  },
-  delegate(delegatedAccount, options = {}) {
-    return {
-      actorId: actorIdFromAddress(delegatedAccount),
-      authenticator: options.authenticator ?? canonicalAuthenticators.delegate
-    };
-  },
-  trustedExecutor(caller) {
-    return key.k1(caller);
-  },
-  externalPull(caller) {
-    return {
-      actorId: actorIdFromAddress(caller),
-      authenticator: externalPolicyAuthenticator
-    };
-  }
-};
-function toScope(...flags) {
-  return flags.reduce((acc, flag) => acc | flag, 0);
-}
-function canUseSequencedNonce(scope) {
-  const s = scope ?? scopeUnrestricted;
-  return s === scopeUnrestricted || (s & actorScope.nonce) !== 0;
-}
-function isNoncelessOnly(scope) {
-  return !canUseSequencedNonce(scope);
-}
-function encodePolicyData(policy) {
-  if (policy.type === 0)
-    throw new BaseError2("`policy.type` must be non-zero (0 = no policy).");
-  if (size2(policy.commitment) !== 32)
-    throw new BaseError2("`policy.commitment` must be 32 bytes.");
-  return concatHex([pad(policy.manager, { size: 20 }), policy.commitment]);
-}
-function authorizeActor(actor, options = {}) {
-  const change = {
-    changeType: 0,
-    actorId: actor.actorId,
-    authenticator: actor.authenticator
-  };
-  let scope = options.scope ?? 0;
-  if (options.expiry)
-    change.expiry = options.expiry;
-  if (options.policy) {
-    if (scope === 0)
-      throw new BaseError2("A policy-bearing actor MUST have a restricted (non-admin) scope (e.g. `actorScope.policy`).");
-    scope |= actorScope.policy;
-    change.policyData = encodePolicyData(options.policy);
-  }
-  if (scope)
-    change.scope = scope;
-  return change;
-}
-function revokeActor(actor) {
-  const actorId = typeof actor === "string" ? actor : actor.actorId;
-  return { changeType: 1, actorId };
-}
-function incrementLocalEpoch() {
-  return { changeType: 2 };
-}
-
-// ../viem/src/_esm/eip8130/utils/computeAddress.js
-init_base();
-// ../viem/src/_esm/utils/data/isBytes.js
-function isBytes5(value) {
-  if (!value)
-    return false;
-  if (typeof value !== "object")
-    return false;
-  if (!("BYTES_PER_ELEMENT" in value))
-    return false;
-  return value.BYTES_PER_ELEMENT === 1 && value.constructor.name === "Uint8Array";
-}
-
-// ../viem/src/_esm/utils/address/getContractAddress.js
-init_pad();
-init_slice();
+// ../viem/src/eip8130/utils/hashTransaction.ts
 init_toBytes();
 init_keccak256();
-init_getAddress();
-function getCreate2Address3(opts) {
-  const from16 = toBytes(getAddress(opts.from));
-  const salt = pad(isBytes5(opts.salt) ? opts.salt : toBytes(opts.salt), {
-    size: 32
-  });
-  const bytecodeHash = (() => {
-    if ("bytecodeHash" in opts) {
-      if (isBytes5(opts.bytecodeHash))
-        return opts.bytecodeHash;
-      return toBytes(opts.bytecodeHash);
-    }
-    return keccak256(opts.bytecode, "bytes");
-  })();
-  return getAddress(slice(keccak256(concat([toBytes("0xff"), from16, salt, bytecodeHash])), 12));
-}
 
-// ../viem/src/_esm/eip8130/utils/computeAddress.js
-init_size();
-init_fromHex();
+// ../viem/src/eip8130/utils/serializeTransaction.ts
 init_toHex();
-init_keccak256();
-function deploymentHeader(codeSize) {
-  const hi = codeSize >> 8 & 255;
-  const lo = codeSize & 255;
-  return bytesToHex(Uint8Array.from([
-    97,
-    hi,
-    lo,
-    96,
-    14,
-    96,
-    0,
-    57,
-    97,
-    hi,
-    lo,
-    96,
-    0,
-    243
-  ]));
-}
-function computeAddress(parameters) {
-  const { userSalt, code, initialActors } = parameters;
-  const codeSize = size2(code);
-  if (codeSize === 0)
-    throw new BaseError2("`code` must not be empty.");
-  if (codeSize > maxCodeSize)
-    throw new BaseError2(`\`code\` exceeds the maximum code size (${maxCodeSize} bytes): got ${codeSize} bytes.`);
-  if (initialActors.length === 0)
-    throw new BaseError2("`initialActors` must not be empty.");
-  for (let i = 1;i < initialActors.length; i++) {
-    if (hexToBigInt(initialActors[i].actorId) <= hexToBigInt(initialActors[i - 1].actorId))
-      throw new BaseError2("`initialActors` must be sorted by `actorId` in strictly ascending order (no duplicates).");
-  }
-  const actorsCommitment = keccak256(concatHex(initialActors.map((actor) => keccak256(concatHex([
-    actor.actorId,
-    actor.authenticator,
-    toHex(actor.scope ?? 0, { size: 2 }),
-    actor.policyData ?? "0x"
-  ])))));
-  const effectiveSalt = keccak256(concatHex([userSalt, actorsCommitment]));
-  const deploymentCode = concatHex([deploymentHeader(codeSize), code]);
-  return getCreate2Address3({
-    from: keystoreAddress,
-    salt: effectiveSalt,
-    bytecode: deploymentCode
-  });
-}
 
-// ../viem/src/_esm/eip8130/utils/proxy.js
-function erc1167Bytecode(implementation) {
-  return concatHex([
-    "0x363d3d373d3d3d363d73",
-    implementation,
-    "0x5af43d82803e903d91602b57fd5bf3"
-  ]);
-}
-function upgradeableProxyBytecode(implementation) {
-  return concatHex([
-    "0x7f360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
-    "0x5480156100",
-    "0x2c",
-    "0x576100",
-    "0x4356",
-    "0x5b5073",
-    implementation,
-    "0x5b363d3d373d3d3d363d855af43d82803e903d91605b57fd5bf3"
-  ]);
-}
-
-// ../viem/src/_esm/eip8130/utils/signActorChanges.js
-init_base();
-
-// ../viem/src/_esm/eip8130/utils/hashActorChanges.js
-init_encodeAbiParameters();
-init_toHex();
-init_keccak256();
-
-// ../viem/src/_esm/eip8130/utils/actorChangeData.js
-init_decodeAbiParameters();
+// ../viem/src/eip8130/utils/actorChangeData.ts
 init_encodeAbiParameters();
 var authorizePayloadParameters = [
   { name: "actorId", type: "bytes32" },
@@ -22269,257 +18262,46 @@ function encodeChangePayload(change) {
     return encodeAbiParameters(lockPayloadParameters, [change.unlockDelay]);
   return "0x";
 }
-function decodeAuthorizeActorPayload(payload) {
-  const [actorId, config, policyData] = decodeAbiParameters(authorizePayloadParameters, payload);
-  return {
-    actorId,
-    authenticator: config.authenticator,
-    scope: config.scope,
-    expiry: BigInt(config.expiry),
-    policyData
-  };
-}
 
-// ../viem/src/_esm/eip8130/utils/hashActorChanges.js
-var accountChangeTypehash = keccak256(stringToHex("AccountChange(uint8 changeType,bytes payload)"));
-var signedAccountChangesTypehash = keccak256(stringToHex("SignedAccountChangeBatch(address account,uint256 chainId,uint64 sequence,AccountChange[] changes)AccountChange(uint8 changeType,bytes payload)"));
-function hashAccountChanges(parameters) {
-  const { account, chainId, sequence, changes } = parameters;
-  const changeHashes = changes.map((change) => keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint8" }, { type: "bytes32" }], [
-    accountChangeTypehash,
-    change.changeType,
-    keccak256(encodeChangePayload(change))
-  ])));
-  const changesHash = keccak256(concatHex(changeHashes));
-  return keccak256(encodeAbiParameters([
-    { type: "bytes32" },
-    { type: "address" },
-    { type: "uint256" },
-    { type: "uint64" },
-    { type: "bytes32" }
-  ], [
-    signedAccountChangesTypehash,
-    account,
-    BigInt(chainId),
-    BigInt(sequence),
-    changesHash
-  ]));
-}
-
-// ../viem/src/_esm/eip8130/utils/signActorChanges.js
-async function signAccountChanges(parameters) {
-  const { signer, chainId, sequence, changes } = parameters;
-  const channel = parameters.channel ?? "local";
-  const authenticator = parameters.authenticator ?? signer.authenticator ?? ecrecoverAuthenticator;
-  const account = parameters.account ?? signer.address;
-  if (!signer.sign)
-    throw new BaseError2("`signer` does not support raw signing.");
-  const digest = hashAccountChanges({
-    account,
-    chainId: channel === "local" ? chainId : 0,
-    sequence,
-    changes
-  });
-  const signature = concatHex([
-    authenticator,
-    await signer.sign({ hash: digest })
-  ]);
-  return { type: "config", channel, sequence, changes, signature };
-}
-
-// ../viem/src/_esm/eip8130/utils/signMessage.js
-init_encodeAbiParameters();
-init_pad();
-init_size();
-init_slice();
-init_fromHex();
-init_toHex();
-init_keccak256();
-
-// ../viem/src/_esm/constants/bytes.js
-var erc6492MagicBytes = "0x6492649264926492649264926492649264926492649264926492649264926492";
-
-// ../viem/src/_esm/utils/signature/serializeErc6492Signature.js
-init_encodeAbiParameters();
-init_toBytes();
-function serializeErc6492Signature3(parameters) {
-  const { address, data, signature, to = "hex" } = parameters;
-  const signature_ = concatHex([
-    encodeAbiParameters([{ type: "address" }, { type: "bytes" }, { type: "bytes" }], [address, data, signature]),
-    erc6492MagicBytes
-  ]);
-  if (to === "hex")
-    return signature_;
-  return hexToBytes(signature_);
-}
-
-// ../viem/src/_esm/eip8130/utils/keystoreCalls.js
-init_encodeFunctionData();
-function toInitialActors(actors) {
-  return actors.map((actor) => ({
-    actorId: actor.actorId,
-    authenticator: actor.authenticator,
-    scope: actor.scope ?? 0,
-    policyData: actor.policyData ?? "0x"
-  }));
-}
-function toAbiChanges(changes) {
-  return changes.map((change) => ({
-    changeType: change.changeType,
-    payload: encodeChangePayload(change)
-  }));
-}
-function encodeCreateAccountData(parameters) {
-  const { userSalt, code, initialActors } = parameters;
-  return encodeFunctionData({
-    abi: keystoreAbi,
-    functionName: "createAccount",
-    args: [userSalt, code, toInitialActors(initialActors)]
-  });
-}
-function toFactoryArgs(parameters) {
-  return {
-    factory: keystoreAddress,
-    factoryData: encodeCreateAccountData(parameters)
-  };
-}
-function encodeApplySignedAccountChangesData(parameters) {
-  const { account, channel, sequence, changes, signature } = parameters;
-  return encodeFunctionData({
-    abi: keystoreAbi,
-    functionName: "applySignedAccountChanges",
-    args: [
-      account,
-      {
-        channel: channel === "multichain" ? 1 : 0,
-        sequence,
-        changes: toAbiChanges(changes),
-        signature
-      }
-    ]
-  });
-}
-
-// ../viem/src/_esm/eip8130/utils/signMessage.js
-var signedMessageTypehash = keccak256(stringToHex("SignedMessageEnvelope(address account,uint256 chainId,bytes32 hash)"));
-var signatureType = {
-  local: 1,
-  multichain: 2
-};
-var multichainId = 0n;
-function replaySafeHash(parameters) {
-  const { account, chainId, hash: hash3 } = parameters;
-  return keccak256(encodeAbiParameters([
-    { type: "bytes32" },
-    { type: "address" },
-    { type: "uint256" },
-    { type: "bytes32" }
-  ], [signedMessageTypehash, account, BigInt(chainId), hash3]));
-}
-function getSignatureEnvelopeHash(parameters) {
-  const { account, hash: hash3, sigType = "multichain", chainId } = parameters;
-  if (sigType === "local" && chainId === undefined)
-    throw new Error("`chainId` is required for a `local` signature envelope.");
-  return replaySafeHash({
-    account,
-    chainId: sigType === "multichain" ? multichainId : chainId,
-    hash: hash3
-  });
-}
-function wrapSignatureEnvelope(parameters) {
-  const { sigType, authenticator, signature } = parameters;
-  return concatHex([
-    numberToHex(signatureType[sigType], { size: 1 }),
-    pad(authenticator, { size: 20 }),
-    signature
-  ]);
-}
-function parseSignatureEnvelope(envelope) {
-  if (size2(envelope) < 21)
-    throw new Error("Signature envelope must be at least 21 bytes (`sigType || authenticator`).");
-  const typeByte = hexToNumber(slice(envelope, 0, 1));
-  const sigType = Object.keys(signatureType).find((k) => signatureType[k] === typeByte);
-  if (!sigType)
-    throw new Error(`Unknown signature envelope type byte: ${typeByte}.`);
-  return {
-    sigType,
-    authenticator: slice(envelope, 1, 21),
-    signature: slice(envelope, 21)
-  };
-}
-async function signMessageEnvelope(parameters) {
-  const { signer, account, sigType = "multichain", chainId, message, hash: hash_ } = parameters;
-  if (!signer.sign)
-    throw new Error("`signer` does not support raw signing (`sign`).");
-  const authenticator = parameters.authenticator ?? signer.authenticator ?? ecrecoverAuthenticator;
-  const hash3 = hash_ ?? hashMessage2(message);
-  const digest = getSignatureEnvelopeHash({ account, hash: hash3, sigType, chainId });
-  const signature = await signer.sign({ hash: digest });
-  return wrapSignatureEnvelope({ sigType, authenticator, signature });
-}
-async function signTypedDataEnvelope(parameters) {
-  const { signer, account, sigType = "multichain", chainId, ...typedData } = parameters;
-  const authenticator = parameters.authenticator ?? signer.authenticator ?? ecrecoverAuthenticator;
-  const hash3 = hashTypedData2(typedData);
-  return signMessageEnvelope({
-    signer,
-    account,
-    authenticator,
-    sigType,
-    chainId,
-    hash: hash3
-  });
-}
-function wrapCounterfactualSignature(parameters) {
-  const { signature, userSalt, code, initialActors } = parameters;
-  const { factory, factoryData } = toFactoryArgs({
-    userSalt,
-    code,
-    initialActors
-  });
-  return serializeErc6492Signature3({
-    address: factory,
-    data: factoryData,
-    signature
-  });
-}
-
-// ../viem/src/_esm/eip8130/utils/signTransaction.js
-init_base();
-
-// ../viem/src/_esm/eip8130/utils/hashTransaction.js
-init_toBytes();
-init_keccak256();
-
-// ../viem/src/_esm/eip8130/utils/serializeTransaction.js
-init_toHex();
-
-// ../viem/src/_esm/eip8130/utils/assertTransaction.js
+// ../viem/src/eip8130/utils/assertTransaction.ts
 init_base();
 init_chain();
+init_size();
 function assertTransaction(transaction) {
-  const { chainId, nonceKey, nonceSequence, validBefore, payer, payerAuth, calls } = transaction;
+  const {
+    accountChanges,
+    chainId,
+    nonceKey,
+    nonceSequence,
+    validBefore,
+    payer,
+    payerAuth
+  } = transaction;
   if (chainId <= 0)
     throw new InvalidChainIdError({ chainId });
-  if (calls) {
-    for (const phase of calls)
-      for (const call3 of phase)
-        if (call3.value && call3.value !== 0n)
-          throw new BaseError2("EIP-8130 calls cannot carry `value` on the wire. Route value-bearing calls through the account wallet (e.g. `encodeWalletCalls` / `sendTransaction`).");
-  }
   if (typeof nonceKey === "bigint" && nonceKey === nonceKeyMax) {
     if (nonceSequence !== undefined && nonceSequence !== 0n)
       throw new BaseError2("`nonceSequence` must be `0n` when `nonceKey` is `nonceKeyMax` (nonce-free mode).");
     if (!validBefore || validBefore === 0n)
       throw new BaseError2("`validBefore` must be non-zero when `nonceKey` is `nonceKeyMax` (nonce-free mode).");
   }
+  if (accountChanges && accountChanges.filter((entry) => entry.type === "delegation").length > 1)
+    throw new BaseError2("At most one `delegation` account change is allowed.");
   if (!payer && payerAuth && payerAuth !== "0x")
     throw new BaseError2("`payerAuth` must be empty for self-pay transactions (no `payer` set).");
+  if (payer === openPayer && payerAuth && payerAuth !== "0x") {
+    if (size2(payerAuth) !== 65)
+      throw new BaseError2("`payerAuth` must be a raw 65-byte signature in open payer mode (`payer: openPayer`).");
+  }
 }
 
-// ../viem/src/_esm/eip8130/utils/serializeTransaction.js
+// ../viem/src/eip8130/utils/serializeTransaction.ts
 function toCallsList(calls) {
-  return (calls ?? []).map((phase) => phase.map((call3) => [call3.to, call3.data ?? "0x"]));
+  return (calls ?? []).map((phase) => phase.map((call2) => [
+    call2.to,
+    call2.value ? numberToHex(call2.value) : "0x",
+    call2.data ?? "0x"
+  ]));
 }
 function toChange(change) {
   return [
@@ -22553,7 +18335,20 @@ function toAccountChangesList(accountChanges) {
   });
 }
 function toTransactionBody(transaction) {
-  const { chainId, from: from16, nonceKey, nonceSequence, validAfter, validBefore, maxPriorityFeePerGas, maxFeePerGas, gas, accountChanges, calls, metadata } = transaction;
+  const {
+    chainId,
+    from: from16,
+    nonceKey,
+    nonceSequence,
+    validAfter,
+    validBefore,
+    maxPriorityFeePerGas,
+    maxFeePerGas,
+    gas,
+    accountChanges,
+    calls,
+    metadata
+  } = transaction;
   return [
     numberToHex(chainId),
     from16 ?? "0x",
@@ -22583,7 +18378,7 @@ function serializeTransaction4(transaction) {
   ]);
 }
 
-// ../viem/src/_esm/eip8130/utils/hashTransaction.js
+// ../viem/src/eip8130/utils/hashTransaction.ts
 function getSenderSignatureHash(parameters) {
   const { to = "hex", payer } = parameters;
   const hash3 = keccak256(concatHex([
@@ -22605,97 +18400,75 @@ function getPayerSignatureHash(parameters) {
   return hash3;
 }
 
-// ../viem/src/_esm/eip8130/utils/signTransaction.js
-async function signTransaction5(parameters) {
+// ../viem/src/eip8130/utils/recoverSender.ts
+async function recoverSenderAddress(parameters) {
+  const { transaction } = parameters;
+  if (transaction.from)
+    return transaction.from;
+  if (!transaction.senderAuth || transaction.senderAuth === "0x")
+    throw new Error("Cannot recover sender: transaction has neither `from` nor `senderAuth`.");
+  const hash3 = getSenderSignatureHash({ ...transaction, from: undefined });
+  return recoverAddress({ hash: hash3, signature: transaction.senderAuth });
+}
+
+// ../viem/src/eip8130/utils/signTransaction.ts
+async function signTransaction3(parameters) {
   const { account, payer } = parameters;
   const transaction = { ...parameters.transaction };
   if (!transaction.senderAuth) {
     if (!account?.sign)
       throw new BaseError2("A sender `account` with raw signing support, or a preset `transaction.senderAuth`, is required.");
-    const authenticator = parameters.authenticator ?? account.authenticator ?? ecrecoverAuthenticator;
+    const authenticator = parameters.authenticator ?? account.authenticator ?? k1Authenticator;
     const senderHash = getSenderSignatureHash(transaction);
     const signature = await account.sign({ hash: senderHash });
     transaction.senderAuth = transaction.from ? concatHex([authenticator, signature]) : signature;
   }
   if (payer && !transaction.payer)
     transaction.payer = payer.address ?? payer.account.address;
-  if (transaction.payer && !transaction.payerAuth) {
-    if (!payer?.account.sign)
+  if (transaction.payer && !transaction.payerAuth && payer) {
+    if (!payer.account.sign)
       throw new BaseError2("A `payer` signer with raw signing support, or a preset `transaction.payerAuth`, is required for sponsored transactions.");
-    const authenticator = payer.authenticator ?? payer.account.authenticator ?? ecrecoverAuthenticator;
-    const from16 = transaction.from ?? account?.address;
+    const from16 = transaction.from ?? account?.address ?? await recoverSenderAddress({ transaction });
+    const openMode = transaction.payer === openPayer;
+    if (openMode) {
+      const authenticator = payer.authenticator ?? payer.account.authenticator;
+      if (authenticator && authenticator.toLowerCase() !== k1Authenticator)
+        throw new BaseError2(`Open payer mode requires a secp256k1 payer signer (the payer is recovered from a raw signature), but the payer uses authenticator ${authenticator}. Name the payer address instead.`);
+    }
     const payerHash = getPayerSignatureHash({ ...transaction, from: from16 });
     const signature = await payer.account.sign({ hash: payerHash });
-    transaction.payerAuth = concatHex([authenticator, signature]);
+    if (openMode)
+      transaction.payerAuth = signature;
+    else {
+      const authenticator = payer.authenticator ?? payer.account.authenticator ?? k1Authenticator;
+      transaction.payerAuth = concatHex([authenticator, signature]);
+    }
   }
   return serializeTransaction4(transaction);
 }
 
-// ../viem/src/_esm/eip8130/accounts/toAccount.js
-function toAccount3(parameters) {
-  const { signer, authenticator = ecrecoverAuthenticator, scope } = parameters;
-  const isAddressOnly = parameters.userSalt === undefined;
-  const address = (() => {
-    if (parameters.address)
-      return parameters.address;
-    if (isAddressOnly)
-      throw new BaseError2("Provide `address` or `userSalt + code + initialActors` to derive the account address.");
-    return computeAddress({
-      userSalt: parameters.userSalt,
-      code: parameters.code,
-      initialActors: parameters.initialActors
-    });
-  })();
-  const initialActors = parameters.initialActors ?? [];
-  const isK1Authenticator = authenticator === ecrecoverAuthenticator || authenticator === canonicalAuthenticators.k1;
-  const actorId = parameters.actorId ?? (isK1Authenticator ? key.k1(signer.address).actorId : undefined);
-  const signerPublicKey = signer.publicKey;
-  const publicKey = typeof signerPublicKey === "string" ? signerPublicKey : "0x";
+// ../viem/src/eip8130/accounts/toEoaAccount.ts
+function toEoaAccount(signer) {
+  if (!signer.address)
+    throw new BaseError2("`signer.address` is required. Use `privateKeyToAccount(pk)` or equivalent.");
+  const address = signer.address;
+  const local = signer;
+  const publicKey = typeof local.publicKey === "string" ? local.publicKey : "0x";
   return {
     address,
     signer,
-    initialActors,
-    scope,
-    actorId,
     type: "local",
     source: "eip8130",
     publicKey,
     async signMessage({ message }) {
-      return signMessageEnvelope({
-        signer,
-        account: address,
-        authenticator,
-        message
-      });
+      if (!local.signMessage)
+        throw new BaseError2("`signer` does not support `signMessage`.");
+      return local.signMessage({ message });
     },
     async signTypedData(typedData) {
-      return signTypedDataEnvelope({
-        signer,
-        account: address,
-        authenticator,
-        ...typedData
-      });
-    },
-    create() {
-      if (isAddressOnly)
-        throw new BaseError2("`create()` is not available for address-only (delegated EOA) accounts. " + "Include `account.delegate(impl)` in `accountChanges` instead.");
-      return {
-        type: "create",
-        userSalt: parameters.userSalt,
-        code: parameters.code,
-        initialActors: parameters.initialActors
-      };
-    },
-    async change(changes, options = {}) {
-      return signAccountChanges({
-        signer,
-        account: address,
-        channel: options.channel ?? "local",
-        chainId: options.chainId ?? 0,
-        sequence: options.sequence ?? 0n,
-        changes,
-        authenticator
-      });
+      if (!local.signTypedData)
+        throw new BaseError2("`signer` does not support `signTypedData`.");
+      return local.signTypedData(typedData);
     },
     delegate(target) {
       return { type: "delegation", target };
@@ -22703,560 +18476,66 @@ function toAccount3(parameters) {
     async signTransaction(transaction, options = {}) {
       if (!signer.sign)
         throw new BaseError2("`signer` does not support raw signing.");
-      return signTransaction5({
-        transaction: { ...transaction, from: transaction.from ?? address },
-        account: signer,
-        authenticator,
-        payer: options.payer
-      });
-    }
-  };
-}
-function newSmartAccount(parameters) {
-  const { signer, implementation, proxy = "upgradeable", admins = [], extraActors = [] } = parameters;
-  const primaryActor = "publicKey" in signer && signer.publicKey && typeof signer.publicKey !== "string" ? signer.authenticator === canonicalAuthenticators.passkey ? key.webAuthn(signer.publicKey) : key.p256(signer.publicKey) : key.k1(signer.address);
-  const adminActors = admins.map((a) => ({
-    actorId: a.actorId,
-    authenticator: a.authenticator
-  }));
-  const allActors = [
-    primaryActor,
-    ...adminActors,
-    ...extraActors
-  ].sort((a, b) => {
-    const ai = hexToBigInt(a.actorId);
-    const bi = hexToBigInt(b.actorId);
-    return ai < bi ? -1 : ai > bi ? 1 : 0;
-  });
-  for (let i = 1;i < allActors.length; i++)
-    if (allActors[i].actorId === allActors[i - 1].actorId)
-      throw new BaseError2(`Duplicate initial actor id \`${allActors[i].actorId}\` (signer, admins, and extraActors must be distinct).`);
-  const salt = parameters.salt ?? randomBytes32();
-  const code = parameters.code ?? (() => {
-    if (proxy === "erc1167")
-      return erc1167Bytecode(implementation ?? canonicalEip8130Deployment.accounts.default);
-    const impl = implementation ?? canonicalEip8130Deployment.accounts.upgradeable;
-    if (!impl)
-      throw new BaseError2("No canonical `CoinbaseSmartWalletV2` is deployed against the Keystore " + 'yet, so `proxy: "upgradeable"` requires an explicit `implementation` ' + "— a CoinbaseSmartWalletV2 you deployed (see " + "https://github.com/base/smart-wallet-v2). Alternatively pass " + '`proxy: "erc1167"` for an immutable DefaultAccount-backed account.');
-    return upgradeableProxyBytecode(impl);
-  })();
-  const inner = toAccount3({
-    signer,
-    userSalt: salt,
-    code,
-    initialActors: allActors,
-    authenticator: signer.authenticator,
-    scope: primaryActor.scope ?? scopeUnrestricted
-  });
-  return { ...inner, createChange: inner.create() };
-}
-function toEoaAccount(signer, parameters = {}) {
-  if (!signer.address)
-    throw new BaseError2("`signer.address` is required. Use `privateKeyToAccount(pk)` or equivalent.");
-  const address = signer.address;
-  const scope = parameters.scope ?? scopeUnrestricted;
-  return {
-    address,
-    signer,
-    scope,
-    delegate(target) {
-      return { type: "delegation", target };
-    },
-    async change(changes, options = {}) {
-      return signAccountChanges({
-        signer,
-        account: address,
-        channel: options.channel ?? "local",
-        chainId: options.chainId ?? 0,
-        sequence: options.sequence ?? 0n,
-        changes,
-        authenticator: ecrecoverAuthenticator
-      });
-    },
-    async signTransaction(transaction, options = {}) {
-      if (!signer.sign)
-        throw new BaseError2("`signer` does not support raw signing.");
-      return signTransaction5({
+      return signTransaction3({
         transaction,
         account: signer,
-        authenticator: ecrecoverAuthenticator,
+        authenticator: k1Authenticator,
         payer: options.payer
       });
     }
   };
 }
-function toDelegateSigner(parameters) {
-  const { delegateAccount, nestedSigner, nestedAuthenticator = ecrecoverAuthenticator, authenticator = canonicalAuthenticators.delegate } = parameters;
-  if (!nestedSigner.sign)
-    throw new BaseError2("`nestedSigner` must support raw signing.");
-  return {
-    address: nestedSigner.address,
-    authenticator,
-    async sign({ hash: hash3 }) {
-      const nestedSignature = await nestedSigner.sign({ hash: hash3 });
-      return concatHex([delegateAccount, nestedAuthenticator, nestedSignature]);
-    }
-  };
-}
-function delegateAuthSize(nestedDataLength = 65) {
-  return 20 + 20 + 20 + nestedDataLength;
-}
-function randomBytes32() {
-  const buf = new Uint8Array(32);
-  globalThis.crypto.getRandomValues(buf);
-  return bytesToHex(buf);
-}
-// ../viem/src/_esm/account-abstraction/accounts/toSmartAccount.js
-init_exports();
-
-// ../viem/src/_esm/utils/nonceManager.js
-init_lru();
-function createNonceManager4(parameters) {
-  const { source } = parameters;
-  const deltaMap = new Map;
-  const nonceMap = new LruMap(8192);
-  const promiseMap = new Map;
-  const getKey = ({ address, chainId }) => `${address}.${chainId}`;
-  const resetCache = (key2) => {
-    deltaMap.delete(key2);
-    promiseMap.delete(key2);
-  };
-  return {
-    async consume({ address, chainId, client }) {
-      const key2 = getKey({ address, chainId });
-      const promise = this.get({ address, chainId, client });
-      this.increment({ address, chainId });
-      const nonce = await promise;
-      await source.set({ address, chainId }, nonce);
-      nonceMap.set(key2, nonce);
-      return nonce;
-    },
-    async increment({ address, chainId }) {
-      const key2 = getKey({ address, chainId });
-      const delta = deltaMap.get(key2) ?? 0;
-      deltaMap.set(key2, delta + 1);
-    },
-    async get({ address, chainId, client }) {
-      const key2 = getKey({ address, chainId });
-      let promise = promiseMap.get(key2);
-      if (!promise) {
-        promise = (async () => {
-          try {
-            const nonce = await source.get({ address, chainId, client });
-            const previousNonce = nonceMap.get(key2) ?? 0;
-            if (previousNonce > 0 && nonce <= previousNonce)
-              return previousNonce + 1;
-            nonceMap.delete(key2);
-            return nonce;
-          } finally {
-            resetCache(key2);
-          }
-        })();
-        promiseMap.set(key2, promise);
-      }
-      const delta = deltaMap.get(key2) ?? 0;
-      return delta + await promise;
-    },
-    reset({ address, chainId }) {
-      const key2 = getKey({ address, chainId });
-      nonceMap.delete(key2);
-      resetCache(key2);
-    }
-  };
-}
-function jsonRpc() {
-  return {
-    async get(parameters) {
-      const { address, client } = parameters;
-      return getTransactionCount(client, {
-        address,
-        blockTag: "pending"
-      });
-    },
-    set() {}
-  };
-}
-var nonceManager4 = /* @__PURE__ */ createNonceManager4({
-  source: jsonRpc()
-});
-
-// ../viem/src/_esm/account-abstraction/accounts/toSmartAccount.js
-async function toSmartAccount2(implementation) {
-  const { extend, nonceKeyManager = createNonceManager4({
-    source: {
-      get() {
-        return Date.now();
-      },
-      set() {}
-    }
-  }), ...rest } = implementation;
-  let deployed = false;
-  const address = await implementation.getAddress();
-  return {
-    ...extend,
-    ...rest,
-    address,
-    async getFactoryArgs() {
-      if ("isDeployed" in this && await this.isDeployed())
-        return { factory: undefined, factoryData: undefined };
-      return implementation.getFactoryArgs();
-    },
-    async getNonce(parameters) {
-      const key2 = parameters?.key ?? BigInt(await nonceKeyManager.consume({
-        address,
-        chainId: implementation.client.chain.id,
-        client: implementation.client
-      }));
-      if (implementation.getNonce)
-        return await implementation.getNonce({ ...parameters, key: key2 });
-      const nonce = await readContract(implementation.client, {
-        abi: parseAbi([
-          "function getNonce(address, uint192) pure returns (uint256)"
-        ]),
-        address: implementation.entryPoint.address,
-        functionName: "getNonce",
-        args: [address, key2]
-      });
-      return nonce;
-    },
-    async isDeployed() {
-      if (deployed)
-        return true;
-      const code = await getAction(implementation.client, getCode, "getCode")({
-        address
-      });
-      deployed = Boolean(code);
-      return deployed;
-    },
-    ...implementation.sign ? {
-      async sign(parameters) {
-        const [{ factory, factoryData }, signature] = await Promise.all([
-          this.getFactoryArgs(),
-          implementation.sign(parameters)
-        ]);
-        if (factory && factoryData)
-          return serializeErc6492Signature3({
-            address: factory,
-            data: factoryData,
-            signature
-          });
-        return signature;
-      }
-    } : {},
-    async signMessage(parameters) {
-      const [{ factory, factoryData }, signature] = await Promise.all([
-        this.getFactoryArgs(),
-        implementation.signMessage(parameters)
-      ]);
-      if (factory && factoryData && factory !== "0x7702")
-        return serializeErc6492Signature3({
-          address: factory,
-          data: factoryData,
-          signature
-        });
-      return signature;
-    },
-    async signTypedData(parameters) {
-      const [{ factory, factoryData }, signature] = await Promise.all([
-        this.getFactoryArgs(),
-        implementation.signTypedData(parameters)
-      ]);
-      if (factory && factoryData && factory !== "0x7702")
-        return serializeErc6492Signature3({
-          address: factory,
-          data: factoryData,
-          signature
-        });
-      return signature;
-    },
-    type: "smart"
-  };
-}
-
-// ../viem/src/_esm/account-abstraction/utils/userOperation/getUserOperationHash.js
-init_encodeAbiParameters();
-init_keccak256();
-
-// ../viem/src/_esm/account-abstraction/utils/userOperation/getInitCode.js
-function getInitCode2(userOperation, options = {}) {
-  const { forHash } = options;
-  const { authorization, factory, factoryData } = userOperation;
-  if (forHash && (factory === "0x7702" || factory === "0x7702000000000000000000000000000000000000")) {
-    if (!authorization)
-      return "0x7702000000000000000000000000000000000000";
-    return concat([authorization.address, factoryData ?? "0x"]);
-  }
-  if (!factory)
-    return "0x";
-  return concat([factory, factoryData ?? "0x"]);
-}
-
-// ../viem/src/_esm/account-abstraction/utils/userOperation/toPackedUserOperation.js
-init_pad();
-init_size();
-var paymasterSignatureMagic = "0x22e325a297439656";
-function toPackedUserOperation2(userOperation, options = {}) {
-  const { callGasLimit, callData, maxPriorityFeePerGas, maxFeePerGas, paymaster, paymasterData, paymasterPostOpGasLimit, paymasterSignature, paymasterVerificationGasLimit, sender, signature = "0x", verificationGasLimit } = userOperation;
-  const accountGasLimits = concat([
-    pad(numberToHex(verificationGasLimit || 0n), { size: 16 }),
-    pad(numberToHex(callGasLimit || 0n), { size: 16 })
-  ]);
-  const initCode = getInitCode2(userOperation, options);
-  const gasFees = concat([
-    pad(numberToHex(maxPriorityFeePerGas || 0n), { size: 16 }),
-    pad(numberToHex(maxFeePerGas || 0n), { size: 16 })
-  ]);
-  const nonce = userOperation.nonce ?? 0n;
-  const paymasterAndData = paymaster ? concat([
-    paymaster,
-    pad(numberToHex(paymasterVerificationGasLimit || 0n), {
-      size: 16
-    }),
-    pad(numberToHex(paymasterPostOpGasLimit || 0n), {
-      size: 16
-    }),
-    paymasterData || "0x",
-    ...paymasterSignature ? options.forHash ? [paymasterSignatureMagic] : [
-      paymasterSignature,
-      pad(numberToHex(size2(paymasterSignature)), { size: 2 }),
-      paymasterSignatureMagic
-    ] : []
-  ]) : "0x";
-  const preVerificationGas = userOperation.preVerificationGas ?? 0n;
-  return {
-    accountGasLimits,
-    callData,
-    initCode,
-    gasFees,
-    nonce,
-    paymasterAndData,
-    preVerificationGas,
-    sender,
-    signature
-  };
-}
-
-// ../viem/src/_esm/account-abstraction/utils/userOperation/getUserOperationTypedData.js
-var types = {
-  PackedUserOperation: [
-    { type: "address", name: "sender" },
-    { type: "uint256", name: "nonce" },
-    { type: "bytes", name: "initCode" },
-    { type: "bytes", name: "callData" },
-    { type: "bytes32", name: "accountGasLimits" },
-    { type: "uint256", name: "preVerificationGas" },
-    { type: "bytes32", name: "gasFees" },
-    { type: "bytes", name: "paymasterAndData" }
-  ]
-};
-function getUserOperationTypedData2(parameters) {
-  const { chainId, entryPointAddress, userOperation } = parameters;
-  const packedUserOp = toPackedUserOperation2(userOperation, { forHash: true });
-  return {
-    types,
-    primaryType: "PackedUserOperation",
-    domain: {
-      name: "ERC4337",
-      version: "1",
-      chainId,
-      verifyingContract: entryPointAddress
-    },
-    message: packedUserOp
-  };
-}
-
-// ../viem/src/_esm/account-abstraction/utils/userOperation/getUserOperationHash.js
-function getUserOperationHash2(parameters) {
-  const { chainId, entryPointAddress, entryPointVersion } = parameters;
-  const userOperation = parameters.userOperation;
-  const { authorization, callData = "0x", callGasLimit, maxFeePerGas, maxPriorityFeePerGas, nonce, paymasterAndData = "0x", preVerificationGas, sender, verificationGasLimit } = userOperation;
-  if (entryPointVersion === "0.8" || entryPointVersion === "0.9")
-    return hashTypedData2(getUserOperationTypedData2({
-      chainId,
-      entryPointAddress,
-      userOperation
-    }));
-  const packedUserOp = (() => {
-    if (entryPointVersion === "0.6") {
-      const factory = userOperation.initCode?.slice(0, 42);
-      const factoryData = userOperation.initCode?.slice(42);
-      const initCode = getInitCode2({
-        authorization,
-        factory,
-        factoryData
-      }, { forHash: true });
-      return encodeAbiParameters([
-        { type: "address" },
-        { type: "uint256" },
-        { type: "bytes32" },
-        { type: "bytes32" },
-        { type: "uint256" },
-        { type: "uint256" },
-        { type: "uint256" },
-        { type: "uint256" },
-        { type: "uint256" },
-        { type: "bytes32" }
-      ], [
-        sender,
-        nonce,
-        keccak256(initCode),
-        keccak256(callData),
-        callGasLimit,
-        verificationGasLimit,
-        preVerificationGas,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        keccak256(paymasterAndData)
-      ]);
-    }
-    if (entryPointVersion === "0.7") {
-      const packedUserOp2 = toPackedUserOperation2(userOperation, {
-        forHash: true
-      });
-      return encodeAbiParameters([
-        { type: "address" },
-        { type: "uint256" },
-        { type: "bytes32" },
-        { type: "bytes32" },
-        { type: "bytes32" },
-        { type: "uint256" },
-        { type: "bytes32" },
-        { type: "bytes32" }
-      ], [
-        packedUserOp2.sender,
-        packedUserOp2.nonce,
-        keccak256(packedUserOp2.initCode),
-        keccak256(packedUserOp2.callData),
-        packedUserOp2.accountGasLimits,
-        packedUserOp2.preVerificationGas,
-        packedUserOp2.gasFees,
-        keccak256(packedUserOp2.paymasterAndData)
-      ]);
-    }
-    throw new Error(`entryPointVersion "${entryPointVersion}" not supported.`);
-  })();
-  return keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "address" }, { type: "uint256" }], [keccak256(packedUserOp), entryPointAddress, BigInt(chainId)]));
-}
-
-// ../viem/src/_esm/eip8130/accounts/toSmartAccount.js
-init_base();
-init_decodeFunctionData();
-init_encodeFunctionData();
-async function toSmartAccount3(parameters) {
-  const { client, entryPoint: entryPoint_ = {
-    abi: entryPoint07Abi,
-    address: entryPoint07Address,
-    version: "0.7"
-  }, getNonce, authenticator = ecrecoverAuthenticator } = parameters;
-  const entryPoint = {
-    abi: entryPoint_.abi,
-    address: entryPoint_.address,
-    version: entryPoint_.version
-  };
-  const owner = parseAccount(parameters.owner);
-  const stubData = parameters.stubData ?? "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c";
-  const sign6 = parameters.sign ?? (async (hash3) => {
-    if (!owner.sign)
-      throw new BaseError2("`owner` must be a local account exposing `sign`, or pass a custom `sign` function. EIP-8130 validates the raw `userOpHash` (no EIP-191 prefix).");
-    return owner.sign({ hash: hash3 });
-  });
-  const code = parameters.code ?? (parameters.implementation ? erc1167Bytecode(parameters.implementation) : undefined);
-  function getCreateParameters() {
-    if (!parameters.userSalt || !parameters.initialActors)
-      throw new BaseError2("`userSalt` and `initialActors` are required to derive factory args / address.");
-    if (!code)
-      throw new BaseError2("Provide `implementation` (wallet impl address) or `code` (deployment bytecode).");
-    return {
-      userSalt: parameters.userSalt,
-      code,
-      initialActors: parameters.initialActors
-    };
-  }
-  return toSmartAccount2({
-    client,
-    entryPoint,
-    getNonce,
-    extend: { abi: erc4337AccountAbi },
-    async decodeCalls(data) {
-      const result = decodeFunctionData({ abi: erc4337AccountAbi, data });
-      if (result.functionName === "executeBatch")
-        return result.args[0].map((call3) => ({
-          to: call3.target,
-          value: call3.value,
-          data: call3.data
-        }));
-      throw new BaseError2(`unable to decode calls for "${result.functionName}"`);
-    },
-    async encodeCalls(calls) {
-      return encodeFunctionData({
-        abi: erc4337AccountAbi,
-        functionName: "executeBatch",
-        args: [
-          calls.map((call3) => ({
-            target: call3.to,
-            value: call3.value ?? 0n,
-            data: call3.data ?? "0x"
-          }))
-        ]
-      });
-    },
-    async getAddress() {
-      if (parameters.address)
-        return parameters.address;
-      return computeAddress(getCreateParameters());
-    },
-    async getFactoryArgs() {
-      return toFactoryArgs(getCreateParameters());
-    },
-    async getStubSignature() {
-      return concatHex([authenticator, stubData]);
-    },
-    async signMessage(parameters_) {
-      const address = await this.getAddress();
-      const digest = getSignatureEnvelopeHash({
-        account: address,
-        hash: hashMessage2(parameters_.message)
-      });
-      return wrapSignatureEnvelope({
-        sigType: "multichain",
-        authenticator,
-        signature: await sign6(digest)
-      });
-    },
-    async signTypedData(parameters_) {
-      const address = await this.getAddress();
-      const digest = getSignatureEnvelopeHash({
-        account: address,
-        hash: hashTypedData2(parameters_)
-      });
-      return wrapSignatureEnvelope({
-        sigType: "multichain",
-        authenticator,
-        signature: await sign6(digest)
-      });
-    },
-    async signUserOperation(parameters_) {
-      const { chainId = client.chain.id, ...userOperation } = parameters_;
-      const address = await this.getAddress();
-      const userOpHash = getUserOperationHash2({
-        chainId,
-        entryPointAddress: entryPoint.address,
-        entryPointVersion: entryPoint.version,
-        userOperation: {
-          ...userOperation,
-          sender: address
-        }
-      });
-      return concatHex([authenticator, await sign6(userOpHash)]);
-    }
-  });
-}
-// ../viem/src/_esm/eip8130/actions/estimateGas.js
+// ../viem/src/eip8130/actions/estimateGas.ts
 init_base();
 init_fromHex();
 init_toHex();
 
-// ../viem/src/_esm/eip8130/utils/toPhases.js
+// ../viem/src/eip8130/utils/rpcAccountChanges.ts
+init_fromHex();
+init_toHex();
+var changeTypeNames = {
+  [changeType.authorizeActor]: "AuthorizeActor",
+  [changeType.revokeActor]: "RevokeActor",
+  [changeType.incrementLocalEpoch]: "IncrementLocalEpoch",
+  [changeType.lock]: "Lock",
+  [changeType.unlock]: "Unlock"
+};
+var channelByte = { local: 0, multichain: 1 };
+var changeTypeByName = Object.fromEntries(Object.entries(changeTypeNames).map(([op, name]) => [name, Number(op)]));
+function toQuantity(typeByte) {
+  return numberToHex(typeof typeByte === "number" ? typeByte : hexToNumber(typeByte));
+}
+function toRpcAccountChange(change) {
+  if (change.type === "delegation")
+    return {
+      type: toQuantity(accountChangeType.delegation),
+      target: change.target
+    };
+  if (change.type === "create")
+    return {
+      type: toQuantity(accountChangeType.create),
+      userSalt: change.userSalt,
+      code: change.code,
+      initialActors: change.initialActors.map((actor) => ({
+        actorId: actor.actorId,
+        authenticator: actor.authenticator,
+        scope: numberToHex(actor.scope ?? 0),
+        policyData: actor.policyData ?? "0x"
+      }))
+    };
+  return {
+    type: toQuantity(accountChangeType.config),
+    channel: toQuantity(channelByte[change.channel]),
+    sequence: numberToHex(change.sequence),
+    changes: change.changes.map((c) => ({
+      changeType: toQuantity(c.changeType),
+      payload: encodeChangePayload(c)
+    })),
+    signature: change.signature
+  };
+}
+
+// ../viem/src/eip8130/utils/toPhases.ts
 function toPhases(calls) {
   if (!calls || calls.length === 0)
     return [];
@@ -23265,10 +18544,32 @@ function toPhases(calls) {
   return [calls];
 }
 
-// ../viem/src/_esm/eip8130/actions/estimateGas.js
+// ../viem/src/eip8130/actions/estimateGas.ts
 var maxAuthSize = 8192;
-async function estimateGas3(client, parameters) {
-  const { from: from16, sender, to, data, value, senderAuth: senderAuthExplicit, senderAuthAuthenticator, senderAuthSize, senderActorId, accountChanges, calls, nonceKey = 0n, nonceSequence = 0, payer, payerAuth: payerAuthExplicit, payerAuthAuthenticator, payerAuthSize, dataSuffix: dataSuffixParam, blockNumber, blockTag = "pending" } = parameters;
+async function estimateGas2(client, parameters) {
+  const {
+    from: from16,
+    sender,
+    to,
+    data,
+    value,
+    senderAuth: senderAuthExplicit,
+    senderAuthAuthenticator,
+    senderAuthSize,
+    senderActorId,
+    accountChanges,
+    calls,
+    nonceKey = 0n,
+    validAfter,
+    validBefore,
+    payer,
+    payerAuth: payerAuthExplicit,
+    payerAuthAuthenticator,
+    payerAuthSize,
+    dataSuffix: dataSuffixParam,
+    blockNumber,
+    blockTag = "pending"
+  } = parameters;
   const dataSuffix = dataSuffixParam ?? (typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value);
   const account_ = sender ?? from16;
   if (!account_)
@@ -23279,58 +18580,46 @@ async function estimateGas3(client, parameters) {
     if (size7 !== undefined && (size7 < 0 || size7 > maxAuthSize))
       throw new BaseError2(`auth size ${size7} out of range (0..=${maxAuthSize}).`);
   const senderAuth = buildAuthBlob(senderAuthExplicit, senderAuthAuthenticator, senderAuthSize);
-  const payerAuth = buildAuthBlob(payerAuthExplicit, payerAuthAuthenticator, payerAuthSize);
+  const payerAuth = payer === openPayer && payerAuthExplicit === undefined && payerAuthAuthenticator === undefined && payerAuthSize === undefined ? openPayerAuthStub : buildAuthBlob(payerAuthExplicit, payerAuthAuthenticator, payerAuthSize);
   const useFullBody = accountChanges !== undefined || calls !== undefined;
-  let request;
+  const request = {
+    type: aaTransactionType,
+    sender: account_,
+    nonceKey: numberToHex(nonceKey)
+  };
+  if (validAfter !== undefined)
+    request.validAfter = numberToHex(validAfter);
+  if (validBefore !== undefined)
+    request.validBefore = numberToHex(validBefore);
+  const phases = useFullBody ? calls !== undefined ? toPhases(calls) : [[{ to: account_, data: "0x" }]] : to !== undefined ? [[{ to, value, data }]] : undefined;
+  if (phases)
+    request.calls = phases.map((phase) => phase.map((c) => ({
+      to: c.to,
+      value: numberToHex(c.value ?? 0n),
+      data: c.data ?? "0x"
+    })));
   if (useFullBody) {
-    request = {
-      type: aaTransactionType,
-      sender: account_,
-      nonceKey: Number(nonceKey),
-      nonceSequence,
-      validAfter: 0,
-      validBefore: 0,
-      maxFeePerGas: numberToHex(1000000000n),
-      maxPriorityFeePerGas: numberToHex(1000000n),
-      gasLimit: 30000000,
-      accountChanges: (accountChanges ?? []).map(serializeAccountChange),
-      calls: (calls !== undefined ? toPhases(calls) : [[{ to: account_, value: 0n, data: "0x" }]]).map((phase) => phase.map((c) => ({
-        to: c.to,
-        value: numberToHex(c.value ?? 0n),
-        data: c.data ?? "0x"
-      }))),
-      metadata: dataSuffix ?? "0x",
-      payer: payer ?? null
-    };
-    if (senderAuth !== undefined)
-      request.senderAuth = senderAuth;
-    if (payerAuth !== undefined)
-      request.payerAuth = payerAuth;
-    if (senderActorId !== undefined)
-      request.senderActorId = senderActorId;
-  } else {
-    request = {
-      type: aaTransactionType,
-      sender: account_
-    };
-    if (to !== undefined)
-      request.to = to;
-    if (data !== undefined)
-      request.data = data;
-    if (value !== undefined)
-      request.value = numberToHex(value);
-    if (payer !== undefined)
-      request.payer = payer;
-    if (senderAuth !== undefined)
-      request.senderAuth = senderAuth;
-    if (payerAuth !== undefined)
-      request.payerAuth = payerAuth;
-    if (senderActorId !== undefined)
-      request.senderActorId = senderActorId;
-  }
+    request.accountChanges = (accountChanges ?? []).map(toRpcAccountChange);
+    request.metadata = dataSuffix ?? "0x";
+    request.maxFeePerGas = numberToHex(1000000000n);
+    request.maxPriorityFeePerGas = numberToHex(1000000n);
+  } else if (dataSuffix !== undefined)
+    request.metadata = dataSuffix;
+  if (payer !== undefined)
+    request.payer = toRpcPayer(payer);
+  if (senderAuth !== undefined)
+    request.senderAuth = senderAuth;
+  if (payerAuth !== undefined)
+    request.payerAuth = payerAuth;
+  if (senderActorId !== undefined)
+    request.senderActorId = senderActorId;
   const block = blockNumber !== undefined ? numberToHex(blockNumber) : blockTag;
   const gas = await client.request({ method: "eth_estimateGas", params: [request, block] });
   return hexToBigInt(gas);
+}
+var openPayerAuthStub = "0xa0b37f8fba683cc68f6574cd43b39f0343a50008bf6ccea9d13231d9e7e2e1e411edc8d307254296264aebfc3dc76cd8b668373a072fd64665b50000e9fcce521c";
+function toRpcPayer(payer) {
+  return payer === openPayer ? zeroAddress : payer;
 }
 function buildAuthBlob(explicit, authenticator, size7) {
   if (explicit !== undefined)
@@ -23340,344 +18629,24 @@ function buildAuthBlob(explicit, authenticator, size7) {
       return;
     return filler(size7);
   }
-  const dataLength = size7 ?? canonicalAuthDataLength[authenticator.toLowerCase()];
+  const dataLength = size7 ?? (authenticator.toLowerCase() === k1Authenticator ? k1AuthDataLength : undefined);
   if (dataLength === undefined)
-    throw new BaseError2(`No default auth-payload length is known for authenticator ${authenticator}. Pass an explicit auth size.`);
+    throw new BaseError2(`No default auth-payload length is known for authenticator ${authenticator}. Pass an explicit auth size (see \`canonicalAuthDataLength\` in \`viem/experimental/keystore\`).`);
   return concatHex([authenticator, filler(dataLength)]);
 }
 function filler(length) {
   return `0x${"ff".repeat(length)}`;
 }
-function serializeAccountChange(change) {
-  if (change.type === "create") {
-    return {
-      type: "create",
-      userSalt: change.userSalt,
-      code: change.code,
-      initialActors: change.initialActors.map((a) => ({
-        actorId: a.actorId,
-        authenticator: a.authenticator,
-        scope: a.scope ?? 0,
-        policyData: a.policyData ?? "0x"
-      }))
-    };
-  }
-  if (change.type === "delegation") {
-    return { type: "delegation", target: change.target };
-  }
-  const changeTypeName = {
-    [changeType.authorizeActor]: "AuthorizeActor",
-    [changeType.revokeActor]: "RevokeActor",
-    [changeType.incrementLocalEpoch]: "IncrementLocalEpoch",
-    [changeType.lock]: "Lock",
-    [changeType.unlock]: "Unlock"
-  };
-  return {
-    type: "configChange",
-    channel: change.channel === "multichain" ? "Multichain" : "Local",
-    sequence: Number(change.sequence),
-    changes: change.changes.map((c) => ({
-      changeType: changeTypeName[c.changeType],
-      payload: encodeChangePayload(c)
-    })),
-    signature: change.signature
-  };
-}
-// ../viem/src/_esm/eip8130/actions/getActorConfig.js
-async function getActorConfig(client, parameters) {
-  const { account, actorId } = parameters;
-  const config = await readContract(client, {
-    address: keystoreAddress,
-    abi: keystoreAbi,
-    functionName: "getActorConfig",
-    args: [account, actorId]
-  });
-  return {
-    authenticator: config.authenticator,
-    scope: config.scope,
-    expiry: config.expiry,
-    hasPolicy: (config.scope & actorScope.policy) !== 0
-  };
-}
-// ../viem/src/_esm/eip8130/actions/getConfigSequence.js
-async function getConfigSequence(client, parameters) {
-  const { account } = parameters;
-  const result = await readContract(client, {
-    address: keystoreAddress,
-    abi: keystoreAbi,
-    functionName: "getChangeSequences",
-    args: [account]
-  });
-  const local = BigInt(result.localEpoch) << 32n | BigInt(result.localSequence);
-  return {
-    local,
-    multichain: result.multichain,
-    localEpoch: result.localEpoch,
-    localSequence: result.localSequence
-  };
-}
-function unsequencedLocalSequence(localEpoch) {
-  return BigInt(localEpoch) << 32n | unsequencedLocalHalf;
-}
-// ../viem/src/_esm/eip8130/actions/getLockStatus.js
-async function getLockStatus(client, parameters) {
-  const { account } = parameters;
-  const [locked, hasInitiatedUnlock, unlocksAt, unlockDelay] = await readContract(client, {
-    address: keystoreAddress,
-    abi: keystoreAbi,
-    functionName: "getLockStatus",
-    args: [account]
-  });
-  return { locked, hasInitiatedUnlock, unlocksAt, unlockDelay };
-}
-// ../viem/src/_esm/eip8130/actions/getPolicy.js
-async function getPolicy(client, parameters) {
-  const { account, actorId } = parameters;
-  const [, policyManager, policyCommitment] = await readContract(client, {
-    address: keystoreAddress,
-    abi: keystoreAbi,
-    functionName: "getActorWithPolicy",
-    args: [account, actorId]
-  });
-  return { target: policyManager, commitment: policyCommitment };
-}
-// ../viem/src/_esm/eip8130/policies.js
-init_exports();
-init_base();
-init_encodeAbiParameters();
-init_encodeFunctionData();
-init_keccak256();
-var policyManagerAbi = parseAbi([
-  "struct PolicyBinding { address account; address policy; bytes policyConfig; uint40 validAfter; uint40 validUntil; uint256 salt; }",
-  "event PolicyExecuted(address indexed account, address indexed policy, bytes32 indexed commitment, address caller)",
-  "event ExecutionSkipped(address indexed account, address indexed policy, bytes32 indexed actorId)",
-  "function commitmentOf(PolicyBinding binding) pure returns (bytes32)",
-  "function execute(PolicyBinding binding, bytes executionData)",
-  "function executeFor(PolicyBinding binding, bytes executionData)",
-  "function executeForMany(PolicyBinding[] bindings, bytes[] executionData) returns (bool[] results)"
-]);
-var sessionPolicyAbi = parseAbi([
-  "struct TokenLimit { address token; uint256 limit; uint40 period; }",
-  "struct SelectorRule { bytes4 selector; address[] recipients; }",
-  "struct CallScope { address target; SelectorRule[] selectorRules; }",
-  "struct Config { TokenLimit[] tokenLimits; CallScope[] callScopes; }",
-  "struct Action { address target; uint256 value; bytes data; }",
-  "struct PeriodUsage { uint48 start; uint48 end; uint160 spend; }",
-  "function isTargetAllowed(Config config, address target) pure returns (bool allowed, bool anySelector)",
-  "function getSelectorRule(Config config, address target, bytes4 selector) pure returns (bool allowed, bool recipientBound)",
-  "function isRecipientAllowed(Config config, address target, bytes4 selector, address recipient) pure returns (bool)",
-  "function getTokenLimit(Config config, address token) pure returns (bool set, uint160 allowance, uint40 period)",
-  "function getCurrentSpend(bytes32 commitment, TokenLimit limit) view returns (PeriodUsage)"
-]);
-var commitmentParameters = [
-  { type: "address" },
-  { type: "address" },
-  { type: "bytes32" },
-  { type: "uint40" },
-  { type: "uint40" },
-  { type: "uint256" }
-];
-function commitmentOf(binding) {
-  return keccak256(encodeAbiParameters(commitmentParameters, [
-    binding.account,
-    binding.policy,
-    keccak256(binding.policyConfig),
-    Number(binding.validAfter),
-    Number(binding.validUntil),
-    binding.salt
-  ]));
-}
-function toBindingArgs(binding) {
-  return {
-    account: binding.account,
-    policy: binding.policy,
-    policyConfig: binding.policyConfig,
-    validAfter: Number(binding.validAfter),
-    validUntil: Number(binding.validUntil),
-    salt: binding.salt
-  };
-}
-function defineSessionPolicy(parameters) {
-  const { account, policyConfig, policy = baseSepoliaDeployment.policies.sessionPolicy, manager = baseSepoliaDeployment.policies.manager, validAfter = 0n, validUntil = 0n, salt = 0n, policyType = 1 } = parameters;
-  if (policyType === 0)
-    throw new BaseError2("`policyType` must be non-zero (0 = no policy).");
-  const binding = {
-    account,
-    policy,
-    policyConfig,
-    validAfter,
-    validUntil,
-    salt
-  };
-  const commitment = commitmentOf(binding);
-  return {
-    manager,
-    policy,
-    binding,
-    commitment,
-    actorPolicy: { type: policyType, manager, commitment },
-    executeCall(executionDataOrAction) {
-      const executionData = typeof executionDataOrAction === "string" ? executionDataOrAction : encodeSessionPolicyAction(executionDataOrAction);
-      return {
-        to: manager,
-        value: 0n,
-        data: encodeFunctionData({
-          abi: policyManagerAbi,
-          functionName: "execute",
-          args: [toBindingArgs(binding), executionData]
-        })
-      };
-    },
-    executeForCall(executionDataOrAction) {
-      const executionData = typeof executionDataOrAction === "string" ? executionDataOrAction : encodeSessionPolicyAction(executionDataOrAction);
-      return {
-        to: manager,
-        value: 0n,
-        data: encodeFunctionData({
-          abi: policyManagerAbi,
-          functionName: "executeFor",
-          args: [toBindingArgs(binding), executionData]
-        })
-      };
-    }
-  };
-}
-var sessionPolicyAddress = baseSepoliaDeployment.policies.sessionPolicy;
-var sessionConfigParameters = [
-  {
-    type: "tuple",
-    components: [
-      {
-        name: "tokenLimits",
-        type: "tuple[]",
-        components: [
-          { name: "token", type: "address" },
-          { name: "limit", type: "uint256" },
-          { name: "period", type: "uint40" }
-        ]
-      },
-      {
-        name: "callScopes",
-        type: "tuple[]",
-        components: [
-          { name: "target", type: "address" },
-          {
-            name: "selectorRules",
-            type: "tuple[]",
-            components: [
-              { name: "selector", type: "bytes4" },
-              { name: "recipients", type: "address[]" }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-];
-var sessionActionParameters = [
-  {
-    type: "tuple",
-    components: [
-      { name: "target", type: "address" },
-      { name: "value", type: "uint256" },
-      { name: "data", type: "bytes" }
-    ]
-  }
-];
-function encodeSessionPolicyConfig(config) {
-  return encodeAbiParameters(sessionConfigParameters, [
-    {
-      tokenLimits: (config.tokenLimits ?? []).map((t) => ({
-        token: t.token,
-        limit: t.limit,
-        period: Number(t.period ?? 0n)
-      })),
-      callScopes: (config.callScopes ?? []).map((s) => ({
-        target: s.target,
-        selectorRules: (s.selectorRules ?? []).map((r) => ({
-          selector: r.selector,
-          recipients: r.recipients ?? []
-        }))
-      }))
-    }
-  ]);
-}
-function encodeSessionPolicyAction(action) {
-  return encodeAbiParameters(sessionActionParameters, [
-    {
-      target: action.target,
-      value: action.value ?? 0n,
-      data: action.data ?? "0x"
-    }
-  ]);
-}
-
-// ../viem/src/_esm/eip8130/actions/getSessionSpend.js
-async function getSessionSpend(client, parameters) {
-  const { commitment, tokenLimit, sessionPolicy = sessionPolicyAddress } = parameters;
-  const read = getAction(client, readContract, "readContract");
-  const allowance = tokenLimit.limit;
-  const period = Number(tokenLimit.period ?? 0n);
-  const usage = await read({
-    address: sessionPolicy,
-    abi: sessionPolicyAbi,
-    functionName: "getCurrentSpend",
-    args: [
-      commitment,
-      {
-        token: tokenLimit.token,
-        limit: tokenLimit.limit,
-        period
-      }
-    ]
-  });
-  const spent = usage.spend;
-  const remaining = allowance > spent ? allowance - spent : 0n;
-  return {
-    allowance,
-    period,
-    spent,
-    remaining,
-    periodStart: usage.start,
-    periodEnd: usage.end
-  };
-}
-// ../viem/src/_esm/eip8130/actions/getTransaction.js
-async function getTransaction3(client, parameters) {
-  const { hash: hash3 } = parameters;
-  const raw = await client.request({ method: "eth_getTransactionByHash", params: [hash3] });
-  if (!raw || raw.type !== aaTransactionType)
-    throw new Error(`getTransaction: expected type ${aaTransactionType} but got type ${raw?.type ?? "null"} for hash ${hash3}`);
-  const body = raw.tx;
-  return {
-    type: aaTransactionType,
-    hash: hash3,
-    from: raw.from ?? body.sender,
-    chainId: body.chainId,
-    nonceKey: body.nonceKey,
-    nonceSequence: body.nonceSequence,
-    validAfter: body.validAfter,
-    validBefore: body.validBefore,
-    maxFeePerGas: BigInt(body.maxFeePerGas),
-    maxPriorityFeePerGas: BigInt(body.maxPriorityFeePerGas),
-    gas: BigInt(body.gasLimit),
-    calls: body.calls,
-    accountChanges: body.accountChanges,
-    metadata: body.metadata,
-    payer: body.payer,
-    senderAuth: raw.senderAuth,
-    payerAuth: raw.payerAuth,
-    gasPrice: raw.gasPrice ? BigInt(raw.gasPrice) : null,
-    blockHash: raw.blockHash ?? null,
-    blockNumber: raw.blockNumber ? BigInt(raw.blockNumber) : null,
-    transactionIndex: raw.transactionIndex ? Number(raw.transactionIndex) : null
-  };
-}
-// ../viem/src/_esm/eip8130/actions/getTransactionCount.js
+// ../viem/src/eip8130/actions/getTransactionCount.ts
 init_fromHex();
 init_toHex();
-async function getTransactionCount3(client, parameters) {
-  const { address, nonceKey = 0n, blockNumber, blockTag = "pending" } = parameters;
+async function getTransactionCount2(client, parameters) {
+  const {
+    address,
+    nonceKey = 0n,
+    blockNumber,
+    blockTag = "pending"
+  } = parameters;
   if (nonceKey === nonceKeyMax)
     throw new Error("nonceKey NONCE_KEY_MAX selects the expiring-nonce channel, which has no per-channel counter. Use an `expiry` instead of reading a sequence number.");
   const block = blockNumber !== undefined ? numberToHex(blockNumber) : blockTag;
@@ -23685,7 +18654,7 @@ async function getTransactionCount3(client, parameters) {
   const count = await client.request({ method: "eth_getTransactionCount", params });
   return hexToBigInt(count);
 }
-// ../viem/src/_esm/eip8130/actions/getTransactionReceipt.js
+// ../viem/src/eip8130/actions/getTransactionReceipt.ts
 function parseReceiptFields(receipt) {
   if (!receipt)
     return {};
@@ -23701,172 +18670,24 @@ function allPhasesSucceeded(fields) {
     return true;
   return phases.every((s) => s === "0x1" || s === "0x01");
 }
-async function getTransactionReceipt3(client, parameters) {
+async function getTransactionReceipt2(client, parameters) {
   const { hash: hash3 } = parameters;
   const receipt = await client.request({ method: "eth_getTransactionReceipt", params: [hash3] });
   if (!receipt)
     return null;
   return { ...receipt, eip8130: parseReceiptFields(receipt) };
 }
-// ../viem/src/_esm/eip8130/actions/isActor.js
-async function isActor(client, parameters) {
-  const { account, actorId } = parameters;
-  const { authenticator } = await getActorConfig(client, {
-    account,
-    actorId
-  });
-  return authenticator !== zeroAddress;
-}
-// ../viem/src/_esm/eip8130/actions/isLocked.js
-async function isLocked(client, parameters) {
-  const { account } = parameters;
-  return readContract(client, {
-    address: keystoreAddress,
-    abi: keystoreAbi,
-    functionName: "isLocked",
-    args: [account]
-  });
-}
-// ../viem/src/_esm/eip8130/actions/sendTransaction.js
+// ../viem/src/eip8130/actions/sendTransaction.ts
 init_base();
-
-// ../viem/src/_esm/eip8130/errors.js
-init_base();
-
-class NonceScopeError extends BaseError2 {
-  constructor({ scope, nonceKey }) {
-    super(`Restricted signing actor scope \`0x${scope.toString(16)}\` lacks \`SCOPE_NONCE\`, so it may only send nonce-free (expiring) transactions${nonceKey !== undefined ? ` — received \`nonceKey\` ${nonceKey}.` : "."}`, {
-      metaMessages: [
-        "Only a restricted (non-admin) actor without the `SCOPE_NONCE` bit is confined to nonce-free mode; admin (scope 0) and `SCOPE_NONCE` actors may use ordered nonces too.",
-        "Omit `nonceKey` to let the library select the default nonce mode automatically, or pass `...nonce.nonceless({ expiresIn })` for nonce-free."
-      ]
-    });
-    Object.defineProperty(this, "name", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: "NonceScopeError"
-    });
-  }
-}
-
-class ScopeMismatchError extends BaseError2 {
-  constructor({ declared, onChain }) {
-    super(`Declared signing scope \`0x${declared.toString(16)}\` does not match on-chain actor scope \`0x${onChain.toString(16)}\`.`, {
-      metaMessages: [
-        "Omit `scope` on the account handle and let prepare read `getActorConfig` — the chain is authoritative for nonce-mode selection.",
-        "If you pass `scope`, it must equal the authorized on-chain value."
-      ]
-    });
-    Object.defineProperty(this, "name", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: "ScopeMismatchError"
-    });
-  }
-}
-
-class TransactionExpiredError extends BaseError2 {
-  constructor({ hash: hash3, validBefore, blockTimestamp }) {
-    super(`Transaction \`${hash3}\` expired before landing: \`validBefore\` ${validBefore} (unix ms) passed (latest block timestamp ${blockTimestamp}s).`, {
-      metaMessages: [
-        "Nonce-free (expiring) transactions are only valid until their `validBefore`; once the block timestamp passes it the tx is dropped and can never be mined.",
-        "Resubmit with a fresh `validBefore` (e.g. `nonce.nonceless({ expiresIn })`)."
-      ]
-    });
-    Object.defineProperty(this, "name", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: "TransactionExpiredError"
-    });
-  }
-}
-
-class ActorNotBoundError extends BaseError2 {
-  constructor({ account, actorId }) {
-    super(`Signing actor \`${actorId}\` is not bound on account \`${account}\`.`, {
-      metaMessages: [
-        "Check actorId derivation (`key.k1` / `key.p256` / …) and that authorize used the same actorId + authenticator.",
-        "If the public RPC shows the actor bound but broadcast still fails, that is builder lag — not this error."
-      ]
-    });
-    Object.defineProperty(this, "name", {
-      enumerable: true,
-      configurable: true,
-      writable: true,
-      value: "ActorNotBoundError"
-    });
-  }
-}
-
-// ../viem/src/_esm/eip8130/utils/encodeWalletCalls.js
-init_encodeFunctionData();
-var defaultEncodeExecute = ({ account, calls }) => ({
-  to: account,
-  data: encodeFunctionData({
-    abi: erc4337AccountAbi,
-    functionName: "executeBatch",
-    args: [
-      calls.map((call3) => ({
-        target: call3.to,
-        value: call3.value,
-        data: call3.data
-      }))
-    ]
-  })
-});
-function encodeWalletCalls(parameters) {
-  const { account, calls, encodeExecute = defaultEncodeExecute } = parameters;
-  return calls.map((phase) => {
-    const hasValue = phase.some((call3) => call3.value && call3.value !== 0n);
-    if (!hasValue)
-      return phase.map((call3) => ({ to: call3.to, data: call3.data ?? "0x" }));
-    const normalized = phase.map((call3) => ({
-      to: call3.to,
-      value: call3.value ?? 0n,
-      data: call3.data ?? "0x"
-    }));
-    return [encodeExecute({ account, calls: normalized })];
-  });
-}
-
-// ../viem/src/_esm/eip8130/actions/sendTransaction.js
-async function resolveSigningScope(client, account) {
-  const { actorId, scope: declared } = account;
-  if (!actorId)
-    return declared;
-  const bound = await isActor(client, {
-    account: account.address,
-    actorId
-  });
-  if (!bound)
-    return declared;
-  const { scope: onChain } = await getActorConfig(client, {
-    account: account.address,
-    actorId
-  });
-  if (declared !== undefined && declared !== onChain)
-    throw new ScopeMismatchError({ declared, onChain });
-  return onChain;
-}
-async function prepareTransactionRequest3(client, parameters) {
+async function prepareTransactionRequest2(client, parameters) {
   const { account, calls, accountChanges, payer, gas } = parameters;
   const chainId = client.chain?.id;
   if (!chainId)
     throw new BaseError2("`client` must be configured with a `chain`.");
   const dataSuffix = parameters.dataSuffix ?? (typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value);
-  const scope = await resolveSigningScope(client, account);
-  const noncelessOnly = scope !== undefined && isNoncelessOnly(scope);
-  let nonceKey = parameters.nonceKey;
-  if (noncelessOnly) {
-    if (nonceKey !== undefined && nonceKey !== nonceKeyMax)
-      throw new NonceScopeError({ scope, nonceKey });
-    nonceKey = nonceKeyMax;
-  } else {
-    nonceKey ??= 0n;
-  }
+  const nonceKey = (account.resolveNonceKey ? await account.resolveNonceKey(client, {
+    nonceKey: parameters.nonceKey
+  }) : parameters.nonceKey) ?? 0n;
   let validBefore = parameters.validBefore;
   let { maxFeePerGas, maxPriorityFeePerGas } = parameters;
   if (maxFeePerGas === undefined || maxPriorityFeePerGas === undefined) {
@@ -23877,10 +18698,10 @@ async function prepareTransactionRequest3(client, parameters) {
   let nonceSequence = parameters.nonceSequence;
   if (nonceKey === nonceKeyMax) {
     if (!validBefore || validBefore === 0n)
-      validBefore = (parameters.now ?? BigInt(Date.now())) + (parameters.expiryWindow ?? nonceFreeMaxExpiryWindow);
+      validBefore = (parameters.now ?? BigInt(Date.now())) + (parameters.expiryWindow ?? nonceFreeDefaultExpiryWindow);
     nonceSequence ??= 0n;
   } else if (nonceSequence === undefined) {
-    nonceSequence = await getAction(client, getTransactionCount3, "getTransactionCount")({ address: account.address, nonceKey });
+    nonceSequence = await getAction(client, getTransactionCount2, "getTransactionCount")({ address: account.address, nonceKey });
   }
   return {
     chainId,
@@ -23899,1089 +18720,21 @@ async function prepareTransactionRequest3(client, parameters) {
   };
 }
 async function prepareAndSign(client, parameters) {
-  const { account, calls, payer, encodeExecute, onTransaction, ...rest } = parameters;
-  const transaction = await prepareTransactionRequest3(client, {
+  const { account, calls, payer, onTransaction, ...rest } = parameters;
+  const transaction = await prepareTransactionRequest2(client, {
     ...rest,
     account,
-    calls: encodeWalletCalls({
-      account: account.address,
-      calls: toPhases(calls),
-      encodeExecute
-    }),
+    calls: toPhases(calls),
     payer
   });
   onTransaction?.(transaction);
   return account.signTransaction(transaction, { payer });
 }
-async function sendTransaction3(client, parameters) {
+async function sendTransaction(client, parameters) {
   const serializedTransaction = await prepareAndSign(client, parameters);
   return getAction(client, sendRawTransaction, "sendRawTransaction")({ serializedTransaction });
 }
-async function sendTransactionSync3(client, parameters) {
-  const { throwOnReceiptRevert, timeout, ...rest } = parameters;
-  const serializedTransaction = await prepareAndSign(client, rest);
-  const receipt = await getAction(client, sendRawTransactionSync, "sendRawTransactionSync")({ serializedTransaction, throwOnReceiptRevert, timeout });
-  return { ...receipt, eip8130: parseReceiptFields(receipt) };
-}
-// ../viem/src/_esm/eip8130/actions/validateSignature.js
-async function validateSignature(client, parameters) {
-  const { account, signature } = parameters;
-  const hash3 = parameters.hash ?? (parameters.message !== undefined ? hashMessage2(parameters.message) : hashTypedData2(parameters.typedData));
-  try {
-    const [actorId, scope] = await readContract(client, {
-      address: keystoreAddress,
-      abi: keystoreAbi,
-      functionName: "validateSignature",
-      args: [account, hash3, signature]
-    });
-    return { valid: true, actorId, scope };
-  } catch {
-    return {
-      valid: false,
-      actorId: "0x0000000000000000000000000000000000000000000000000000000000000000",
-      scope: 0
-    };
-  }
-}
-// ../viem/src/_esm/eip8130/actions/waitForTransactionReceipt.js
-async function waitForTransactionReceipt3(client, parameters) {
-  const { hash: hash3, pollingInterval = 500, timeout = 60000 } = parameters;
-  const deadline = Date.now() + timeout;
-  const suppliedValidBefore = parameters.validBefore !== undefined && BigInt(parameters.validBefore) > 0n;
-  let validBefore = suppliedValidBefore ? BigInt(parameters.validBefore) : undefined;
-  while (Date.now() < deadline) {
-    const receipt = await getTransactionReceipt3(client, { hash: hash3 });
-    if (receipt !== null)
-      return receipt;
-    if (validBefore === undefined) {
-      try {
-        const tx = await getTransaction3(client, { hash: hash3 });
-        if (tx.validBefore > 0)
-          validBefore = BigInt(tx.validBefore);
-      } catch {}
-    }
-    if (validBefore !== undefined) {
-      const blockTimestamp = await getLatestBlockTimestamp(client);
-      if (blockTimestamp !== undefined && blockTimestamp * 1000n > validBefore)
-        throw new TransactionExpiredError({
-          hash: hash3,
-          validBefore,
-          blockTimestamp
-        });
-    }
-    await new Promise((resolve) => setTimeout(resolve, pollingInterval));
-  }
-  throw new Error(`waitForTransactionReceipt: timed out after ${timeout}ms waiting for ${hash3}`);
-}
-async function getLatestBlockTimestamp(client) {
-  try {
-    const block = await client.request({ method: "eth_getBlockByNumber", params: ["latest", false] });
-    return block?.timestamp ? BigInt(block.timestamp) : undefined;
-  } catch {
-    return;
-  }
-}
-// ../viem/src/_esm/eip8130/capabilities.js
-init_toHex();
-var supportedPermissionTypes = [
-  "native-token-transfer",
-  "erc20-token-transfer",
-  "contract-call"
-];
-var supportedPolicyTypes = ["token-allowance", "rate-limit"];
-var supportedSignerTypes = ["account", "key"];
-var supportedSubAccountKeyTypes = [
-  "address",
-  "p256",
-  "webcrypto-p256",
-  "webauthn-p256"
-];
-function eip8130Capabilities(parameters = {}) {
-  const { paymasterService, signerTypes = supportedSignerTypes, permissionTypes = supportedPermissionTypes, policyTypes = supportedPolicyTypes, subAccountKeyTypes = supportedSubAccountKeyTypes } = parameters;
-  return {
-    atomic: { status: "supported" },
-    permissions: {
-      supported: true,
-      signerTypes,
-      permissionTypes,
-      policyTypes
-    },
-    unstable_addSubAccount: {
-      supported: true,
-      keyTypes: subAccountKeyTypes
-    },
-    ...paymasterService !== undefined ? { paymasterService: { supported: paymasterService } } : {}
-  };
-}
-function eip8130CapabilitiesByChain(chainIds, parameters = {}) {
-  const capabilities = eip8130Capabilities(parameters);
-  const record = {};
-  for (const chainId of chainIds) {
-    const key2 = typeof chainId === "number" ? numberToHex(chainId) : chainId;
-    record[key2] = capabilities;
-  }
-  return record;
-}
-// ../viem/src/_esm/eip8130/chainConfig.js
-init_base();
-var eip8130ChainConfig = {
-  formatters: {
-    transactionReceipt: defineTransactionReceipt({
-      format(receipt) {
-        return {
-          ...formatTransactionReceipt(receipt),
-          eip8130: parseReceiptFields(receipt)
-        };
-      }
-    })
-  },
-  prepareTransactionRequest: [
-    async (request, { client }) => {
-      const req = request;
-      if (req.account?.source !== "eip8130" || !req.calls)
-        return request;
-      if (req.payer)
-        throw new BaseError2("Sponsored EIP-8130 transactions are not supported through core `sendTransaction`. " + "Use `client.eip8130.sendTransaction` (local payer signer) or " + "`client.eip8168.sendTransaction` (ERC-8168 payer service).");
-      const account = req.account;
-      const calls = encodeWalletCalls({
-        account: account.address,
-        calls: toPhases(req.calls),
-        encodeExecute: req.encodeExecute
-      });
-      const dataSuffix = req.metadata ?? req.dataSuffix ?? (typeof client.dataSuffix === "string" ? client.dataSuffix : client.dataSuffix?.value);
-      const gas = req.gas ?? await estimateGas3(client, {
-        sender: account.address,
-        accountChanges: req.accountChanges,
-        calls,
-        nonceKey: req.nonceKey,
-        senderActorId: req.senderActorId ?? account.actorId,
-        senderAuthAuthenticator: req.senderAuthAuthenticator,
-        dataSuffix
-      });
-      const body = await prepareTransactionRequest3(client, {
-        account,
-        calls,
-        accountChanges: req.accountChanges,
-        gas,
-        nonceKey: req.nonceKey,
-        nonceSequence: req.nonceSequence,
-        validAfter: req.validAfter,
-        validBefore: req.validBefore,
-        maxFeePerGas: req.maxFeePerGas,
-        maxPriorityFeePerGas: req.maxPriorityFeePerGas,
-        dataSuffix
-      });
-      return {
-        ...request,
-        ...body,
-        nonce: Number(body.nonceSequence)
-      };
-    },
-    { runAt: ["beforeFillTransaction"] }
-  ]
-};
-// ../viem/src/_esm/eip8130/chains.js
-var eip8130ChainIds = new Set;
-function register8130Chains(...chainIds) {
-  for (const id of chainIds)
-    eip8130ChainIds.add(id);
-}
-function unregister8130Chains(...chainIds) {
-  for (const id of chainIds)
-    eip8130ChainIds.delete(id);
-}
-function is8130Enabled(chain, parameters = {}) {
-  const id = typeof chain === "number" ? chain : chain.id;
-  const set = parameters.chainIds ? parameters.chainIds instanceof Set ? parameters.chainIds : new Set(parameters.chainIds) : eip8130ChainIds;
-  return set.has(id);
-}
-// ../viem/src/_esm/eip8130/decorators/eip8130Actions.js
-function eip8130Actions() {
-  return (client) => ({
-    eip8130: {
-      sendTransaction: (parameters) => sendTransaction3(client, parameters),
-      sendTransactionSync: (parameters) => sendTransactionSync3(client, parameters),
-      prepareTransactionRequest: (parameters) => prepareTransactionRequest3(client, parameters),
-      estimateGas: (parameters) => estimateGas3(client, parameters),
-      waitForTransactionReceipt: (parameters) => waitForTransactionReceipt3(client, parameters),
-      getTransaction: (parameters) => getTransaction3(client, parameters),
-      getTransactionCount: (parameters) => getTransactionCount3(client, parameters),
-      getConfigSequence: (parameters) => getConfigSequence(client, parameters),
-      getActorConfig: (parameters) => getActorConfig(client, parameters),
-      getPolicy: (parameters) => getPolicy(client, parameters),
-      isActor: (parameters) => isActor(client, parameters),
-      isLocked: (parameters) => isLocked(client, parameters),
-      getLockStatus: (parameters) => getLockStatus(client, parameters),
-      getSessionSpend: (parameters) => getSessionSpend(client, parameters),
-      validateSignature: (parameters) => validateSignature(client, parameters)
-    }
-  });
-}
-// ../viem/src/_esm/eip8130/lock.js
-init_base();
-var maxUnlockDelay = 65535;
-function lockChange(parameters) {
-  const { unlockDelay } = parameters;
-  if (!Number.isInteger(unlockDelay) || unlockDelay < 1 || unlockDelay > maxUnlockDelay)
-    throw new BaseError2(`\`unlockDelay\` must be an integer in \`1 … ${maxUnlockDelay}\` (uint16 seconds). Received ${unlockDelay}.`);
-  return { changeType: changeType.lock, unlockDelay };
-}
-function unlockChange() {
-  return { changeType: changeType.unlock };
-}
-// ../viem/src/_esm/eip8130/nonce.js
-init_base();
-init_fromHex();
-init_toHex();
-var nonce = {
-  sequential() {
-    return { nonceKey: 0n };
-  },
-  channel(key2) {
-    if (key2 < 0n || key2 > nonceKeyMax)
-      throw new BaseError2(`\`nonceKey\` must be in \`0 … NONCE_KEY_MAX\`. Received ${key2}.`);
-    if (key2 === nonceKeyMax)
-      throw new BaseError2("`NONCE_KEY_MAX` selects nonce-free mode, which has no counter. Use `nonce.nonceless({ validBefore })` instead.");
-    return { nonceKey: key2 };
-  },
-  randomChannel() {
-    const buffer2 = new Uint8Array(32);
-    globalThis.crypto.getRandomValues(buffer2);
-    const key2 = hexToBigInt(bytesToHex(buffer2)) % (nonceKeyMax - 1n) + 1n;
-    return { nonceKey: key2 };
-  },
-  nonceless(parameters) {
-    const { validBefore, expiresIn } = parameters;
-    const resolvedValidBefore = validBefore ?? (expiresIn !== undefined ? BigInt(Date.now() + expiresIn * 1000) : undefined);
-    if (resolvedValidBefore === undefined || resolvedValidBefore <= 0n)
-      throw new BaseError2("Nonce-free mode requires a non-zero `validBefore` (or `expiresIn`).");
-    return {
-      nonceKey: nonceKeyMax,
-      nonceSequence: 0n,
-      validBefore: resolvedValidBefore
-    };
-  },
-  forScope(scope, parameters = {}) {
-    if (isNoncelessOnly(scope))
-      return nonce.nonceless(parameters.validBefore !== undefined ? { validBefore: parameters.validBefore } : {
-        expiresIn: parameters.expiresIn ?? Number(nonceFreeMaxExpiryWindow) / 1000
-      });
-    return nonce.channel(parameters.key ?? 0n);
-  }
-};
-// ../viem/src/_esm/eip8130/permissions.js
-init_base();
-init_decodeAbiParameters();
-init_encodeAbiParameters();
-init_toFunctionSelector();
-var erc20TransferSelectors = [
-  toFunctionSelector("transfer(address,uint256)"),
-  toFunctionSelector("transferFrom(address,address,uint256)")
-];
-var selectorRegex = /^0x[0-9a-fA-F]{8}$/;
-function toSelector(signatureOrSelector) {
-  if (selectorRegex.test(signatureOrSelector))
-    return signatureOrSelector.toLowerCase();
-  return toFunctionSelector(signatureOrSelector);
-}
-function spendFromPolicies(policies) {
-  let limit;
-  let period;
-  for (const policy of policies) {
-    if (typeof policy.type === "object")
-      throw new BaseError2("Cannot lower a custom ERC-7715 policy to a SessionPolicy. Build the `SessionPolicyConfig` explicitly.");
-    const type = policy.type;
-    switch (policy.type) {
-      case "token-allowance":
-        limit = policy.data.allowance;
-        break;
-      case "rate-limit":
-        period = BigInt(policy.data.interval);
-        break;
-      case "gas-limit":
-        break;
-      default:
-        throw new BaseError2(`Unsupported ERC-7715 policy type: "${type}".`);
-    }
-  }
-  return { limit, period };
-}
-function toSessionPolicyConfig(permissions) {
-  const tokenLimits = [];
-  const callScopes = [];
-  for (const permission of permissions) {
-    if (typeof permission.type === "object")
-      throw new BaseError2("Cannot lower a custom ERC-7715 permission to a SessionPolicy. Build the `SessionPolicyConfig` explicitly.");
-    const type = permission.type;
-    switch (permission.type) {
-      case "native-token-transfer": {
-        const { limit, period } = spendFromPolicies(permission.policies);
-        if (limit === undefined)
-          throw new BaseError2("A `native-token-transfer` permission must include a `token-allowance` policy (an unbounded spend cannot be granted).");
-        tokenLimits.push({ token: zeroAddress, limit, period });
-        break;
-      }
-      case "erc20-token-transfer": {
-        const token2 = permission.data.address;
-        const { limit, period } = spendFromPolicies(permission.policies);
-        if (limit === undefined)
-          throw new BaseError2("An `erc20-token-transfer` permission must include a `token-allowance` policy (an unbounded spend cannot be granted).");
-        tokenLimits.push({ token: token2, limit, period });
-        callScopes.push({
-          target: token2,
-          selectorRules: erc20TransferSelectors.map((selector) => ({
-            selector
-          }))
-        });
-        break;
-      }
-      case "contract-call": {
-        callScopes.push({
-          target: permission.data.address,
-          selectorRules: permission.data.calls.map((call3) => ({
-            selector: toSelector(call3)
-          }))
-        });
-        break;
-      }
-      default:
-        throw new BaseError2(`Unsupported ERC-7715 permission type: "${type}".`);
-    }
-  }
-  return {
-    tokenLimits: tokenLimits.length > 0 ? tokenLimits : undefined,
-    callScopes: callScopes.length > 0 ? callScopes : undefined
-  };
-}
-function toSessionPolicy(parameters) {
-  const { permissions, expiry, ...rest } = parameters;
-  return defineSessionPolicy({
-    ...rest,
-    policyConfig: encodeSessionPolicyConfig(toSessionPolicyConfig(permissions)),
-    validUntil: expiry === undefined ? undefined : BigInt(expiry)
-  });
-}
-async function fulfillGrantPermissions(client, parameters) {
-  const { account, grantee, role = "session", permissions, expiry, assumeManagerRegistered = false, ...rest } = parameters;
-  const expiryBig = expiry === undefined ? undefined : BigInt(expiry);
-  const session = defineSessionPolicy({
-    ...rest,
-    account,
-    policyConfig: encodeSessionPolicyConfig(toSessionPolicyConfig(permissions)),
-    validUntil: expiryBig
-  });
-  const actor = role === "pull" ? key.externalPull(grantee) : key.k1(grantee);
-  const change = authorizeActor(actor, {
-    scope: actorScope.policy,
-    policy: session.actorPolicy,
-    expiry: expiryBig
-  });
-  let managerChange;
-  if (!assumeManagerRegistered) {
-    const managerActor = key.k1(session.manager);
-    const { authenticator } = await getActorConfig(client, {
-      account,
-      actorId: managerActor.actorId
-    });
-    const registered = authenticator.toLowerCase() === ecrecoverAuthenticator.toLowerCase();
-    if (!registered)
-      managerChange = authorizeActor(managerActor, {
-        scope: actorScope.operator
-      });
-  }
-  const changes = managerChange ? [managerChange, change] : [change];
-  const permissionsContext = toPermissionsContext({ role, actor, session });
-  return { actor, change, managerChange, changes, session, permissionsContext };
-}
-var grantRoleCode = { session: 0, pull: 1 };
-var grantRoleName = [
-  "session",
-  "pull"
-];
-var permissionsContextParameters = [
-  { type: "address" },
-  { type: "uint8" },
-  { type: "bytes32" },
-  { type: "address" },
-  { type: "address" },
-  { type: "address" },
-  { type: "bytes" },
-  { type: "uint40" },
-  { type: "uint40" },
-  { type: "uint256" }
-];
-function toPermissionsContext(parameters) {
-  const { role, actor, session } = parameters;
-  const { binding } = session;
-  return encodeAbiParameters(permissionsContextParameters, [
-    binding.account,
-    grantRoleCode[role],
-    actor.actorId,
-    actor.authenticator,
-    session.manager,
-    binding.policy,
-    binding.policyConfig,
-    Number(binding.validAfter),
-    Number(binding.validUntil),
-    binding.salt
-  ]);
-}
-function parsePermissionsContext(context) {
-  const [account, roleCode, actorId, authenticator, manager, policy, policyConfig, validAfter, validUntil, salt] = decodeAbiParameters(permissionsContextParameters, context);
-  const role = grantRoleName[roleCode];
-  if (!role)
-    throw new BaseError2(`Unknown permissionsContext role code: ${roleCode}.`);
-  const session = defineSessionPolicy({
-    account,
-    policy,
-    manager,
-    policyConfig,
-    validAfter: BigInt(validAfter),
-    validUntil: BigInt(validUntil),
-    salt
-  });
-  return { account, role, actor: { actorId, authenticator }, session };
-}
-function routePermissionedCalls(parameters) {
-  const { context, calls } = parameters;
-  const parsed = parsePermissionsContext(context);
-  const wrap3 = parsed.role === "pull" ? parsed.session.executeForCall : parsed.session.executeCall;
-  return { ...parsed, calls: calls.map((action) => wrap3(action)) };
-}
-// ../viem/src/_esm/eip8130/subAccounts.js
-init_base();
-init_fromHex();
-init_toHex();
-function toKeyActor(k) {
-  switch (k.type) {
-    case "address":
-      return key.k1(k.publicKey);
-    case "p256":
-    case "webcrypto-p256":
-      return key.p256(k.publicKey);
-    case "webauthn-p256":
-      return key.webAuthn(k.publicKey);
-    default:
-      throw new BaseError2(`Unsupported sub-account key type: "${k.type}".`);
-  }
-}
-function randomBytes322() {
-  const buf = new Uint8Array(32);
-  globalThis.crypto.getRandomValues(buf);
-  return bytesToHex(buf);
-}
-function fulfillAddSubAccount(parameters) {
-  const { parent, signer, keys = [], keyScope, keyPolicy, proxy = "upgradeable", implementation } = parameters;
-  const parentActor = key.delegate(parent);
-  const restricted = keyScope !== undefined && keyScope !== scopeUnrestricted;
-  const keyActors = keys.map((k) => {
-    const actor = toKeyActor(k);
-    if (!restricted)
-      return actor;
-    return authorizeActor(actor, {
-      scope: keyScope,
-      ...keyPolicy ? { policy: keyPolicy } : {}
-    });
-  });
-  const initialActors = [parentActor, ...keyActors].sort((a, b) => {
-    const ai = hexToBigInt(a.actorId);
-    const bi = hexToBigInt(b.actorId);
-    return ai < bi ? -1 : ai > bi ? 1 : 0;
-  });
-  for (let i = 1;i < initialActors.length; i++)
-    if (initialActors[i].actorId === initialActors[i - 1].actorId)
-      throw new BaseError2(`Duplicate initial actor id \`${initialActors[i].actorId}\` (parent delegate and requested keys must be distinct).`);
-  const salt = parameters.salt ?? randomBytes322();
-  const code = parameters.code ?? (() => {
-    if (proxy === "erc1167")
-      return erc1167Bytecode(implementation ?? canonicalEip8130Deployment.accounts.default);
-    const impl = implementation ?? canonicalEip8130Deployment.accounts.upgradeable;
-    if (!impl)
-      throw new BaseError2("No canonical `CoinbaseSmartWalletV2` is deployed against the Keystore " + 'yet, so `proxy: "upgradeable"` requires an explicit `implementation`. ' + 'Pass `proxy: "erc1167"` for an immutable DefaultAccount-backed ' + "sub-account.");
-    return upgradeableProxyBytecode(impl);
-  })();
-  const inner = toAccount3({
-    signer,
-    userSalt: salt,
-    code,
-    initialActors,
-    authenticator: canonicalAuthenticators.delegate,
-    actorId: parentActor.actorId,
-    scope: scopeUnrestricted
-  });
-  return {
-    ...inner,
-    createChange: inner.create(),
-    parentActor,
-    response: { address: inner.address }
-  };
-}
-// ../viem/src/_esm/eip8130/utils/parseTransaction.js
-init_base();
-init_decodeAbiParameters();
-init_slice();
-init_fromHex();
-
-// ../viem/src/_esm/utils/encoding/fromRlp.js
-init_base();
-init_encoding();
-init_cursor2();
-init_toBytes();
-init_toHex();
-var rlpDepthLimit = 1024;
-function fromRlp3(value, to = "hex") {
-  const bytes = (() => {
-    if (typeof value === "string") {
-      if (value.length > 3 && value.length % 2 !== 0)
-        throw new InvalidHexValueError(value);
-      return hexToBytes(value);
-    }
-    return value;
-  })();
-  const cursor = createCursor(bytes, {
-    recursiveReadLimit: Number.POSITIVE_INFINITY
-  });
-  const result = fromRlpCursor(cursor, to);
-  if (cursor.position < cursor.bytes.length)
-    throw new RlpTrailingBytesError({
-      count: cursor.bytes.length - cursor.position
-    });
-  return result;
-}
-function fromRlpCursor(cursor, to = "hex", recursiveDepth = 0) {
-  if (recursiveDepth >= rlpDepthLimit)
-    throw new RlpDepthLimitExceededError({ limit: rlpDepthLimit });
-  if (cursor.bytes.length === 0)
-    return to === "hex" ? bytesToHex(cursor.bytes) : cursor.bytes;
-  const prefix = cursor.readByte();
-  if (prefix < 128)
-    cursor.decrementPosition(1);
-  if (prefix < 192) {
-    const length2 = readLength(cursor, prefix, 128);
-    const bytes = cursor.readBytes(length2);
-    return to === "hex" ? bytesToHex(bytes) : bytes;
-  }
-  const length = readLength(cursor, prefix, 192);
-  return readList(cursor, length, to, recursiveDepth + 1);
-}
-function readLength(cursor, prefix, offset) {
-  if (offset === 128 && prefix < 128)
-    return 1;
-  if (prefix <= offset + 55)
-    return prefix - offset;
-  if (prefix === offset + 55 + 1)
-    return cursor.readUint8();
-  if (prefix === offset + 55 + 2)
-    return cursor.readUint16();
-  if (prefix === offset + 55 + 3)
-    return cursor.readUint24();
-  if (prefix === offset + 55 + 4)
-    return cursor.readUint32();
-  throw new BaseError2("Invalid RLP prefix");
-}
-function readList(cursor, length, to, recursiveDepth) {
-  const position = cursor.position;
-  const value = [];
-  while (cursor.position - position < length)
-    value.push(fromRlpCursor(cursor, to, recursiveDepth));
-  if (cursor.position - position !== length)
-    throw new RlpListBoundaryExceededError({
-      consumed: cursor.position - position,
-      declared: length
-    });
-  return value;
-}
-
-// ../viem/src/_esm/eip8130/utils/parseTransaction.js
-function toOptionalAddress(value) {
-  return value === "0x" ? undefined : value;
-}
-function toOptionalBigInt(value) {
-  return value === "0x" ? undefined : hexToBigInt(value);
-}
-function parseCalls(value) {
-  const phases = value;
-  return phases.map((phase) => phase.map((call3) => {
-    const [to, data] = call3;
-    return { to, data: data === "0x" ? undefined : data };
-  }));
-}
-function parseActor(value) {
-  const [actorId, authenticator, scope, policyData] = value;
-  const actor = { actorId, authenticator };
-  const scopeNum = !scope || scope === "0x" ? 0 : hexToNumber(scope);
-  if (scopeNum !== 0)
-    actor.scope = scopeNum;
-  if (policyData && policyData !== "0x")
-    actor.policyData = policyData;
-  return actor;
-}
-function parseChange(value) {
-  const [opByte, payload] = value;
-  const type = opByte === "0x" ? 0 : hexToNumber(opByte);
-  if (type === changeType.authorizeActor) {
-    const { actorId, authenticator, scope, expiry, policyData } = decodeAuthorizeActorPayload(payload);
-    const change = {
-      changeType: changeType.authorizeActor,
-      actorId,
-      authenticator
-    };
-    if (scope !== 0)
-      change.scope = scope;
-    if (expiry !== 0n)
-      change.expiry = expiry;
-    if (policyData !== "0x")
-      change.policyData = policyData;
-    return change;
-  }
-  if (type === changeType.revokeActor) {
-    const [actorId] = decodeAbiParameters([{ type: "bytes32" }], payload);
-    return { changeType: changeType.revokeActor, actorId };
-  }
-  if (type === changeType.lock) {
-    const [unlockDelay] = decodeAbiParameters([{ type: "uint16" }], payload);
-    return { changeType: changeType.lock, unlockDelay };
-  }
-  if (type === changeType.unlock)
-    return { changeType: changeType.unlock };
-  return { changeType: changeType.incrementLocalEpoch };
-}
-function parseAccountChanges(value) {
-  const entries = value;
-  const result = [];
-  for (const entry of entries) {
-    const [type, ...body] = entry;
-    if (type === accountChangeType.create) {
-      const [userSalt, code, actors] = body;
-      result.push({
-        type: "create",
-        userSalt,
-        code,
-        initialActors: actors.map(parseActor)
-      });
-      continue;
-    }
-    if (type === accountChangeType.config) {
-      const [channel, sequence, changes, signature] = body;
-      result.push({
-        type: "config",
-        channel: channel === "0x01" ? "multichain" : "local",
-        sequence: sequence === "0x" ? 0n : hexToBigInt(sequence),
-        changes: changes.map(parseChange),
-        signature
-      });
-      continue;
-    }
-    if (type === accountChangeType.delegation) {
-      const [target] = body;
-      result.push({ type: "delegation", target });
-      continue;
-    }
-    throw new BaseError2(`Unknown account change entry type: "${type}".`);
-  }
-  return result;
-}
-function parseTransaction3(serialized) {
-  const type = sliceHex(serialized, 0, 1);
-  if (type !== aaTransactionType)
-    throw new BaseError2(`Serialized transaction type "${type}" is not an EIP-8130 transaction.`);
-  const fields = fromRlp3(sliceHex(serialized, 1), "hex");
-  const [chainId, from16, nonceKey, nonceSequence, validAfter, validBefore, maxPriorityFeePerGas, maxFeePerGas, gas, accountChanges, calls, metadata, payer, senderAuth, payerAuth] = fields;
-  const transaction = {
-    chainId: hexToNumber(chainId)
-  };
-  const fromAddress = toOptionalAddress(from16);
-  if (fromAddress)
-    transaction.from = fromAddress;
-  const nonceKeyValue = toOptionalBigInt(nonceKey);
-  if (nonceKeyValue !== undefined)
-    transaction.nonceKey = nonceKeyValue;
-  const nonceSequenceValue = toOptionalBigInt(nonceSequence);
-  if (nonceSequenceValue !== undefined)
-    transaction.nonceSequence = nonceSequenceValue;
-  const validAfterValue = toOptionalBigInt(validAfter);
-  if (validAfterValue !== undefined)
-    transaction.validAfter = validAfterValue;
-  const validBeforeValue = toOptionalBigInt(validBefore);
-  if (validBeforeValue !== undefined)
-    transaction.validBefore = validBeforeValue;
-  const maxPriorityFeePerGasValue = toOptionalBigInt(maxPriorityFeePerGas);
-  if (maxPriorityFeePerGasValue !== undefined)
-    transaction.maxPriorityFeePerGas = maxPriorityFeePerGasValue;
-  const maxFeePerGasValue = toOptionalBigInt(maxFeePerGas);
-  if (maxFeePerGasValue !== undefined)
-    transaction.maxFeePerGas = maxFeePerGasValue;
-  const gasValue = toOptionalBigInt(gas);
-  if (gasValue !== undefined)
-    transaction.gas = gasValue;
-  if (accountChanges.length > 0)
-    transaction.accountChanges = parseAccountChanges(accountChanges);
-  if (calls.length > 0)
-    transaction.calls = parseCalls(calls);
-  if (metadata !== "0x")
-    transaction.metadata = metadata;
-  const payerAddress = toOptionalAddress(payer);
-  if (payerAddress)
-    transaction.payer = payerAddress;
-  if (senderAuth !== "0x")
-    transaction.senderAuth = senderAuth;
-  if (payerAuth !== "0x")
-    transaction.payerAuth = payerAuth;
-  return transaction;
-}
-// ../viem/src/_esm/eip8130/utils/recoverSender.js
-async function recoverSenderAddress(parameters) {
-  const { transaction } = parameters;
-  if (transaction.from)
-    return transaction.from;
-  if (!transaction.senderAuth || transaction.senderAuth === "0x")
-    throw new Error("Cannot recover sender: transaction has neither `from` nor `senderAuth`.");
-  const hash3 = getSenderSignatureHash({ ...transaction, from: undefined });
-  return recoverAddress({ hash: hash3, signature: transaction.senderAuth });
-}
-// ../viem/src/_esm/eip8130/utils/signedActorChangesSignature.js
-init_encodeAbiParameters();
-init_toHex();
-init_keccak256();
-var signedActorChangesMagic = keccak256(stringToHex("ERC4337Account.signedActorChanges.v1"));
-var signatureParameters = [
-  { type: "bytes32" },
-  {
-    type: "tuple[]",
-    components: [
-      {
-        name: "changes",
-        type: "tuple[]",
-        components: [
-          { name: "changeType", type: "uint8" },
-          { name: "payload", type: "bytes" }
-        ]
-      },
-      { name: "auth", type: "bytes" }
-    ]
-  },
-  { name: "opAuth", type: "bytes" }
-];
-function encodeSignedActorChangesSignature(changeSets, opAuth) {
-  return encodeAbiParameters(signatureParameters, [
-    signedActorChangesMagic,
-    changeSets.map((set) => ({
-      changes: set.changes.map((change) => ({
-        changeType: change.changeType,
-        payload: encodeChangePayload(change)
-      })),
-      auth: set.auth
-    })),
-    opAuth
-  ]);
-}
-// ../viem/src/_esm/eip8130/utils/signers.js
-init_encodeAbiParameters();
-init_size();
-init_slice();
-init_toHex();
-function publicKeyToXY(publicKey) {
-  if (typeof publicKey !== "string")
-    return publicKey;
-  const body = size2(publicKey) === 65 ? sliceHex(publicKey, 1) : publicKey;
-  if (size2(body) !== 64)
-    throw new Error("`publicKey` must be a 64-byte `x || y` hex (optionally 0x04-prefixed) or `{ x, y }`.");
-  return { x: sliceHex(body, 0, 32), y: sliceHex(body, 32, 64) };
-}
-function toP256Signer(parameters) {
-  const { privateKey } = parameters;
-  const authenticator = parameters.authenticator ?? canonicalAuthenticators.p256;
-  const pub = getPublicKey({ privateKey });
-  const x = numberToHex(pub.x, { size: 32 });
-  const y = numberToHex(pub.y, { size: 32 });
-  return {
-    address: parameters.address ?? zeroAddress,
-    authenticator,
-    publicKey: { x, y },
-    async sign({ hash: hash3 }) {
-      const { r, s } = sign3({ payload: hash3, privateKey });
-      return concatHex([
-        numberToHex(r, { size: 32 }),
-        numberToHex(s, { size: 32 }),
-        x,
-        y,
-        "0x00"
-      ]);
-    }
-  };
-}
-var webAuthnAuthParameters = [
-  {
-    type: "tuple",
-    components: [
-      { name: "r", type: "bytes32" },
-      { name: "s", type: "bytes32" },
-      { name: "challengeIndex", type: "uint256" },
-      { name: "typeIndex", type: "uint256" },
-      { name: "authenticatorData", type: "bytes" },
-      { name: "clientDataJSON", type: "string" }
-    ]
-  },
-  { name: "x", type: "bytes32" },
-  { name: "y", type: "bytes32" }
-];
-function toWebAuthnSigner(source, parameters = {}) {
-  const authenticator = parameters.authenticator ?? canonicalAuthenticators.passkey;
-  const { x, y } = publicKeyToXY(source.publicKey);
-  return {
-    address: parameters.address ?? zeroAddress,
-    authenticator,
-    publicKey: { x, y },
-    async sign({ hash: hash3 }) {
-      const { signature, webauthn } = await source.sign({ hash: hash3 });
-      const r = sliceHex(signature, 0, 32);
-      const s = sliceHex(signature, 32, 64);
-      return encodeAbiParameters(webAuthnAuthParameters, [
-        {
-          r,
-          s,
-          challengeIndex: BigInt(webauthn.challengeIndex),
-          typeIndex: BigInt(webauthn.typeIndex),
-          authenticatorData: webauthn.authenticatorData,
-          clientDataJSON: webauthn.clientDataJSON
-        },
-        x,
-        y
-      ]);
-    }
-  };
-}
-// ../viem/src/_esm/eip8168/actions/sendSponsoredCalls.js
-init_base();
-init_fromHex();
-init_toHex();
-
-// ../viem/src/_esm/eip8168/utils/buildSponsoredCalls.js
-init_abis();
-init_base();
-init_encodeFunctionData();
-init_fromHex();
-function encodeTokenTransfer(parameters) {
-  return {
-    to: parameters.token,
-    data: encodeFunctionData({
-      abi: erc20Abi,
-      functionName: "transfer",
-      args: [parameters.to, parameters.amount]
-    })
-  };
-}
-function isTokenOffer(option) {
-  return option.kind === "token";
-}
-function isDeclinedOffer(option) {
-  return option.kind === "sponsored_declined";
-}
-function isSponsoredOffer(option) {
-  return option.kind === "sponsored";
-}
-function isSelectableOffer(option) {
-  return isSponsoredOffer(option) || isTokenOffer(option);
-}
-function selectPaymentOption(terms, parameters = {}) {
-  const { token: token2 } = parameters;
-  const options = terms.options ?? [];
-  const matchChoice = (offer) => {
-    const choices = offer.tokens ?? [];
-    if (token2)
-      return choices.find((c) => c.token.toLowerCase() === token2.toLowerCase());
-    return choices[0];
-  };
-  if (token2) {
-    for (const option of options) {
-      if (!isTokenOffer(option))
-        continue;
-      const tokenChoice = matchChoice(option);
-      if (tokenChoice)
-        return { option, tokenChoice };
-    }
-    throw new BaseError2(`No token offer matches the requested token "${token2}".`);
-  }
-  const sponsored = options.find(isSponsoredOffer);
-  if (sponsored)
-    return { option: sponsored };
-  const tokenOffer = options.find(isTokenOffer);
-  if (tokenOffer) {
-    const tokenChoice = matchChoice(tokenOffer);
-    if (!tokenChoice)
-      throw new BaseError2("Token offer carries no `tokens` to pay with.");
-    return { option: tokenOffer, tokenChoice };
-  }
-  throw new BaseError2("Terms carry no selectable offer (only `sponsored_declined` entries, or an empty `options` array).");
-}
-function buildSponsoredCalls(parameters) {
-  const { terms, calls, token: token2 } = parameters;
-  const { option, tokenChoice } = selectPaymentOption(terms, { token: token2 });
-  if (option.kind === "sponsored")
-    return { payer: option.payer, calls: [calls], option };
-  if (!tokenChoice)
-    throw new BaseError2("Selected token offer resolved no `TokenChoice`.");
-  const feeRecipient = tokenChoice.feeRecipient ?? option.payer;
-  const paymentAmount = hexToBigInt(tokenChoice.paymentAmount);
-  const phase0 = [
-    encodeTokenTransfer({
-      token: tokenChoice.token,
-      to: feeRecipient,
-      amount: paymentAmount
-    })
-  ];
-  return {
-    payer: option.payer,
-    calls: [phase0, calls],
-    option,
-    tokenChoice,
-    feeRecipient,
-    paymentAmount
-  };
-}
-
-// ../viem/src/_esm/eip8168/constants.js
-var payerRejectedCode = -32000;
-var payerErrorCode = {
-  policyRejected: "POLICY_REJECTED",
-  senderIneligible: "SENDER_INELIGIBLE",
-  budgetExhausted: "BUDGET_EXHAUSTED",
-  senderLimitReached: "SENDER_LIMIT_REACHED",
-  gasExceedsLimit: "GAS_EXCEEDS_LIMIT",
-  temporarilyUnavailable: "TEMPORARILY_UNAVAILABLE",
-  invalidTransaction: "INVALID_TRANSACTION",
-  unsupportedToken: "UNSUPPORTED_TOKEN",
-  paymentInsufficient: "PAYMENT_INSUFFICIENT",
-  gasTooLow: "GAS_TOO_LOW",
-  expiryOutOfBounds: "EXPIRY_OUT_OF_BOUNDS",
-  payerBalanceInsufficient: "PAYER_BALANCE_INSUFFICIENT"
-};
-var sponsorshipDeclineCode = {
-  policyRejected: "POLICY_REJECTED",
-  senderIneligible: "SENDER_INELIGIBLE",
-  budgetExhausted: "BUDGET_EXHAUSTED",
-  senderLimitReached: "SENDER_LIMIT_REACHED",
-  gasExceedsLimit: "GAS_EXCEEDS_LIMIT",
-  temporarilyUnavailable: "TEMPORARILY_UNAVAILABLE"
-};
-
-// ../viem/src/_esm/eip8168/utils/parsePayerError.js
-function parsePayerError(error) {
-  const seen = new Set;
-  let current = error;
-  while (current && typeof current === "object" && !seen.has(current)) {
-    seen.add(current);
-    const node = current;
-    const data = node.data;
-    if (data && typeof data === "object" && typeof data.code === "string")
-      return data;
-    if (typeof node.code === "string")
-      return current;
-    current = node.cause;
-  }
-  return;
-}
-
-// ../viem/src/_esm/eip8168/actions/sendSponsoredCalls.js
-async function sendSponsoredCalls(client, parameters) {
-  const { account, payerClient, calls, accountChanges, mode = "send", token: token2, context, retries = 2, confirmRetry, onTransaction } = parameters;
-  const chainId = client.chain?.id;
-  if (!chainId)
-    throw new BaseError2("`client` must be configured with a `chain`.");
-  const terms = parameters.terms ?? await payerClient.getTerms({
-    chainId: numberToHex(chainId),
-    from: account.address,
-    calls: calls.map((call3) => ({ to: call3.to, data: call3.data ?? "0x" })),
-    ...token2 ? { preferredTokens: [token2] } : {},
-    ...context ? { context } : {}
-  });
-  const built = buildSponsoredCalls({ terms, calls, token: token2 });
-  const { option } = built;
-  if (mode === "sign" && !option.methods?.includes("payer_signTransaction"))
-    throw new BaseError2('Selected offer does not advertise `payer_signTransaction`; use `mode: "send"` or pick an offer whose `methods` includes it.');
-  const gasEstimate = terms.gasEstimate;
-  const initialGas = parameters.gas ?? (gasEstimate ? hexToBigInt(gasEstimate.gasLimit) : undefined);
-  if (initialGas === undefined)
-    throw new BaseError2("Unable to determine `gas`: the terms carry no top-level `gasEstimate.gasLimit` and no `gas` override was provided.");
-  const maxFeePerGas = parameters.maxFeePerGas ?? (gasEstimate ? hexToBigInt(gasEstimate.maxFeePerGas) : undefined);
-  const maxPriorityFeePerGas = parameters.maxPriorityFeePerGas ?? (gasEstimate ? hexToBigInt(gasEstimate.maxPriorityFeePerGas) : undefined);
-  const maxGasLimit = option.conditions?.maxGasLimit ? hexToBigInt(option.conditions.maxGasLimit) : undefined;
-  const noncelessOnly = account.scope !== undefined && isNoncelessOnly(account.scope);
-  const computeValidBefore = () => {
-    if (parameters.validBefore !== undefined)
-      return parameters.validBefore;
-    if (noncelessOnly)
-      return BigInt(Date.now()) + nonceFreeMaxExpiryWindow;
-    const maxExpiry = option.conditions?.maxExpiry;
-    return maxExpiry !== undefined ? BigInt(Date.now()) + BigInt(maxExpiry) * 1000n : 0n;
-  };
-  const transaction = await prepareTransactionRequest3(client, {
-    account,
-    calls: built.calls,
-    accountChanges,
-    gas: initialGas,
-    maxFeePerGas,
-    maxPriorityFeePerGas,
-    validBefore: computeValidBefore(),
-    nonceKey: parameters.nonceKey,
-    nonceSequence: parameters.nonceSequence
-  });
-  transaction.payer = built.payer;
-  let phases = built.calls;
-  let gas = initialGas;
-  for (let attempt = 0;; attempt++) {
-    transaction.calls = phases;
-    transaction.gas = gas;
-    transaction.validBefore = computeValidBefore();
-    transaction.payerAuth = "0x";
-    onTransaction?.(transaction);
-    const signedTransaction = await account.signTransaction(transaction);
-    try {
-      if (mode === "sign")
-        return await payerClient.signTransaction({ signedTransaction, context });
-      return await payerClient.sendTransaction({ signedTransaction, context });
-    } catch (error) {
-      if (attempt >= retries)
-        throw error;
-      const rejected = parsePayerError(error);
-      if (!rejected)
-        throw error;
-      let request;
-      let nextPhases = phases;
-      let nextGas = gas;
-      if (rejected.code === "PAYMENT_INSUFFICIENT" && rejected.requote) {
-        const { token: t, paymentAmount, feeRecipient } = rejected.requote;
-        const to = feeRecipient ?? built.payer;
-        const amount = hexToBigInt(paymentAmount);
-        nextPhases = [[encodeTokenTransfer({ token: t, to, amount })], calls];
-        request = {
-          kind: "requote",
-          reason: rejected,
-          attempt,
-          token: t,
-          paymentAmount: amount,
-          feeRecipient: to
-        };
-      } else if (rejected.code === "GAS_TOO_LOW" && rejected.minGasLimit) {
-        const minGas = hexToBigInt(rejected.minGasLimit);
-        if (maxGasLimit !== undefined && minGas > maxGasLimit)
-          throw error;
-        if (minGas <= gas)
-          throw error;
-        nextGas = minGas;
-        request = { kind: "gas", reason: rejected, attempt, gasLimit: minGas };
-      }
-      if (!request)
-        throw error;
-      const approved = confirmRetry ? await confirmRetry(request) : false;
-      if (!approved)
-        throw error;
-      phases = nextPhases;
-      gas = nextGas;
-    }
-  }
-}
-// ../viem/src/_esm/eip8168/client.js
+// ../viem/src/eip8168/client.ts
 function payerClientFromRequest(request) {
   return {
     getTerms(params) {
@@ -25019,190 +18772,106 @@ function createPayerClient(parameters) {
   });
   return payerClientFromRequest(request);
 }
+// ../viem/src/eip8168/utils/buildSponsoredCalls.ts
+init_abis();
+init_base();
+init_encodeFunctionData();
+function encodeTokenTransfer(parameters) {
+  return {
+    to: parameters.token,
+    data: encodeFunctionData({
+      abi: erc20Abi,
+      functionName: "transfer",
+      args: [parameters.to, parameters.amount]
+    })
+  };
+}
+function isTokenOffer(option) {
+  return option.kind === "token";
+}
+function isDeclinedOffer(option) {
+  return option.kind === "sponsored_declined";
+}
+function isSponsoredOffer(option) {
+  return option.kind === "sponsored";
+}
+function selectPaymentOption(terms, parameters = {}) {
+  const { token } = parameters;
+  const options = terms.options ?? [];
+  const matchChoice = (offer) => {
+    const choices = offer.tokens ?? [];
+    if (token)
+      return choices.find((c) => c.token.toLowerCase() === token.toLowerCase());
+    return choices[0];
+  };
+  if (token) {
+    for (const option of options) {
+      if (!isTokenOffer(option))
+        continue;
+      const tokenChoice = matchChoice(option);
+      if (tokenChoice)
+        return { option, tokenChoice };
+    }
+    throw new BaseError2(`No token offer matches the requested token "${token}".`);
+  }
+  const sponsored = options.find(isSponsoredOffer);
+  if (sponsored)
+    return { option: sponsored };
+  const tokenOffer = options.find(isTokenOffer);
+  if (tokenOffer) {
+    const tokenChoice = matchChoice(tokenOffer);
+    if (!tokenChoice)
+      throw new BaseError2("Token offer carries no `tokens` to pay with.");
+    return { option: tokenOffer, tokenChoice };
+  }
+  throw new BaseError2("Terms carry no selectable offer (only `sponsored_declined` entries, or an empty `options` array).");
+}
+// ../viem/src/eip8168/utils/parsePayerError.ts
+function parsePayerError(error) {
+  const seen = new Set;
+  let current = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const node = current;
+    const data = node.data;
+    if (data && typeof data === "object" && typeof data.code === "string")
+      return data;
+    if (typeof node.code === "string")
+      return current;
+    current = node.cause;
+  }
+  return;
+}
 export {
   zeroAddress,
-  wrapSignatureEnvelope,
-  wrapCounterfactualSignature,
-  waitForTransactionReceipt3 as waitForTransactionReceipt,
-  vibenetDevnetDeployment,
-  validateSignature,
-  upgradeableProxyBytecode,
-  unsequencedLocalSequence,
-  unsequencedLocalHalf,
-  unregister8130Chains,
-  unlockChange,
-  txContextAddress,
-  trustedExecutorAuthenticator,
-  transactionContextAbi,
-  toWebAuthnSigner,
-  toWebAuthnAccount,
-  toTransactionBody,
-  toSmartAccount3 as toSmartAccount,
-  toSessionPolicyConfig,
-  toSessionPolicy,
-  toScope,
-  toPermissionsContext,
-  toP256Signer,
+  txValueCost,
   toHex,
-  toFactoryArgs,
   toEoaAccount,
-  toDelegateSigner,
-  toCallsList,
-  toAccountChangesList,
-  toAccount3 as toAccount,
-  supportedSubAccountKeyTypes,
-  supportedSignerTypes,
-  supportedPolicyTypes,
-  supportedPermissionTypes,
-  sponsorshipDeclineCode,
-  slice,
-  signedMessageTypehash,
-  signedActorChangesMagic,
-  signedAccountChangesTypehash,
-  signatureType,
-  signTypedDataEnvelope,
-  signTransaction5 as signTransaction,
-  signMessageEnvelope,
-  signAccountChanges,
-  sessionPolicyAddress,
-  sessionPolicyAbi,
-  serializeTransaction4 as serializeTransaction,
-  sendTransactionSync3 as sendTransactionSync,
-  sendTransaction3 as sendTransaction,
-  sendSponsoredCalls,
+  sendTransaction,
   selectPaymentOption,
-  scopeUnrestricted,
-  routePermissionedCalls,
-  revokedAuthenticator,
-  revokeActor,
-  replaySafeHash,
-  replayIdType,
-  replayBufferCapacity,
-  register8130Chains,
-  recoverSenderAddress,
   privateKeyToAccount,
-  prepareTransactionRequest3 as prepareTransactionRequest,
-  policyManagerAbi,
-  policyDataLength,
-  payerRejectedCode,
-  payerErrorCode,
+  prepareTransactionRequest2 as prepareTransactionRequest,
   parseUnits2 as parseUnits,
-  parseTransaction3 as parseTransaction,
-  parseSignatureEnvelope,
   parseReceiptFields,
-  parsePermissionsContext,
   parsePayerError,
   parseEther2 as parseEther,
   parseAbi,
-  nonceManagerAddress,
-  nonceManagerAbi,
   nonceKeyMax,
-  nonceKeyFirstUseCost,
-  nonceKeyExistingCost,
-  nonceFreeMaxExpiryWindow,
-  nonceFreeExpiryWindow,
   nonceFreeCost,
-  nonce,
-  newSmartAccount,
-  multichainId,
-  maxUnlockDelay,
-  maxCodeSize,
-  lockChange,
-  keystoreAddress,
-  keystoreAbi,
-  key,
-  keccak256,
+  k1Authenticator,
+  k1AuthCost,
   isTokenOffer,
-  isSponsoredOffer,
-  isSelectableOffer,
-  isNoncelessOnly,
-  isLocked,
   isDeclinedOffer,
-  isActor,
-  is8130Enabled,
-  incrementLocalEpoch,
   http,
-  hexToBigInt,
-  hashAccountChanges,
-  getTransactionReceipt3 as getTransactionReceipt,
-  getTransactionCount3 as getTransactionCount,
-  getTransaction3 as getTransaction,
-  getSignatureEnvelopeHash,
-  getSessionSpend,
-  getSenderSignatureHash,
-  getPolicy,
-  getPayerSignatureHash,
-  getLockStatus,
-  getEip8130Deployment,
-  getConfigSequence,
-  getActorConfig,
+  getTransactionReceipt2 as getTransactionReceipt,
+  getTransactionCount2 as getTransactionCount,
   generatePrivateKey,
-  fulfillGrantPermissions,
-  fulfillAddSubAccount,
-  formatEther2 as formatEther,
-  externalPolicyAuthenticator,
-  estimateGas3 as estimateGas,
-  erc4337AccountAbi,
-  erc1167Bytecode,
-  entryPoint07Address,
-  entryPoint07Abi,
-  encodeWalletCalls,
+  estimateGas2 as estimateGas,
   encodeTokenTransfer,
-  encodeSignedActorChangesSignature,
-  encodeSessionPolicyConfig,
-  encodeSessionPolicyAction,
-  encodePolicyData,
   encodeFunctionData,
-  encodeCreateAccountData,
-  encodeChangePayload,
-  encodeApplySignedAccountChangesData,
   encodeAbiParameters,
-  eip8130Deployments,
-  eip8130ChainIds,
-  eip8130ChainConfig,
-  eip8130CapabilitiesByChain,
-  eip8130Capabilities,
-  eip8130Actions,
-  ecrecoverAuthenticator,
-  deploymentHeaderSize,
-  deploymentHeader,
-  delegateAuthSize,
-  defineSessionPolicy,
-  defaultEncodeExecute,
-  defaultAccountAddress,
-  decodeAuthorizeActorPayload,
   decodeAbiParameters,
-  custom,
-  createWebAuthnCredential,
-  createWalletClient,
   createPublicClient,
   createPayerClient,
-  createBundlerClient,
-  concatHex,
-  computeAddress,
-  commitmentOf,
-  changeType,
-  canonicalEip8130Deployment,
-  canonicalAuthenticators,
-  canonicalAuthDataLength,
-  canUseSequencedNonce,
-  buildSponsoredCalls,
-  baseSepoliaDeployment,
-  authorizeActor,
-  authenticatorAbi,
-  assertTransaction,
-  allPhasesSucceeded,
-  actorScope,
-  actorIdFromPublicKey,
-  actorIdFromAddress,
-  accountStateFlags,
-  accountChangeTypehash,
-  accountChangeType,
-  aaTransactionType,
-  aaPayerType,
-  aaBaseCost,
-  TransactionExpiredError,
-  ScopeMismatchError,
-  NonceScopeError,
-  ActorNotBoundError
+  allPhasesSucceeded
 };

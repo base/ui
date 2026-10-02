@@ -101,7 +101,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                       href={`${VIBENET_EXPLORER_PATH}/address/${e.account}`}
                       className="no-underline transition-colors hover:opacity-80"
                     >
-                      <AccountIdentity label={acct?.label} address={e.account} variant={acct?.parentId ? 'spending' : 'default'} hideAvatar />
+                      <AccountIdentity label={acct?.label} address={e.account} variant="default" hideAvatar />
                     </Link>
                   ) : null}
                 </td>
@@ -171,7 +171,7 @@ export function ActivityLog({ activity, accounts }: { activity: ActivityEntry[];
                   href={`${VIBENET_EXPLORER_PATH}/address/${e.account}`}
                   className="no-underline"
                 >
-                  <AccountIdentity label={acct?.label} address={e.account} variant={acct?.parentId ? 'spending' : 'default'} hideAvatar />
+                  <AccountIdentity label={acct?.label} address={e.account} variant="default" hideAvatar />
                 </Link>
               ) : null}
 
