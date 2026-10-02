@@ -3,17 +3,17 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { Hex } from 'viem';
 
-import { trackReflexRun } from '../../../../analytics/events';
-import { Button } from '../../../../components/ui/Button';
-import { Card } from '../../../../components/ui/Card';
-import { cn } from '../../../../components/ui/cn';
-import { Text } from '../../../../components/ui/Text';
-import { VIBENET_EXPLORER_PATH } from '../../../library/config';
-import { walletErrorMessage } from '../../../library/wallet';
-import { AccountDemoShell } from '../../_components/AccountDemoShell';
-import { ViewTransactionButton } from '../../_shared/ViewTransactionButton';
-import type { Inclusion } from '../../_shared/inclusion';
-import { AccountEngineProvider, useAccountEngine } from '../../account/useAccountEngine';
+import { trackReflexRun } from '../../../analytics/events';
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { cn } from '../../../components/ui/cn';
+import { Text } from '../../../components/ui/Text';
+import { VIBENET_EXPLORER_PATH } from '../../library/config';
+import { walletErrorMessage } from '../../library/wallet';
+import { AccountDemoShell } from '../_components/AccountDemoShell';
+import { ViewTransactionButton } from '../_shared/ViewTransactionButton';
+import type { Inclusion } from '../_shared/inclusion';
+import { AccountEngineProvider, useAccountEngine } from '../account/useAccountEngine';
 import { outcomeCopy, reflexOutcome, type ReflexOutcome } from './lib/game';
 
 const TARGETS = Array.from({ length: 9 }, (_, index) => index);

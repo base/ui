@@ -126,7 +126,7 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackExplorerActiveBlockJump(chain, jump)` | `app/internal-explorer/components/ActiveBlockButton.tsx` — zeronet latest/previous active block |
    | `trackValidityOrder(side, status)` | `app/vibenet/demos/validity/ValidityDemo.tsx` — conditional swap submit / include / expiry / replace |
    | `trackValidityRace(attempt, status)` | `app/vibenet/demos/validity/race-the-agent/RaceTheAgentDemo.tsx` — validity/manual comparison attempts |
-   | `trackReflexRun(status)` | `app/vibenet/demos/200/reflex/ReflexGame.tsx` — reaction-game starts and outcomes |
+   | `trackReflexRun(status)` | `app/vibenet/demos/reflex/ReflexGame.tsx` — reaction-game starts and outcomes |
 
    Add a helper (and a row here) for a new key journey; remove the helper if you
    remove its surface. Confirm the wiring with `grep -rn "analytics/events" app`.

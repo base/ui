@@ -101,40 +101,28 @@ export const DEMOS: DemoEntry[] = [
     ],
   },
   {
+    // Secret route: /demos/200 (redirects here). Off the grid on purpose.
     href: '/vibenet/demos/200',
-    title: '200ms Blocks',
-    shortTitle: '200ms Blocks',
-    icon: '/denim-illo.svg',
+    title: 'Block Runner',
+    shortTitle: 'Block Runner',
+    summary: 'A pixel runner paced by vibenet’s 200 ms blocks. Swallow a block to read its number and slot.',
+    points: ['One block every 200 ms', 'Block height follows gas used', 'One button: tap to bite'],
+    available: true,
+    listed: false,
+  },
+  {
+    // Easter egg: linked only from the inclusion line in transaction popups.
+    href: '/vibenet/demos/reflex',
+    title: 'Reflex',
     summary:
-      'Experience complete native blocks every 200 milliseconds on Vibenet before the Denim upgrade reaches Base Sepolia and Mainnet.',
+      'Send a real transaction from your browser account, then race to hit the target before Vibenet seals it in a 200 ms block.',
     points: [
-      'Five canonical blocks every second',
-      'Every block has its own hash, state root, and receipts',
-      'Race a live transaction against chain inclusion',
+      'Starts on transaction broadcast',
+      'Compares your reaction with real inclusion',
+      'Uses your existing Vibenet account',
     ],
     available: true,
-    children: [
-      {
-        href: '/vibenet/demos/200/reflex',
-        title: 'Reflex',
-        summary:
-          'Send a real transaction from your browser account, then race to hit the target before Vibenet seals it in a 200 ms block.',
-        points: [
-          'Starts on transaction broadcast',
-          'Compares your reaction with real inclusion',
-          'Uses your existing Vibenet account',
-        ],
-        available: true,
-      },
-      {
-        href: '/vibenet/demos/200/block-runner',
-        title: 'Block Runner',
-        summary: 'A pixel runner paced by Vibenet’s 200 ms blocks. Swallow a block to read its number and slot.',
-        points: ['One block every 200 ms', 'Block height follows gas used', 'One button: tap to bite'],
-        available: true,
-        listed: false,
-      },
-    ],
+    listed: false,
   },
 ];
 

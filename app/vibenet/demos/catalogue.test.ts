@@ -51,14 +51,6 @@ describe('demoForPath', () => {
     expect(demoForPath('/vibenet/demos/validity/race-the-agent')?.title).toBe('Race the Agent');
     expect(listedDemos().some((demo) => demo.title === 'Conditional Swaps')).toBe(false);
   });
-
-  it('groups both 200ms games under the 200ms blocks catalogue entry', () => {
-    const group = demoForPath('/vibenet/demos/200');
-    expect(group?.children?.map((demo) => demo.title)).toEqual(['Reflex', 'Block Runner']);
-    expect(group?.children?.filter((demo) => demo.listed !== false).map((demo) => demo.title)).toEqual(['Reflex']);
-    expect(demoForPath('/vibenet/demos/200/reflex')?.title).toBe('Reflex');
-    expect(demoForPath('/vibenet/demos/200/block-runner')).toMatchObject({ title: 'Block Runner', listed: false });
-  });
 });
 
 describe('demoBreadcrumb', () => {
@@ -85,16 +77,6 @@ describe('demoBreadcrumb', () => {
         href: '/vibenet/demos/validity',
       },
       childLabel: 'Race the Agent',
-    });
-  });
-
-  it('resolves a 200ms game through the 200ms Blocks group', () => {
-    expect(demoBreadcrumb('/vibenet/demos/200/reflex')).toEqual({
-      middle: {
-        label: '200ms Blocks',
-        href: '/vibenet/demos/200',
-      },
-      childLabel: 'Reflex',
     });
   });
 
