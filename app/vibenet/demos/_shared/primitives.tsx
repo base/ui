@@ -45,8 +45,6 @@ export function Badge({ children, tone }: { children: ReactNode; tone?: 'ok' | '
 
 const KIND_BADGE: Record<SignerKind, string> = {
   k1: 'bg-bds-blue-0 text-bds-blue-70 dark:text-base-blue',
-  p256: 'bg-bds-purple-0 text-bds-purple-70',
-  passkey: 'bg-bds-teal-0 text-bds-teal-70',
 };
 
 export function AccountAvatar({
@@ -159,7 +157,7 @@ export function AccountIdentity({
   );
 }
 
-// Signer-kind chip (K1 / P-256 / passkey).
+// Signer-kind chip (K1).
 export function KindBadge({ kind }: { kind: SignerKind }) {
   return (
     <span

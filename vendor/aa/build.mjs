@@ -1,8 +1,9 @@
 // Builds the self-contained AA vendor bundle from the sibling viem checkout.
 //
 // Prereqs:
-//   - ../viem checked out on branch feat/eip-8130-production
-//   - viem built: (cd ../viem && pnpm build)  — produces src/_esm
+//   - ../viem checked out on branch feat/aa-tx-split
+//   - its dependencies installed: (cd ../viem && pnpm install) — the entry
+//     bundles the TypeScript sources directly, so no viem build is needed
 //
 // Run:  bun run vendor/aa/build.mjs
 //

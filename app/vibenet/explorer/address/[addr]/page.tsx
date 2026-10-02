@@ -17,7 +17,7 @@ import type { ExplorerAddressResponse } from '../../../library/api-types';
 import { vibenetApi, VibenetApiError } from '../../../library/client';
 import { PublicAddressView } from './PublicAddressView';
 
-// Owned management view: dynamic + client-only so `@aa`/WebAuthn/signing never
+// Owned management view: dynamic + client-only so `@aa`/signing never
 // load on the public inspector path.
 const OwnedAccountView = dynamic(() => import('./OwnedAccountView').then((m) => m.OwnedAccountView), {
   ssr: false,

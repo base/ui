@@ -37,10 +37,10 @@ export const DEMOS: DemoEntry[] = [
     shortTitle: 'Account',
     icon: '/account-illo.svg',
     summary:
-      'Create portable account-abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances across networks.',
+      'Send native account-abstraction transactions from in-browser EOA keys, fund them from the faucet, and inspect balances across networks.',
     points: [
-      'Smart & EOA accounts — deterministic addresses',
-      'K1 / P-256 / passkey signers',
+      'EOA accounts from in-browser secp256k1 keys',
+      'Batched, nonce-free and sponsored sends',
       'Transactions land in the next 200 ms block',
     ],
     available: true,

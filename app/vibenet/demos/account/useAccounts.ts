@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { ActivityEntry, StoredAccount } from './library/model';
-import { deserializeState, serializeState } from './library/model';
+import { deserializeState, normalizePersistedState, serializeState } from './library/model';
 import type { Persisted, WalletSigner } from './shared';
 
 export const ACCOUNTS_STORAGE_KEY = 'vibenet.account.v2';
@@ -26,11 +26,14 @@ export function useAccounts() {
     try {
       const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
       if (raw) {
-        const s = deserializeState<Persisted>(raw);
-        setSigners(s.signers ?? []);
-        setAccounts(s.accounts ?? []);
-        setActiveAccountId(s.activeAccountId ?? null);
-        setActivity(s.activity ?? []);
+        const s = deserializeState<Partial<Persisted>>(raw);
+        // Records written before the Keystore was disabled (smart accounts,
+        // sub-accounts, passkeys) are dropped here; the next save rewrites them.
+        const normalized = normalizePersistedState(s);
+        setSigners(normalized.signers);
+        setAccounts(normalized.accounts);
+        setActiveAccountId(normalized.activeAccountId);
+        setActivity(normalized.activity);
         setGenesisHash(s.genesisHash ?? null);
         if (s.network) setNetworkShort(s.network);
       }
@@ -66,22 +69,9 @@ export function useAccounts() {
 
   const deleteAccount = useCallback(
     (id: string) => {
-      const removed = accounts.filter((a) => a.id === id || a.parentId === id);
-      const removedIds = new Set(removed.map((a) => a.id));
-      const removedAddresses = new Set(removed.map((a) => a.address.toLowerCase()));
-      const next = accounts
-        .filter((a) => !removedIds.has(a.id))
-        .map((a) => ({
-          ...a,
-          subAccounts: a.subAccounts.filter(
-            (subAccount) => !removedAddresses.has(subAccount.address.toLowerCase()),
-          ),
-        }));
-
+      const next = accounts.filter((a) => a.id !== id);
       setAccounts(next);
-      if (activeAccountId && removedIds.has(activeAccountId)) {
-        setActiveAccountId(next.find((a) => !a.parentId)?.id ?? next[0]?.id ?? null);
-      }
+      if (activeAccountId === id) setActiveAccountId(next[0]?.id ?? null);
     },
     [accounts, activeAccountId],
   );

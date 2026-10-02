@@ -14,7 +14,7 @@ import { CHECK_MORPH_ICON, CLIPBOARD_MORPH_ICON } from '../../../components/ui/i
 import { Text } from '../../../components/ui/Text';
 import type { StoredAccount } from '../account/library/model';
 import { ChevronIcon, CreateRowButton, DeleteConfirmButton } from './dropdown';
-import { AccountAvatar, AccountIdentity, Badge } from './primitives';
+import { AccountAvatar, AccountIdentity } from './primitives';
 
 // Icon-only button that copies an account's address; swaps to a green check for
 // 2s after copying. Matches the sibling Details button's styling.
@@ -89,11 +89,10 @@ export function AccountSwitcher({
   const [open, setOpen] = useState(false);
 
   const active = accounts.find((a) => a.id === activeAccountId) ?? null;
-  const topLevel = accounts.filter((a) => !a.parentId);
 
   const close = () => setOpen(false);
 
-  const row = (a: StoredAccount, nested: boolean) => {
+  const row = (a: StoredAccount) => {
     const isActive = a.id === activeAccountId;
     return (
       <div
@@ -101,7 +100,6 @@ export function AccountSwitcher({
         className={cn(
           'flex items-center gap-2 rounded-lg px-2 py-1.5',
           isActive ? 'bg-bds-gray-5 dark:bg-white/10' : 'hover:bg-bds-gray-5 dark:hover:bg-white/5',
-          nested && 'ml-3',
         )}
       >
         <button
@@ -115,8 +113,7 @@ export function AccountSwitcher({
           <AccountIdentity
             label={a.label}
             address={a.address}
-            variant={a.parentId ? 'spending' : 'default'}
-            badges={a.deployed ? <Badge tone="ok">Deployed</Badge> : null}
+            variant="default"
             className="min-w-0 flex-1"
           />
         </button>
@@ -165,7 +162,7 @@ export function AccountSwitcher({
       >
         {active ? (
           <span className="flex min-w-0 items-center gap-2">
-            <AccountAvatar variant={active.parentId ? 'spending' : 'default'} size={22} />
+            <AccountAvatar variant="default" size={22} />
             <span className="max-w-[180px] truncate text-[13px] font-medium">{active.label}</span>
           </span>
         ) : (
@@ -188,12 +185,7 @@ export function AccountSwitcher({
             className="flex max-h-[60vh] w-[max(340px,var(--anchor-width))] max-w-[calc(100vw-2rem)] origin-[var(--transform-origin)] flex-col gap-1 overflow-y-auto rounded-2xl border border-bds-gray-10 bg-background p-2 shadow-lg outline-none [transform:scale(1)] transition-[opacity,transform] duration-150 ease-out data-[ending-style]:opacity-0 data-[ending-style]:[transform:scale(0.97)] data-[starting-style]:opacity-0 data-[starting-style]:[transform:scale(0.97)] dark:border-white/10 dark:bg-[rgb(38,38,38)] motion-reduce:transition-none"
           >
             <Popover.Title className="sr-only">Accounts</Popover.Title>
-            {topLevel.map((parent) => (
-              <div key={parent.id} className="flex flex-col gap-1">
-                {row(parent, false)}
-                {accounts.filter((s) => s.parentId === parent.id).map((sub) => row(sub, true))}
-              </div>
-            ))}
+            {accounts.map((a) => row(a))}
             {onCreate ? (
               <CreateRowButton
                 label="+ New Account"

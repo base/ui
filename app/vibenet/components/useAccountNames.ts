@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { deserializeState } from '../demos/account/library/model';
+import { deserializeState, normalizePersistedState } from '../demos/account/library/model';
 import type { Persisted } from '../demos/account/shared';
 import { ACCOUNTS_STORAGE_KEY } from '../demos/account/useAccounts';
 
@@ -15,14 +15,9 @@ export function readAccountNames(): Record<string, string> {
   try {
     const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
     if (!raw) return {};
-    const state = deserializeState<Persisted>(raw);
+    const { accounts } = normalizePersistedState(deserializeState<Partial<Persisted>>(raw));
     const map: Record<string, string> = {};
-    for (const account of state.accounts ?? []) {
-      map[account.address.toLowerCase()] = account.label;
-      for (const sub of account.subAccounts ?? []) {
-        map[sub.address.toLowerCase()] = sub.label;
-      }
-    }
+    for (const account of accounts) map[account.address.toLowerCase()] = account.label;
     return map;
   } catch {
     return {};
