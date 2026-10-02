@@ -14,8 +14,7 @@ Freshness: /snapshots and /vibenet/explorer change daily. /vibenet/faucet change
 
 ## Vibenet developer network
 - [Vibenet · Base Chain](https://chain.base.org/vibenet): Explore Vibenet, the Base devnet for testing in-flight protocol features.
-- [200ms Blocks · Vibenet](https://chain.base.org/vibenet/demos/200): Experience Vibenet’s native 200 ms blocks through interactive demos built for the Base Denim upgrade.
-- [Reflex · 200ms Blocks](https://chain.base.org/vibenet/demos/200/reflex): Race your reaction time against a real transaction landing in a native 200 ms Vibenet block.
+- [Block Runner · Vibenet](https://chain.base.org/vibenet/demos/200): A pixel runner paced by vibenet’s 200 ms blocks. Swallow a block to read its number and slot.
 - [Accounts · Vibenet](https://chain.base.org/vibenet/demos/account): Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
 - [Tokens · Vibenet](https://chain.base.org/vibenet/demos/b20): Explore, configure, and issue Base-native B20 tokens on Vibenet.
 - [Validity Transactions · Vibenet](https://chain.base.org/vibenet/demos/validity): Explore Vibenet demos built with transactions that execute only while their onchain validity conditions hold.
