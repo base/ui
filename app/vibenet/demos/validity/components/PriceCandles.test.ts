@@ -6,7 +6,7 @@ import { isUpCandle, toCandles, type PriceSample } from './PriceCandles';
 const BUCKET = CANDLE_BUCKET_MS;
 
 describe('toCandles', () => {
-  it('builds a wick when 200ms prints reverse inside a 5s bucket', () => {
+  it('builds a wick when 200ms prints reverse inside a 1s bucket', () => {
     const t0 = 1_000_000;
     const samples: PriceSample[] = [
       { t: t0, price: 1.0 },
@@ -50,15 +50,15 @@ describe('toCandles', () => {
     expect(isUpCandle(candles[1], candles[0])).toBe(false);
   });
 
-  it('fills empty 5s buckets so a 15s gap does not leave a hole', () => {
+  it('fills empty 1s buckets so a 3s gap does not leave a hole', () => {
     const t0 = 3_000_000;
     const samples: PriceSample[] = [
       { t: t0, price: 0.07 },
-      { t: t0 + 15_000, price: 0.071 },
+      { t: t0 + 3 * BUCKET, price: 0.071 },
     ];
-    const candles = toCandles(samples, { now: t0 + 15_000, windowMs: 20_000 });
-    expect(candles.map((candle) => candle.t)).toEqual([t0, t0 + 5_000, t0 + 10_000, t0 + 15_000]);
-    expect(candles[1]).toEqual({ t: t0 + 5_000, o: 0.07, h: 0.07, l: 0.07, c: 0.07 });
+    const candles = toCandles(samples, { now: t0 + 3 * BUCKET, windowMs: 4 * BUCKET });
+    expect(candles.map((candle) => candle.t)).toEqual([t0, t0 + BUCKET, t0 + 2 * BUCKET, t0 + 3 * BUCKET]);
+    expect(candles[1]).toEqual({ t: t0 + BUCKET, o: 0.07, h: 0.07, l: 0.07, c: 0.07 });
     expect(candles[3].o).toBe(0.07);
     expect(candles[3].c).toBe(0.071);
   });

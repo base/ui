@@ -1,7 +1,6 @@
 import { getContractAddress, keccak256, toBytes, type Address, type Hex, type PublicClient } from 'viem';
 
 import { B20_FACTORY, factoryAbi as b20FactoryAbi } from '../../b20/lib/protocol';
-import { vibenetApi } from '../../../library/client';
 import { factoryAbi, pairAbi } from './constants';
 import type { Deployment } from './types';
 
@@ -44,10 +43,16 @@ export async function hasCode(client: PublicClient, address: Address): Promise<b
   return Boolean(code && code !== '0x');
 }
 
-async function pairTokens(
-  client: PublicClient,
-  pair: Address,
-): Promise<{ token0: Address; token1: Address; reserve0: bigint; reserve1: bigint }> {
+type PairRow = {
+  pair: Address;
+  token0: Address;
+  token1: Address;
+  reserve0: bigint;
+  reserve1: bigint;
+  lastTradeAt: number;
+};
+
+async function pairTokens(client: PublicClient, pair: Address): Promise<Omit<PairRow, 'pair'>> {
   const [token0, token1, reserves] = await Promise.all([
     client.readContract({ address: pair, abi: pairAbi, functionName: 'token0' }) as Promise<Address>,
     client.readContract({ address: pair, abi: pairAbi, functionName: 'token1' }) as Promise<Address>,
@@ -55,7 +60,7 @@ async function pairTokens(
       [bigint, bigint, number]
     >,
   ]);
-  return { token0, token1, reserve0: reserves[0], reserve1: reserves[1] };
+  return { token0, token1, reserve0: reserves[0], reserve1: reserves[1], lastTradeAt: reserves[2] };
 }
 
 async function isB20Token(client: PublicClient, token: Address): Promise<boolean> {
@@ -69,10 +74,7 @@ async function isB20Token(client: PublicClient, token: Address): Promise<boolean
     .catch(() => false);
 }
 
-async function listPairs(
-  client: PublicClient,
-  factory: Address,
-): Promise<{ pair: Address; token0: Address; token1: Address; reserve0: bigint; reserve1: bigint }[]> {
+async function listPairs(client: PublicClient, factory: Address): Promise<PairRow[]> {
   const length = (await client.readContract({
     address: factory,
     abi: factoryAbi,
@@ -91,54 +93,43 @@ async function listPairs(
   return rows;
 }
 
-async function resolveVibenetUsdv(): Promise<Address> {
-  const status = await vibenetApi.faucet.status();
-  const address = status.usdv_address;
-  if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
-    throw new Error('Vibenet faucet did not return a USDV address.');
+/** A redeployed setup can leave several seeded VIBE/USDV pools; only the one the actors trade moves. */
+export function pickLivePair<T extends { reserve0: bigint; reserve1: bigint; lastTradeAt: number }>(
+  rows: readonly T[],
+): T | null {
+  let best: T | null = null;
+  for (const row of rows) {
+    if (row.reserve0 === 0n || row.reserve1 === 0n) continue;
+    if (!best || row.lastTradeAt > best.lastTradeAt) best = row;
   }
-  return address as Address;
-}
-
-function otherToken(
-  token0: Address,
-  token1: Address,
-  known: Address,
-): Address | null {
-  const want = known.toLowerCase();
-  if (token0.toLowerCase() === want) return token1;
-  if (token1.toLowerCase() === want) return token0;
-  return null;
+  return best;
 }
 
 /**
- * Live shared pool against faucet USDV, or null if the central actor system
- * has not deployed + seeded it yet. Read-only: the demo never deploys — the
- * fixtures are created by vibenet-setup and driven by the actor system.
+ * Live shared VIBE pool, or null if the central actor system has not deployed
+ * + seeded it yet. Read-only: the demo never deploys — the fixtures are
+ * created by vibenet-setup and driven by the actor system.
  */
-export async function probeSingleton(
-  client: PublicClient,
-  usdv?: Address,
-): Promise<Deployment | null> {
-  const tokenB = usdv ?? (await resolveVibenetUsdv());
+export async function probeSingleton(client: PublicClient): Promise<Deployment | null> {
   const predicted = {
     factory: VALIDITY_FACTORY,
     helper: VALIDITY_SWAP_HELPER,
     minter: VALIDITY_MINTER,
   };
-  const [factory, helper, minter, usdvCode] = await Promise.all([
+  const [factory, helper, minter] = await Promise.all([
     hasCode(client, predicted.factory),
     hasCode(client, predicted.helper),
     hasCode(client, predicted.minter),
-    hasCode(client, tokenB),
   ]);
-  if (!factory || !helper || !minter || !usdvCode) return null;
-  const hit = (await listPairs(client, predicted.factory)).find((row) => {
-    if (row.reserve0 === 0n || row.reserve1 === 0n) return false;
-    return otherToken(row.token0, row.token1, tokenB) !== null;
-  });
+  if (!factory || !helper || !minter) return null;
+  const rows = await listPairs(client, predicted.factory);
+  const vibePairs = [];
+  for (const row of rows) {
+    const [b20First, b20Second] = await Promise.all([isB20Token(client, row.token0), isB20Token(client, row.token1)]);
+    if (b20First === b20Second) continue;
+    vibePairs.push({ ...row, tokenA: b20First ? row.token0 : row.token1, tokenB: b20First ? row.token1 : row.token0 });
+  }
+  const hit = pickLivePair(vibePairs);
   if (!hit) return null;
-  const tokenA = otherToken(hit.token0, hit.token1, tokenB);
-  if (!tokenA || !(await isB20Token(client, tokenA))) return null;
-  return { ...predicted, tokenA, tokenB, token0: hit.token0, token1: hit.token1, pair: hit.pair };
+  return { ...predicted, tokenA: hit.tokenA, tokenB: hit.tokenB, token0: hit.token0, token1: hit.token1, pair: hit.pair };
 }

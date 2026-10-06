@@ -1,4 +1,5 @@
 import {
+  encodeEventTopics,
   encodeFunctionData,
   parseAbi,
   parseEventLogs,
@@ -12,6 +13,9 @@ const pairEvents = parseAbi([
   'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
   'event Sync(uint112 reserve0, uint112 reserve1)',
 ]);
+
+export const SYNC_EVENT = pairEvents[1];
+export const SYNC_TOPIC = encodeEventTopics({ abi: pairEvents, eventName: 'Sync' })[0];
 
 import { QUOTE_SCALE, TRADER_USDV, TRADER_VIBE, erc20Abi, helperAbi, minterAbi, pairAbi } from './constants';
 import { sqrt } from './predicates';

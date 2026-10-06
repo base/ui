@@ -194,7 +194,7 @@ export function PriceCandles({ samples, levels = [], fills = [] }: Props) {
           <VibeMark />
           <div>
             <div className="font-mono text-[13px] tracking-[0.08em] text-foreground">VIBE / USDV</div>
-            <div className="font-mono text-[11px] text-bds-gray-50">simulated pool · 5s candles</div>
+            <div className="font-mono text-[11px] text-bds-gray-50">simulated pool · 1s candles</div>
           </div>
         </div>
         <div className="text-right">
