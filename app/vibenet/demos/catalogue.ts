@@ -110,6 +110,20 @@ export const DEMOS: DemoEntry[] = [
     available: true,
     listed: false,
   },
+  {
+    // Easter egg: linked only from the inclusion line in transaction popups.
+    href: '/vibenet/demos/reflex',
+    title: 'Reflex',
+    summary:
+      'Send a real transaction from your browser account, then race to hit the target before Vibenet seals it in a 200 ms block.',
+    points: [
+      'Starts on transaction broadcast',
+      'Compares your reaction with real inclusion',
+      'Uses your existing Vibenet account',
+    ],
+    available: true,
+    listed: false,
+  },
 ];
 
 /** `smart-wallet` -> `Smart Wallet`. Fallback for a route with no catalogue entry. */
