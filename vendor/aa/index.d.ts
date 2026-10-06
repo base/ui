@@ -223,6 +223,9 @@ export type SendTransactionParameters = Omit<PrepareTransactionRequestParameters
 /** Prepares, signs (sender and, when set, payer) and submits an AA transaction. */
 export function sendTransaction(client: Client, parameters: SendTransactionParameters): Promise<Hex>
 
+/** RLP-serializes an EIP-8130 transaction; an empty `senderAuth` gives the bytes a payer can authorize before the sender signs. */
+export function serializeTransaction(transaction: TransactionSerializable8130): TransactionSerialized8130
+
 export type ReceiptFields = {
   payer?: Address | undefined
   phaseStatuses?: readonly Hex[] | undefined
@@ -254,13 +257,15 @@ export type BalanceLimit = {
   decimals?: number | undefined
 }
 
+export type PayerProvider = { name: string; icon?: string | undefined }
+
 export type PayerBalance = {
   kind: 'sponsorship' | 'credit'
   limits: readonly BalanceLimit[]
   validFor?: number | undefined
   payer?: Address | undefined
   endpoint?: string | undefined
-  name?: string | undefined
+  provider?: PayerProvider | undefined
 }
 
 export type PayerGasEstimate = { gasLimit: Hex; maxFeePerGas: Hex; maxPriorityFeePerGas: Hex }
@@ -272,13 +277,16 @@ export type PayerConditions = {
   maxCost?: Hex | undefined
 }
 
-export type PayerProvider = { name: string; icon?: string | undefined }
+export type PayerCostDiagnostic = { estimated: Hex; limit: Hex }
 
 export type BaseOffer = {
+  /** 20-byte payer address, or `0x00` for an open payer. */
   payer: Address
   endpoint?: string | undefined
-  /** Optional methods beyond `payer_getTerms` / `payer_sendTransaction` (e.g. `payer_signTransaction`). */
-  methods?: readonly string[] | undefined
+  /** Co-sign methods for this offer; absent means `["payer_sendTransaction"]`. */
+  methods?: readonly ('payer_sendTransaction' | 'payer_signTransaction')[] | undefined
+  /** Preauthorized `payer_auth`, when the payer signed ahead of time. */
+  payerAuth?: Hex | undefined
   ttl: number
   conditions?: PayerConditions | undefined
   provider?: PayerProvider | undefined
@@ -294,38 +302,44 @@ export type SponsoredOfferDeclined = {
   code: string
   reason?: string | undefined
   balance?: PayerBalance | undefined
-  gas?: { estimatedCost: Hex; maxCost: Hex } | undefined
+  /** Only for `COST_EXCEEDS_LIMIT`. */
+  cost?: PayerCostDiagnostic | undefined
   provider?: PayerProvider | undefined
 }
 
 export type SponsoredOffer = SponsoredOfferSelectable | SponsoredOfferDeclined
 
 export type TokenChoice = {
-  token: Address
+  /** ERC-20 address, or `"native"` for a value-transfer payment. */
+  token: Address | 'native'
   symbol: string
   decimals: number
-  /** Phase-0 amount, quoted against the terms' `gasEstimate`. */
-  paymentAmount: Hex
+  /** The required amount at the terms' `gasEstimate`; present exactly when `gasEstimate` is. */
+  paymentAmount?: Hex | undefined
   feeRecipient?: Address | undefined
-  rate: { numerator: Hex; denominator: Hex }
+  /** WAD: token atomic units per 1e18 wei. Phase 0 covers `ceil(max_cost × rate / 1e18)`. */
+  rate: Hex
+  paymentGas?: Hex | undefined
+  /** One whole token's fiat price, as a WAD. */
   fiatRate?: Hex | undefined
   refund?: { window: number } | undefined
 }
 
-export type TokenPaymentOffer = BaseOffer & {
+export type TokenOffer = BaseOffer & {
   kind: 'token'
   tokens: readonly TokenChoice[]
   paymentMode?: 'transfer' | 'any' | undefined
 }
 
-export type PaymentOption = SponsoredOffer | TokenPaymentOffer
+export type PaymentOption = SponsoredOffer | TokenOffer
 
 export type GetTermsParameters = {
   chainId: Hex
   from: Address
   calls: readonly PayerRpcCall[]
+  /** Gas for the user calls only; excludes phase 0. */
   gasLimit?: Hex | undefined
-  preferredTokens?: readonly Address[] | undefined
+  preferredTokens?: readonly (Address | 'native')[] | undefined
   fiatCurrency?: string | undefined
   context?: Record<string, unknown> | undefined
 }
@@ -336,25 +350,25 @@ export type GetTermsReturnType = {
   fiatCurrency?: string | undefined
 }
 
-export type TokenCharged = { token: Address; amount: Hex }
-
 export type PayerSendTransactionParameters = {
-  signedTransaction: Hex
+  /** The sender-signed transaction, `payer_auth` empty. */
+  transaction: Hex
   context?: Record<string, unknown> | undefined
 }
-export type PayerSendTransactionReturnType = { transactionHash: Hex; tokenCharged?: TokenCharged | undefined }
+export type PayerSendTransactionReturnType = { transactionHash: Hex }
 export type PayerSignTransactionParameters = {
-  signedTransaction: Hex
+  /** The built transaction, with or without `sender_auth`. */
+  transaction: Hex
   context?: Record<string, unknown> | undefined
 }
-export type PayerSignTransactionReturnType = { signedTransaction: Hex; tokenCharged?: TokenCharged | undefined }
+export type PayerSignTransactionReturnType = { payerAuth: Hex }
 
 export type GetSponsorshipBalanceParameters = {
   from: Address
   chainId?: Hex | undefined
   payer?: Address | undefined
   endpoint?: string | undefined
-  kind?: readonly ('sponsorship' | 'credit')[] | undefined
+  kinds?: readonly ('sponsorship' | 'credit')[] | undefined
   context?: Record<string, unknown> | undefined
 }
 export type GetSponsorshipBalanceReturnType = { balances: readonly PayerBalance[]; ttl: number }
@@ -370,25 +384,29 @@ export type PayerClient = {
 export function createPayerClient(parameters: { url?: string | undefined; transport?: any }): PayerClient
 
 export type SelectPaymentOptionReturnType = {
-  option: SponsoredOfferSelectable | TokenPaymentOffer
+  option: SponsoredOfferSelectable | TokenOffer
   tokenChoice?: TokenChoice | undefined
 }
 /** Picks one selectable offer: the matching token offer when `token` is set, else sponsorship first. */
 export function selectPaymentOption(
   terms: GetTermsReturnType,
-  parameters?: { token?: Address | undefined },
+  parameters?: { token?: Address | 'native' | undefined },
 ): SelectPaymentOptionReturnType
-export function isTokenOffer(option: PaymentOption): option is TokenPaymentOffer
+export function isTokenOffer(option: PaymentOption): option is TokenOffer
 export function isDeclinedOffer(option: PaymentOption): option is SponsoredOfferDeclined
 
 /** Builds the phase-0 `IERC20.transfer(to, amount)` call. */
 export function encodeTokenTransfer(parameters: { token: Address; to: Address; amount: bigint }): AaCall
+/** Phase-0 payment: an ERC-20 transfer, or a value transfer for `"native"`. */
+export function encodePayment(parameters: { token: Address | 'native'; to: Address; amount: bigint }): AaCall
+/** `ceil(maxCost × rate / 1e18)`. */
+export function requiredPaymentAmount(parameters: { maxCost: bigint; rate: bigint }): bigint
 
 export type PayerRequote = {
-  token: Address
+  token: Address | 'native'
   paymentAmount: Hex
   feeRecipient?: Address | undefined
-  rate?: { numerator: Hex; denominator: Hex } | undefined
+  rate?: Hex | undefined
   ttl?: number | undefined
 }
 
@@ -397,11 +415,17 @@ export type PayerRejectedData = {
   code: string
   reason?: string | undefined
   balance?: PayerBalance | undefined
-  gas?: { estimatedCost: Hex; maxCost: Hex } | undefined
+  /** `COST_EXCEEDS_LIMIT`: the payer's estimate and per-tx ceiling. */
+  cost?: PayerCostDiagnostic | undefined
   /** `GAS_TOO_LOW`: the smallest gas limit the calls need. */
   minGasLimit?: Hex | undefined
   /** `PAYMENT_INSUFFICIENT`: the corrected phase-0 transfer. */
   requote?: PayerRequote | undefined
+  /** `EXECUTION_REVERTED`: which phase reverted, and why. */
+  revert?: { phase: number; reason?: string | undefined; data?: Hex | undefined } | undefined
+  /** `SENDER_BALANCE_INSUFFICIENT`. */
+  shortfall?: { token: Address | 'native'; required: Hex; available: Hex } | undefined
+  options?: readonly PaymentOption[] | undefined
 }
 
 /** Extracts {@link PayerRejectedData} from a thrown payer error; `undefined` for other errors. */

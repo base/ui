@@ -111,6 +111,8 @@ function payerRejectionMessage(rejected: PayerRejectedData): string {
         : 'The payer’s simulation says this transaction would revert.';
     case 'GAS_TOO_LOW':
       return 'The payer needs a higher gas limit for these calls. Retry to re-sign with more gas.';
+    case 'COST_EXCEEDS_LIMIT':
+      return 'This transaction costs more gas than the payer covers per transaction. Retry when gas is cheaper, or pay with ETH.';
     default:
       return rejected.reason ?? `Payer rejected the transaction (${rejected.code}).`;
   }
@@ -264,15 +266,24 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
     try {
       const payerClient = createPayerClient({ url: PAYER_URL });
       const rpcCalls = buildCalls(calls, acct.address).map((c) => ({ to: c.to, value: toHex(c.value), data: c.data }));
+      // ERC-8168: the intent's `gasLimit` excludes phase 0; the payer adds `paymentGas`.
+      const callGas = estimateTxGas({
+        calls: calls.length,
+        valueCalls: valueBearingCallCount(calls, acct.address),
+        nonceless,
+        payer: true,
+        tokenPayment: false,
+      });
+      const context = { flow: 'transact' };
       const terms = await payerClient.getTerms({
         chainId: toHex(chain.id || 84538453),
         from: acct.address,
         calls: rpcCalls,
-        gasLimit: toHex(BigInt(gasEstimate || 200_000)),
-        context: { flow: 'transact' },
+        gasLimit: toHex(BigInt(callGas || 200_000)),
+        context,
       });
 
-      let selToken: Address | undefined;
+      let selToken: Address | 'native' | undefined;
       if (mode === 'usdv') {
         const tokenOffer = terms.options.find(isTokenOffer);
         selToken = tokenOffer?.tokens?.[0]?.token;
@@ -281,11 +292,18 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
       const declinedFree = mode === 'free' ? terms.options.find(isDeclinedOffer) : undefined;
       const { option, tokenChoice } = selectPaymentOption(terms, selToken ? { token: selToken } : {});
 
+      if (option.kind === 'token' && tokenChoice?.token === 'native')
+        throw new Error('This payer only offers native-token payment, which this dialog does not build.');
+      // A payer that co-signs without submitting authorizes before the user signs.
+      const authorize = option.methods?.includes('payer_signTransaction')
+        ? async (unsigned: Hex) => (await payerClient.signTransaction({ transaction: unsigned, context })).payerAuth
+        : undefined;
       let payer: ComposePayer;
-      if (option.kind === 'token' && tokenChoice) {
-        const quoted = BigInt(tokenChoice.paymentAmount);
+      if (option.kind === 'token' && tokenChoice && tokenChoice.token !== 'native') {
+        const quoted = tokenChoice.paymentAmount ? BigInt(tokenChoice.paymentAmount) : 0n;
         payer = {
           address: option.payer,
+          authorize,
           tokenPayment: {
             token: tokenChoice.token,
             to: tokenChoice.feeRecipient ?? option.payer,
@@ -294,7 +312,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
           },
         };
       } else {
-        payer = { address: option.payer };
+        payer = { address: option.payer, authorize };
       }
 
       // A payer requires an expiry; stay inside its `maxExpiry` (the engine
@@ -326,15 +344,13 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
 
       let txHash: Hex;
       let pending = false;
-      let finalTx = serialized;
-      if (option.methods?.includes('payer_signTransaction')) {
-        const cosigned = await payerClient.signTransaction({ signedTransaction: serialized, context: { flow: 'transact' } });
-        finalTx = cosigned.signedTransaction;
-        ({ txHash, pending } = await broadcastOrPending(finalTx));
+      if (authorize) {
+        // Already carries the payer's `payerAuth`.
+        ({ txHash, pending } = await broadcastOrPending(serialized));
       } else {
         setSubmitStatus('submitting');
         const anchor = latestAnchor();
-        const sent = await payerClient.sendTransaction({ signedTransaction: serialized, context: { flow: 'transact' } });
+        const sent = await payerClient.sendTransaction({ transaction: serialized, context });
         setSubmitStatus('confirming');
         txHash = sent.transactionHash;
         try {
@@ -344,7 +360,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
           pending = true;
         }
       }
-      recordResult(acct, finalTx, txHash, pending, activeSigner, gasNote);
+      recordResult(acct, serialized, txHash, pending, activeSigner, gasNote);
     } catch (err) {
       const rejected = parsePayerError(err);
       if (rejected) {
