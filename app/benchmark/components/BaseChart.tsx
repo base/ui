@@ -21,7 +21,7 @@ const TOP_MARGIN = 20;
 const ASPECT_RATIO = 0.5;
 const LEGEND_SPACE = 20;
 const X_AXIS_SPACE = 60;
-const Y_AXIS_SPACE = 40;
+const Y_AXIS_SPACE = 75;
 const TITLE_SPACE = 50;
 
 const DEFAULT_MARGIN = {

@@ -23,6 +23,7 @@ interface LineChartProps {
   unit?: ChartConfig["unit"];
   xAxisDomain?: [number, number];
   xAxisLabel?: string;
+  showLegend?: boolean;
   thresholds?: {
     warning?: Record<string, number>;
     error?: Record<string, number>;
@@ -56,6 +57,7 @@ const LineChart: React.FC<LineChartProps> = ({
   unit,
   xAxisDomain,
   xAxisLabel = "Block Number",
+  showLegend = true,
   thresholds,
 }) => {
   // Generate a unique ID for this chart
@@ -471,7 +473,7 @@ const LineChart: React.FC<LineChartProps> = ({
             .attr("class", "x-axis-label")
             .attr("text-anchor", "middle")
             .attr("x", dimensions.width / 2)
-            .attr("y", dimensions.height + 27)
+            .attr("y", dimensions.height + 58)
             .attr("font-size", 12)
             .attr("fill", "#333")
             .text(xAxisLabel);
@@ -493,6 +495,7 @@ const LineChart: React.FC<LineChartProps> = ({
           .style("text-anchor", "end");
 
         // Add legend
+        if (showLegend) {
         const legend = svg
           .append("g")
           .attr("class", "legend")
@@ -549,6 +552,8 @@ const LineChart: React.FC<LineChartProps> = ({
           ); // Move legend closer
           currentX += legendItemWidths[i] + spacing; // Add spacing between items
         });
+
+        }
 
         series.forEach((s, i) => {
           const color = s.color || d3.schemeCategory10[i % 10];
