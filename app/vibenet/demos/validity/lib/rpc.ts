@@ -12,8 +12,6 @@ import {
 
 import { VIBENET_RPC_URL, VIBENET_WS_URL } from '../../../library/config';
 import { VIBENET } from '../../account/library/chains';
-import { CANDLES_PATH } from './constants';
-import { parseTapeSamples, type TapeSample } from './tape';
 import type { ValidityPredicate } from './types';
 
 export type RpcSend = (method: string, params: unknown[]) => Promise<unknown>;
@@ -67,26 +65,6 @@ export function makePublicClient(getSend?: () => RpcSend | null): PublicClient {
 
 export function makeWalletClient(account: Account): WalletClient {
   return createWalletClient({ chain: VIBENET_CHAIN, account, transport: custom(eip1193()) });
-}
-
-export async function fetchTape(pair: Address, vibeToken0: boolean): Promise<TapeSample[]> {
-  const response = await fetch(
-    `${CANDLES_PATH}?pair=${pair}&vibeToken0=${vibeToken0 ? '1' : '0'}`,
-    { cache: 'no-store' },
-  );
-  if (!response.ok) return [];
-  const body = (await response.json().catch(() => null)) as { samples?: unknown } | null;
-  return parseTapeSamples(body?.samples);
-}
-
-export async function publishTape(pair: Address, samples: readonly TapeSample[]): Promise<void> {
-  if (samples.length === 0) return;
-  await fetch(CANDLES_PATH, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pair, samples }),
-    keepalive: true,
-  });
 }
 
 export function describeValidityError(err: unknown): string {

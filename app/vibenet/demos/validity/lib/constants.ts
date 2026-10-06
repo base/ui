@@ -42,8 +42,6 @@ export const minterAbi = parseAbi([
   'function mint(address token, address to, uint256 amount)',
 ]);
 
-export const CANDLES_PATH = '/api/vibenet/validity/candles';
-
 export const STORAGE_KEY = 'vibenet.validity.v7';
 
 export const WAD = 10n ** 18n;
@@ -70,10 +68,11 @@ export const MAX_EXPIRY_SECONDS = 60;
  * are on committed 200ms blocks, not 2s pre-Denim heads or 250ms flashblocks.
  */
 export const BLOCK_SECONDS = 0.2;
-/** Stamp the mid on each 200ms head so the live 5s candle can wick. */
+/** Stamp the mid on each 200ms head so the live 1s candle can wick. */
 export const CANDLE_SAMPLE_MS = 200;
-export const CANDLE_BUCKET_MS = 5_000;
-export const CANDLE_WINDOW_MS = 180_000;
+export const CANDLE_BUCKET_MS = 1_000;
+export const CANDLE_WINDOW_MS = 30_000;
+export const CANDLE_BACKFILL_MS = 10_000;
 
 /**
  * Finite box span around the target point on the current hyperbola.

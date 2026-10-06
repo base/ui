@@ -29,6 +29,7 @@ import {
   helperApproveCalls,
   inventoryMints,
   reservesFromSyncLog,
+  SYNC_EVENT,
   tokenBalance,
 } from './lib/amm';
 import {
@@ -65,16 +66,14 @@ import {
 } from './lib/quote';
 import {
   describeValidityError,
-  fetchTape,
   makePublicClient,
-  publishTape,
   sendValidityTransaction,
   VIBENET_CHAIN,
   type RpcSend,
 } from './lib/rpc';
 import { connectJsonRpcStream, headNumber, type StreamHead, type StreamLog } from './lib/stream';
 import { probeSingleton } from './lib/singleton';
-import { mergeTape } from './lib/tape';
+import { backfillBlocks, backfillSamples, mergeTape } from './lib/tape';
 import { createState, loadState, saveState, type StoredState } from './lib/store';
 import type { PlacedOrder, Rectangle, Reserves, Side } from './lib/types';
 
@@ -145,8 +144,6 @@ function ValidityDemoInner() {
   ordersRef.current = orders;
   const reservesRef = useRef<Reserves | null>(null);
   reservesRef.current = reserves;
-  const samplesRef = useRef<PriceSample[]>([]);
-  samplesRef.current = samples;
   const stateRef = useRef<StoredState | null>(null);
   stateRef.current = state;
 
@@ -195,37 +192,30 @@ function ValidityDemoInner() {
   const tapeVibeToken0 = Boolean(state?.deployment && vibeIsToken0(state.deployment));
 
   useEffect(() => {
-    if (!hydrated || !pair) return;
+    const client = publicRef.current;
+    if (!hydrated || !pair || !client) return;
     let cancelled = false;
-    void fetchTape(pair, tapeVibeToken0)
-      .then((remote) => {
-        if (cancelled || remote.length === 0) return;
-        setSamples((prev) => mergeTape(remote, prev));
-      })
-      .catch(() => {});
+    void (async () => {
+      const latestBlock = await client.getBlockNumber();
+      const lookback = backfillBlocks();
+      const [logs, current] = await Promise.all([
+        client.getLogs({
+          address: pair,
+          event: SYNC_EVENT,
+          fromBlock: latestBlock > lookback ? latestBlock - lookback : 0n,
+          toBlock: latestBlock,
+        }),
+        getReserves(client, pair),
+      ]);
+      if (cancelled) return;
+      const mid = Number(quoteWad(current.reserve0, current.reserve1, tapeVibeToken0)) / 1e18;
+      const history = backfillSamples({ logs, vibeToken0: tapeVibeToken0, latestBlock, now: Date.now(), mid });
+      setSamples((prev) => mergeTape(history, prev));
+    })().catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [hydrated, pair, tapeVibeToken0]);
-
-  useEffect(() => {
-    if (!hydrated || !pair) return;
-    const flush = () => {
-      void publishTape(pair, samplesRef.current).catch(() => {});
-    };
-    const id = window.setInterval(flush, 2_000);
-    const onHide = () => {
-      if (document.visibilityState === 'hidden') flush();
-    };
-    document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', flush);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener('visibilitychange', onHide);
-      window.removeEventListener('pagehide', flush);
-      flush();
-    };
-  }, [hydrated, pair]);
 
   useEffect(() => {
     let cancelled = false;
