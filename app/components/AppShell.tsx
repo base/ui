@@ -14,6 +14,7 @@ import { demoLabel, demoBreadcrumb } from '../vibenet/demos/catalogue';
 
 import { trackNavClick } from '../analytics/events';
 import { navExitingHighlightPath, navSlideDirection, type NavPresenceCustom } from './nav-motion';
+import { DrawerSlotContext } from './DrawerSlot';
 import { NavScrollArea } from './NavScrollArea';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
@@ -676,6 +677,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname() || '/';
   const title = titleForPath(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [drawerSlot, setDrawerSlot] = useState<HTMLElement | null>(null);
   // aria-checked only. The switch's look is CSS against html[data-theme],
   // which the pre-paint script already set — this state starts false so SSR
   // and the first client render match, then catches up after mount.
@@ -712,6 +714,7 @@ export function AppShell({ children }: PropsWithChildren) {
   };
 
   return (
+    <DrawerSlotContext.Provider value={drawerSlot}>
     <div className="flex min-h-dvh flex-col">
       <div style={styles.root}>
         {/* Desktop sidebar */}
@@ -741,6 +744,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <Dialog.Portal>
             <Dialog.Popup className="drawer outline-none [transform:translate3d(0,0,0)] transition-transform duration-300 ease-out data-[ending-style]:[transform:translate3d(100%,0,0)] data-[starting-style]:[transform:translate3d(100%,0,0)] motion-reduce:transition-none">
               <Dialog.Title className="sr-only">Menu</Dialog.Title>
+              <div ref={setDrawerSlot} className="shrink-0 px-2 pt-3 empty:hidden" />
               <SidebarContent
                 dark={dark}
                 onToggleTheme={toggleTheme}
@@ -792,5 +796,6 @@ export function AppShell({ children }: PropsWithChildren) {
       </div>
       <Toaster position="top-center" style={{ '--width': '300px' } as React.CSSProperties} toastOptions={{ className: 'text-[13px] tracking-[0px]' }} />
     </div>
+    </DrawerSlotContext.Provider>
   );
 }

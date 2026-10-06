@@ -17,7 +17,7 @@ type BreadcrumbProps = {
 export function Breadcrumb({ parentLabel, parentHref, childLabel, middle }: BreadcrumbProps) {
   const backHref = middle?.href ?? parentHref;
   return (
-    <span className="relative flex w-full items-center justify-center">
+    <span className="relative flex w-full min-w-0 items-center justify-center px-24">
       <Link
         href={backHref}
         className="group absolute left-0 flex h-8 w-8 items-center justify-center rounded-full text-bds-gray-40 no-underline transition-colors hover:text-foreground"
@@ -35,8 +35,8 @@ export function Breadcrumb({ parentLabel, parentHref, childLabel, middle }: Brea
           />
         </svg>
       </Link>
-      <span className="flex items-center gap-2">
-        <Link href={parentHref} className="no-underline">
+      <span data-breadcrumb-trail className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+        <Link href={parentHref} className="min-w-0 truncate no-underline">
           <Text as="span" variant="headline" className="text-bds-gray-40">
             {parentLabel}
           </Text>
@@ -46,7 +46,7 @@ export function Breadcrumb({ parentLabel, parentHref, childLabel, middle }: Brea
         </Text>
         {middle ? (
           <>
-            <Link href={middle.href} className="no-underline">
+            <Link href={middle.href} className="min-w-0 truncate no-underline">
               <Text as="span" variant="headline" className="text-bds-gray-40">
                 {middle.label}
               </Text>
@@ -56,7 +56,7 @@ export function Breadcrumb({ parentLabel, parentHref, childLabel, middle }: Brea
             </Text>
           </>
         ) : null}
-        <Text as="span" variant="headline">
+        <Text as="span" variant="headline" className="shrink-0">
           {childLabel}
         </Text>
       </span>
