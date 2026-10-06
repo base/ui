@@ -75,6 +75,8 @@ type AccountSwitcherProps = {
   onCreate?: () => void;
   /** Extra classes for the trigger button (e.g. `w-full` inside a form). */
   triggerClassName?: string;
+  /** Hide the label, leaving the avatar and chevron (for tight spaces like the topbar). */
+  collapsed?: boolean;
 };
 
 export function AccountSwitcher({
@@ -85,6 +87,7 @@ export function AccountSwitcher({
   onDelete,
   onCreate,
   triggerClassName,
+  collapsed = false,
 }: AccountSwitcherProps) {
   const [open, setOpen] = useState(false);
 
@@ -151,6 +154,7 @@ export function AccountSwitcher({
       }}
     >
       <Popover.Trigger
+        aria-label={collapsed && active ? `Account: ${active.label}` : undefined}
         className={cn(
           'group flex h-10 items-center justify-between gap-2 rounded-lg bg-transparent px-2.5 outline-none',
           'ring-1 ring-inset ring-bds-gray-10',
@@ -163,7 +167,12 @@ export function AccountSwitcher({
         {active ? (
           <span className="flex min-w-0 items-center gap-2">
             <AccountAvatar variant="default" size={22} />
-            <span className="max-w-[180px] truncate text-[13px] font-medium">{active.label}</span>
+            <span
+              data-account-label
+              className={cn('max-w-[180px] truncate text-[13px] font-medium', collapsed && '-ml-2 w-0 overflow-hidden')}
+            >
+              {active.label}
+            </span>
           </span>
         ) : (
           <Text as="span" variant="label.medium" tone="muted">

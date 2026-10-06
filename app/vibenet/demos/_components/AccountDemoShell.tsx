@@ -12,9 +12,10 @@
 // Each demo renders this inside one AccountEngineProvider, avoiding duplicate
 // store instances and repeated account-settings wiring.
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useDrawerSlot } from '../../../components/DrawerSlot';
 import { cn } from '../../../components/ui/cn';
 import { AccountSwitcher } from '../_shared/AccountSwitcher';
 import { ActivityDrawer } from '../_shared/ActivityDrawer';
@@ -46,6 +47,8 @@ export function AccountDemoShell({
 }: AccountDemoShellProps) {
   const engine = useAccountEngine();
   const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  const drawerSlot = useDrawerSlot();
+  const [collapsed, setCollapsed] = useState(false);
   // The switcher and the empty-state gate both open the create-account drawer.
   const [createOpen, setCreateOpen] = useState(false);
   const onCreate = () => setCreateOpen(true);
@@ -53,21 +56,44 @@ export function AccountDemoShell({
     setTopbarSlot(document.getElementById('topbar-actions-slot'));
   }, []);
 
-  const switcher = (
-    <AccountSwitcher
-      accounts={engine.accounts}
-      activeAccountId={engine.activeAccountId}
-      onSelect={engine.setActiveAccountId}
-      onCreate={onCreate}
-      onDelete={engine.deleteAccount}
-      onDetails={(id) => {
-        const addr = engine.accounts.find((a) => a.id === id)?.address;
-        if (addr) window.open(`/vibenet/explorer/address/${addr}`, '_blank', 'noopener,noreferrer');
-      }}
-    />
-  );
-
   const hasAccounts = engine.accounts.length > 0;
+  const activeLabel = engine.accounts.find((a) => a.id === engine.activeAccountId)?.label;
+
+  // Collapse the topbar switcher to avatar + chevron only when the expanded
+  // control would run into the centered breadcrumb; otherwise show the label.
+  useLayoutEffect(() => {
+    const header = topbarSlot?.parentElement;
+    if (!topbarSlot || !header || !hasAccounts) return;
+    const measure = () => {
+      const trigger = topbarSlot.firstElementChild as HTMLElement | null;
+      const label = topbarSlot.querySelector<HTMLElement>('[data-account-label]');
+      const trail = header.querySelector<HTMLElement>('[data-breadcrumb-trail]');
+      if (!trigger || !label || !trail) return;
+      const naturalLabel = Math.min(label.scrollWidth, 180);
+      const expandedWidth = trigger.offsetWidth + (label.offsetWidth < naturalLabel ? 8 + naturalLabel : 0);
+      const parts = Array.from(trail.children) as HTMLElement[];
+      const trailWidth = parts.reduce((sum, el) => sum + Math.max(el.scrollWidth, el.offsetWidth), 0) + 8 * (parts.length - 1);
+      // Switcher sits 28px from the right edge; keep 16px clear of the trail.
+      const room = header.clientWidth / 2 - trailWidth / 2 - expandedWidth - 28 - 16;
+      setCollapsed(room < 0);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [topbarSlot, hasAccounts, activeLabel]);
+
+  const switcherProps = {
+    accounts: engine.accounts,
+    activeAccountId: engine.activeAccountId,
+    onSelect: engine.setActiveAccountId,
+    onCreate,
+    onDelete: engine.deleteAccount,
+    onDetails: (id: string) => {
+      const addr = engine.accounts.find((a) => a.id === id)?.address;
+      if (addr) window.open(`/vibenet/explorer/address/${addr}`, '_blank', 'noopener,noreferrer');
+    },
+  };
 
   return (
     <>
@@ -77,7 +103,11 @@ export function AccountDemoShell({
       <div className={cn('relative -mb-20 flex min-w-0 flex-1 flex-col text-foreground', className)}>
         {/* Desktop: the switcher lives in the app top bar. Hidden until an account
             exists so the gate reads as a clean full-page empty state. */}
-        {hasAccounts && topbarSlot ? createPortal(switcher, topbarSlot) : null}
+        {hasAccounts && topbarSlot ? createPortal(<AccountSwitcher {...switcherProps} collapsed={collapsed} />, topbarSlot) : null}
+        {/* Mobile: the top bar is hidden, so the switcher lives in the hamburger menu. */}
+        {hasAccounts && drawerSlot
+          ? createPortal(<AccountSwitcher {...switcherProps} triggerClassName="w-full" />, drawerSlot)
+          : null}
 
         <DemoGate
           accounts={engine.accounts}
@@ -86,8 +116,6 @@ export function AccountDemoShell({
           title={gateTitle}
           description={gateDescription}
         >
-          {/* Mobile only — desktop uses the top-bar switcher. */}
-          <div className="shrink-0 md:hidden">{switcher}</div>
           {children}
           {activity ? (
             <ActivityDrawer count={activityCount} emptyMessage={activityEmptyMessage}>
