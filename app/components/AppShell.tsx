@@ -17,7 +17,6 @@ import { navExitingHighlightPath, navSlideDirection, type NavPresenceCustom } fr
 import { NavScrollArea } from './NavScrollArea';
 import { AnimatedBaseLogo, BaseMark } from './ui/AnimatedBaseLogo';
 import { Breadcrumb } from './ui/Breadcrumb';
-import { cn } from './ui/cn';
 import { AnimatedArrowIcon } from './ui/icons';
 import { Text, textVariantClasses } from './ui/Text';
 
@@ -715,12 +714,12 @@ export function AppShell({ children }: PropsWithChildren) {
     <div className="flex min-h-dvh flex-col">
       <div style={styles.root}>
         {/* Desktop sidebar */}
-        <motion.aside
+        <aside
           className="sidebar-desktop sticky self-start"
           style={{ ...styles.sidebar, top: 0, height: '100dvh' }}
         >
           <SidebarContent dark={dark} onToggleTheme={toggleTheme} />
-        </motion.aside>
+        </aside>
 
         {/* Mobile header (logo + hamburger) */}
         <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
@@ -752,7 +751,7 @@ export function AppShell({ children }: PropsWithChildren) {
         </Dialog.Root>
 
         <div className="pt-14 md:pt-0" style={styles.main}>
-          <motion.header
+          <header
             className="topbar-desktop sticky z-40 bg-background"
             style={{ ...styles.topbar, top: 0 }}
           >
@@ -784,7 +783,7 @@ export function AppShell({ children }: PropsWithChildren) {
               }
               return <Text as="span" variant="headline">{title}</Text>;
             })()}
-          </motion.header>
+          </header>
           <main className="[container-type:inline-size]" style={styles.content}>
             <div style={styles.contentInner}>{children}</div>
           </main>
