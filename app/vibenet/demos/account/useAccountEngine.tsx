@@ -205,6 +205,7 @@ function useAccountEngineCore() {
     setActivity,
     networkShort,
     setNetworkShort,
+    genesisHash,
     setGenesisHash,
     hydrated,
     addAccount,
@@ -213,9 +214,6 @@ function useAccountEngineCore() {
 
   const [busy, setBusy] = useState(false);
   const [faucetBusy, setFaucetBusy] = useState<string | null>(null);
-
-  // Regenesis (devnet reset) detection.
-  const [regenesisNotice, setRegenesisNotice] = useState(false);
 
   const chain = useMemo(() => getDemoChain(networkShort), [networkShort]);
 
@@ -260,10 +258,13 @@ function useAccountEngineCore() {
         return;
       }
       if (!hash || cancelled) return;
-      setGenesisHash((prev) => {
-        if (prev && prev !== hash) setRegenesisNotice(true);
-        return hash;
-      });
+      if (genesisHash && genesisHash !== hash) {
+        toast.info('Vibenet chain was reset', {
+          description: 'Your accounts, keys, and addresses are unchanged. Top up to transact again.',
+          duration: 8_000,
+        });
+      }
+      if (genesisHash !== hash) setGenesisHash(hash);
     };
     checkGenesis();
     const t = setInterval(checkGenesis, 10_000);
@@ -271,7 +272,7 @@ function useAccountEngineCore() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [hydrated, makeRpcClient, setGenesisHash]);
+  }, [genesisHash, hydrated, makeRpcClient, setGenesisHash]);
 
   // --- helpers -----------------------------------------------------------
   // Entries that name a tx hash pick up its inclusion timing automatically, so
@@ -637,8 +638,6 @@ function useAccountEngineCore() {
     busy,
     activeSigner,
     signerForAccount,
-    regenesisNotice,
-    setRegenesisNotice,
 
     // Faucet
     faucetBusy,
