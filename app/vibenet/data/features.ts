@@ -23,7 +23,7 @@ export const FEATURES: VibenetFeature[] = [
     // EIP-8130 build guide; there's no "try it" CTA since this card already
     // lives on the demo it would link to.
     secondaryCta: { label: 'Tutorial', href: 'https://docs.base.org/specifications/native-account-abstraction', external: true },
-    links: [{ label: 'Specification', href: 'https://eip.tools/eip/8130', external: true }],
+    links: [{ label: 'Specification', href: 'https://docs.base.org/specifications/base-transactions', external: true }],
   },
   // 200ms Blocks is intentionally absent: it is a Denim roadmap item that has
   // not landed on vibenet yet (blocks are still ~2s, `timestampMs` is not on
