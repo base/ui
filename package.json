@@ -18,7 +18,8 @@
     "test:e2e": "playwright test",
     "llms": "node scripts/llms.mjs",
     "agents": "node scripts/agents.mjs",
-    "docs:check": "node scripts/llms.mjs --check && node scripts/agents.mjs --check"
+    "docs:check": "node scripts/llms.mjs --check && node scripts/agents.mjs --check",
+    "scaling:check": "node scripts/scaling-snapshot.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
