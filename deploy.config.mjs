@@ -42,6 +42,12 @@ export const SURFACES = {
     routePrefixes: ['/benchmark'],
     targets: ['internal'],
   },
+  // No apiPrefixes: the page reads its snapshot server-side from a runtime file
+  // (SCALING_SNAPSHOT_PATH), so no data endpoint exists to guard.
+  scaling: {
+    routePrefixes: ['/scaling'],
+    targets: ['internal'],
+  },
 };
 
 /** Is a surface included in the current build target? Unknown key => yes. */

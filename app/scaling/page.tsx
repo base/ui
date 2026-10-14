@@ -1,0 +1,126 @@
+import { readFile } from 'node:fs/promises';
+
+import { Banner } from '../components/ui/Banner';
+import { Card } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Text } from '../components/ui/Text';
+
+import { parseSnapshot, type Metric, type Snapshot } from './snapshot.mjs';
+
+// The snapshot is a runtime file, so render per request rather than at build.
+export const dynamic = 'force-dynamic';
+
+const STALE_AFTER_DAYS = 7;
+const DAY_MS = 86_400_000;
+
+type Loaded =
+  | { kind: 'unconfigured' }
+  | { kind: 'invalid'; errors: string[] }
+  | { kind: 'ok'; snapshot: Snapshot; ageDays: number };
+
+async function loadSnapshot(): Promise<Loaded> {
+  const path = process.env.SCALING_SNAPSHOT_PATH;
+  if (!path) return { kind: 'unconfigured' };
+  try {
+    const result = parseSnapshot(JSON.parse(await readFile(path, 'utf8')));
+    if (!result.ok) return { kind: 'invalid', errors: result.errors };
+    const ageDays = Math.floor((Date.now() - Date.parse(result.snapshot.collectedAt)) / DAY_MS);
+    return { kind: 'ok', snapshot: result.snapshot, ageDays };
+  } catch (error) {
+    return { kind: 'invalid', errors: [error instanceof Error ? error.message : String(error)] };
+  }
+}
+
+export default async function ScalingPage() {
+  const loaded = await loadSnapshot();
+  if (loaded.kind === 'unconfigured') {
+    return (
+      <EmptyState
+        title="No scaling snapshot configured"
+        description="Set SCALING_SNAPSHOT_PATH to a reviewed snapshot file (validate it with npm run scaling:check)."
+      />
+    );
+  }
+  if (loaded.kind === 'invalid') {
+    return (
+      <EmptyState
+        title="Scaling snapshot could not be loaded"
+        description={<span className="whitespace-pre-line font-mono text-[13px]">{loaded.errors.join('\n')}</span>}
+      />
+    );
+  }
+
+  const { snapshot, ageDays } = loaded;
+  return (
+    <div className="flex flex-col gap-10 pb-8">
+      <header className="flex flex-col gap-3">
+        <Text as="h1" variant="title2">Scaling scorecard · {snapshot.network}</Text>
+        <Text variant="label.regular" tone="muted">
+          As of {formatTime(snapshot.collectedAt)} ({ageDays === 0 ? 'today' : `${ageDays}d old`}) · manually refreshed
+          snapshot, not live data. {snapshot.context}
+        </Text>
+        {ageDays > STALE_AFTER_DAYS ? (
+          <Banner>Stale: this snapshot is older than {STALE_AFTER_DAYS} days. Refresh it before using these numbers.</Banner>
+        ) : null}
+      </header>
+
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {snapshot.headline.map((m) => (
+          <Card key={m.label} className="flex flex-col gap-1 bg-background p-4 dark:bg-white/5">
+            <Text variant="label" tone="muted">{m.label}</Text>
+            <Value metric={m} large />
+            <MetricDetails metric={m} snapshot={snapshot} />
+          </Card>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+const STATUS_LABEL = { observed: '', partial: 'Partial', unavailable: 'Unavailable', 'not-measured': 'Not measured' };
+
+function Value({ metric, large = false }: { metric: Metric; large?: boolean }) {
+  if (metric.value === null) {
+    return (
+      <span className="w-fit rounded-md border border-dashed border-bds-gray-40 px-2 py-0.5 text-[13px] text-bds-gray-60">
+        {STATUS_LABEL[metric.status]}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-baseline gap-2">
+      <Text as="span" variant={large ? 'title2' : 'label.mono'}>
+        {metric.value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+        {metric.unit ? <span className="ml-1 text-bds-gray-60">{metric.unit}</span> : null}
+      </Text>
+      {metric.status === 'partial' ? <span className="text-[12px] text-bds-yellow-70">Partial</span> : null}
+    </span>
+  );
+}
+
+function MetricDetails({ metric, snapshot }: { metric: Metric; snapshot: Snapshot }) {
+  const window = metric.window ? snapshot.windows[metric.window] : null;
+  return (
+    <details className="text-[13px] text-bds-gray-60">
+      <summary className="cursor-pointer select-none">{window ? window.label : 'No measurement yet'} · details</summary>
+      <div className="mt-1 flex flex-col gap-1">
+        {window ? <p>{formatTime(window.start)} → {formatTime(window.end)}</p> : null}
+        <p>{metric.note}</p>
+        {metric.query ? <code className="break-all font-mono text-[12px]">{metric.query}</code> : null}
+        {metric.source ? <ExternalLink link={metric.source} /> : null}
+      </div>
+    </details>
+  );
+}
+
+function ExternalLink({ link }: { link: { label: string; url: string } }) {
+  return (
+    <a className="w-fit underline" href={link.url} target="_blank" rel="noreferrer">
+      {link.label}
+    </a>
+  );
+}
+
+function formatTime(iso: string): string {
+  return `${new Date(iso).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}

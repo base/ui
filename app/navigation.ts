@@ -1,8 +1,9 @@
 import { BENCHMARK_ENABLED } from './benchmark/flag';
 import { EXPLORER_ENABLED, EXPLORER_LABEL } from './internal-explorer/flag';
+import { SCALING_ENABLED } from './scaling/flag';
 import { demoBreadcrumb } from './vibenet/demos/catalogue';
 
-export type NavIcon = 'home' | 'snapshots' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest';
+export type NavIcon = 'home' | 'snapshots' | 'vibenet' | 'overview' | 'demos' | 'faucet' | 'explorer' | 'internal-explorer' | 'benchmark' | 'runs' | 'loadtest' | 'scaling';
 
 export type NavChild = {
   label: string;
@@ -55,6 +56,8 @@ export const NAV_ITEMS: NavItem[] = [
         } as NavItem,
       ]
     : []),
+  // Scaling is internal-only (deploy.config.mjs). See app/scaling/flag.ts.
+  ...(SCALING_ENABLED ? [{ label: 'Scaling', href: '/scaling', icon: 'scaling', enabled: true } as NavItem] : []),
 ];
 
 /** Prefix match unless `exact` or the href is `/`. */
