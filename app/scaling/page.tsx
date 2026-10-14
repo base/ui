@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises';
+import Link from 'next/link';
 
 import { Banner } from '../components/ui/Banner';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
-import { parseSnapshot, type Metric, type Snapshot } from './snapshot.mjs';
+import { parseSnapshot, type Metric, type Snapshot, type WorkItem } from './snapshot.mjs';
 
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
@@ -73,6 +74,50 @@ export default async function ScalingPage() {
           </Card>
         ))}
       </section>
+
+      {snapshot.sections.map((section) => (
+        <section key={section.id} className="flex flex-col gap-3">
+          <div>
+            <Text as="h2" variant="headline">{section.title}</Text>
+            <Text variant="label.regular" tone="muted">{section.summary}</Text>
+          </div>
+          <Card className="divide-y divide-bds-gray-10 bg-background dark:divide-white/10 dark:bg-white/5">
+            {section.metrics.map((m) => (
+              <div key={m.label} className="flex flex-col gap-1 px-4 py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <Text variant="label">{m.label}</Text>
+                  <Value metric={m} />
+                </div>
+                <MetricDetails metric={m} snapshot={snapshot} />
+              </div>
+            ))}
+          </Card>
+          {section.gaps.length > 0 ? (
+            <div className="rounded-lg border border-dashed border-bds-gray-10 px-4 py-3 dark:border-white/10">
+              <Text variant="label" tone="muted">Missing evidence</Text>
+              <ul className="mt-1 list-disc pl-5 text-[13px] text-bds-gray-60">
+                {section.gaps.map((gap) => <li key={gap}>{gap}</li>)}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ))}
+
+      <section className="flex flex-col gap-3">
+        <Text as="h2" variant="headline">What we&apos;re working on</Text>
+        {snapshot.work.length === 0 ? (
+          <EmptyState description="No current work supplied for this snapshot." />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {snapshot.work.map((w) => <WorkCard key={w.title} item={w} />)}
+          </div>
+        )}
+      </section>
+
+      <Text variant="label.regular" tone="muted">
+        Experiment results: <Link className="underline" href="/benchmark/run">Benchmarks</Link> ·{' '}
+        <Link className="underline" href="/benchmark/load-tests">Load tests</Link>
+      </Text>
     </div>
   );
 }
@@ -110,6 +155,27 @@ function MetricDetails({ metric, snapshot }: { metric: Metric; snapshot: Snapsho
         {metric.source ? <ExternalLink link={metric.source} /> : null}
       </div>
     </details>
+  );
+}
+
+function WorkCard({ item }: { item: WorkItem }) {
+  const rows = [
+    ['Hypothesis', item.hypothesis],
+    ['Change', item.change],
+    ['Expected impact', item.impact],
+    ['Evidence needed', item.evidence],
+  ];
+  return (
+    <Card className="flex flex-col gap-2 bg-background p-4 text-[13px] dark:bg-white/5">
+      <Text variant="label">{item.title}</Text>
+      <Text variant="footnote" tone="muted">{item.status} · {item.owner ?? 'No owner assigned'}</Text>
+      {rows.map(([term, text]) => (
+        <p key={term}><span className="text-bds-gray-60">{term}:</span> {text}</p>
+      ))}
+      <div className="flex flex-wrap gap-3">
+        {item.links.map((l) => <ExternalLink key={l.url} link={l} />)}
+      </div>
+    </Card>
   );
 }
 
