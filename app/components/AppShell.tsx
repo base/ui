@@ -265,6 +265,12 @@ function NavGlyph({ name }: NavGlyphProps) {
           <path d="M3 12h3.5l2.5-6 4 12 2.5-6H21" />
         </svg>
       );
+    case 'scaling':
+      return (
+        <svg {...common} strokeWidth={1.8}>
+          <path d="M4 18a8 8 0 1 1 16 0M12 18l4-6" strokeLinecap="round" />
+        </svg>
+      );
     default:
       return null;
   }
