@@ -285,7 +285,7 @@ const RunList = ({
   };
 
   return (
-    <div className="p-6 overflow-x-auto flex-grow border-slate-200">
+    <div className="min-w-0 py-6 sm:p-6 flex-grow border-slate-200">
       {groupedSections.map((section) => {
         const isExpanded = expandedSections.has(section.key);
         const statusCounts = groupBy(section.runs, "status");
@@ -301,9 +301,9 @@ const RunList = ({
 
         return (
           <div key={section.key} className="mb-4">
-            <div className="flex items-center gap-4 w-full">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
               <button
-                className="flex items-center gap-4 flex-1 text-left p-2 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="flex items-center gap-4 min-w-0 w-full sm:flex-1 text-left p-2 rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 onClick={() => toggleSection(section.key)}
               >
                 <span className="inline-flex items-center justify-center w-6 h-6 text-slate-700">
@@ -318,7 +318,7 @@ const RunList = ({
                   </svg>
                 </span>
                 <div className="flex-1">
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     <span className="text-xl font-medium text-slate-900">
                       {formatValue(gasPerSecond, "gas/s")}
                     </span>
@@ -349,6 +349,7 @@ const RunList = ({
                     <MachineInfo machineInfo={section.runs[0]?.machineInfo} />
                   </div>
                 )}
+                <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead className="bg-slate-50">
                     <tr>
@@ -425,6 +426,7 @@ const RunList = ({
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </div>

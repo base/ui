@@ -124,7 +124,7 @@ const ChartSelector = ({
   }, [matchedRuns, filterSelections.byMetric, role, onChangeDataQuery]);
 
   return (
-    <div className="flex items-start">
+    <div className="flex flex-col sm:flex-row items-start gap-4">
       <div className="flex flex-wrap gap-4 pb-4 items-center flex-grow">
         <div>
           <div className="text-sm text-slate-500 mb-1">Show Line Per</div>
@@ -173,7 +173,7 @@ const ChartSelector = ({
       </div>
       <Link
         href={runHref(benchmarkRunId)}
-        className="px-4 py-2 bg-slate-100 text-slate-900 rounded hover:bg-slate-200 transition-colors flex items-center gap-2 flex-shrink-0 ml-4"
+        className="px-4 py-2 bg-slate-100 text-slate-900 rounded hover:bg-slate-200 transition-colors flex items-center gap-2 flex-shrink-0 sm:ml-4"
       >
         <span role="img" aria-label="Blocks">
           🔍

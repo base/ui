@@ -18,7 +18,6 @@ interface BaseChartProps {
 }
 
 const TOP_MARGIN = 20;
-const ASPECT_RATIO = 0.5;
 const LEGEND_SPACE = 20;
 const X_AXIS_SPACE = 60;
 const Y_AXIS_SPACE = 40;
@@ -53,7 +52,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
     const updateDimensions = () => {
       if (wrapperRef.current) {
         const width = wrapperRef.current.offsetWidth;
-        const height = width * ASPECT_RATIO;
+        const height = wrapperRef.current.offsetHeight;
         // Ensure minimum dimensions after margin calculation
         const calculatedWidth = Math.max(
           100,
