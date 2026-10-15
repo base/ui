@@ -4,6 +4,7 @@ import { PropsWithChildren } from 'react';
 import localFont from 'next/font/local';
 import { Roboto_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
+import { TARGET } from '../deploy.config.mjs';
 
 import { AppShell } from './components/AppShell';
 
@@ -76,7 +77,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
       </head>
       <body>
         <AppShell>{children}</AppShell>
-        <Analytics />
+        {TARGET === 'external' ? <Analytics /> : null}
       </body>
     </html>
   );
