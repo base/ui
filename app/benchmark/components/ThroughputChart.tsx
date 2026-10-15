@@ -86,7 +86,7 @@ const ThroughputChart = ({
       )
       .call((sel) => sel.select(".domain").remove())
       .selectAll("line")
-      .attr("stroke", "#e2e8f0")
+      .attr("stroke", "var(--bds-gray-10)")
       .attr("stroke-dasharray", "2,3");
 
     g.append("g")
@@ -97,9 +97,9 @@ const ThroughputChart = ({
           .ticks(6)
           .tickFormat((d) => `${d}s`),
       )
-      .call((sel) => sel.select(".domain").attr("stroke", "#cbd5e1"))
+      .call((sel) => sel.select(".domain").attr("stroke", "var(--bds-gray-20)"))
       .selectAll("text")
-      .attr("fill", "#64748b")
+      .attr("fill", "var(--bds-gray-60)")
       .attr("font-size", 11);
 
     g.append("g")
@@ -109,7 +109,7 @@ const ThroughputChart = ({
           .ticks(5)
           .tickFormat((d) => `${(d as number).toFixed(0)}`),
       )
-      .call((sel) => sel.select(".domain").attr("stroke", "#cbd5e1"))
+      .call((sel) => sel.select(".domain").attr("stroke", "var(--bds-gray-20)"))
       .selectAll("text")
       .attr("fill", TPS_COLOR)
       .attr("font-size", 11);
@@ -131,7 +131,7 @@ const ThroughputChart = ({
           .ticks(5)
           .tickFormat((d) => `${((d as number) / 1e6).toFixed(0)}M`),
       )
-      .call((sel) => sel.select(".domain").attr("stroke", "#cbd5e1"))
+      .call((sel) => sel.select(".domain").attr("stroke", "var(--bds-gray-20)"))
       .selectAll("text")
       .attr("fill", GPS_COLOR)
       .attr("font-size", 11);

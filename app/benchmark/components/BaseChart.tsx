@@ -125,7 +125,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
         .attr("y", -TOP_MARGIN)
         .attr("text-anchor", "middle")
         .style("font-size", "12px")
-        .style("fill", "#666")
+        .style("fill", "var(--bds-gray-60)")
         .text(description);
     }
 
@@ -137,7 +137,7 @@ const BaseChart: React.FC<BaseChartProps> = ({
   return (
     <div className="chart-wrapper" ref={wrapperRef}>
       {/* Render SVG only when dimensions are known */}
-      {dimensions && <svg ref={svgRef}></svg>}
+      {dimensions && <svg ref={svgRef} fill="currentColor"></svg>}
     </div>
   );
 };

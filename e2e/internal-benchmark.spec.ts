@@ -47,3 +47,43 @@ test('comparison charts fit a narrow viewport', async ({ page }) => {
   const legend = (await chart.locator('.legend').boundingBox())!;
   expect(legend.y + legend.height).toBeLessThanOrEqual(svg.y + svg.height);
 });
+
+test.describe('dark theme', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test('run panels and portaled downloads follow the theme switch', async ({ page }) => {
+    await page.goto('/benchmark/run/latest');
+    const root = page.locator('.benchmark-root');
+    const light = await root.evaluate((el) => getComputedStyle(el).backgroundColor);
+    await page.getByRole('switch', { name: 'Dark mode' }).click();
+    await expect(root).toHaveCSS('background-color', 'rgb(17, 17, 17)');
+    await page.locator('button[aria-label="Download all run information"]').click();
+    const menu = page.getByRole('button', { name: 'Download All as JSON' }).locator('../..');
+    await expect(menu).toHaveCSS('background-color', 'rgb(38, 38, 38)');
+    await page.keyboard.press('Escape');
+    await page.getByRole('switch', { name: 'Dark mode' }).click();
+    await expect(root).toHaveCSS('background-color', light);
+    await page.getByRole('switch', { name: 'Dark mode' }).click();
+  });
+
+  test('chart labels remain readable after switching themes', async ({ page }) => {
+    await page.goto('/benchmark/run-comparison/example');
+    const chart = page.locator('.chart-container').first();
+    await expect(chart).toBeVisible();
+    await page.getByRole('switch', { name: 'Dark mode' }).click();
+    await expect(chart).toHaveCSS('background-color', 'rgb(38, 38, 38)');
+    await expect(chart.locator('.x-axis-label')).toHaveCSS('fill', 'rgb(255, 255, 255)');
+    await expect(chart.locator('svg > g > text').first()).toHaveCSS('fill', 'rgb(255, 255, 255)');
+  });
+
+  test('load-test tables follow the selected theme', async ({ page }) => {
+    await page.route('**/api/v1/load-tests/sepolia', (route) => route.fulfill({
+      json: [{ network: 'sepolia', timestamp: '2026-01-01T00-00-00' }],
+    }));
+    await page.goto('/benchmark/load-tests/sepolia/all');
+    await expect(page.getByRole('link', { name: 'View →' })).toBeVisible();
+    await page.getByRole('switch', { name: 'Dark mode' }).click();
+    await expect(page.locator('table').locator('..')).toHaveCSS('background-color', 'rgb(38, 38, 38)');
+    await expect(page.getByRole('heading', { name: 'All load test runs' })).toHaveCSS('color', 'rgb(255, 255, 255)');
+  });
+});

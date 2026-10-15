@@ -89,3 +89,87 @@
 .benchmark-root .bar:hover {
   cursor: pointer;
 }
+
+[data-theme='dark'] .benchmark-root {
+  color-scheme: dark;
+  background: var(--bds-gray-0);
+  color: var(--bds-gray-100);
+}
+
+[data-theme='dark'] :is(.benchmark-root .chart-container, .benchmark-menu) {
+  background: var(--bds-gray-5);
+  border-color: var(--bds-gray-15);
+  color: var(--bds-gray-100);
+}
+
+[data-theme='dark'] :is(.benchmark-root, .benchmark-menu) :is(.bg-white, .bg-slate-50) {
+  background-color: var(--bds-gray-5);
+}
+
+[data-theme='dark'] :is(.benchmark-root, .benchmark-menu) .bg-slate-100 {
+  background-color: var(--bds-gray-10);
+}
+
+[data-theme='dark'] :is(.benchmark-root, .benchmark-menu) :is(.bg-slate-200, .hover\:bg-slate-50:hover, .hover\:bg-slate-200:hover, .hover\:bg-slate-300:hover) {
+  background-color: var(--bds-gray-15);
+}
+
+[data-theme='dark'] :is(.benchmark-root, .benchmark-menu) :is(.border-slate-100, .border-slate-200, .border-slate-300) {
+  border-color: var(--bds-gray-15);
+}
+
+[data-theme='dark'] :is(.benchmark-root, .benchmark-menu) .text-slate-900 {
+  color: var(--bds-gray-100);
+}
+
+[data-theme='dark'] :is(.benchmark-root, .benchmark-menu) :is(.text-slate-600, .text-slate-700) {
+  color: var(--bds-gray-70);
+}
+
+[data-theme='dark'] :is(.benchmark-root, .benchmark-menu) :is(.text-slate-400, .text-slate-500, .text-gray-500) {
+  color: var(--bds-gray-50);
+}
+
+[data-theme='dark'] .benchmark-root :is(.bg-blue-50, .hover\:bg-blue-100:hover) {
+  background-color: var(--bds-blue-5);
+}
+
+[data-theme='dark'] .benchmark-root :is(.text-blue-500, .text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900) {
+  color: var(--bds-blue-70);
+}
+
+[data-theme='dark'] .benchmark-root :is(.bg-emerald-50, .hover\:bg-emerald-100:hover) {
+  background-color: var(--bds-green-5);
+}
+
+[data-theme='dark'] .benchmark-root :is(.text-emerald-700, .text-emerald-900) {
+  color: var(--bds-green-70);
+}
+
+[data-theme='dark'] .benchmark-root .bg-amber-50 {
+  background-color: var(--bds-yellow-5);
+}
+
+[data-theme='dark'] .benchmark-root :is(.text-amber-700, .text-yellow-600) {
+  color: var(--bds-yellow-70);
+}
+
+[data-theme='dark'] .benchmark-root .bg-red-50 {
+  background-color: var(--bds-red-5);
+}
+
+[data-theme='dark'] .benchmark-root :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) {
+  color: var(--bds-red-70);
+}
+
+[data-theme='dark'] .benchmark-root .border-red-200 {
+  border-color: var(--bds-red-20);
+}
+
+[data-theme='dark'] .benchmark-root .axis text {
+  fill: var(--bds-gray-60);
+}
+
+[data-theme='dark'] .benchmark-root :is(.axis path, .axis line, .grid line) {
+  stroke: var(--bds-gray-15);
+}
