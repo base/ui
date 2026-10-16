@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Text } from '../../components/ui/Text';
-import { AREAS, CeilingCard } from '../components/CeilingCards';
+import { AREAS } from '../components/CeilingCards';
+import { RelatedRuns } from '../components/RelatedRuns';
+import { RunBackedCeilingCard } from '../components/RunBackedCeilingCard';
 import { SectionTable } from '../components/SectionTable';
 import { Header, loadSnapshot, Unavailable } from '../loadSnapshot';
 
@@ -22,14 +24,14 @@ export default async function ScalingAreaPage({ params }: { params: Promise<{ ar
       <Header loaded={loaded} title={`${entry[1]} · ${snapshot.network}`} crumb={entry[1]} />
       <section className="flex flex-col gap-3">
         <Text as="h2" variant="headline">Ceiling <span className="text-bds-gray-60">· Mgas/s</span></Text>
-        <CeilingCard area={entry[0]} ceilings={snapshot.ceilings} />
+        <RunBackedCeilingCard area={entry[0]} ceilings={snapshot.ceilings} />
       </section>
       {section ? (
         <SectionTable section={section} windows={snapshot.windows} />
       ) : (
         <EmptyState title="No detailed metrics yet" description="This snapshot has no metrics for this area." />
       )}
-      <EmptyState title="Related runs" description="Benchmark and load-test runs for this area land here later." />
+      <RelatedRuns area={entry[0]} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Text } from '../../components/ui/Text';
 import type { WorkItem } from '../snapshot.mjs';
 import { Info } from './Info';
+import { RunEvidence } from './RunEvidence';
 import { Tag } from './Tag';
 
 export function Progress({ work }: { work: WorkItem[] }) {
@@ -52,6 +53,7 @@ function Row({ item: w }: { item: WorkItem }) {
       ) : null}
       <p><span className="text-bds-gray-60">Expected:</span> {w.expected ?? 'Not estimated'}</p>
       {w.evidence && w.realized ? <p><span className="text-bds-gray-60">Realized:</span> {w.realized}</p> : null}
+      {w.evidence ? <RunEvidence url={w.evidence.url} /> : null}
       <div className="flex flex-wrap gap-3">
         {[w.evidence, l && { label: 'Linear', url: l.url }, ...w.links].map((link) => link ? (
           <a key={link.url} className="w-fit underline" href={link.url} target="_blank" rel="noreferrer">{link.label}</a>
