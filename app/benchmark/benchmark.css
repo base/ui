@@ -14,14 +14,13 @@
    * `styles.contentInner` in app/components/AppShell.tsx (padding 24px 28px 80px). */
   margin: -24px -28px -80px;
   padding: 24px 28px 80px;
-  min-width: 0;
   background: #f8fafc;
   color: #333;
 }
 
 .benchmark-root .charts-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 500px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
   gap: 20px;
 }
 
@@ -35,8 +34,8 @@
 
 .benchmark-root .chart-wrapper {
   width: 100%;
-  aspect-ratio: 2;
-  min-height: 240px;
+  height: 0;
+  padding-bottom: 50%; /* Maintain aspect ratio */
   position: relative;
 }
 
