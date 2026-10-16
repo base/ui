@@ -20,9 +20,24 @@ sections like Internal Explorer are absent (their routes/API 404). Use `npm run 
 to run the **internal** build locally with those sections visible. See
 [Deployment targets](#deployment-targets).
 
+### Local development with Just
+
+With Node 24, dependencies installed, and [Just](https://just.systems):
+
+```sh
+just dev   # Public UI at http://localhost:3000
+just       # List commands
+```
+
+`just dev` uses hot reload, binds to `127.0.0.1`, and selects the external target
+even if `.env.local` or your shell requests internal. Stop it with Ctrl-C.
+Internal development and private data are configured by the internal deployment
+repo; the existing npm commands remain available.
+
 ## Scripts
 
 - `npm run dev` — dev server (external target)
+- `npm run dev:public` — dev server with the external target explicitly selected
 - `npm run dev:internal` — dev server with internal-only sections (e.g. Internal Explorer)
 - `npm run build` — production build (external target)
 - `npm run build:internal` — production build with internal-only sections

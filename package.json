@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "dev:public": "NEXT_PUBLIC_DEPLOY_TARGET=external next dev",
     "dev:internal": "NEXT_PUBLIC_DEPLOY_TARGET=internal next dev",
     "build": "next build",
     "build:internal": "NEXT_PUBLIC_DEPLOY_TARGET=internal next build",
