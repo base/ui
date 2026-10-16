@@ -1,4 +1,4 @@
-import { ChartConfig, RustDuration } from "../types";
+import { ChartConfig, LoadTestConfig, RustDuration } from "./types";
 
 const PREFIXES = {
   "": 1,
@@ -226,4 +226,28 @@ export const camelToTitleCase = (str: string) => {
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+};
+
+const percent = (value: number): string => `${Math.round(value * 100)}%`;
+
+export const formatTransactions = (
+  config: Pick<LoadTestConfig, "transactions" | "fresh_recipient_ratio">,
+): string => {
+  const txs = config.transactions;
+  if (!txs || txs.length === 0) return "—";
+  const total = txs.reduce((acc, t) => acc + t.weight, 0);
+  if (total === 0) return txs.map((t) => t.type).join(" · ");
+
+  const freshRecipientRatio = config.fresh_recipient_ratio ?? 0;
+  return txs
+    .map((t) => {
+      if (t.type === "transfer" && freshRecipientRatio >= 1) {
+        return `account-create (${percent(t.weight / total)})`;
+      }
+      if (t.type === "transfer" && freshRecipientRatio > 0) {
+        return `${t.type} (${percent(t.weight / total)}, ${percent(freshRecipientRatio)} account-create)`;
+      }
+      return `${t.type} (${percent(t.weight / total)})`;
+    })
+    .join(" · ");
 };

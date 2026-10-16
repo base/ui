@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { camelToTitleCase, formatLabel } from "../utils/formatters";
+import { camelToTitleCase, formatLabel } from "../../scaling/runs/lib/formatters";
 import { FilterValue } from "../filter";
-import { BenchmarkRunWithStatus } from "../types";
+import { BenchmarkRunWithStatus } from "../../scaling/runs/lib/types";
 import { downloadAllRuns, downloadAllRunsCSV } from "../utils/downloadUtils";
 import Select from "./Select";
 import FloatingDropdown from "./FloatingDropdown";

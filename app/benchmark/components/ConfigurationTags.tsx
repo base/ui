@@ -1,5 +1,5 @@
-import { formatValue, formatLabel } from "../utils/formatters";
-import { camelToTitleCase } from "../utils/formatters";
+import { formatValue, formatLabel } from "../../scaling/runs/lib/formatters";
+import { camelToTitleCase } from "../../scaling/runs/lib/formatters";
 
 interface ConfigurationTagsProps {
   testConfig: Record<string, unknown>;

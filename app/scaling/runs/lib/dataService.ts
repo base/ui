@@ -5,7 +5,7 @@ import {
   LoadTestEntry,
   LoadTestResult,
   MetricData,
-} from "../types";
+} from "./types";
 
 // Load-test endpoints live under the versioned API prefix, unlike benchmark
 // data which uses the legacy unversioned `output/` paths. Centralized here so

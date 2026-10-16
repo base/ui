@@ -15,7 +15,7 @@
  *   label: string, status: MetricStatus, value: number | null, unit: string,
  *   window: string | null, note: string, query?: string, source?: Link
  * }} Metric
- * @typedef {{ id: string, title: string, summary: string, metrics: Metric[], gaps: string[] }} Section
+ * @typedef {{ id: Area | 'outcomes', title: string, summary: string, metrics: Metric[], gaps: string[] }} Section
  * @typedef {{ value: number | null, unit: 'Mgas/s', tag: Tag, window: string | null, source?: Link, help: string }} Rung
  * @typedef {{ observed: { p50: Rung, p99: Rung }, operatingPoint: Rung, configuredLimit: Rung, qualified: Rung }} Ladder
  * @typedef {{
@@ -53,6 +53,8 @@ const STATUSES = ['observed', 'partial', 'unavailable', 'not-measured'];
 const TAGS = ['measured', 'modeled', 'estimated', 'not-measured', 'not-modeled', 'not-established'];
 const VALUED_TAGS = ['measured', 'modeled', 'estimated'];
 const AREAS = ['da', 'execution', 'state', 'networking'];
+// Each section renders on its area page, or on the guardrails page for outcomes.
+const SECTION_IDS = [...AREAS, 'outcomes'];
 const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
 const DAY_MS = 86_400_000;
 const V1_MESSAGE =
@@ -216,7 +218,8 @@ export function parseSnapshot(data) {
   list(data, 'sections', 'snapshot').forEach((s, i) => {
     const path = `sections[${i}]`;
     if (!isObj(s)) return fail(path, 'expected object');
-    for (const key of ['id', 'title', 'summary']) str(s, key, path);
+    for (const key of ['title', 'summary']) str(s, key, path);
+    oneOf(s, 'id', path, SECTION_IDS);
     if (ids.has(s.id)) fail(`${path}.id`, 'duplicate');
     ids.add(s.id);
     list(s, 'metrics', path).forEach((m, j) => metric(m, `${path}.metrics[${j}]`));

@@ -1,4 +1,4 @@
-import { BenchmarkRunWithStatus } from "../types";
+import { BenchmarkRunWithStatus } from "../../scaling/runs/lib/types";
 
 /**
  * Downloads run information as a JSON file

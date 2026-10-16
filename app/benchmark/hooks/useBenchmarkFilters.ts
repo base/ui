@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { deepEqual } from "../utils/collections";
-import { type BenchmarkRun } from "../types";
+import { type BenchmarkRun } from "../../scaling/runs/lib/types";
 import { useSearchParamsState } from "../utils/useSearchParamsState";
 import { getBenchmarkVariables } from "../filter";
 type FilterValue = string | number | boolean;

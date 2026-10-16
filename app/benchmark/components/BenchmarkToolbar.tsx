@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { useLoadTestList, useTestMetadata } from "../utils/useDataSeries";
 import { uniqBy } from "../utils/collections";
-import { formatLoadTestTimestamp } from "../utils/formatters";
+import { formatLoadTestTimestamp } from "../../scaling/runs/lib/formatters";
 import { loadTestHref } from "../routes";
 import Select from "./Select";
 

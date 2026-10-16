@@ -4,9 +4,9 @@ import {
   LoadTestEntry,
   LoadTestResult,
   MetricData,
-} from "../types";
+} from "../../scaling/runs/lib/types";
 import { useCallback } from "react";
-import { getDataService } from "../services/dataService";
+import { getDataService } from "../../scaling/runs/lib/dataService";
 
 // Fetch metrics data using the configured data service
 export const fetchMetrics = async (

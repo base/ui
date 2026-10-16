@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLoadTestList } from "../utils/useDataSeries";
-import { formatLoadTestTimestamp } from "../utils/formatters";
+import { formatLoadTestTimestamp } from "../../scaling/runs/lib/formatters";
 import { loadTestHref, loadTestsHref } from "../routes";
 
 interface ProvidedProps {

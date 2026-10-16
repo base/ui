@@ -1,4 +1,4 @@
-import { MachineInfo as MachineInfoType } from "../types";
+import { MachineInfo as MachineInfoType } from "../../scaling/runs/lib/types";
 
 interface MachineInfoProps {
   machineInfo?: MachineInfoType;

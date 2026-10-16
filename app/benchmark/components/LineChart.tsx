@@ -7,9 +7,9 @@ import React, {
   useMemo,
 } from "react";
 import * as d3 from "d3";
-import { DataSeries, MetricData, ChartConfig } from "../types";
+import { DataSeries, MetricData, ChartConfig } from "../../scaling/runs/lib/types";
 import BaseChart from "./BaseChart";
-import { formatValue, formatLabel } from "../utils/formatters";
+import { formatValue, formatLabel } from "../../scaling/runs/lib/formatters";
 import calculateTooltipLayout from "../hooks/useTooltipLayout";
 import useChartHoverSync, { ChartHoverEvent } from "../hooks/useChartHoverSync";
 import { deepEqual } from "../utils/collections";
