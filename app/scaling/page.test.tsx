@@ -17,6 +17,7 @@ it('links the first screen to five detail pages instead of listing metric rows',
   const html = renderToStaticMarkup(await ScalingPage());
   for (const page of ['da', 'execution', 'state', 'networking', 'guardrails']) expect(html).toContain(`href="/scaling/${page}"`);
   expect(html).not.toContain('Blob utilization');
+  expect(html).toContain('href="/scaling/runs"');
 });
 
 it('shows every metric row on its detail page', async () => {

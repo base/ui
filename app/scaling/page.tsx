@@ -18,7 +18,7 @@ export default async function ScalingPage() {
   const { snapshot } = loaded;
   return (
     <div className="flex flex-col gap-10 pb-8">
-      <Header loaded={loaded} title={`Scaling scorecard · ${snapshot.network}`} />
+      <Header loaded={loaded} title={`Scaling scorecard · ${snapshot.network}`} action={<Link className="underline" href="/scaling/runs">Runs →</Link>} />
 
       <Ladder ladder={snapshot.ladder} ceilings={snapshot.ceilings} translations={snapshot.translations} windows={snapshot.windows} />
       <CeilingCards ceilings={snapshot.ceilings} />

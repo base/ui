@@ -47,7 +47,7 @@ export function Unavailable({ loaded }: { loaded: Exclude<Loaded, { kind: 'ok' }
   );
 }
 
-export function Header({ loaded, title, crumb }: { loaded: Extract<Loaded, { kind: 'ok' }>; title: ReactNode; crumb?: string }) {
+export function Header({ loaded, title, crumb, action }: { loaded: Extract<Loaded, { kind: 'ok' }>; title: ReactNode; crumb?: string; action?: ReactNode }) {
   const { snapshot, ageDays, stale } = loaded;
   return (
     <header className="flex flex-col gap-3">
@@ -55,6 +55,7 @@ export function Header({ loaded, title, crumb }: { loaded: Extract<Loaded, { kin
         <Text variant="label.regular" tone="muted"><Link className="underline" href="/scaling">Scaling</Link> / {crumb}</Text>
       ) : null}
       <Text as="h1" variant="title2">{title}</Text>
+      {action}
       <Text variant="label.regular" tone="muted">
         As of {formatTime(snapshot.collectedAt)} ({ageDays === 0 ? 'today' : `${ageDays}d old`}) · manually refreshed
         snapshot, not live data. {snapshot.context}
