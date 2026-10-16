@@ -181,6 +181,32 @@
       "gaps": ["Confirmed drain"]
     },
     {
+      "id": "execution",
+      "title": "Execution",
+      "summary": "Synthetic block-building observations.",
+      "metrics": [
+        {
+          "label": "Block build time p90",
+          "status": "partial",
+          "value": 310,
+          "unit": "ms",
+          "window": "week",
+          "note": "Invented; sampled from one synthetic sequencer.",
+          "source": { "label": "Synthetic dashboard", "url": "https://example.com/synthetic/build-time" }
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "id": "state",
+      "title": "State",
+      "summary": "Synthetic state-size observations.",
+      "metrics": [
+        { "label": "Live state growth", "status": "unavailable", "value": null, "unit": "GB/day", "window": "week", "note": "Synthetic query timed out." }
+      ],
+      "gaps": ["Live state growth"]
+    },
+    {
       "id": "outcomes",
       "title": "User outcomes",
       "summary": "Synthetic user-facing results.",
