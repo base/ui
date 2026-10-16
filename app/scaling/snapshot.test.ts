@@ -55,14 +55,28 @@ describe('parseSnapshot', () => {
     expect(errorsOf(data)).toEqual([
       'ladder.operatingPoint.tag: expected one of measured, modeled, estimated, not-measured, not-modeled, not-established',
       'ceilings[1].area: expected one of da, execution, state, networking',
+      'snapshot.ceilings: missing execution',
       'work[0].area: expected one of da, execution, state, networking',
     ]);
   });
 
-  it('rejects a guardrail status without both a value and a threshold', () => {
+  it('rejects a missing ceiling area and a duplicate guardrail id', () => {
     const data = fixture();
+    data.ceilings.pop();
+    data.guardrails[1].id = data.guardrails[0].id;
+    expect(errorsOf(data)).toEqual(['snapshot.ceilings: missing networking', 'guardrails[1].id: duplicate']);
+  });
+
+  it('rejects a guardrail status that disagrees with its value and threshold', () => {
+    const data = fixture();
+    data.guardrails[0].status = 'breached';
+    data.guardrails[1].status = 'unknown';
     data.guardrails[3].status = 'ok';
-    expect(errorsOf(data)).toEqual(['guardrails[3].status: must be unknown without a value and threshold']);
+    expect(errorsOf(data)).toEqual([
+      'guardrails[0].status: expected ok for 42 <= 80',
+      'guardrails[1].status: expected breached for 99.5 >= 99.9',
+      'guardrails[3].status: must be unknown without a value and threshold',
+    ]);
   });
 
   it('rejects a realized effect without evidence', () => {

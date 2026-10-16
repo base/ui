@@ -160,11 +160,15 @@ export function parseSnapshot(data) {
       if (input.source !== undefined) link(input.source, `${p}.source`);
     });
   });
+  for (const area of AREAS) if (!areas.has(area)) fail('snapshot.ceilings', `missing ${area}`);
 
+  const guardrailIds = new Set();
   list(data, 'guardrails', 'snapshot').forEach((g, i) => {
     const path = `guardrails[${i}]`;
     if (!isObj(g)) return fail(path, 'expected object');
     for (const key of ['id', 'label', 'help']) str(g, key, path);
+    if (guardrailIds.has(g.id)) fail(`${path}.id`, 'duplicate');
+    guardrailIds.add(g.id);
     if (typeof g.unit !== 'string') fail(`${path}.unit`, 'expected string');
     for (const key of ['value', 'threshold']) {
       if (g[key] !== null && !Number.isFinite(g[key])) fail(`${path}.${key}`, 'expected number or null');
@@ -175,7 +179,12 @@ export function parseSnapshot(data) {
     nullableStr(g, 'owner', path);
     nullableDate(g, 'asOf', path);
     oneOf(g, 'status', path, ['ok', 'breached', 'unknown']);
-    if ((g.value === null || g.threshold === null) && g.status !== 'unknown') fail(`${path}.status`, 'must be unknown without a value and threshold');
+    if (g.value === null || g.threshold === null) {
+      if (g.status !== 'unknown') fail(`${path}.status`, 'must be unknown without a value and threshold');
+    } else if (Number.isFinite(g.value) && Number.isFinite(g.threshold)) {
+      const ok = g.comparator === '<=' ? g.value <= g.threshold : g.value >= g.threshold;
+      if (g.status !== (ok ? 'ok' : 'breached')) fail(`${path}.status`, `expected ${ok ? 'ok' : 'breached'} for ${g.value} ${g.comparator} ${g.threshold}`);
+    }
   });
 
   const translations = obj(data, 'translations', 'snapshot');
