@@ -22,9 +22,6 @@ yarn-error.log*
 .env*
 !.env.example
 
-# private local scorecard data
-/.local/scaling/
-
 # vercel
 .vercel
 
