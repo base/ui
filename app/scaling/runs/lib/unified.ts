@@ -34,7 +34,7 @@ function fromBench(run: BenchmarkRunWithStatus): UnifiedRun {
   // metadata.json records no block count, so a bench run's duration is unknown.
   return withQualifies({
     kind: 'bench',
-    href: `/scaling/runs/bench/${run.id}`,
+    href: `/scaling/runs/bench/${run.testConfig.BenchmarkRun}`,
     env: 'bench',
     network: null,
     timestamp: Date.parse(run.createdAt),

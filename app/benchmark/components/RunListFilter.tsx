@@ -5,7 +5,7 @@ import { useState } from "react";
 import { camelToTitleCase, formatLabel } from "../../scaling/runs/lib/formatters";
 import { FilterValue } from "../filter";
 import { BenchmarkRunWithStatus } from "../../scaling/runs/lib/types";
-import { downloadAllRuns, downloadAllRunsCSV } from "../utils/downloadUtils";
+import { downloadAllRuns, downloadAllRunsCSV } from "../../scaling/runs/lib/downloadUtils";
 import Select from "./Select";
 import FloatingDropdown from "./FloatingDropdown";
 import clsx from "classnames";
