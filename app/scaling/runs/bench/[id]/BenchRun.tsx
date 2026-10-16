@@ -16,7 +16,7 @@ import { getDataService } from '../../lib/dataService';
 import { downloadRunInfo, downloadRunInfoCSV } from '../../lib/downloadUtils';
 import { formatValue } from '../../lib/formatters';
 import { SORTED_CHART_CONFIG } from '../../lib/metricDefinitions';
-import { getTestRunsWithStatus, thresholdSummary, type BenchmarkRunWithStatus, type MetricData } from '../../lib/types';
+import { getTestRunsWithStatus, thresholdSummary, type BenchmarkRunWithStatus } from '../../lib/types';
 import { toUnifiedRun } from '../../lib/unified';
 
 const configLabel = ({ testConfig: c, outputDir }: BenchmarkRunWithStatus) =>
@@ -122,16 +122,10 @@ const ROLES = [
   { name: 'validator', stroke: 'stroke-bds-orange-50', dot: 'bg-bds-orange-50' },
 ];
 
-async function loadMetrics(outputDir: string): Promise<MetricData[][]> {
-  const settled = await Promise.allSettled(ROLES.map((r) => getDataService().getMetrics(outputDir, r.name)));
-  if (settled.every((r) => r.status === 'rejected')) throw (settled[0] as PromiseRejectedResult).reason;
-  return settled.map((r) => (r.status === 'fulfilled' ? r.value : []));
-}
-
 function Charts({ runs }: { runs: BenchmarkRunWithStatus[] }) {
   const [selected, setSelected] = useState(0);
   const run = runs[selected];
-  const { data, error } = useSWR(['scaling-bench-metrics', run.outputDir], () => loadMetrics(run.outputDir));
+  const { data, error } = useSWR(['scaling-bench-metrics', run.outputDir], () => Promise.all(ROLES.map((r) => getDataService().getMetrics(run.outputDir, r.name))));
   const groups = CHART_GROUPS.map(([group, metrics]) => [group, metrics.map((key) => {
     const config = CONFIG.get(key)!;
     const keys = [key, ...(config.aliases ?? [])];

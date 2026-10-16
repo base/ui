@@ -52,6 +52,15 @@ it('charts sequencer and validator by stage with only the first stage open', () 
   expect(groups[3]).toContain('No data for this stage in this run.');
 });
 
+it('reports a failed metrics fetch instead of drawing partial charts', () => {
+  const saved = swr.metrics;
+  swr.metrics = { error: new Error('Failed to fetch metrics: 500') };
+  const html = renderToStaticMarkup(<BenchRun id="test-synthetic-1" />);
+  swr.metrics = saved;
+  expect(html).toContain('Metrics could not be loaded: Failed to fetch metrics: 500');
+  expect(html).not.toContain('<details');
+});
+
 it('assigns every metric to exactly one stage', () => {
   const assigned = CHART_GROUPS.flatMap(([, metrics]) => metrics);
   expect(assigned.toSorted()).toEqual(SORTED_CHART_CONFIG.map(([key]) => key).toSorted());
