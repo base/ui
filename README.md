@@ -20,9 +20,43 @@ sections like Internal Explorer are absent (their routes/API 404). Use `npm run 
 to run the **internal** build locally with those sections visible. See
 [Deployment targets](#deployment-targets).
 
+### Short development commands
+
+With Node 24, dependencies installed, and [Just](https://just.systems) 1.31 or newer:
+
+```sh
+just internal dev   # Entire internal UI, including Scaling and Benchmark
+just public dev     # Public UI
+just                # List development targets
+```
+
+Both commands use hot reload and bind to `127.0.0.1`. Stop one with Ctrl-C before
+starting the other in the same checkout. They select the target explicitly, even
+if `.env.local` or your shell sets a different `NEXT_PUBLIC_DEPLOY_TARGET`.
+
+For the internal scorecard, place a reviewed metrics JSON file or symlink at
+`.local/scaling/mainnet.json`, relative to the repo root. This directory is
+gitignored; never commit real measurements or put them in `public/`. For example:
+
+```sh
+mkdir -p .local/scaling
+ln -s /path/to/private/mainnet.json .local/scaling/mainnet.json
+npm run scaling:check -- .local/scaling/mainnet.json
+```
+
+`just internal dev` selects this local file instead of any configured
+`SCALING_SNAPSHOT_PATH`. If the file is absent at startup, the UI still starts and
+Scaling shows its unconfigured state; restart after adding the file.
+Other pages retain their existing configuration.
+Metrics snapshots are manually collected observations, not blockchain-state
+snapshots or live queries. Refresh the browser after editing the JSON; these
+commands do not collect new measurements. Use `npm run dev:internal` directly
+to keep using a custom `SCALING_SNAPSHOT_PATH`.
+
 ## Scripts
 
 - `npm run dev` — dev server (external target)
+- `npm run dev:public` — dev server with the external target explicitly selected
 - `npm run dev:internal` — dev server with internal-only sections (e.g. Internal Explorer)
 - `npm run build` — production build (external target)
 - `npm run build:internal` — production build with internal-only sections
