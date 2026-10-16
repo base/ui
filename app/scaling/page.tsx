@@ -6,7 +6,8 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
-import { isStale, parseSnapshot, type Ladder, type Metric, type Rung, type Snapshot, type WorkItem } from './snapshot.mjs';
+import { Ladder } from './components/Ladder';
+import { isStale, parseSnapshot, type Metric, type Snapshot, type WorkItem } from './snapshot.mjs';
 
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
@@ -66,15 +67,7 @@ export default async function ScalingPage() {
         ) : null}
       </header>
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {headline(snapshot.ladder).map((m) => (
-          <Card key={m.label} className="flex flex-col gap-1 bg-background p-4 dark:bg-white/5">
-            <Text variant="label" tone="muted">{m.label}</Text>
-            <Value metric={m} large />
-            <MetricDetails metric={m} snapshot={snapshot} />
-          </Card>
-        ))}
-      </section>
+      <Ladder ladder={snapshot.ladder} ceilings={snapshot.ceilings} translations={snapshot.translations} windows={snapshot.windows} />
 
       {snapshot.sections.map((section) => (
         <section key={section.id} className="flex flex-col gap-3">
@@ -123,26 +116,11 @@ export default async function ScalingPage() {
   );
 }
 
-type Shown = Omit<Metric, 'status'> & { status: string };
-
-function headline(ladder: Ladder): Shown[] {
-  const rungs: [string, Rung][] = [
-    ['Observed gas/s (p50)', ladder.observed.p50],
-    ['Operating point', ladder.operatingPoint],
-    ['Configured limit', ladder.configuredLimit],
-    ['Qualified sustained', ladder.qualified],
-  ];
-  return rungs.map(([label, r]) => ({
-    label, status: r.value === null ? r.tag : 'observed', value: r.value, unit: r.unit, window: r.window, note: r.help, source: r.source,
-  }));
-}
-
 const STATUS_LABEL: Record<string, string> = {
   observed: '', partial: 'Partial', unavailable: 'Unavailable', 'not-measured': 'Not measured',
-  'not-modeled': 'Not modeled', 'not-established': 'Not established',
 };
 
-function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
+function Value({ metric }: { metric: Metric }) {
   if (metric.value === null) {
     return (
       <span className="w-fit rounded-md border border-dashed border-bds-gray-40 px-2 py-0.5 text-[13px] text-bds-gray-60">
@@ -152,7 +130,7 @@ function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
   }
   return (
     <span className="flex items-baseline gap-2">
-      <Text as="span" variant={large ? 'title2' : 'label.mono'}>
+      <Text as="span" variant="label.mono">
         {metric.value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
         {metric.unit ? <span className="ml-1 text-bds-gray-60">{metric.unit}</span> : null}
       </Text>
@@ -161,7 +139,7 @@ function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
   );
 }
 
-function MetricDetails({ metric, snapshot }: { metric: Shown; snapshot: Snapshot }) {
+function MetricDetails({ metric, snapshot }: { metric: Metric; snapshot: Snapshot }) {
   const window = metric.window ? snapshot.windows[metric.window] : null;
   return (
     <details className="text-[13px] text-bds-gray-60">
