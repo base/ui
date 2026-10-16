@@ -6,7 +6,7 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
-import { parseSnapshot, type Metric, type Snapshot, type WorkItem } from './snapshot.mjs';
+import { parseSnapshot, type Ladder, type Metric, type Rung, type Snapshot, type WorkItem } from './snapshot.mjs';
 
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
@@ -66,7 +66,7 @@ export default async function ScalingPage() {
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {snapshot.headline.map((m) => (
+        {headline(snapshot.ladder).map((m) => (
           <Card key={m.label} className="flex flex-col gap-1 bg-background p-4 dark:bg-white/5">
             <Text variant="label" tone="muted">{m.label}</Text>
             <Value metric={m} large />
@@ -122,9 +122,26 @@ export default async function ScalingPage() {
   );
 }
 
-const STATUS_LABEL = { observed: '', partial: 'Partial', unavailable: 'Unavailable', 'not-measured': 'Not measured' };
+type Shown = Omit<Metric, 'status'> & { status: string };
 
-function Value({ metric, large = false }: { metric: Metric; large?: boolean }) {
+function headline(ladder: Ladder): Shown[] {
+  const rungs: [string, Rung][] = [
+    ['Observed gas/s (p50)', ladder.observed.p50],
+    ['Operating point', ladder.operatingPoint],
+    ['Configured limit', ladder.configuredLimit],
+    ['Qualified sustained', ladder.qualified],
+  ];
+  return rungs.map(([label, r]) => ({
+    label, status: r.value === null ? r.tag : 'observed', value: r.value, unit: r.unit, window: r.window, note: r.help, source: r.source,
+  }));
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  observed: '', partial: 'Partial', unavailable: 'Unavailable', 'not-measured': 'Not measured',
+  'not-modeled': 'Not modeled', 'not-established': 'Not established',
+};
+
+function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
   if (metric.value === null) {
     return (
       <span className="w-fit rounded-md border border-dashed border-bds-gray-40 px-2 py-0.5 text-[13px] text-bds-gray-60">
@@ -143,7 +160,7 @@ function Value({ metric, large = false }: { metric: Metric; large?: boolean }) {
   );
 }
 
-function MetricDetails({ metric, snapshot }: { metric: Metric; snapshot: Snapshot }) {
+function MetricDetails({ metric, snapshot }: { metric: Shown; snapshot: Snapshot }) {
   const window = metric.window ? snapshot.windows[metric.window] : null;
   return (
     <details className="text-[13px] text-bds-gray-60">
@@ -162,8 +179,8 @@ function WorkCard({ item }: { item: WorkItem }) {
   const rows = [
     ['Hypothesis', item.hypothesis],
     ['Change', item.change],
-    ['Expected impact', item.impact],
-    ['Evidence needed', item.evidence],
+    ['Expected impact', item.expected ?? 'Not estimated'],
+    ['Realized impact', item.realized ?? 'Not measured'],
   ];
   return (
     <Card className="flex flex-col gap-2 bg-background p-4 text-[13px] dark:bg-white/5">
@@ -173,6 +190,7 @@ function WorkCard({ item }: { item: WorkItem }) {
         <p key={term}><span className="text-bds-gray-60">{term}:</span> {text}</p>
       ))}
       <div className="flex flex-wrap gap-3">
+        {item.evidence ? <ExternalLink link={item.evidence} /> : null}
         {item.links.map((l) => <ExternalLink key={l.url} link={l} />)}
       </div>
     </Card>

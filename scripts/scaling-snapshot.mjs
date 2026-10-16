@@ -18,7 +18,7 @@ if (!result.ok) {
 }
 
 const { snapshot } = result;
-const metrics = [...snapshot.headline, ...snapshot.sections.flatMap((s) => s.metrics)];
+const metrics = snapshot.sections.flatMap((s) => s.metrics);
 const missing = metrics.filter((m) => m.value === null).length;
 console.log(
   `${file}: valid — ${snapshot.network}, collected ${snapshot.collectedAt}, ` +
