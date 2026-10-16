@@ -6,13 +6,13 @@ import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { deriveBinding, type Rung, type Snapshot } from '../snapshot.mjs';
 import { Info } from './Info';
+import { Tag } from './Tag';
 import { layoutRungs, type Anchor } from './ladderLayout';
 
 const LABEL_PX = 150;
 const ROW = 44;
 const AXIS = 12;
 const AREA_NAME = { da: 'DA', execution: 'execution', state: 'state', networking: 'networking' };
-const TAG_LABEL: Record<string, string> = { 'not-measured': 'Not measured', 'not-modeled': 'Not modeled', 'not-established': 'Not established' };
 const ALIGN: Record<Anchor, string> = { start: 'items-start text-left', middle: 'items-center text-center', end: 'items-end text-right' };
 const SHIFT: Record<Anchor, string> = { start: 'none', middle: 'translateX(-50%)', end: 'translateX(-100%)' };
 
@@ -95,7 +95,7 @@ export function Ladder(props: Props) {
         {all.filter((item) => !placed.has(item.id)).map((item) => (
           <li key={item.id} className="flex items-center gap-1.5">
             <span className="text-bds-gray-60">{item.label}</span>
-            <span className="rounded-md border border-dashed border-bds-gray-40 px-2 py-0.5 text-[12px] text-bds-gray-60">{TAG_LABEL[item.tag] ?? item.tag}</span>
+            <Tag tag={item.tag} />
             <Info label={`About ${item.label}`}>{item.help}</Info>
           </li>
         ))}

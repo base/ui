@@ -6,6 +6,8 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
+import { CeilingCards } from './components/CeilingCards';
+import { Guardrails } from './components/Guardrails';
 import { Ladder } from './components/Ladder';
 import { isStale, parseSnapshot, type Metric, type Snapshot, type WorkItem } from './snapshot.mjs';
 
@@ -68,6 +70,8 @@ export default async function ScalingPage() {
       </header>
 
       <Ladder ladder={snapshot.ladder} ceilings={snapshot.ceilings} translations={snapshot.translations} windows={snapshot.windows} />
+      <CeilingCards ceilings={snapshot.ceilings} />
+      <Guardrails guardrails={snapshot.guardrails} />
 
       {snapshot.sections.map((section) => (
         <section key={section.id} className="flex flex-col gap-3">
