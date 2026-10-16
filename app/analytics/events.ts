@@ -91,3 +91,9 @@ export function trackValidityRace(
 ): void {
   track('validity_race', { attempt, status });
 }
+
+// --- 200ms Reflex demo ---
+
+export function trackReflexRun(status: 'started' | 'human' | 'block' | 'tie' | 'error'): void {
+  track('reflex_run', { status });
+}
