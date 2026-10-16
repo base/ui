@@ -61,7 +61,7 @@ export function Ladder(props: Props) {
 
   return (
     <section className="flex flex-col gap-3">
-      <Text as="h2" variant="headline">Capacity ladder <span className="text-bds-gray-60">· Mgas/s, 0 to the configured limit</span></Text>
+      <Text as="h2" variant="headline">Capacity ladder <span className="text-bds-gray-60">· Mgas/s</span></Text>
       <div ref={axisRef} className="relative" style={{ height: (above + depth('below')) * ROW + AXIS }}>
         <div className="absolute inset-x-0 h-px bg-bds-gray-30 dark:bg-white/20" style={{ top: axisY }} />
         {all.map((item) => {
