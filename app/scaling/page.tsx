@@ -165,7 +165,9 @@ function MetricDetails({ metric, snapshot }: { metric: Shown; snapshot: Snapshot
   const window = metric.window ? snapshot.windows[metric.window] : null;
   return (
     <details className="text-[13px] text-bds-gray-60">
-      <summary className="cursor-pointer select-none">{window ? window.label : 'No measurement yet'} · details</summary>
+      <summary className="cursor-pointer select-none">
+        {window ? `${window.label} · details` : metric.value === null ? 'No measurement yet · details' : 'Details'}
+      </summary>
       <div className="mt-1 flex flex-col gap-1">
         {window ? <p>{formatTime(window.start)} → {formatTime(window.end)}</p> : null}
         <p>{metric.note}</p>
