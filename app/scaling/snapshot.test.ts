@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { isStale, parseSnapshot } from './snapshot.mjs';
+import { deriveBinding, isStale, parseSnapshot } from './snapshot.mjs';
 
 // Synthetic data only: real snapshots are internal and never committed.
 function fixture() {
@@ -40,20 +40,29 @@ describe('parseSnapshot', () => {
     ]);
   });
 
-  it('rejects measured entries without a value', () => {
+  it('rejects measured or modeled entries without a value', () => {
     const data = fixture();
+    data.ceilings[0].value = null;
     data.ladder.observed.p50.value = null;
-    expect(errorsOf(data)).toEqual(['ladder.observed.p50.value: required for measured']);
+    expect(errorsOf(data)).toEqual(['ladder.observed.p50.value: required for measured', 'ceilings[0].value: required for modeled']);
   });
 
   it('rejects unknown areas and tags', () => {
     const data = fixture();
+    data.ceilings[1].area = 'l1';
     data.ladder.operatingPoint.tag = 'guessed';
     data.work[0].area = 'ops';
     expect(errorsOf(data)).toEqual([
       'ladder.operatingPoint.tag: expected one of measured, modeled, estimated, not-measured, not-modeled, not-established',
+      'ceilings[1].area: expected one of da, execution, state, networking',
       'work[0].area: expected one of da, execution, state, networking',
     ]);
+  });
+
+  it('rejects a guardrail status without both a value and a threshold', () => {
+    const data = fixture();
+    data.guardrails[3].status = 'ok';
+    expect(errorsOf(data)).toEqual(['guardrails[3].status: must be unknown without a value and threshold']);
   });
 
   it('rejects a realized effect without evidence', () => {
@@ -72,6 +81,23 @@ describe('parseSnapshot', () => {
     const data = fixture();
     data.windows.day.end = '2025-12-31T00:00:00Z';
     expect(errorsOf(data)).toEqual(['windows.day: start must precede end']);
+  });
+});
+
+describe('deriveBinding', () => {
+  it('picks the lowest measured or modeled ceiling and ignores estimates', () => {
+    const { ceilings } = fixture();
+    ceilings[1].value = 60;
+    expect(deriveBinding(ceilings)?.area).toBe('da');
+    ceilings[1].tag = 'measured';
+    expect(deriveBinding(ceilings)?.area).toBe('execution');
+  });
+
+  it('returns null when no ceiling is measured or modeled', () => {
+    const { ceilings } = fixture();
+    Object.assign(ceilings[0], { value: null, tag: 'not-modeled' });
+    ceilings[1].tag = 'estimated';
+    expect(deriveBinding(ceilings)).toBeNull();
   });
 });
 

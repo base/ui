@@ -18,6 +18,19 @@
  * @typedef {{ id: string, title: string, summary: string, metrics: Metric[], gaps: string[] }} Section
  * @typedef {{ value: number | null, unit: 'Mgas/s', tag: Tag, window: string | null, source?: Link, help: string }} Rung
  * @typedef {{ observed: { p50: Rung, p99: Rung }, operatingPoint: Rung, configuredLimit: Rung, qualified: Rung }} Ladder
+ * @typedef {{
+ *   name: string, value: number | string | null, unit: string, asOf: string | null, source?: Link,
+ *   status: 'observed' | 'configured' | 'provisional' | 'pending'
+ * }} CeilingInput
+ * @typedef {{
+ *   area: Area, value: number | null, unit: 'Mgas/s', tag: Tag, formula: string,
+ *   inputs: CeilingInput[], reason?: string, help: string
+ * }} Ceiling
+ * @typedef {{
+ *   id: string, label: string, value: number | null, unit: string, threshold: number | null,
+ *   comparator: '<=' | '>=', thresholdTag: 'set' | 'provisional' | 'unset', owner: string | null,
+ *   asOf: string | null, status: 'ok' | 'breached' | 'unknown', help: string
+ * }} Guardrail
  * @typedef {{ value: number, unit: 'gas', derivation: string, window: string | null }} Constant
  * @typedef {{
  *   projectId: string, issueId?: string, state: string, progress: number, scopeDone: number,
@@ -30,7 +43,8 @@
  * }} WorkItem
  * @typedef {{
  *   schemaVersion: 2, network: string, collectedAt: string, context: string, windows: Record<string, Window>,
- *   ladder: Ladder, translations: { gasPerPayment: Constant | null, gasPerSwap: Constant | null },
+ *   ladder: Ladder, ceilings: Ceiling[], guardrails: Guardrail[],
+ *   translations: { gasPerPayment: Constant | null, gasPerSwap: Constant | null },
  *   sections: Section[], work: WorkItem[]
  * }} Snapshot
  */
@@ -39,10 +53,11 @@ const STATUSES = ['observed', 'partial', 'unavailable', 'not-measured'];
 const TAGS = ['measured', 'modeled', 'estimated', 'not-measured', 'not-modeled', 'not-established'];
 const VALUED_TAGS = ['measured', 'modeled', 'estimated'];
 const AREAS = ['da', 'execution', 'state', 'networking'];
+const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
 const DAY_MS = 86_400_000;
 const V1_MESSAGE =
-  'schemaVersion: 1 is no longer read; migrate to 2: replace headline with ladder, add translations, ' +
-  'and give each work entry area, expected, realized, evidence and linear';
+  'schemaVersion: 1 is no longer read; migrate to 2: replace headline with ladder, add ceilings, guardrails and ' +
+  'translations, and give each work entry area, expected, realized, evidence and linear';
 
 /**
  * Missing values must be explicit nulls with a non-measured status or tag,
@@ -63,6 +78,7 @@ export function parseSnapshot(data) {
   const date = (o, key, path) => {
     if (typeof o[key] !== 'string' || Number.isNaN(Date.parse(o[key]))) fail(`${path}.${key}`, 'expected ISO timestamp');
   };
+  const nullableDate = (o, key, path) => o[key] !== null && date(o, key, path);
   const oneOf = (o, key, path, values) => {
     if (!values.includes(o[key])) fail(`${path}.${key}`, `expected one of ${values.join(', ')}`);
   };
@@ -120,6 +136,47 @@ export function parseSnapshot(data) {
   rung(observed.p50, 'ladder.observed.p50');
   rung(observed.p99, 'ladder.observed.p99');
   for (const key of ['operatingPoint', 'configuredLimit', 'qualified']) rung(ladder[key], `ladder.${key}`);
+
+  const areas = new Set();
+  list(data, 'ceilings', 'snapshot').forEach((c, i) => {
+    const path = `ceilings[${i}]`;
+    if (!isObj(c)) return fail(path, 'expected object');
+    oneOf(c, 'area', path, AREAS);
+    if (areas.has(c.area)) fail(`${path}.area`, 'duplicate');
+    areas.add(c.area);
+    tagged(c, path);
+    str(c, 'formula', path);
+    str(c, 'help', path);
+    if (c.reason !== undefined) str(c, 'reason', path);
+    list(c, 'inputs', path).forEach((input, j) => {
+      const p = `${path}.inputs[${j}]`;
+      if (!isObj(input)) return fail(p, 'expected object');
+      str(input, 'name', p);
+      if (typeof input.unit !== 'string') fail(`${p}.unit`, 'expected string');
+      oneOf(input, 'status', p, INPUT_STATUSES);
+      if ((input.value === null) !== (input.status === 'pending')) fail(`${p}.value`, 'null exactly when status is pending');
+      else if (input.value !== null && !['number', 'string'].includes(typeof input.value)) fail(`${p}.value`, 'expected number or string');
+      nullableDate(input, 'asOf', p);
+      if (input.source !== undefined) link(input.source, `${p}.source`);
+    });
+  });
+
+  list(data, 'guardrails', 'snapshot').forEach((g, i) => {
+    const path = `guardrails[${i}]`;
+    if (!isObj(g)) return fail(path, 'expected object');
+    for (const key of ['id', 'label', 'help']) str(g, key, path);
+    if (typeof g.unit !== 'string') fail(`${path}.unit`, 'expected string');
+    for (const key of ['value', 'threshold']) {
+      if (g[key] !== null && !Number.isFinite(g[key])) fail(`${path}.${key}`, 'expected number or null');
+    }
+    oneOf(g, 'comparator', path, ['<=', '>=']);
+    oneOf(g, 'thresholdTag', path, ['set', 'provisional', 'unset']);
+    if ((g.threshold === null) !== (g.thresholdTag === 'unset')) fail(`${path}.thresholdTag`, 'unset exactly when threshold is null');
+    nullableStr(g, 'owner', path);
+    nullableDate(g, 'asOf', path);
+    oneOf(g, 'status', path, ['ok', 'breached', 'unknown']);
+    if ((g.value === null || g.threshold === null) && g.status !== 'unknown') fail(`${path}.status`, 'must be unknown without a value and threshold');
+  });
 
   const translations = obj(data, 'translations', 'snapshot');
   for (const key of ['gasPerPayment', 'gasPerSwap']) {
@@ -182,6 +239,20 @@ export function parseSnapshot(data) {
   });
 
   return errors.length ? { ok: false, errors } : { ok: true, snapshot: data };
+}
+
+/**
+ * The lowest ceiling with evidence behind it; estimates and unmodeled areas
+ * never bind. Null when no area is measured or modeled.
+ * @param {Ceiling[]} ceilings
+ * @returns {Ceiling | null}
+ */
+export function deriveBinding(ceilings) {
+  let binding = null;
+  for (const c of ceilings) {
+    if ((c.tag === 'measured' || c.tag === 'modeled') && (binding === null || c.value < binding.value)) binding = c;
+  }
+  return binding;
 }
 
 /**
