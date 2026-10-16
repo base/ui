@@ -30,6 +30,7 @@ it('renders an area with breadcrumb, as-of header, ceiling, metric details, gaps
   const html = await area('da');
   expect(html).toContain('href="/scaling">Scaling</a> / DA');
   expect(html).toContain('As of 2026-01-02 00:00 UTC');
+  expect(html).toMatch(/>Ceiling <span[^>]*>· Mgas\/s<\/span>/);
   expect(html).toContain('da_bytes_per_gas · 0.0055 bytes/gas · observed · 2026-01-02');
   expect(html).toContain('synthetic.blob_utilization');
   expect(html).toContain('<li>Confirmed drain</li>');

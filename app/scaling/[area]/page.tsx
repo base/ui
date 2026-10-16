@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Text } from '../../components/ui/Text';
 import { AREAS, CeilingCard } from '../components/CeilingCards';
 import { SectionTable } from '../components/SectionTable';
 import { Header, loadSnapshot, Unavailable } from '../loadSnapshot';
@@ -19,7 +20,10 @@ export default async function ScalingAreaPage({ params }: { params: Promise<{ ar
   return (
     <div className="flex flex-col gap-10 pb-8">
       <Header loaded={loaded} title={`${entry[1]} · ${snapshot.network}`} crumb={entry[1]} />
-      <CeilingCard area={entry[0]} ceilings={snapshot.ceilings} />
+      <section className="flex flex-col gap-3">
+        <Text as="h2" variant="headline">Ceiling <span className="text-bds-gray-60">· Mgas/s</span></Text>
+        <CeilingCard area={entry[0]} ceilings={snapshot.ceilings} />
+      </section>
       {section ? (
         <SectionTable section={section} windows={snapshot.windows} />
       ) : (
