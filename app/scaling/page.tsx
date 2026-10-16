@@ -6,7 +6,11 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
-import { isStale, parseSnapshot, type Ladder, type Metric, type Rung, type Snapshot, type WorkItem } from './snapshot.mjs';
+import { CeilingCards } from './components/CeilingCards';
+import { Guardrails } from './components/Guardrails';
+import { Ladder } from './components/Ladder';
+import { Progress } from './components/Progress';
+import { isStale, parseSnapshot, type Metric, type Snapshot } from './snapshot.mjs';
 
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
@@ -66,23 +70,20 @@ export default async function ScalingPage() {
         ) : null}
       </header>
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {headline(snapshot.ladder).map((m) => (
-          <Card key={m.label} className="flex flex-col gap-1 bg-background p-4 dark:bg-white/5">
-            <Text variant="label" tone="muted">{m.label}</Text>
-            <Value metric={m} large />
-            <MetricDetails metric={m} snapshot={snapshot} />
-          </Card>
-        ))}
-      </section>
+      <Ladder ladder={snapshot.ladder} ceilings={snapshot.ceilings} translations={snapshot.translations} windows={snapshot.windows} />
+      <CeilingCards ceilings={snapshot.ceilings} />
+      <Guardrails guardrails={snapshot.guardrails} />
+
+      <Progress work={snapshot.work} />
 
       {snapshot.sections.map((section) => (
-        <section key={section.id} className="flex flex-col gap-3">
-          <div>
-            <Text as="h2" variant="headline">{section.title}</Text>
-            <Text variant="label.regular" tone="muted">{section.summary}</Text>
-          </div>
-          <Card className="divide-y divide-bds-gray-10 bg-background dark:divide-white/10 dark:bg-white/5">
+        <details key={section.id}>
+          <summary className="cursor-pointer select-none">
+            <Text as="h2" variant="headline" className="inline">{section.title}</Text>
+            <Text as="span" variant="label.regular" tone="muted"> · {section.metrics.length} {section.metrics.length === 1 ? 'row' : 'rows'}</Text>
+            <Text as="span" variant="label.regular" tone="muted" className="block">{section.summary}</Text>
+          </summary>
+          <Card className="mt-3 divide-y divide-bds-gray-10 bg-background dark:divide-white/10 dark:bg-white/5">
             {section.metrics.map((m) => (
               <div key={m.label} className="flex flex-col gap-1 px-4 py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -94,26 +95,15 @@ export default async function ScalingPage() {
             ))}
           </Card>
           {section.gaps.length > 0 ? (
-            <div className="rounded-lg border border-dashed border-bds-gray-10 px-4 py-3 dark:border-white/10">
+            <div className="mt-3 rounded-lg border border-dashed border-bds-gray-10 px-4 py-3 dark:border-white/10">
               <Text variant="label" tone="muted">Missing evidence</Text>
               <ul className="mt-1 list-disc pl-5 text-[13px] text-bds-gray-60">
                 {section.gaps.map((gap) => <li key={gap}>{gap}</li>)}
               </ul>
             </div>
           ) : null}
-        </section>
+        </details>
       ))}
-
-      <section className="flex flex-col gap-3">
-        <Text as="h2" variant="headline">What we&apos;re working on</Text>
-        {snapshot.work.length === 0 ? (
-          <EmptyState description="No current work supplied for this snapshot." />
-        ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {snapshot.work.map((w) => <WorkCard key={w.title} item={w} />)}
-          </div>
-        )}
-      </section>
 
       <Text variant="label.regular" tone="muted">
         Experiment results: <Link className="underline" href="/benchmark/run">Benchmarks</Link> ·{' '}
@@ -123,26 +113,11 @@ export default async function ScalingPage() {
   );
 }
 
-type Shown = Omit<Metric, 'status'> & { status: string };
-
-function headline(ladder: Ladder): Shown[] {
-  const rungs: [string, Rung][] = [
-    ['Observed gas/s (p50)', ladder.observed.p50],
-    ['Operating point', ladder.operatingPoint],
-    ['Configured limit', ladder.configuredLimit],
-    ['Qualified sustained', ladder.qualified],
-  ];
-  return rungs.map(([label, r]) => ({
-    label, status: r.value === null ? r.tag : 'observed', value: r.value, unit: r.unit, window: r.window, note: r.help, source: r.source,
-  }));
-}
-
 const STATUS_LABEL: Record<string, string> = {
   observed: '', partial: 'Partial', unavailable: 'Unavailable', 'not-measured': 'Not measured',
-  'not-modeled': 'Not modeled', 'not-established': 'Not established',
 };
 
-function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
+function Value({ metric }: { metric: Metric }) {
   if (metric.value === null) {
     return (
       <span className="w-fit rounded-md border border-dashed border-bds-gray-40 px-2 py-0.5 text-[13px] text-bds-gray-60">
@@ -152,7 +127,7 @@ function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
   }
   return (
     <span className="flex items-baseline gap-2">
-      <Text as="span" variant={large ? 'title2' : 'label.mono'}>
+      <Text as="span" variant="label.mono">
         {metric.value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
         {metric.unit ? <span className="ml-1 text-bds-gray-60">{metric.unit}</span> : null}
       </Text>
@@ -161,7 +136,7 @@ function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
   );
 }
 
-function MetricDetails({ metric, snapshot }: { metric: Shown; snapshot: Snapshot }) {
+function MetricDetails({ metric, snapshot }: { metric: Metric; snapshot: Snapshot }) {
   const window = metric.window ? snapshot.windows[metric.window] : null;
   return (
     <details className="text-[13px] text-bds-gray-60">
@@ -175,28 +150,6 @@ function MetricDetails({ metric, snapshot }: { metric: Shown; snapshot: Snapshot
         {metric.source ? <ExternalLink link={metric.source} /> : null}
       </div>
     </details>
-  );
-}
-
-function WorkCard({ item }: { item: WorkItem }) {
-  const rows = [
-    ['Hypothesis', item.hypothesis],
-    ['Change', item.change],
-    ['Expected impact', item.expected ?? 'Not estimated'],
-    ['Realized impact', item.realized ?? 'Not measured'],
-  ];
-  return (
-    <Card className="flex flex-col gap-2 bg-background p-4 text-[13px] dark:bg-white/5">
-      <Text variant="label">{item.title}</Text>
-      <Text variant="footnote" tone="muted">{item.status} · {item.owner ?? 'No owner assigned'}</Text>
-      {rows.map(([term, text]) => (
-        <p key={term}><span className="text-bds-gray-60">{term}:</span> {text}</p>
-      ))}
-      <div className="flex flex-wrap gap-3">
-        {item.evidence ? <ExternalLink link={item.evidence} /> : null}
-        {item.links.map((l) => <ExternalLink key={l.url} link={l} />)}
-      </div>
-    </Card>
   );
 }
 
