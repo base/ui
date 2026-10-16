@@ -16,7 +16,7 @@
  *   window: string | null, note: string, query?: string, source?: Link
  * }} Metric
  * @typedef {{ id: Area | 'outcomes', title: string, summary: string, metrics: Metric[], gaps: string[] }} Section
- * @typedef {{ value: number | null, unit: 'Mgas/s', tag: Tag, window: string | null, source?: Link, help: string }} Rung
+ * @typedef {{ value: number | null, unit: 'Mgas/s', tag: Tag, window: string | null, source?: Link, evidence?: Link[], help: string }} Rung
  * @typedef {{ observed: { p50: Rung, p99: Rung }, operatingPoint: Rung, configuredLimit: Rung, qualified: Rung }} Ladder
  * @typedef {{
  *   name: string, value: number | string | null, unit: string, asOf: string | null, source?: Link,
@@ -57,6 +57,8 @@ const AREAS = ['da', 'execution', 'state', 'networking'];
 const SECTION_IDS = [...AREAS, 'outcomes'];
 const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
 const DAY_MS = 86_400_000;
+// Captures a bench run id, or a load test's network and timestamp.
+export const RUN_PAGE = /^https:\/\/[^/]+\/scaling\/runs\/(?:bench\/([^/?#]+)|load\/([^/?#]+)\/([^/?#]+))\/?(?:[?#].*)?$/;
 const V1_MESSAGE =
   'schemaVersion: 1 is no longer read; migrate to 2: replace headline with ladder, add ceilings, guardrails and ' +
   'translations, and give each work entry area, expected, realized, evidence and linear';
@@ -138,6 +140,12 @@ export function parseSnapshot(data) {
   rung(observed.p50, 'ladder.observed.p50');
   rung(observed.p99, 'ladder.observed.p99');
   for (const key of ['operatingPoint', 'configuredLimit', 'qualified']) rung(ladder[key], `ladder.${key}`);
+  const qualified = ladder.qualified;
+  if (isObj(qualified) && (VALUED_TAGS.includes(qualified.tag) || qualified.evidence !== undefined)) {
+    const evidence = Array.isArray(qualified.evidence) ? qualified.evidence : [];
+    evidence.forEach((l, i) => link(l, `ladder.qualified.evidence[${i}]`));
+    if (!evidence.length || !evidence.every((l) => RUN_PAGE.test(l?.url))) fail('ladder.qualified.evidence', 'a qualified value needs links to the run pages behind it');
+  }
 
   const areas = new Set();
   list(data, 'ceilings', 'snapshot').forEach((c, i) => {

@@ -2,8 +2,10 @@ import Link from 'next/link';
 
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
+import type { UnifiedRun } from '../runs/lib/unified';
 import { deriveBinding, type Ceiling, type CeilingInput } from '../snapshot.mjs';
 import { Info } from './Info';
+import { RunBackedCeilingCard } from './RunBackedCeilingCard';
 import { Tag } from './Tag';
 
 export const AREAS: [Ceiling['area'], string][] = [['da', 'DA'], ['execution', 'Execution'], ['state', 'State'], ['networking', 'Networking']];
@@ -18,13 +20,13 @@ export function CeilingCards({ ceilings }: { ceilings: Ceiling[] }) {
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">Ceilings by bottleneck <span className="text-bds-gray-60">· Mgas/s</span></Text>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {AREAS.map(([area]) => <CeilingCard key={area} area={area} ceilings={ceilings} />)}
+        {AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={ceilings} />)}
       </div>
     </section>
   );
 }
 
-export function CeilingCard({ area, ceilings }: { area: Ceiling['area']; ceilings: Ceiling[] }) {
+export function CeilingCard({ area, ceilings, run }: { area: Ceiling['area']; ceilings: Ceiling[]; run?: UnifiedRun }) {
   const name = AREAS.find(([a]) => a === area)![1];
   const c = ceilings.find((x) => x.area === area)!;
   return (
@@ -40,6 +42,7 @@ export function CeilingCard({ area, ceilings }: { area: Ceiling['area']; ceiling
       </span>
       <code className="break-words font-mono text-[12px] text-bds-gray-60">{c.formula}</code>
       {c.reason ? <p className="text-bds-gray-60">{c.reason}</p> : null}
+      {run ? <Link className="underline" href={run.href}>Bench run {new Date(run.timestamp).toISOString().slice(0, 10)} →</Link> : null}
       <ul className="flex flex-col gap-0.5 text-[12px] text-bds-gray-60 empty:hidden">
         {c.inputs.map((i) => <li key={i.name}>{input(i)}</li>)}
       </ul>

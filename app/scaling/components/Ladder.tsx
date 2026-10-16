@@ -100,6 +100,11 @@ export function Ladder(props: Props) {
           </li>
         ))}
       </ul>
+      {props.ladder.qualified.evidence?.length ? (
+        <Text variant="label.regular" tone="muted">
+          <span className="flex flex-wrap gap-x-3">Qualified sustained by {props.ladder.qualified.evidence.map((l) => <a key={l.url} className="underline" href={l.url}>{l.label}</a>)}</span>
+        </Text>
+      ) : null}
       <Text variant="label.regular" tone="muted">{translation(props.translations)}</Text>
     </section>
   );
