@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { Snapshot } from '../snapshot.mjs';
 import { CeilingCards } from './CeilingCards';
 import { Guardrails } from './Guardrails';
+import { Progress } from './Progress';
 
 // Synthetic data only: real snapshots are internal and never committed.
 function fixture(): Snapshot {
@@ -46,5 +47,24 @@ describe('Guardrails', () => {
     expect(rows[3]).toContain('>Unset<');
     expect(rows[3]).toContain('bg-bds-gray-30');
     expect(rows[3]).not.toMatch(/bg-bds-(green|red)/);
+  });
+});
+
+describe('Progress', () => {
+  it('shows Linear state and a labelled bar when linked, and proposed with no bar otherwise', () => {
+    const [linked, proposed] = renderToStaticMarkup(<Progress work={fixture().work} />).split('px-4 py-3').slice(1);
+    expect(linked).toContain('>started<');
+    expect(linked).toContain('aria-label="4 of 10 issues done"');
+    expect(linked).toContain('width:40%');
+    expect(linked).toContain('Realized:');
+    expect(linked).toContain('href="https://example.com/synthetic/linear/project"');
+    expect(proposed).toContain('>proposed<');
+    expect(proposed).not.toContain('progressbar');
+    expect(proposed).not.toContain('Realized:');
+  });
+
+  it('hides realized without evidence', () => {
+    const [item] = fixture().work;
+    expect(renderToStaticMarkup(<Progress work={[{ ...item, evidence: null }]} />)).not.toContain('Realized:');
   });
 });

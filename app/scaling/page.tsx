@@ -9,7 +9,8 @@ import { Text } from '../components/ui/Text';
 import { CeilingCards } from './components/CeilingCards';
 import { Guardrails } from './components/Guardrails';
 import { Ladder } from './components/Ladder';
-import { isStale, parseSnapshot, type Metric, type Snapshot, type WorkItem } from './snapshot.mjs';
+import { Progress } from './components/Progress';
+import { isStale, parseSnapshot, type Metric, type Snapshot } from './snapshot.mjs';
 
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
@@ -73,13 +74,16 @@ export default async function ScalingPage() {
       <CeilingCards ceilings={snapshot.ceilings} />
       <Guardrails guardrails={snapshot.guardrails} />
 
+      <Progress work={snapshot.work} />
+
       {snapshot.sections.map((section) => (
-        <section key={section.id} className="flex flex-col gap-3">
-          <div>
-            <Text as="h2" variant="headline">{section.title}</Text>
-            <Text variant="label.regular" tone="muted">{section.summary}</Text>
-          </div>
-          <Card className="divide-y divide-bds-gray-10 bg-background dark:divide-white/10 dark:bg-white/5">
+        <details key={section.id}>
+          <summary className="cursor-pointer select-none">
+            <Text as="h2" variant="headline" className="inline">{section.title}</Text>
+            <Text as="span" variant="label.regular" tone="muted"> · {section.metrics.length} {section.metrics.length === 1 ? 'row' : 'rows'}</Text>
+            <Text as="span" variant="label.regular" tone="muted" className="block">{section.summary}</Text>
+          </summary>
+          <Card className="mt-3 divide-y divide-bds-gray-10 bg-background dark:divide-white/10 dark:bg-white/5">
             {section.metrics.map((m) => (
               <div key={m.label} className="flex flex-col gap-1 px-4 py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -91,26 +95,15 @@ export default async function ScalingPage() {
             ))}
           </Card>
           {section.gaps.length > 0 ? (
-            <div className="rounded-lg border border-dashed border-bds-gray-10 px-4 py-3 dark:border-white/10">
+            <div className="mt-3 rounded-lg border border-dashed border-bds-gray-10 px-4 py-3 dark:border-white/10">
               <Text variant="label" tone="muted">Missing evidence</Text>
               <ul className="mt-1 list-disc pl-5 text-[13px] text-bds-gray-60">
                 {section.gaps.map((gap) => <li key={gap}>{gap}</li>)}
               </ul>
             </div>
           ) : null}
-        </section>
+        </details>
       ))}
-
-      <section className="flex flex-col gap-3">
-        <Text as="h2" variant="headline">What we&apos;re working on</Text>
-        {snapshot.work.length === 0 ? (
-          <EmptyState description="No current work supplied for this snapshot." />
-        ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {snapshot.work.map((w) => <WorkCard key={w.title} item={w} />)}
-          </div>
-        )}
-      </section>
 
       <Text variant="label.regular" tone="muted">
         Experiment results: <Link className="underline" href="/benchmark/run">Benchmarks</Link> ·{' '}
@@ -157,28 +150,6 @@ function MetricDetails({ metric, snapshot }: { metric: Metric; snapshot: Snapsho
         {metric.source ? <ExternalLink link={metric.source} /> : null}
       </div>
     </details>
-  );
-}
-
-function WorkCard({ item }: { item: WorkItem }) {
-  const rows = [
-    ['Hypothesis', item.hypothesis],
-    ['Change', item.change],
-    ['Expected impact', item.expected ?? 'Not estimated'],
-    ['Realized impact', item.realized ?? 'Not measured'],
-  ];
-  return (
-    <Card className="flex flex-col gap-2 bg-background p-4 text-[13px] dark:bg-white/5">
-      <Text variant="label">{item.title}</Text>
-      <Text variant="footnote" tone="muted">{item.status} · {item.owner ?? 'No owner assigned'}</Text>
-      {rows.map(([term, text]) => (
-        <p key={term}><span className="text-bds-gray-60">{term}:</span> {text}</p>
-      ))}
-      <div className="flex flex-wrap gap-3">
-        {item.evidence ? <ExternalLink link={item.evidence} /> : null}
-        {item.links.map((l) => <ExternalLink key={l.url} link={l} />)}
-      </div>
-    </Card>
   );
 }
 

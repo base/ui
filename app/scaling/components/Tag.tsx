@@ -2,6 +2,7 @@ const LABEL: Record<string, string> = {
   measured: 'Measured', modeled: 'Modeled', estimated: 'Estimated',
   'not-measured': 'Not measured', 'not-modeled': 'Not modeled', 'not-established': 'Not established',
   provisional: 'Provisional', unset: 'Unset',
+  da: 'DA', execution: 'Execution', state: 'State', networking: 'Networking',
 };
 
 export function Tag({ tag }: { tag: string }) {
