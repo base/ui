@@ -63,7 +63,6 @@ export function parseSnapshot(data) {
   const date = (o, key, path) => {
     if (typeof o[key] !== 'string' || Number.isNaN(Date.parse(o[key]))) fail(`${path}.${key}`, 'expected ISO timestamp');
   };
-  const nullableDate = (o, key, path) => o[key] !== null && date(o, key, path);
   const oneOf = (o, key, path, values) => {
     if (!values.includes(o[key])) fail(`${path}.${key}`, `expected one of ${values.join(', ')}`);
   };

@@ -6,18 +6,18 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
-import { parseSnapshot, type Ladder, type Metric, type Rung, type Snapshot, type WorkItem } from './snapshot.mjs';
+import { isStale, parseSnapshot, type Ladder, type Metric, type Rung, type Snapshot, type WorkItem } from './snapshot.mjs';
 
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
 
-const STALE_AFTER_DAYS = 7;
+const STALE_AFTER_DAYS = 10;
 const DAY_MS = 86_400_000;
 
 type Loaded =
   | { kind: 'unconfigured' }
   | { kind: 'invalid'; errors: string[] }
-  | { kind: 'ok'; snapshot: Snapshot; ageDays: number };
+  | { kind: 'ok'; snapshot: Snapshot; ageDays: number; stale: boolean };
 
 async function loadSnapshot(): Promise<Loaded> {
   const path = process.env.SCALING_SNAPSHOT_PATH;
@@ -25,8 +25,9 @@ async function loadSnapshot(): Promise<Loaded> {
   try {
     const result = parseSnapshot(JSON.parse(await readFile(path, 'utf8')));
     if (!result.ok) return { kind: 'invalid', errors: result.errors };
-    const ageDays = Math.floor((Date.now() - Date.parse(result.snapshot.collectedAt)) / DAY_MS);
-    return { kind: 'ok', snapshot: result.snapshot, ageDays };
+    const { collectedAt } = result.snapshot;
+    const ageDays = Math.floor((Date.now() - Date.parse(collectedAt)) / DAY_MS);
+    return { kind: 'ok', snapshot: result.snapshot, ageDays, stale: isStale(collectedAt, new Date(), STALE_AFTER_DAYS) };
   } catch (error) {
     return { kind: 'invalid', errors: [error instanceof Error ? error.message : String(error)] };
   }
@@ -51,7 +52,7 @@ export default async function ScalingPage() {
     );
   }
 
-  const { snapshot, ageDays } = loaded;
+  const { snapshot, ageDays, stale } = loaded;
   return (
     <div className="flex flex-col gap-10 pb-8">
       <header className="flex flex-col gap-3">
@@ -60,7 +61,7 @@ export default async function ScalingPage() {
           As of {formatTime(snapshot.collectedAt)} ({ageDays === 0 ? 'today' : `${ageDays}d old`}) · manually refreshed
           snapshot, not live data. {snapshot.context}
         </Text>
-        {ageDays > STALE_AFTER_DAYS ? (
+        {stale ? (
           <Banner>Stale: this snapshot is older than {STALE_AFTER_DAYS} days. Refresh it before using these numbers.</Banner>
         ) : null}
       </header>
