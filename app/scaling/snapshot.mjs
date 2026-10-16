@@ -58,7 +58,7 @@ const SECTION_IDS = [...AREAS, 'outcomes'];
 const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
 const DAY_MS = 86_400_000;
 // Captures a bench run id, or a load test's network and timestamp.
-export const RUN_PAGE = /^https:\/\/[^/]+\/scaling\/runs\/(?:bench\/([^/?#]+)|load\/([^/?#]+)\/([^/?#]+))/;
+export const RUN_PAGE = /^https:\/\/[^/]+\/scaling\/runs\/(?:bench\/([^/?#]+)|load\/([^/?#]+)\/([^/?#]+))\/?(?:[?#].*)?$/;
 const V1_MESSAGE =
   'schemaVersion: 1 is no longer read; migrate to 2: replace headline with ladder, add ceilings, guardrails and ' +
   'translations, and give each work entry area, expected, realized, evidence and linear';

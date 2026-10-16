@@ -109,6 +109,8 @@ describe('parseSnapshot', () => {
     expect(errorsOf(data)).toEqual(['ladder.qualified.evidence: a qualified value needs links to the run pages behind it']);
     data.ladder.qualified.evidence = [{ label: 'Synthetic doc', url: 'https://example.com/synthetic/doc' }];
     expect(errorsOf(data)).toEqual(['ladder.qualified.evidence: a qualified value needs links to the run pages behind it']);
+    data.ladder.qualified.evidence = [{ label: 'Synthetic run', url: 'https://example.com/scaling/runs/bench/synthetic-1/not-a-page' }];
+    expect(errorsOf(data)).toEqual(['ladder.qualified.evidence: a qualified value needs links to the run pages behind it']);
     data.ladder.qualified.evidence = [{ label: 'Synthetic run', url: 'https://example.com/scaling/runs/bench/synthetic-1' }];
     expect(errorsOf(data)).toEqual([]);
   });
