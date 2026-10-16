@@ -6,18 +6,18 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
-import { parseSnapshot, type Metric, type Snapshot, type WorkItem } from './snapshot.mjs';
+import { isStale, parseSnapshot, type Ladder, type Metric, type Rung, type Snapshot, type WorkItem } from './snapshot.mjs';
 
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
 
-const STALE_AFTER_DAYS = 7;
+const STALE_AFTER_DAYS = 10;
 const DAY_MS = 86_400_000;
 
 type Loaded =
   | { kind: 'unconfigured' }
   | { kind: 'invalid'; errors: string[] }
-  | { kind: 'ok'; snapshot: Snapshot; ageDays: number };
+  | { kind: 'ok'; snapshot: Snapshot; ageDays: number; stale: boolean };
 
 async function loadSnapshot(): Promise<Loaded> {
   const path = process.env.SCALING_SNAPSHOT_PATH;
@@ -25,8 +25,9 @@ async function loadSnapshot(): Promise<Loaded> {
   try {
     const result = parseSnapshot(JSON.parse(await readFile(path, 'utf8')));
     if (!result.ok) return { kind: 'invalid', errors: result.errors };
-    const ageDays = Math.floor((Date.now() - Date.parse(result.snapshot.collectedAt)) / DAY_MS);
-    return { kind: 'ok', snapshot: result.snapshot, ageDays };
+    const { collectedAt } = result.snapshot;
+    const ageDays = Math.floor((Date.now() - Date.parse(collectedAt)) / DAY_MS);
+    return { kind: 'ok', snapshot: result.snapshot, ageDays, stale: isStale(collectedAt, new Date(), STALE_AFTER_DAYS) };
   } catch (error) {
     return { kind: 'invalid', errors: [error instanceof Error ? error.message : String(error)] };
   }
@@ -51,7 +52,7 @@ export default async function ScalingPage() {
     );
   }
 
-  const { snapshot, ageDays } = loaded;
+  const { snapshot, ageDays, stale } = loaded;
   return (
     <div className="flex flex-col gap-10 pb-8">
       <header className="flex flex-col gap-3">
@@ -60,13 +61,13 @@ export default async function ScalingPage() {
           As of {formatTime(snapshot.collectedAt)} ({ageDays === 0 ? 'today' : `${ageDays}d old`}) · manually refreshed
           snapshot, not live data. {snapshot.context}
         </Text>
-        {ageDays > STALE_AFTER_DAYS ? (
+        {stale ? (
           <Banner>Stale: this snapshot is older than {STALE_AFTER_DAYS} days. Refresh it before using these numbers.</Banner>
         ) : null}
       </header>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {snapshot.headline.map((m) => (
+        {headline(snapshot.ladder).map((m) => (
           <Card key={m.label} className="flex flex-col gap-1 bg-background p-4 dark:bg-white/5">
             <Text variant="label" tone="muted">{m.label}</Text>
             <Value metric={m} large />
@@ -122,9 +123,26 @@ export default async function ScalingPage() {
   );
 }
 
-const STATUS_LABEL = { observed: '', partial: 'Partial', unavailable: 'Unavailable', 'not-measured': 'Not measured' };
+type Shown = Omit<Metric, 'status'> & { status: string };
 
-function Value({ metric, large = false }: { metric: Metric; large?: boolean }) {
+function headline(ladder: Ladder): Shown[] {
+  const rungs: [string, Rung][] = [
+    ['Observed gas/s (p50)', ladder.observed.p50],
+    ['Operating point', ladder.operatingPoint],
+    ['Configured limit', ladder.configuredLimit],
+    ['Qualified sustained', ladder.qualified],
+  ];
+  return rungs.map(([label, r]) => ({
+    label, status: r.value === null ? r.tag : 'observed', value: r.value, unit: r.unit, window: r.window, note: r.help, source: r.source,
+  }));
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  observed: '', partial: 'Partial', unavailable: 'Unavailable', 'not-measured': 'Not measured',
+  'not-modeled': 'Not modeled', 'not-established': 'Not established',
+};
+
+function Value({ metric, large = false }: { metric: Shown; large?: boolean }) {
   if (metric.value === null) {
     return (
       <span className="w-fit rounded-md border border-dashed border-bds-gray-40 px-2 py-0.5 text-[13px] text-bds-gray-60">
@@ -143,11 +161,13 @@ function Value({ metric, large = false }: { metric: Metric; large?: boolean }) {
   );
 }
 
-function MetricDetails({ metric, snapshot }: { metric: Metric; snapshot: Snapshot }) {
+function MetricDetails({ metric, snapshot }: { metric: Shown; snapshot: Snapshot }) {
   const window = metric.window ? snapshot.windows[metric.window] : null;
   return (
     <details className="text-[13px] text-bds-gray-60">
-      <summary className="cursor-pointer select-none">{window ? window.label : 'No measurement yet'} · details</summary>
+      <summary className="cursor-pointer select-none">
+        {window ? `${window.label} · details` : metric.value === null ? 'No measurement yet · details' : 'Details'}
+      </summary>
       <div className="mt-1 flex flex-col gap-1">
         {window ? <p>{formatTime(window.start)} → {formatTime(window.end)}</p> : null}
         <p>{metric.note}</p>
@@ -162,8 +182,8 @@ function WorkCard({ item }: { item: WorkItem }) {
   const rows = [
     ['Hypothesis', item.hypothesis],
     ['Change', item.change],
-    ['Expected impact', item.impact],
-    ['Evidence needed', item.evidence],
+    ['Expected impact', item.expected ?? 'Not estimated'],
+    ['Realized impact', item.realized ?? 'Not measured'],
   ];
   return (
     <Card className="flex flex-col gap-2 bg-background p-4 text-[13px] dark:bg-white/5">
@@ -173,6 +193,7 @@ function WorkCard({ item }: { item: WorkItem }) {
         <p key={term}><span className="text-bds-gray-60">{term}:</span> {text}</p>
       ))}
       <div className="flex flex-wrap gap-3">
+        {item.evidence ? <ExternalLink link={item.evidence} /> : null}
         {item.links.map((l) => <ExternalLink key={l.url} link={l} />)}
       </div>
     </Card>

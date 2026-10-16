@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 2,
+  "network": "synthetic-testnet",
+  "collectedAt": "2026-01-02T00:00:00Z",
+  "context": "Synthetic fixture: every number is invented to exercise the schema. Not a measurement of any network.",
+  "windows": {
+    "day": { "label": "24 h", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z" },
+    "week": { "label": "7 d", "start": "2025-12-26T00:00:00Z", "end": "2026-01-02T00:00:00Z" }
+  },
+  "ladder": {
+    "observed": {
+      "p50": {
+        "value": 12.5,
+        "unit": "Mgas/s",
+        "tag": "measured",
+        "window": "day",
+        "source": { "label": "Synthetic dashboard", "url": "https://example.com/synthetic/gas-per-second" },
+        "help": "Median gas executed per second over the window."
+      },
+      "p99": {
+        "value": null,
+        "unit": "Mgas/s",
+        "tag": "not-measured",
+        "window": null,
+        "help": "Peak gas per second over the window; needs a p99 query."
+      }
+    },
+    "operatingPoint": {
+      "value": 40,
+      "unit": "Mgas/s",
+      "tag": "measured",
+      "window": null,
+      "help": "Fee-market target: gas target divided by elasticity. Where fees start rising."
+    },
+    "configuredLimit": {
+      "value": 200,
+      "unit": "Mgas/s",
+      "tag": "measured",
+      "window": null,
+      "help": "Block gas limit divided by block time. A setting, not demonstrated capacity."
+    },
+    "qualified": {
+      "value": null,
+      "unit": "Mgas/s",
+      "tag": "not-established",
+      "window": null,
+      "help": "Highest rate a full-block run on mainnet-sized state has sustained. No run exists yet."
+    }
+  },
+  "ceilings": [
+    {
+      "area": "da",
+      "value": 95,
+      "unit": "Mgas/s",
+      "tag": "modeled",
+      "formula": "(blob_target × blob_bytes ÷ 12 s) × 0.8 ÷ da_bytes_per_gas",
+      "inputs": [
+        { "name": "blob_target", "value": 6, "unit": "blobs/block", "asOf": "2026-01-01T00:00:00Z", "status": "configured" },
+        { "name": "blob_bytes", "value": 131072, "unit": "bytes", "asOf": "2026-01-01T00:00:00Z", "status": "configured" },
+        {
+          "name": "da_bytes_per_gas",
+          "value": 0.0055,
+          "unit": "bytes/gas",
+          "asOf": "2026-01-02T00:00:00Z",
+          "source": { "label": "Synthetic query", "url": "https://example.com/synthetic/da-bytes-per-gas" },
+          "status": "observed"
+        }
+      ],
+      "help": "Gas per second the data-availability layer absorbs at 80% blob utilization."
+    },
+    {
+      "area": "execution",
+      "value": 150,
+      "unit": "Mgas/s",
+      "tag": "estimated",
+      "formula": "sequencer gas/s of the newest passing bench run",
+      "inputs": [
+        { "name": "bench_run", "value": "synthetic-run-1", "unit": "", "asOf": "2025-12-20T00:00:00Z", "status": "observed" },
+        { "name": "state_size", "value": null, "unit": "GB", "asOf": null, "status": "pending" }
+      ],
+      "reason": "state size not recorded for the run",
+      "help": "Highest rate at which block building fits the slot and validators keep up, on mature state."
+    },
+    {
+      "area": "state",
+      "value": null,
+      "unit": "Mgas/s",
+      "tag": "not-modeled",
+      "formula": "state_growth_budget ÷ state_bytes_per_gas",
+      "inputs": [
+        { "name": "single_node_max", "value": 45, "unit": "TB", "asOf": "2026-01-01T00:00:00Z", "status": "configured" },
+        { "name": "runway_years", "value": 4, "unit": "years", "asOf": "2026-01-01T00:00:00Z", "status": "provisional" },
+        { "name": "state_bytes_per_gas", "value": null, "unit": "bytes/gas", "asOf": null, "status": "pending" }
+      ],
+      "reason": "live-state growth not measured",
+      "help": "Gas per second that keeps state within what one node can hold over the runway."
+    },
+    {
+      "area": "networking",
+      "value": null,
+      "unit": "Mgas/s",
+      "tag": "not-modeled",
+      "formula": "none yet",
+      "inputs": [],
+      "reason": "gossip and peer limits unknown",
+      "help": "Gas per second at which blocks still propagate within the slot."
+    }
+  ],
+  "guardrails": [
+    {
+      "id": "da-utilization",
+      "label": "DA utilization",
+      "value": 42,
+      "unit": "%",
+      "threshold": 80,
+      "comparator": "<=",
+      "thresholdTag": "set",
+      "owner": null,
+      "asOf": "2026-01-02T00:00:00Z",
+      "status": "ok",
+      "help": "Share of blob capacity used at the current rate."
+    },
+    {
+      "id": "rpc-availability",
+      "label": "RPC availability",
+      "value": 99.5,
+      "unit": "%",
+      "threshold": 99.9,
+      "comparator": ">=",
+      "thresholdTag": "set",
+      "owner": null,
+      "asOf": "2026-01-02T00:00:00Z",
+      "status": "breached",
+      "help": "Successful RPC responses over the window."
+    },
+    {
+      "id": "validator-keep-up",
+      "label": "Validator keep-up",
+      "value": 3,
+      "unit": "blocks",
+      "threshold": 5,
+      "comparator": "<=",
+      "thresholdTag": "provisional",
+      "owner": "Synthetic owner",
+      "asOf": "2026-01-01T00:00:00Z",
+      "status": "ok",
+      "help": "p90 distance of validators behind the tip. Threshold is a placeholder until the pod sets one."
+    },
+    {
+      "id": "rpc-p99",
+      "label": "RPC p99 latency",
+      "value": 180,
+      "unit": "ms",
+      "threshold": null,
+      "comparator": "<=",
+      "thresholdTag": "unset",
+      "owner": null,
+      "asOf": "2026-01-02T00:00:00Z",
+      "status": "unknown",
+      "help": "Slowest 1% of RPC responses. No operational rule yet, so no status."
+    }
+  ],
+  "translations": {
+    "gasPerPayment": {
+      "value": 52000,
+      "unit": "gas",
+      "derivation": "Median gas of a synthetic reference token transfer over the window.",
+      "window": "week"
+    },
+    "gasPerSwap": null
+  },
+  "sections": [
+    {
+      "id": "da",
+      "title": "Data availability",
+      "summary": "Synthetic DA observations.",
+      "metrics": [
+        { "label": "Blob utilization", "status": "observed", "value": 42, "unit": "%", "window": "day", "note": "Invented.", "query": "synthetic.blob_utilization" },
+        { "label": "Confirmed drain", "status": "not-measured", "value": null, "unit": "KB/s", "window": null, "note": "No query yet." }
+      ],
+      "gaps": ["Confirmed drain"]
+    }
+  ],
+  "work": [
+    {
+      "area": "execution",
+      "title": "Synthetic unified binary",
+      "status": "In progress",
+      "owner": "Synthetic owner",
+      "hypothesis": "Fewer process hops per block speed up block processing.",
+      "change": "Run the consensus and execution clients in one process.",
+      "expected": "about 20% faster block processing",
+      "realized": "18% faster on a synthetic before/after",
+      "evidence": { "label": "Synthetic run", "url": "https://example.com/synthetic/runs/1" },
+      "linear": {
+        "projectId": "synthetic-project",
+        "state": "started",
+        "progress": 0.4,
+        "scopeDone": 4,
+        "scopeTotal": 10,
+        "targetDate": "2026-03-01",
+        "updatedAt": "2026-01-01T12:00:00Z",
+        "url": "https://example.com/synthetic/linear/project"
+      },
+      "links": []
+    },
+    {
+      "area": "da",
+      "title": "Synthetic blob batching change",
+      "status": "Proposed",
+      "owner": null,
+      "hypothesis": "Denser batches post fewer bytes per gas.",
+      "change": "Not yet specified.",
+      "expected": null,
+      "realized": null,
+      "evidence": null,
+      "linear": null,
+      "links": [{ "label": "Synthetic doc", "url": "https://example.com/synthetic/doc" }]
+    }
+  ]
+}
