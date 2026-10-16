@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
+const build = process.env.NEXT_PUBLIC_DEPLOY_TARGET === 'internal' ? 'build:internal' : 'build';
 
 export default defineConfig({
   testDir: './e2e',
@@ -21,7 +22,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run build && npm run start -- -p ${PORT}`,
+    command: `npm run ${build} && npm run start -- -p ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

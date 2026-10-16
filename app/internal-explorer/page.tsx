@@ -215,6 +215,7 @@ function BlocksTab({
 }) {
   const [blocks, setBlocks] = useState<BlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchFailed, setFetchFailed] = useState(false);
   const { showShadowDelta, setShowShadowDelta } = useShadowDelta();
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
 
@@ -227,14 +228,18 @@ function BlocksTab({
     const controller = new AbortController();
     setLoading(true);
     setBlocks([]);
+    setFetchFailed(false);
     setShadowCandidates({});
 
     async function load() {
       try {
         const data = await explorerApi.blocks(chain, controller.signal);
-        if (!cancelled) setBlocks(data.blocks);
+        if (!cancelled) {
+          setBlocks(data.blocks);
+          setFetchFailed(false);
+        }
       } catch {
-        // Transient errors are expected between polls; keep the last good data.
+        if (!cancelled) setFetchFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -260,6 +265,7 @@ function BlocksTab({
     let activeController: AbortController | null = null;
     setLoading(true);
     setBlocks([]);
+    setFetchFailed(false);
     setShadowCandidates({});
 
     async function load() {
@@ -279,6 +285,7 @@ function BlocksTab({
         if (shadows.length === 0) {
           setBlocks([]);
           setShadowCandidates({});
+          setFetchFailed(false);
           return;
         }
 
@@ -298,8 +305,9 @@ function BlocksTab({
 
         setBlocks(orderedBlocks);
         setShadowCandidates(candidates);
+        setFetchFailed(false);
       } catch {
-        // Keep last good data across transient poll failures.
+        if (!cancelled) setFetchFailed(true);
       } finally {
         inFlight = false;
         if (!cancelled) setLoading(false);
@@ -332,6 +340,14 @@ function BlocksTab({
           </label>
         </div>
       </div>
+      {fetchFailed ? (
+        <div role="alert">
+          <Banner>
+            Unable to refresh blocks. Retrying automatically.
+            {blocks.length > 0 ? ' Showing the last successful result; it may be out of date.' : ''}
+          </Banner>
+        </div>
+      ) : null}
       <Card className="overflow-hidden bg-background dark:bg-white/5">
         {loading && blocks.length === 0 ? (
           <div className="flex items-center justify-center gap-3 py-12">
@@ -353,7 +369,11 @@ function BlocksTab({
               ))}
           </div>
         ) : (
-          <EmptyState bordered={false} className="py-12 text-center" description="No blocks available" />
+          <EmptyState
+            bordered={false}
+            className="py-12 text-center"
+            description={fetchFailed ? 'Blocks unavailable' : 'No blocks available'}
+          />
         )}
       </Card>
     </section>
