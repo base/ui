@@ -8,7 +8,7 @@ import StatusSummary from "./StatusSummary";
 import ConfigurationTags from "./ConfigurationTags";
 import Tooltip from "./Tooltip";
 import MachineInfo from "./MachineInfo";
-import { downloadRunInfo, downloadRunInfoCSV } from "../utils/downloadUtils";
+import { downloadRunInfo, downloadRunInfoCSV } from "../../scaling/runs/lib/downloadUtils";
 import FloatingDropdown from "./FloatingDropdown";
 import clsx from "classnames";
 

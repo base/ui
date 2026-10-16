@@ -107,6 +107,10 @@ const statusRelatedMetrics = {
   "latency/new_payload": ["newPayload", "validator", 1e9],
 } as const;
 
+// report-api writes threshold keys with the role first: `sequencer/latency/get_payload`.
+export const thresholdSummary = (metric: string) =>
+  statusRelatedMetrics[metric.replace(/^(sequencer|validator)\//, "") as keyof typeof statusRelatedMetrics];
+
 export type BenchmarkRunWithStatus = BenchmarkRun & { status: RunStatus };
 
 // -----------------------------------------------------------------------------
@@ -289,8 +293,7 @@ export const getTestRunsWithStatus = (
     ): RunStatus | undefined => {
       for (const [metric, threshold] of Object.entries(thresholds)) {
         const [statusThresholdName, statusType, scale] =
-          statusRelatedMetrics[metric as keyof typeof statusRelatedMetrics] ??
-          [];
+          thresholdSummary(metric) ?? [];
         if (!statusThresholdName || !statusType || !scale) {
           // metrics not related to a summary stat are not considered for status
           continue;
