@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { cn } from '../../components/ui/cn';
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
@@ -12,10 +14,10 @@ const STATUS: Record<Guardrail['status'], string> = { ok: 'OK', breached: 'Breac
 
 const fmt = (n: number, unit: string) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`.trim();
 
-export function Guardrails({ guardrails }: { guardrails: Guardrail[] }) {
+export function Guardrails({ guardrails, detailed = false }: { guardrails: Guardrail[]; detailed?: boolean }) {
   return (
     <section className="flex flex-col gap-3">
-      <Text as="h2" variant="headline">Guardrails</Text>
+      {detailed ? null : <Text as="h2" variant="headline"><Link className="underline" href="/scaling/guardrails">Guardrails →</Link></Text>}
       <Card className="overflow-x-auto bg-background dark:bg-white/5">
         <table className="w-full border-collapse text-[13px]">
           <thead>
@@ -30,7 +32,9 @@ export function Guardrails({ guardrails }: { guardrails: Guardrail[] }) {
             {guardrails.map((g) => (
               <tr key={g.id} className="border-b border-bds-gray-10 last:border-0 dark:border-white/10">
                 <td className={TD}>
-                  <span className="flex items-center gap-1">{g.label} <Info label={`About ${g.label}`}>{g.help}</Info></span>
+                  {detailed ? <>{g.label}<p className="text-bds-gray-60">{g.help}</p></> : (
+                    <span className="flex items-center gap-1">{g.label} <Info label={`About ${g.label}`}>{g.help}</Info></span>
+                  )}
                 </td>
                 <td className={cn(TD, 'whitespace-nowrap font-mono')}>{g.value === null ? '—' : fmt(g.value, g.unit)}</td>
                 <td className={TD}>

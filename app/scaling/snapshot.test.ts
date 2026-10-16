@@ -67,6 +67,12 @@ describe('parseSnapshot', () => {
     expect(errorsOf(data)).toEqual(['snapshot.ceilings: missing networking', 'guardrails[1].id: duplicate']);
   });
 
+  it('rejects a section id without a page', () => {
+    const data = fixture();
+    data.sections[1].id = 'networking-extra';
+    expect(errorsOf(data)).toEqual(['sections[1].id: expected one of da, execution, state, networking, outcomes']);
+  });
+
   it('rejects a guardrail status that disagrees with its value and threshold', () => {
     const data = fixture();
     data.guardrails[0].status = 'breached';

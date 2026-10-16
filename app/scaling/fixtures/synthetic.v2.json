@@ -179,6 +179,15 @@
         { "label": "Confirmed drain", "status": "not-measured", "value": null, "unit": "KB/s", "window": null, "note": "No query yet." }
       ],
       "gaps": ["Confirmed drain"]
+    },
+    {
+      "id": "outcomes",
+      "title": "User outcomes",
+      "summary": "Synthetic user-facing results.",
+      "metrics": [
+        { "label": "Inclusion latency p50", "status": "observed", "value": 1.8, "unit": "s", "window": "day", "note": "Invented.", "query": "synthetic.inclusion_latency" }
+      ],
+      "gaps": []
     }
   ],
   "work": [
