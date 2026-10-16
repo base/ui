@@ -1,4 +1,4 @@
-import { durationToMs, parseLoadTestTimestamp } from './formatters';
+import { durationToMs, formatTransactions, parseLoadTestTimestamp } from './formatters';
 import type { BenchmarkRunWithStatus, LoadTestEntry, LoadTestResult, RunStatus, RustDuration } from './types';
 
 export type LoadRun = LoadTestEntry & { result?: LoadTestResult };
@@ -51,7 +51,6 @@ function fromBench(run: BenchmarkRunWithStatus): UnifiedRun {
 
 function fromLoad({ network, timestamp, result }: LoadRun): UnifiedRun {
   const config = result?.config;
-  const mix = config?.transactions.map((t) => `${t.weight}% ${t.type}`).join(' · ');
   const target = config ? `target ${config.target_gps / 1e6} Mgas/s` : undefined;
   return withQualifies({
     kind: 'load',
@@ -62,7 +61,7 @@ function fromLoad({ network, timestamp, result }: LoadRun): UnifiedRun {
     commit: null,
     machine: null,
     duration: result?.throughput ? secs(result.throughput.duration) : null,
-    workload: [mix, target].filter(Boolean).join(' · ') || '—',
+    workload: [config && formatTransactions(config), target].filter(Boolean).join(' · ') || '—',
     gasPerSecond: result?.throughput?.gps ?? null,
     latency: result?.block_latency ? [{ label: 'block p99', seconds: secs(result.block_latency.p99) }, { label: 'flashblocks p99', seconds: secs(result.flashblocks_latency.p99) }] : [],
     status: result ? (result.error ? 'fatal' : 'success') : null,

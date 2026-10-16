@@ -44,7 +44,7 @@
         "config": {
           "funding_amount": "1000000000000000000", "sender_count": 10, "sender_offset": 0, "in_flight_per_sender": 4,
           "duration": "30s", "target_gps": 15000000, "seed": 1, "chain_id": null,
-          "transactions": [{ "type": "transfer", "weight": 70 }, { "type": "swap", "weight": 30 }],
+          "transactions": [{ "type": "transfer", "weight": 3 }, { "type": "swap", "weight": 1 }],
           "looper_contract": null, "swap_token_amount": "0"
         }
       }
