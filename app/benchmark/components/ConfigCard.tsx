@@ -1,5 +1,5 @@
-import { LoadTestConfig } from "../types";
-import { formatEthFromWeiString } from "../utils/formatters";
+import { LoadTestConfig } from "../../scaling/runs/lib/types";
+import { formatEthFromWeiString } from "../../scaling/runs/lib/formatters";
 import StatCard from "./StatCard";
 
 interface ConfigCardProps {

@@ -15,13 +15,13 @@ import {
   formatGpsVerbose,
   formatLoadTestTimestamp,
   formatTps,
-} from "../utils/formatters";
+} from "../../scaling/runs/lib/formatters";
 import {
   BlockRange,
   FlashblocksLatencyStats,
   LatencyStats,
   LoadTestResult,
-} from "../types";
+} from "../../scaling/runs/lib/types";
 import { LoadTestRunSelect } from "../components/BenchmarkToolbar";
 import { loadTestAllHref } from "../routes";
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getBenchmarkVariables } from "./filter";
-import { BenchmarkRun } from "./types";
+import { BenchmarkRun } from "../scaling/runs/lib/types";
 
 // Sample data for testing - This data now aligns with the ActualBenchmarkRun type
 const sampleRuns: BenchmarkRun[] = [

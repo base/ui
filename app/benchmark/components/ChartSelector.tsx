@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { BenchmarkRuns } from "../types";
+import { BenchmarkRuns } from "../../scaling/runs/lib/types";
 import { deepEqual } from "../utils/collections";
 import {
   camelToTitleCase,
   formatValue,
   formatLabel,
-} from "../utils/formatters";
+} from "../../scaling/runs/lib/formatters";
 import { interpolateWarm } from "d3";
 import { useBenchmarkFilters } from "../hooks/useBenchmarkFilters";
 import Link from "next/link";

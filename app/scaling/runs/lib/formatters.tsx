@@ -1,4 +1,4 @@
-import { ChartConfig, RustDuration } from "../types";
+import { ChartConfig, RustDuration } from "./types";
 
 const PREFIXES = {
   "": 1,

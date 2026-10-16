@@ -1,6 +1,6 @@
 import React from "react";
-import { SORTED_CHART_CONFIG } from "../metricDefinitions";
-import { DataSeries } from "../types";
+import { SORTED_CHART_CONFIG } from "../../scaling/runs/lib/metricDefinitions";
+import { DataSeries } from "../../scaling/runs/lib/types";
 import LineChart from "./LineChart";
 
 interface ProvidedProps {

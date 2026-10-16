@@ -7,7 +7,7 @@ import ChartSelector, {
 } from "../components/ChartSelector";
 import ChartGrid from "../components/ChartGrid";
 import { useTestMetadata, useMultipleDataSeries } from "../utils/useDataSeries";
-import { DataSeries } from "../types";
+import { DataSeries } from "../../scaling/runs/lib/types";
 import { BenchmarkRunSelect } from "../components/BenchmarkToolbar";
 import DataSourceError from "../components/DataSourceError";
 import { runComparisonHref } from "../routes";

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
-import { ThroughputSample } from "../types";
-import { formatTps, formatGps } from "../utils/formatters";
+import { ThroughputSample } from "../../scaling/runs/lib/types";
+import { formatTps, formatGps } from "../../scaling/runs/lib/formatters";
 
 interface ThroughputChartProps {
   samples: ThroughputSample[];

@@ -4,7 +4,7 @@ import { useTestMetadata } from "../utils/useDataSeries";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getBenchmarkVariables } from "../filter";
 import RunList from "../components/RunList";
-import { BenchmarkRuns, getTestRunsWithStatus } from "../types";
+import { BenchmarkRuns, getTestRunsWithStatus } from "../../scaling/runs/lib/types";
 import { groupBy } from "../utils/collections";
 import RunListFilter from "../components/RunListFilter";
 import { BenchmarkRunSelect } from "../components/BenchmarkToolbar";

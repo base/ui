@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildRows, formatTransactions } from "./ConfigCard";
-import { LoadTestConfig } from "../types";
+import { LoadTestConfig } from "../../scaling/runs/lib/types";
 
 describe("formatTransactions", () => {
   it("formats a weighted transaction mix", () => {

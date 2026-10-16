@@ -1,8 +1,8 @@
 import { groupBy } from "../utils/collections";
 import { useState } from "react";
-import { formatValue, MetricValue } from "../utils/formatters";
+import { formatValue, MetricValue } from "../../scaling/runs/lib/formatters";
 import ThresholdDisplay from "../views/ThresholdDisplay";
-import { BenchmarkRunWithStatus } from "../types";
+import { BenchmarkRunWithStatus } from "../../scaling/runs/lib/types";
 import StatusBadge from "./StatusBadge";
 import StatusSummary from "./StatusSummary";
 import ConfigurationTags from "./ConfigurationTags";
