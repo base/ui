@@ -268,7 +268,7 @@ const LineChart: React.FC<LineChartProps> = ({
           .attr("y", tooltip.y)
           .attr("width", tooltip.width)
           .attr("height", tooltip.height)
-          .attr("fill", "rgba(255, 255, 255, 0.9)")
+          .attr("fill", "var(--bds-gray-0)")
           .attr("stroke", tooltip.color)
           .attr("stroke-width", 1);
 
@@ -279,7 +279,7 @@ const LineChart: React.FC<LineChartProps> = ({
           .attr("y", tooltip.y + tooltip.height / 2 + 3)
           .attr("font-size", "10px")
           .attr("font-family", "sans-serif")
-          .attr("fill", "#333")
+          .attr("fill", "var(--bds-gray-100)")
           .attr("text-anchor", "middle")
           .text(`${tooltip.seriesName}: ${tooltip.formattedValue}`);
       });
@@ -473,7 +473,7 @@ const LineChart: React.FC<LineChartProps> = ({
             .attr("x", dimensions.width / 2)
             .attr("y", dimensions.height + 27)
             .attr("font-size", 12)
-            .attr("fill", "#333")
+            .attr("fill", "var(--bds-gray-100)")
             .text(xAxisLabel);
         }
 
@@ -486,7 +486,7 @@ const LineChart: React.FC<LineChartProps> = ({
               .ticks(8),
           )
           .append("text")
-          .attr("fill", "#000")
+          .attr("fill", "var(--bds-gray-100)")
           .attr("transform", "rotate(-90)")
           .attr("y", 6)
           .attr("dy", ".71em")

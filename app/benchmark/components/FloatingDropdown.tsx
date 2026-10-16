@@ -153,7 +153,7 @@ const FloatingDropdown: React.FC<FloatingDropdownProps> = ({
     <div
       ref={dropdownRef}
       className={clsx(
-        "fixed z-50 bg-white border border-slate-200 rounded-md shadow-lg",
+        "benchmark-menu fixed z-50 bg-white border border-slate-200 rounded-md shadow-lg",
         "min-w-48 overflow-hidden",
         dropdownClassName,
       )}
