@@ -28,6 +28,7 @@ import {
   k1Authenticator,
   parseReceiptFields,
   privateKeyToAccount,
+  serializeTransaction,
   type Signer,
   toEoaAccount,
   toHex,
@@ -166,6 +167,12 @@ export type ComposePayer = {
    * `payerAuth` for a hosted payer service to co-sign out of band.
    */
   localSigner?: Signer;
+  /**
+   * Gets `payerAuth` from a hosted payer (`payer_signTransaction`) for the
+   * transaction serialized without `sender_auth`, before the sender signs, so
+   * a payer rejection never costs the user a signature.
+   */
+  authorize?: (unsigned: Hex) => Promise<Hex>;
 };
 
 export type ComposeOptions = {
@@ -575,6 +582,8 @@ function useAccountEngineCore() {
       ...(metadata ? { metadata } : {}),
       ...(payer ? { payer: payer.address } : {}),
     };
+    if (payer?.authorize)
+      transaction.payerAuth = await payer.authorize(serializeTransaction({ ...transaction, senderAuth: '0x' }));
     const serialized = await account.signTransaction(
       transaction,
       payer?.localSigner ? { payer: { account: payer.localSigner, address: payer.address } } : undefined,

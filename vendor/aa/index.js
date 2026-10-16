@@ -18776,6 +18776,16 @@ function createPayerClient(parameters) {
 init_abis();
 init_base();
 init_encodeFunctionData();
+function requiredPaymentAmount(parameters) {
+  const { maxCost, rate } = parameters;
+  return (maxCost * rate + 10n ** 18n - 1n) / 10n ** 18n;
+}
+function encodePayment(parameters) {
+  const { token, to, amount } = parameters;
+  if (token === "native")
+    return { to, value: amount, data: "0x" };
+  return encodeTokenTransfer({ token, to, amount });
+}
 function encodeTokenTransfer(parameters) {
   return {
     to: parameters.token,
@@ -18847,8 +18857,10 @@ export {
   txValueCost,
   toHex,
   toEoaAccount,
+  serializeTransaction4 as serializeTransaction,
   sendTransaction,
   selectPaymentOption,
+  requiredPaymentAmount,
   privateKeyToAccount,
   prepareTransactionRequest2 as prepareTransactionRequest,
   parseUnits2 as parseUnits,
@@ -18868,6 +18880,7 @@ export {
   generatePrivateKey,
   estimateGas2 as estimateGas,
   encodeTokenTransfer,
+  encodePayment,
   encodeFunctionData,
   encodeAbiParameters,
   decodeAbiParameters,
