@@ -30,32 +30,3 @@ export const FEATURES: VibenetFeature[] = [
   // the RPC payload, and the BaseTime predeploy is an uninitialized proxy).
   // Add the feature card back in the same PR that enables it here.
 ];
-
-// Raw feature shape as it appears in the API `config` payload.
-type ConfigFeature = {
-  title: string;
-  description?: string;
-  link?: string;
-};
-
-function isConfigFeature(value: unknown): value is ConfigFeature {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { title?: unknown }).title === 'string'
-  );
-}
-
-// Adapt the vibe's dynamic `config.features` into the same model so the page has
-// a single feature type to render. These are simpler (no highlights) and show
-// as compact cards.
-export function featuresFromConfig(raw: unknown[] | undefined): VibenetFeature[] {
-  if (!raw) return [];
-  return raw.filter(isConfigFeature).map((feature, index) => ({
-    id: `config-${index}-${feature.title}`,
-    title: feature.title,
-    summary: feature.description ?? '',
-    status: 'live' as const,
-    links: feature.link ? [{ label: 'Learn more', href: feature.link, external: true }] : undefined,
-  }));
-}
