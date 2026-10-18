@@ -111,8 +111,3 @@ export function getDataService(): DataService {
   }
   return dataServiceInstance;
 }
-
-// Allow resetting the service instance (useful for testing)
-export function resetDataService(): void {
-  dataServiceInstance = null;
-}
