@@ -1,5 +1,3 @@
-// Unified data service that works with both static files and API servers
-// Since the API now emulates the static file structure, we only need one service
 import {
   BenchmarkRuns,
   LoadTestEntry,
