@@ -1025,7 +1025,10 @@ function SubmittedBody({
     return (
       <div className="flex flex-col items-center gap-3 py-10 text-center">
         <ErrorGlyph size={28} />
-        <Text variant="label.regular" className="text-bds-red-60 [line-break:anywhere]">
+        <Text
+          variant="label.regular"
+          className={cn('max-w-full text-bds-red-60', !error.txHash && '[line-break:anywhere]')}
+        >
           <ErrorCopy error={error} />
         </Text>
       </div>
@@ -1074,16 +1077,17 @@ type DialogError = { message: string; txHash?: Hex };
 function ErrorCopy({ error }: { error: DialogError }) {
   if (!error.txHash) return error.message;
   return (
-    <>
-      {error.message} (<a
+    <span className="flex max-w-full flex-col items-center gap-1.5">
+      <span>{error.message}</span>
+      <a
         href={`${VIBENET_EXPLORER_PATH}/tx/${error.txHash}`}
         target="_blank"
         rel="noreferrer"
-        className="font-mono text-base-blue hover:underline"
+        className="max-w-full overflow-x-auto font-mono text-[13px] whitespace-nowrap text-base-blue hover:underline"
       >
         {error.txHash}
-      </a>).
-    </>
+      </a>
+    </span>
   );
 }
 
