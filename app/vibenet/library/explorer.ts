@@ -123,7 +123,7 @@ const TYPE_BY_HEX: Record<string, string> = {
   '0x2': 'EIP-1559',
   '0x3': 'EIP-4844 (Blob)',
   '0x4': 'EIP-7702 (Set Code)',
-  '0x79': 'EIP-8130 (Account Abstraction)',
+  '0x79': 'EIP-8430 (Base Transactions)',
   '0x7e': 'Deposit (OP-stack)',
 };
 

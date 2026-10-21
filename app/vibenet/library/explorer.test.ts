@@ -240,7 +240,7 @@ describe('explorer number + type formatting', () => {
   it('labels transaction types by numeric, name, and hex forms', () => {
     expect(txTypeLabel(2, null)).toEqual({ hex: '0x2', label: 'EIP-1559' });
     expect(txTypeLabel('eip7702', null)).toEqual({ hex: '0x4', label: 'EIP-7702 (Set Code)' });
-    expect(txTypeLabel(null, '0x79')).toEqual({ hex: '0x79', label: 'EIP-8130 (Account Abstraction)' });
+    expect(txTypeLabel(null, '0x79')).toEqual({ hex: '0x79', label: 'EIP-8430 (Base Transactions)' });
     expect(txTypeLabel(null, null)).toBeNull();
   });
 });

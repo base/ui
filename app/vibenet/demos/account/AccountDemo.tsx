@@ -144,7 +144,7 @@ function AccountDemoInner() {
           </svg>
         }
         title="Advanced Transactions"
-        description="Compose and send EIP-8130 transactions from your account."
+        description="Compose and send EIP-8430 transactions from your account."
       >
         <Button
           size="sm"
