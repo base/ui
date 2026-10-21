@@ -83,7 +83,7 @@ Discovered from the Next.js app directory.
 
 - [/vibenet](https://chain.base.org/vibenet) — Explore Vibenet, the Base devnet for testing in-flight protocol features.
 - [/vibenet/demos/200](https://chain.base.org/vibenet/demos/200) — A pixel runner paced by vibenet’s 200 ms blocks. Swallow a block to read its number and slot.
-- [/vibenet/demos/account](https://chain.base.org/vibenet/demos/account) — Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.
+- [/vibenet/demos/account](https://chain.base.org/vibenet/demos/account) — Send Base Transactions from in-browser EOA keys, fund them from the faucet, and inspect balances on Vibenet.
 - [/vibenet/demos/b20](https://chain.base.org/vibenet/demos/b20) — Explore, configure, and issue Base-native B20 tokens on Vibenet.
 - [/vibenet/demos/validity](https://chain.base.org/vibenet/demos/validity) — Explore Vibenet demos built with transactions that execute only while their onchain validity conditions hold.
 - [/vibenet/demos/validity/conditional-swaps](https://chain.base.org/vibenet/demos/validity/conditional-swaps) — Place a validity-backed swap on Vibenet that waits for a target price, then fills or expires as the market moves.
