@@ -1,5 +1,3 @@
-// Unified data service that works with both static files and API servers
-// Since the API now emulates the static file structure, we only need one service
 import {
   BenchmarkRuns,
   LoadTestEntry,
@@ -110,9 +108,4 @@ export function getDataService(): DataService {
     dataServiceInstance = new DataService(config.baseUrl);
   }
   return dataServiceInstance;
-}
-
-// Allow resetting the service instance (useful for testing)
-export function resetDataService(): void {
-  dataServiceInstance = null;
 }
