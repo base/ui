@@ -98,6 +98,18 @@ export const DEMOS: DemoEntry[] = [
         ],
         available: true,
       },
+      {
+        href: '/vibenet/demos/validity/liquidations',
+        title: 'Liquidations',
+        summary:
+          'Liquidate loans on a demo lending market before a rival keeper, with a validity transaction that waits for the price to cross.',
+        points: [
+          'Bound a pool reserve so the transaction lands only once a loan is under water',
+          'Pin the position in storage so a lost race is dropped, not reverted',
+          'Compare inclusion blocks against a conventional keeper bot',
+        ],
+        available: true,
+      },
     ],
   },
   {

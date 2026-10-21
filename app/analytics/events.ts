@@ -91,3 +91,10 @@ export function trackValidityRace(
 ): void {
   track('validity_race', { attempt, status });
 }
+
+export function trackValidityLiquidation(
+  attempt: 'validity' | 'manual',
+  status: 'submitted' | 'success' | 'reverted' | 'expired' | 'beaten' | 'error',
+): void {
+  track('validity_liquidation', { attempt, status });
+}
