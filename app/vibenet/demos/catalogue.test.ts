@@ -9,7 +9,7 @@ describe('demoLabel', () => {
 
   it('prefers shortTitle over title when both are set', () => {
     const account = DEMOS.find((d) => d.href === '/vibenet/demos/account');
-    expect(account?.title).toBe('Accounts');
+    expect(account?.title).toBe('Base Transactions');
     expect(demoLabel('account')).toBe(account?.shortTitle);
   });
 

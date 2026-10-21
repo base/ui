@@ -33,13 +33,13 @@ export function listedDemos(): DemoEntry[] {
 export const DEMOS: DemoEntry[] = [
   {
     href: '/vibenet/demos/account',
-    title: 'Accounts',
-    shortTitle: 'Account',
+    title: 'Base Transactions',
+    shortTitle: 'Base Transactions',
     icon: '/account-illo.svg',
     summary:
-      'Send native account-abstraction transactions from in-browser EOA keys, fund them from the faucet, and inspect balances across networks.',
+      'Send Base Transactions from in-browser EOA keys — batched, sponsored, or with gas paid in tokens — fund them from the faucet, and inspect balances across networks.',
     points: [
-      'EOA accounts from in-browser secp256k1 keys',
+      'Base Transactions from in-browser secp256k1 keys',
       'Batched, nonce-free and sponsored sends',
       'Transactions land in the next 200 ms block',
     ],

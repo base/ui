@@ -10,9 +10,9 @@ import type { ReactNode } from 'react';
 // generator resolves a template to its `default` and would publish the bare page
 // title, disagreeing with what the browser renders.
 export const metadata: Metadata = {
-  title: 'Accounts · Vibenet',
+  title: 'Base Transactions · Vibenet',
   description:
-    'Create native account abstraction accounts from in-browser keys, fund them from the faucet, and inspect balances on Vibenet.',
+    'Send Base Transactions from in-browser EOA keys, fund them from the faucet, and inspect balances on Vibenet.',
 };
 
 // Passthrough. The demo runs on Vibenet and lives under /vibenet/demos, so it
