@@ -4,7 +4,7 @@ import type { VibenetFeature } from '../library/types';
 export const FEATURES: VibenetFeature[] = [
   {
     id: 'eip-8130-account-abstraction',
-    tag: 'EIP-8130',
+    tag: 'EIP-8430',
     title: 'Base Transactions',
     summary:
       'A new transaction type with native batching, sponsorship, token gas payments, and high throughput. No bundler, no entrypoint — it works with the EOA you already have.',

@@ -405,7 +405,7 @@ function TxBody({ tx }: TxBodyProps) {
   if (tx.isAa) {
     toBody = (
       <span className={DIM}>
-        EIP-8130 batch · {callCount} call{callCount === 1 ? '' : 's'}
+        EIP-8430 batch · {callCount} call{callCount === 1 ? '' : 's'}
         {phaseCount > 1 ? ` across ${phaseCount} phases` : ''}
       </span>
     );
