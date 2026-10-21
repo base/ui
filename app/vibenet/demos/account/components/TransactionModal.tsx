@@ -64,6 +64,7 @@ import {
   conciseError,
   EstimateRevertedError,
   TxPendingError,
+  TxRevertedError,
   useAccountEngine,
 } from '../useAccountEngine';
 
@@ -155,7 +156,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
   const [estimateBlocked, setEstimateBlocked] = useState<string | null>(null);
   const [payerRetry, setPayerRetry] = useState<PayerRetry | null>(null);
   // Error UI is local to this dialog — nothing leaks onto the page behind it.
-  const [error, setError] = useState('');
+  const [error, setError] = useState<DialogError | null>(null);
   const [txStep, setTxStep] = useState<'build' | 'review' | 'submitted'>(
     preset?.calls ? 'review' : 'build',
   );
@@ -218,13 +219,21 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
     });
   };
 
-  const surfaceSendError = (message: string) => {
-    setError(message);
-    toast.error(message);
+  const surfaceSendError = (message: string, txHash?: Hex) => {
+    setError({ message, txHash });
+    toast.error(txHash ? `${message} (${txHash}).` : message);
   };
 
   const sendError = (err: unknown) => {
-    if (err instanceof EstimateRevertedError) setEstimateBlocked(err.reason);
+    if (err instanceof TxRevertedError) {
+      surfaceSendError('Transaction reverted onchain', err.txHash);
+      return;
+    }
+    if (err instanceof EstimateRevertedError) {
+      setEstimateBlocked(err.reason);
+      surfaceSendError(err.reason);
+      return;
+    }
     const e = err as { message?: string; name?: string };
     surfaceSendError(conciseError(e.message ?? String(err)));
   };
@@ -364,7 +373,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
   const confirmSend = async (forceEstimate = false, retry: PayerRetry | null = null) => {
     const mode = retry?.kind === 'usdv' ? 'usdv' : gasMode;
     if (retry?.kind === 'usdv') setGasMode('usdv');
-    setError('');
+    setError(null);
     setEstimateBlocked(null);
     setPayerRetry(null);
     setTxStep('submitted');
@@ -404,7 +413,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
 
   const startSend = () => {
     if (!callsValid || !activeSigner) return;
-    setError('');
+    setError(null);
     setResult(null);
     setTxStep('review');
   };
@@ -436,12 +445,15 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
                 size="sm"
                 onClick={() => {
                   setTxStep('review');
-                  setError('');
+                  setError(null);
                   setPayerRetry(null);
                 }}
               >
                 Back
               </Button>
+              {error.txHash ? (
+                <ViewTransactionButton href={`${VIBENET_EXPLORER_PATH}/tx/${error.txHash}`} />
+              ) : null}
               <Button variant="primary" size="sm" onClick={() => confirmSend(Boolean(estimateBlocked), payerRetry)}>
                 {retryLabel}
               </Button>
@@ -461,7 +473,7 @@ export function TransactionModal({ onClose, preset }: TransactionModalProps) {
               size="sm"
               onClick={() => {
                 setTxStep('build');
-                setError('');
+                setError(null);
               }}
               disabled={signing}
             >
@@ -867,7 +879,7 @@ type ReviewBodyProps = {
   gasEstimate: number;
   nonceless: boolean;
   txSigner: WalletSigner | null;
-  error: string;
+  error: DialogError | null;
 };
 
 function ReviewBody({
@@ -943,7 +955,7 @@ function ReviewBody({
         {error ? (
           <div className="flex items-start gap-2 py-1 text-[13px] text-bds-red-60 [line-break:anywhere]">
             <ErrorGlyph />
-            {error}
+            <ErrorCopy error={error} />
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -991,7 +1003,7 @@ function SubmittedBody({
 }: {
   signing: boolean;
   submitStatus: '' | 'submitting' | 'confirming';
-  error: string;
+  error: DialogError | null;
   result: SubmittedResult;
 }) {
   if (signing) {
@@ -1013,8 +1025,11 @@ function SubmittedBody({
     return (
       <div className="flex flex-col items-center gap-3 py-10 text-center">
         <ErrorGlyph size={28} />
-        <Text variant="label.regular" className="text-bds-red-60 [line-break:anywhere]">
-          {error}
+        <Text
+          variant="label.regular"
+          className={cn('max-w-full text-bds-red-60', !error.txHash && '[line-break:anywhere]')}
+        >
+          <ErrorCopy error={error} />
         </Text>
       </div>
     );
@@ -1054,6 +1069,25 @@ function SubmittedBody({
         <span className="text-[13px] text-bds-gray-60 dark:text-bds-gray-40">{short(result.txHash)}</span>
       ) : null}
     </div>
+  );
+}
+
+type DialogError = { message: string; txHash?: Hex };
+
+function ErrorCopy({ error }: { error: DialogError }) {
+  if (!error.txHash) return error.message;
+  return (
+    <span className="flex max-w-full flex-col items-center gap-1.5">
+      <span>{error.message}</span>
+      <a
+        href={`${VIBENET_EXPLORER_PATH}/tx/${error.txHash}`}
+        target="_blank"
+        rel="noreferrer"
+        className="max-w-full overflow-x-auto font-mono text-[13px] whitespace-nowrap text-base-blue hover:underline"
+      >
+        {error.txHash}
+      </a>
+    </span>
   );
 }
 

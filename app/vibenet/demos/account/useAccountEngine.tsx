@@ -61,6 +61,7 @@ import { buildPhases, type CallRow, newCallRow, safeGasLimit, valueBearingCallCo
 import type { StoredAccount } from './library/model';
 import { requiredTokenAmount } from './library/payer';
 import { type AaReceiptLike, aaReceiptSucceeded } from './library/receipt';
+import { revertReason } from './library/revertReason';
 import { type Balances, KIND_LABEL, type Persisted, type WalletSigner } from './shared';
 import { useAccounts } from './useAccounts';
 
@@ -69,31 +70,6 @@ const fundAccount = (address: Address) =>
     vibenetApi.faucet.drip({ address }),
     vibenetApi.faucet.dripUsdv({ address }),
   ]);
-
-/** Best-effort human reason from a viem/RPC error (unwraps the "Missing or invalid
- *  parameters" boilerplate to the underlying details). */
-function estimateFailureReason(err: unknown): string {
-  const e = err as {
-    shortMessage?: string;
-    details?: string;
-    message?: string;
-    cause?: { shortMessage?: string; message?: string };
-  };
-  if (e && typeof e === 'object') {
-    const short = e.shortMessage?.trim();
-    const generic = short && /^Missing or invalid parameters/i.test(short);
-    return (
-      (generic ? e.details : short) ??
-      e.details ??
-      short ??
-      e.cause?.shortMessage ??
-      e.cause?.message ??
-      e.message ??
-      String(err)
-    );
-  }
-  return String(err);
-}
 
 /** Collapse a giant viem error dump to its `Details:` line (or first line) for display. */
 export function conciseError(message: string): string {
@@ -138,6 +114,17 @@ export class TxPendingError extends Error {
   readonly txHash: Hex;
   constructor(hash: Hex) {
     super(`Transaction is pending — not yet included (${hash}).`);
+    this.name = 'TxPendingError';
+    this.txHash = hash;
+  }
+}
+
+/** Thrown when a broadcast transaction was included and then reverted. */
+export class TxRevertedError extends Error {
+  readonly txHash: Hex;
+  constructor(hash: Hex) {
+    super(`Transaction reverted onchain (${hash}).`);
+    this.name = 'TxRevertedError';
     this.txHash = hash;
   }
 }
@@ -147,7 +134,8 @@ export class TxPendingError extends Error {
 export class EstimateRevertedError extends Error {
   readonly reason: string;
   constructor(reason: string) {
-    super(`Gas estimate failed — this transaction would revert: ${reason}`);
+    super(reason);
+    this.name = 'EstimateRevertedError';
     this.reason = reason;
   }
 }
@@ -419,7 +407,7 @@ function useAccountEngineCore() {
       receipt = await getTransactionReceipt(client as never, { hash: txHash }).catch(() => null);
     }
     if (!receipt) receipt = { ...pushed, eip8130: parseReceiptFields(pushed) };
-    if (!aaReceiptSucceeded(receipt as AaReceiptLike)) throw new Error(`Transaction reverted onchain (${txHash}).`);
+    if (!aaReceiptSucceeded(receipt as AaReceiptLike)) throw new TxRevertedError(txHash);
     // Chain facts: the inclusion block's Cobalt `timestampMs`, from the head
     // stream when it has the block, else one block read. Timing is decoration,
     // so a failed read is dropped.
@@ -547,7 +535,7 @@ function useAccountEngineCore() {
         // failure and the gas is spent (self-pay) / rejected (payer).
         gasLimit = BigInt(Math.max(Number(floorGas(true)) * 2, 2_000_000));
       } else if (opts.estimateRevert === 'throw') {
-        throw new EstimateRevertedError(estimateFailureReason(err));
+        throw new EstimateRevertedError(revertReason(err));
       } else {
         gasLimit = floorGas(true);
       }
