@@ -23,7 +23,7 @@ export const DEFAULTS = {
   site: {
     title: 'Base Chain',
     summary:
-      'Monitor and test Base, all in one place. chain.base.org is the live-state surface for Base Chain: node snapshots and Vibenet, an ephemeral developer network for testing in-flight features such as EIP-8130 native account abstraction.',
+      'Monitor and test Base, all in one place. chain.base.org is the live-state surface for Base Chain: node snapshots and Vibenet, an ephemeral developer network for testing in-flight features such as EIP-8430 Base Transactions.',
     fullTitle: 'Base Chain — Full Context',
     fullSummary:
       'Full context for agents working with Base Chain. Hand-written network, freshness, and routing guides sit above an exhaustive per-route index.',
