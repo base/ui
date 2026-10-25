@@ -123,6 +123,17 @@ it('steps history when proven capacity changes, with compare links', async () =>
   ]);
 });
 
+it('dates a drop when the higher pass ages out of the window', async () => {
+  const { history } = await load([
+    { dir: 'expire-200', mgas: 200, daysAgo: 20 },
+    { dir: 'expire-100', mgas: 100, daysAgo: 10 },
+  ]);
+  expect(history.map(({ at, mgas }) => ({ at, mgas }))).toEqual([
+    { at: NOW - 20 * DAY, mgas: 200 },
+    { at: NOW - 6 * DAY, mgas: 100 },
+  ]);
+});
+
 it('marks a run unknown when one of its files fails, keeping the rest', async () => {
   const { current, unknown } = await load([
     { dir: 'iso-100', mgas: 100, daysAgo: 3 },
