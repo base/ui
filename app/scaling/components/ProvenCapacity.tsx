@@ -26,14 +26,17 @@ export function ProvenCapacity({ benchUrl, dashboardUrl }: { benchUrl?: string; 
   );
 }
 
-function Result({ capacity: { current, history, now } }: { capacity: Capacity & { now: number } }) {
-  if (!current) return <Text variant="label.regular" tone="muted">No main run passed in the last 14 days.</Text>;
+function Result({ capacity: { current, history, unknown, now } }: { capacity: Capacity & { now: number } }) {
+  // A run whose files failed to load is skipped, so an older result at its rate may count instead.
+  const partial = unknown.length ? <Text variant="label.regular" tone="muted">{unknown.length} run(s) could not be loaded, so this result may be wrong.</Text> : null;
+  if (!current) return partial ?? <Text variant="label.regular" tone="muted">No main run passed in the last 14 days.</Text>;
   const { run } = current;
   const y = (m: number | null) => (m ?? 0) * 1e6;
   const points = history.flatMap((s, i): [number, number][] => (i ? [[s.at, y(history[i - 1].mgas)], [s.at, y(s.mgas)]] : [[s.at, y(s.mgas)]]));
   points.push([now, y(current.mgas)]);
   return (
     <>
+      {partial}
       <Text variant="stats" className="font-mono">{current.atTop ? '≥ ' : ''}{current.mgas} <span className="text-[16px] text-bds-gray-60">Mgas/s</span></Text>
       <Text variant="label.regular" tone="muted">
         {run.mgas} Mgas/s run delivered {(run.gps / 1e6).toFixed(1)} Mgas/s · commit{' '}

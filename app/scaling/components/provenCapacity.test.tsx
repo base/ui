@@ -64,6 +64,14 @@ describe('ProvenCapacity', () => {
     expect(html).toContain('href="https://github.com/base/base/compare/aaaa...bbbb"');
   });
 
+  it('warns when run files failed to load, instead of the empty state', () => {
+    swr.result = { data: { current: null, history: [], unknown: ['r1', 'r2'], now: T0 } };
+    expect(render()).toContain('2 run(s) could not be loaded');
+    expect(render()).not.toContain('No main run passed');
+    swr.result = { data: { ...capacity(true), unknown: ['r1'] } };
+    expect(render()).toMatch(/1 run\(s\) could not be loaded.*≥ 400/);
+  });
+
   it('drops ≥ when a higher rate failed', () => {
     swr.result = { data: capacity(false) };
     const html = render();
