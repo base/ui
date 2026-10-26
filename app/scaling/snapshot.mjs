@@ -54,7 +54,7 @@ const TAGS = ['measured', 'modeled', 'estimated', 'not-measured', 'not-modeled',
 const VALUED_TAGS = ['measured', 'modeled', 'estimated'];
 const AREAS = ['da', 'execution', 'state', 'networking'];
 // Each section renders on its area page, or on the guardrails page for outcomes.
-const SECTION_IDS = [...AREAS, 'outcomes'];
+const SECTION_IDS = ['da', 'execution', 'state', 'outcomes'];
 const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
 const DAY_MS = 86_400_000;
 // Captures a bench run id, or a load test's network and timestamp.
