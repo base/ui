@@ -35,7 +35,8 @@ export async function loadProvenCapacity(
   now: number = Date.now(),
 ): Promise<ProvenCapacity> {
   const root = baseUrl.replace(/\/*$/, '/output/');
-  const res = await fetchImpl(`${root}metadata.json`);
+  // The index changes after every run; revalidate instead of trusting a heuristically fresh cached copy.
+  const res = await fetchImpl(`${root}metadata.json`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`Failed to fetch metadata: ${res.status} ${res.statusText}`);
   const runs: Run[] = [];
   const unknown: string[] = [];

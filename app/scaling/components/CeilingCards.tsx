@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
 import type { UnifiedRun } from '../runs/lib/unified';
 import { deriveBinding, type Ceiling, type CeilingInput } from '../snapshot.mjs';
+import { DaWorkloadRows } from './DaWorkloads';
 import { Info } from './Info';
 import { RunBackedCeilingCard } from './RunBackedCeilingCard';
 import { Tag } from './Tag';
@@ -40,12 +41,21 @@ export function CeilingCard({ area, ceilings, run }: { area: Ceiling['area']; ce
         <Tag tag={c.tag} />
         {c === deriveBinding(ceilings) ? <span className="rounded-md bg-base-blue px-2 py-0.5 text-[12px] text-white">Binding</span> : null}
       </span>
-      <code className="break-words font-mono text-[12px] text-bds-gray-60">{c.formula}</code>
-      {c.reason ? <p className="text-bds-gray-60">{c.reason}</p> : null}
-      {run ? <Link className="underline" href={run.href}>Bench run {new Date(run.timestamp).toISOString().slice(0, 10)} →</Link> : null}
-      <ul className="flex flex-col gap-0.5 text-[12px] text-bds-gray-60 empty:hidden">
-        {c.inputs.map((i) => <li key={i.name}>{input(i)}</li>)}
-      </ul>
+      {area === 'da' ? (
+        <>
+          <p className="text-[12px] text-bds-gray-60">{c.reason}</p>
+          <DaWorkloadRows />
+        </>
+      ) : (
+        <>
+          <code className="break-words font-mono text-[12px] text-bds-gray-60">{c.formula}</code>
+          {c.reason ? <p className="text-bds-gray-60">{c.reason}</p> : null}
+          {run ? <Link className="underline" href={run.href}>Bench run {new Date(run.timestamp).toISOString().slice(0, 10)} →</Link> : null}
+          <ul className="flex flex-col gap-0.5 text-[12px] text-bds-gray-60 empty:hidden">
+            {c.inputs.map((i) => <li key={i.name}>{input(i)}</li>)}
+          </ul>
+        </>
+      )}
     </Card>
   );
 }

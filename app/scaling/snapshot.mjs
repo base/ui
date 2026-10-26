@@ -170,6 +170,7 @@ export function parseSnapshot(data) {
       if (input.source !== undefined) link(input.source, `${p}.source`);
     });
   });
+  // The page shows the DA ceiling from da/workloads.ts instead of this one; the entry is still required.
   for (const area of AREAS) if (!areas.has(area)) fail('snapshot.ceilings', `missing ${area}`);
 
   const guardrailIds = new Set();
