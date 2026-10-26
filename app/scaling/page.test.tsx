@@ -32,8 +32,8 @@ it('renders an area with breadcrumb, as-of header, ceiling, metric details, gaps
   expect(html).toContain('href="/scaling">Scaling</a> / DA');
   expect(html).toContain('As of 2026-01-02 00:00 UTC');
   expect(html).toMatch(/>Ceiling <span[^>]*>· Mgas\/s<\/span>/);
-  expect(html).toContain('Payments (B20 transfer) · 57 Mgas/s · 1,517 tx/s · provisional');
-  expect(html).toContain('Mainnet mix · 190 Mgas/s · 981 tx/s · observed · 2026-10-26');
+  expect(html).toContain('Lowest: Payments (B20) · 14-blob target, no margin');
+  expect(html).toContain('>1,517<');
   expect(html).toMatch(/>DA capacity by workload <span[^>]*>· Mgas\/s<\/span>/);
   expect(html).toContain('synthetic.blob_utilization');
   expect(html).toContain('<li>Confirmed drain</li>');

@@ -1,4 +1,4 @@
-import type { Ceiling, CeilingInput, Link } from '../snapshot.mjs';
+import type { Ceiling, Link } from '../snapshot.mjs';
 
 // Ethereum's blob target and max per L1 block since BPO2 (2026-01-07), and the data one blob carries.
 export const BLOB_TARGET = 14;
@@ -19,7 +19,7 @@ export type DaWorkload = {
 // Bytes per transaction come from `base-bench da`; gas per transaction for bench workloads from the
 // load-test calibration (etc/scripts/local/mainnet-mix.py in base/base).
 export const DA_WORKLOADS: DaWorkload[] = [
-  { label: 'Payments (B20 transfer)', benchWorkload: 'b20-transfer', gasPerTx: 37_743, bytesPerTx: 100, tag: 'estimated', asOf: null },
+  { label: 'Payments (B20)', benchWorkload: 'b20-transfer', gasPerTx: 37_743, bytesPerTx: 100, tag: 'estimated', asOf: null },
   { label: 'Swaps', benchWorkload: 'uniswap-swap', gasPerTx: 143_987, bytesPerTx: 190, tag: 'estimated', asOf: null },
   {
     label: 'Mainnet mix',
@@ -53,19 +53,9 @@ export function withDaWorkloads(ceilings: Ceiling[], workloads: DaWorkload[] = D
     unit: 'Mgas/s',
     tag: workloads.every((w) => w.tag === 'measured') ? 'modeled' : 'estimated',
     formula: `lowest workload: ${BLOB_TARGET} blobs × ${BLOB_DATA_BYTES.toLocaleString('en-US')} B ÷ ${L1_SLOT_SECONDS} s ÷ bytes/tx × gas/tx`,
-    reason: `${binding.label} bind · ${BLOB_TARGET}-blob target, full blobs, no margin`,
-    inputs: workloads.map((w): CeilingInput => {
-      const { mgasPerSecond, txPerSecond } = daCapacity(w, BLOB_TARGET);
-      return {
-        name: w.label,
-        value: fmt(mgasPerSecond),
-        unit: `Mgas/s · ${fmt(txPerSecond)} tx/s`,
-        asOf: w.asOf,
-        status: w.tag === 'measured' ? 'observed' : 'provisional',
-        ...(w.source ? { source: w.source } : {}),
-      };
-    }),
-    help: "Gas per second Ethereum's blob target carries for the workload with the most DA bytes per gas. Each workload's bytes per transaction come from running its blocks through the batcher encoder (base-bench da).",
+    reason: `Lowest: ${binding.label} · ${BLOB_TARGET}-blob target, no margin`,
+    inputs: [],
+    help: `Gas per second Ethereum's blob target carries for the workload with the most DA bytes per gas: ${BLOB_TARGET} blobs × ${BLOB_DATA_BYTES.toLocaleString('en-US')} B ÷ ${L1_SLOT_SECONDS} s ÷ bytes/tx × gas/tx, full blobs, no margin. Bytes per transaction come from running each workload's blocks through the batcher encoder (base-bench da).`,
   };
   return ceilings.map((c) => (c.area === 'da' ? da : c));
 }

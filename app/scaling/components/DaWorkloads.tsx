@@ -7,6 +7,27 @@ import { Tag } from './Tag';
 const TH = 'px-4 py-2 text-right text-[12px] font-[500] text-bds-gray-60 first:text-left';
 const TD = 'whitespace-nowrap px-4 py-3 text-right font-mono first:text-left first:font-sans';
 
+// The DA ceiling card's body: one aligned row per workload instead of the generic input list.
+export function DaWorkloadRows() {
+  const binding = bindingWorkload();
+  const row = 'grid grid-cols-[1fr_2.75rem_3rem] items-baseline gap-x-2 py-1 text-right';
+  return (
+    <ul className="flex max-w-[22rem] flex-col text-[12px]">
+      <li className={cn(row, 'pb-0.5 text-[11px] text-bds-gray-60')}><span /><span>Mgas/s</span><span>tx/s</span></li>
+      {DA_WORKLOADS.map((w) => {
+        const { mgasPerSecond, txPerSecond } = daCapacity(w, BLOB_TARGET);
+        return (
+          <li key={w.label} className={cn(row, 'border-t border-bds-gray-10 dark:border-white/10')}>
+            <span className={cn('whitespace-nowrap text-left', w === binding && 'font-[500]')}>{w.label}</span>
+            <span className="font-mono">{w.tag === 'estimated' ? '~' : ''}{fmt(mgasPerSecond)}</span>
+            <span className="text-bds-gray-60">{fmt(txPerSecond)}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function DaWorkloads({ observedP50 }: { observedP50: number | null }) {
   const binding = bindingWorkload();
   const rows = DA_WORKLOADS.map((w) => ({ w, target: daCapacity(w, BLOB_TARGET), max: daCapacity(w, BLOB_MAX) }));

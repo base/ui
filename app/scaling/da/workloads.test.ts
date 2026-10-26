@@ -25,8 +25,7 @@ it('replaces only the DA ceiling, with the lowest workload gas/s', () => {
   expect(execution).toEqual(ceiling('execution', 400));
   expect(da.value).toBe(57);
   expect(da.tag).toBe('estimated');
-  expect(da.reason).toContain('payments bind');
-  expect(da.inputs.map((i) => [i.name, i.value, i.status])).toEqual([['mix', '189', 'observed'], ['payments', '57', 'provisional']]);
+  expect(da.reason).toBe('Lowest: payments · 14-blob target, no margin');
 });
 
 it('is modeled once every workload is measured', () => {
