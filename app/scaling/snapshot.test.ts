@@ -69,8 +69,8 @@ describe('parseSnapshot', () => {
 
   it('rejects a section id without a page', () => {
     const data = fixture();
-    data.sections[1].id = 'networking-extra';
-    expect(errorsOf(data)).toEqual(['sections[1].id: expected one of da, execution, state, networking, outcomes']);
+    data.sections[1].id = 'networking';
+    expect(errorsOf(data)).toEqual(['sections[1].id: expected one of da, execution, state, outcomes']);
   });
 
   it('rejects a guardrail status that disagrees with its value and threshold', () => {
@@ -82,6 +82,18 @@ describe('parseSnapshot', () => {
       'guardrails[0].status: expected ok for 42 <= 80',
       'guardrails[1].status: expected breached for 99.5 >= 99.9',
       'guardrails[3].status: must be unknown without a value and threshold',
+    ]);
+  });
+
+  it('accepts a not-monitored guardrail with or without a threshold, but never with a value', () => {
+    const data = fixture();
+    data.guardrails[5] = { ...data.guardrails[5], status: 'not-monitored' };
+    expect(errorsOf(data)).toEqual([]);
+    data.guardrails[4].value = 900;
+    data.guardrails[1].status = 'not-monitored';
+    expect(errorsOf(data)).toEqual([
+      'guardrails[1].value: must be null when not-monitored',
+      'guardrails[4].value: must be null when not-monitored',
     ]);
   });
 

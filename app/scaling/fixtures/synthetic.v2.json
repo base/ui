@@ -158,6 +158,32 @@
       "asOf": "2026-01-02T00:00:00Z",
       "status": "unknown",
       "help": "Slowest 1% of RPC responses. No operational rule yet, so no status."
+    },
+    {
+      "id": "propagation-p99",
+      "label": "Propagation p99",
+      "value": null,
+      "unit": "ms",
+      "threshold": 500,
+      "comparator": "<=",
+      "thresholdTag": "set",
+      "owner": null,
+      "asOf": null,
+      "status": "not-monitored",
+      "help": "Slowest 1% of block deliveries to peers. No metric records delivery latency."
+    },
+    {
+      "id": "state-growth",
+      "label": "State growth",
+      "value": null,
+      "unit": "GB/day",
+      "threshold": null,
+      "comparator": "<=",
+      "thresholdTag": "unset",
+      "owner": null,
+      "asOf": null,
+      "status": "unknown",
+      "help": "Daily growth of the live state. Measurable but not collected yet."
     }
   ],
   "translations": {

@@ -9,8 +9,9 @@ import { Tag } from './Tag';
 
 const TH = 'px-4 py-2 text-left text-[12px] font-[500] text-bds-gray-60';
 const TD = 'px-4 py-3 align-top';
-const DOT: Record<Guardrail['status'], string> = { ok: 'bg-bds-green-50', breached: 'bg-bds-red-50', unknown: 'bg-bds-gray-30' };
-const STATUS: Record<Guardrail['status'], string> = { ok: 'OK', breached: 'Breached', unknown: 'Unknown' };
+const DOT: Record<Guardrail['status'], string> = { ok: 'bg-bds-green-50', breached: 'bg-bds-red-50', unknown: 'bg-bds-gray-30', 'not-monitored': 'bg-bds-gray-30' };
+const STATUS: Record<Guardrail['status'], string> = { ok: 'OK', breached: 'Breached', unknown: 'Unknown', 'not-monitored': 'Not monitored' };
+const rank = (g: Guardrail) => (g.status === 'not-monitored' ? 2 : g.value === null ? 1 : 0);
 
 const fmt = (n: number, unit: string) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`.trim();
 
@@ -29,8 +30,8 @@ export function Guardrails({ guardrails, detailed = false }: { guardrails: Guard
             </tr>
           </thead>
           <tbody>
-            {guardrails.map((g) => (
-              <tr key={g.id} className="border-b border-bds-gray-10 last:border-0 dark:border-white/10">
+            {guardrails.toSorted((a, b) => rank(a) - rank(b)).map((g) => (
+              <tr key={g.id} className={cn('border-b border-bds-gray-10 last:border-0 dark:border-white/10', g.status === 'not-monitored' && 'text-bds-gray-60')}>
                 <td className={TD}>
                   {detailed ? <>{g.label}<p className="text-bds-gray-60">{g.help}</p></> : (
                     <span className="flex items-center gap-1">{g.label} <Info label={`About ${g.label}`}>{g.help}</Info></span>

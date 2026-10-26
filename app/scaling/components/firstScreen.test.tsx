@@ -16,18 +16,18 @@ function fixture(): Snapshot {
 const cards = (html: string) => html.split('<a ').slice(1);
 
 describe('CeilingCards', () => {
-  it('renders every area in a fixed order with its tag, and badges the binding card', () => {
+  it('renders every area but networking in a fixed order with its tag, and badges the binding card', () => {
     const html = cards(renderToStaticMarkup(<CeilingCards ceilings={fixture().ceilings.reverse()} />));
-    expect(html.map((c) => c.match(/href="\/scaling\/(\w+)"/)![1])).toEqual(['da', 'execution', 'state', 'networking']);
-    expect(html.map((c) => c.match(/border-dashed[^>]*>([^<]+)</)![1])).toEqual(['Modeled', 'Estimated', 'Not modeled', 'Not modeled']);
-    expect(html.map((c) => c.includes('>Binding<'))).toEqual([true, false, false, false]);
+    expect(html.map((c) => c.match(/href="\/scaling\/(\w+)"/)![1])).toEqual(['da', 'execution', 'state']);
+    expect(html.map((c) => c.match(/border-dashed[^>]*>([^<]+)</)![1])).toEqual(['Modeled', 'Estimated', 'Not modeled']);
+    expect(html.map((c) => c.includes('>Binding<'))).toEqual([true, false, false]);
   });
 
   it('moves the binding badge to a lower measured ceiling, and shows a dash, reason and pending inputs when there is no value', () => {
     const { ceilings } = fixture();
     ceilings[1] = { ...ceilings[1], value: 90, tag: 'measured' };
     const html = cards(renderToStaticMarkup(<CeilingCards ceilings={ceilings} />));
-    expect(html.map((c) => c.includes('>Binding<'))).toEqual([false, true, false, false]);
+    expect(html.map((c) => c.includes('>Binding<'))).toEqual([false, true, false]);
     expect(html[2]).toContain('>—<');
     expect(html[2]).toContain('live-state growth not measured');
     expect(html[2]).toContain('state_bytes_per_gas · pending</li>');
@@ -47,6 +47,18 @@ describe('Guardrails', () => {
     expect(rows[3]).toContain('>Unset<');
     expect(rows[3]).toContain('bg-bds-gray-30');
     expect(rows[3]).not.toMatch(/bg-bds-(green|red)/);
+  });
+
+  it('sorts rows with a value first, then unknown, then muted not-monitored rows', () => {
+    const html = renderToStaticMarkup(<Guardrails guardrails={fixture().guardrails.reverse()} />);
+    const rows = html.split('<tr').slice(2);
+    expect(rows.map((r) => r.match(/<td[^>]*>(?:<span[^>]*>)?([^<]+?) ?</)![1])).toEqual([
+      'RPC p99 latency', 'Validator keep-up', 'RPC availability', 'DA utilization', 'State growth', 'Propagation p99',
+    ]);
+    expect(rows[4]).toContain('>Unknown</span>');
+    expect(rows[5]).toContain('text-bds-gray-60');
+    expect(rows[5]).toContain('Not monitored');
+    expect(rows.slice(0, 5).join('')).not.toContain('Not monitored');
   });
 });
 

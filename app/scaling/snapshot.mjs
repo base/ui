@@ -29,7 +29,7 @@
  * @typedef {{
  *   id: string, label: string, value: number | null, unit: string, threshold: number | null,
  *   comparator: '<=' | '>=', thresholdTag: 'set' | 'provisional' | 'unset', owner: string | null,
- *   asOf: string | null, status: 'ok' | 'breached' | 'unknown', help: string
+ *   asOf: string | null, status: 'ok' | 'breached' | 'unknown' | 'not-monitored', help: string
  * }} Guardrail
  * @typedef {{ value: number, unit: 'gas', derivation: string, window: string | null }} Constant
  * @typedef {{
@@ -54,7 +54,7 @@ const TAGS = ['measured', 'modeled', 'estimated', 'not-measured', 'not-modeled',
 const VALUED_TAGS = ['measured', 'modeled', 'estimated'];
 const AREAS = ['da', 'execution', 'state', 'networking'];
 // Each section renders on its area page, or on the guardrails page for outcomes.
-const SECTION_IDS = [...AREAS, 'outcomes'];
+const SECTION_IDS = ['da', 'execution', 'state', 'outcomes'];
 const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
 const DAY_MS = 86_400_000;
 // Captures a bench run id, or a load test's network and timestamp.
@@ -189,8 +189,11 @@ export function parseSnapshot(data) {
     if ((g.threshold === null) !== (g.thresholdTag === 'unset')) fail(`${path}.thresholdTag`, 'unset exactly when threshold is null');
     nullableStr(g, 'owner', path);
     nullableDate(g, 'asOf', path);
-    oneOf(g, 'status', path, ['ok', 'breached', 'unknown']);
-    if (g.value === null || g.threshold === null) {
+    oneOf(g, 'status', path, ['ok', 'breached', 'unknown', 'not-monitored']);
+    // not-monitored: no data source exists; unknown: measurable but not collected or not judged.
+    if (g.status === 'not-monitored') {
+      if (g.value !== null) fail(`${path}.value`, 'must be null when not-monitored');
+    } else if (g.value === null || g.threshold === null) {
       if (g.status !== 'unknown') fail(`${path}.status`, 'must be unknown without a value and threshold');
     } else if (Number.isFinite(g.value) && Number.isFinite(g.threshold)) {
       const ok = g.comparator === '<=' ? g.value <= g.threshold : g.value >= g.threshold;
