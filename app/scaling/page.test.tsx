@@ -48,6 +48,15 @@ it('404s an unknown area', async () => {
   await expect(area('bogus')).rejects.toMatchObject({ digest: 'NEXT_HTTP_ERROR_FALLBACK;404' });
 });
 
+it('passes the runtime bench and dashboard URLs to the proven-capacity section', async () => {
+  expect(renderToStaticMarkup(await ScalingPage())).toContain('Bench results not configured');
+  vi.stubEnv('SCALING_BENCH_BASE_URL', 'https://bench.example.com');
+  vi.stubEnv('SCALING_DATADOG_DASHBOARD_URL', 'https://dashboards.example.com/scaling');
+  const html = renderToStaticMarkup(await ScalingPage());
+  expect(html).toContain('Loading bench results');
+  expect(html).toContain('href="https://dashboards.example.com/scaling"');
+});
+
 it('links the first-screen guardrail strip to the guardrails page', async () => {
   expect(renderToStaticMarkup(await ScalingPage())).toContain('<a class="underline" href="/scaling/guardrails">Guardrails →</a>');
 });
