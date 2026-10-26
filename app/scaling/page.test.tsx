@@ -1,3 +1,6 @@
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -13,9 +16,10 @@ afterEach(() => vi.unstubAllEnvs());
 
 const area = async (id: string) => renderToStaticMarkup(await ScalingAreaPage({ params: Promise.resolve({ area: id }) }));
 
-it('links the first screen to five detail pages instead of listing metric rows', async () => {
+it('links the first screen to four detail pages instead of listing metric rows', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  for (const page of ['da', 'execution', 'state', 'networking', 'guardrails']) expect(html).toContain(`href="/scaling/${page}"`);
+  for (const page of ['da', 'execution', 'state', 'guardrails']) expect(html).toContain(`href="/scaling/${page}"`);
+  expect(html).not.toContain('href="/scaling/networking"');
   expect(html).not.toContain('Blob utilization');
   expect(html).toContain('href="/scaling/runs"');
 });
@@ -39,13 +43,16 @@ it('renders an area with breadcrumb, as-of header, ceiling, metric details, gaps
 });
 
 it('shows the ceiling and an empty state for an area without metrics', async () => {
-  const html = await area('networking');
-  expect(html).toContain('gossip and peer limits unknown');
+  const path = join(tmpdir(), 'scaling-no-state-section.json');
+  writeFileSync(path, JSON.stringify({ ...fixture, sections: fixture.sections.filter((s) => s.id !== 'state') }));
+  vi.stubEnv('SCALING_SNAPSHOT_PATH', path);
+  const html = await area('state');
+  expect(html).toContain('live-state growth not measured');
   expect(html).toContain('No detailed metrics yet');
 });
 
-it('404s an unknown area', async () => {
-  await expect(area('bogus')).rejects.toMatchObject({ digest: 'NEXT_HTTP_ERROR_FALLBACK;404' });
+it('404s an unknown area and networking, which has no ceiling', async () => {
+  for (const id of ['bogus', 'networking']) await expect(area(id)).rejects.toMatchObject({ digest: 'NEXT_HTTP_ERROR_FALLBACK;404' });
 });
 
 it('passes the runtime bench and dashboard URLs to the proven-capacity section', async () => {

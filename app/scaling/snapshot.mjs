@@ -29,7 +29,7 @@
  * @typedef {{
  *   id: string, label: string, value: number | null, unit: string, threshold: number | null,
  *   comparator: '<=' | '>=', thresholdTag: 'set' | 'provisional' | 'unset', owner: string | null,
- *   asOf: string | null, status: 'ok' | 'breached' | 'unknown', help: string
+ *   asOf: string | null, status: 'ok' | 'breached' | 'unknown' | 'not-monitored', help: string
  * }} Guardrail
  * @typedef {{ value: number, unit: 'gas', derivation: string, window: string | null }} Constant
  * @typedef {{
@@ -188,8 +188,11 @@ export function parseSnapshot(data) {
     if ((g.threshold === null) !== (g.thresholdTag === 'unset')) fail(`${path}.thresholdTag`, 'unset exactly when threshold is null');
     nullableStr(g, 'owner', path);
     nullableDate(g, 'asOf', path);
-    oneOf(g, 'status', path, ['ok', 'breached', 'unknown']);
-    if (g.value === null || g.threshold === null) {
+    oneOf(g, 'status', path, ['ok', 'breached', 'unknown', 'not-monitored']);
+    // not-monitored: no data source exists; unknown: measurable but not collected or not judged.
+    if (g.status === 'not-monitored') {
+      if (g.value !== null) fail(`${path}.value`, 'must be null when not-monitored');
+    } else if (g.value === null || g.threshold === null) {
       if (g.status !== 'unknown') fail(`${path}.status`, 'must be unknown without a value and threshold');
     } else if (Number.isFinite(g.value) && Number.isFinite(g.threshold)) {
       const ok = g.comparator === '<=' ? g.value <= g.threshold : g.value >= g.threshold;

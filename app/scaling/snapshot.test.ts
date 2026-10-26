@@ -85,6 +85,18 @@ describe('parseSnapshot', () => {
     ]);
   });
 
+  it('accepts a not-monitored guardrail with or without a threshold, but never with a value', () => {
+    const data = fixture();
+    data.guardrails[5] = { ...data.guardrails[5], status: 'not-monitored' };
+    expect(errorsOf(data)).toEqual([]);
+    data.guardrails[4].value = 900;
+    data.guardrails[1].status = 'not-monitored';
+    expect(errorsOf(data)).toEqual([
+      'guardrails[1].value: must be null when not-monitored',
+      'guardrails[4].value: must be null when not-monitored',
+    ]);
+  });
+
   it('rejects a realized effect without evidence', () => {
     const data = fixture();
     data.work[0].evidence = null;
