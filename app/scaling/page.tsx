@@ -6,7 +6,6 @@ import { CeilingCards } from './components/CeilingCards';
 import { Guardrails } from './components/Guardrails';
 import { Ladder } from './components/Ladder';
 import { Progress } from './components/Progress';
-import { ProvenCapacity } from './components/ProvenCapacity';
 import { withDaWorkloads } from './da/workloads';
 import { Header, loadSnapshot, Unavailable } from './loadSnapshot';
 
@@ -23,8 +22,7 @@ export default async function ScalingPage() {
     <div className="flex flex-col gap-10 pb-8">
       <Header loaded={loaded} title={`Scaling scorecard · ${snapshot.network}`} action={<Link className="underline" href="/scaling/runs">Runs →</Link>} />
 
-      <Ladder ladder={snapshot.ladder} ceilings={ceilings} translations={snapshot.translations} windows={snapshot.windows} />
-      <ProvenCapacity benchUrl={process.env.SCALING_BENCH_BASE_URL} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
+      <Ladder ladder={snapshot.ladder} ceilings={ceilings} translations={snapshot.translations} windows={snapshot.windows} benchUrl={process.env.SCALING_BENCH_BASE_URL} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
       <CeilingCards ceilings={ceilings} />
       <Guardrails guardrails={snapshot.guardrails} />
 

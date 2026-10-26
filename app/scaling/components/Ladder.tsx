@@ -4,8 +4,10 @@ import { useLayoutEffect, useRef, useState } from 'react';
 
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
+import type { Proven } from '../proven/capacity';
 import { deriveBinding, type Rung, type Snapshot } from '../snapshot.mjs';
 import { Info } from './Info';
+import { day, ProvenCapacity, useProvenCapacity } from './ProvenCapacity';
 import { Tag } from './Tag';
 import { layoutRungs, type Anchor } from './ladderLayout';
 
@@ -16,21 +18,28 @@ const AREA_NAME = { da: 'DA', execution: 'execution', state: 'state', networking
 const ALIGN: Record<Anchor, string> = { start: 'items-start text-left', middle: 'items-center text-center', end: 'items-end text-right' };
 const SHIFT: Record<Anchor, string> = { start: 'none', middle: 'translateX(-50%)', end: 'translateX(-100%)' };
 
-type Props = Pick<Snapshot, 'ladder' | 'ceilings' | 'translations' | 'windows'>;
-type Item = { id: string; label: string; value: number | null; tag: string; help: string; limit?: boolean };
+type Props = Pick<Snapshot, 'ladder' | 'ceilings' | 'translations' | 'windows'> & { benchUrl?: string; dashboardUrl?: string };
+type Item = { id: string; label: string; value: number | null; tag: string; help: string; limit?: boolean; atLeast?: boolean; source?: string };
 
-function items({ ladder, ceilings, windows }: Props): Item[] {
+function benchItem({ mgas, atTop, run }: Proven) {
+  const top = atTop ? ` ≥ because ${mgas} Mgas/s is the highest rate the bench runs.` : '';
+  const help = `Bench-proven: the highest rate whose latest main run in the last 14 days was comparable and delivered ≥ 95% of target. Run ${run.outputDir}, commit ${run.commit.slice(0, 7)}, ${day(run.createdAt)}.${top} DA and proof guardrails are not checked.`;
+  return { value: mgas, tag: 'measured' as const, help, atLeast: atTop, source: 'bench' };
+}
+
+function items({ ladder, ceilings, windows }: Props, proven: Proven | null | undefined): Item[] {
   const rung = (id: string, label: string, r: Rung): Item =>
     ({ id, label, value: r.value, tag: r.tag, help: r.window ? `${r.help} Window: ${windows[r.window].label}.` : r.help });
-  const binding = deriveBinding(ceilings);
+  const bench = proven ? benchItem(proven) : null;
+  const binding = deriveBinding(bench ? ceilings.map((c) => (c.area === 'execution' ? { ...c, value: bench.value, tag: bench.tag } : c)) : ceilings);
   const ceiling: Item = binding
-    ? { id: 'ceiling', label: `Ceiling · ${AREA_NAME[binding.area]}`, value: binding.value, tag: binding.tag, help: binding.help }
+    ? { id: 'ceiling', label: `Ceiling · ${AREA_NAME[binding.area]}`, value: binding.value, tag: binding.tag, help: binding.help, ...(bench && binding.area === 'execution' ? bench : {}) }
     : { id: 'ceiling', label: 'Ceiling', value: null, tag: 'not-modeled', help: `No area ceiling is measured or modeled yet: ${ceilings.map((c) => `${AREA_NAME[c.area]} ${c.tag}`).join(', ')}.` };
   return [
     rung('p50', 'Observed p50', ladder.observed.p50),
     rung('p99', 'Observed p99', ladder.observed.p99),
     rung('operating', 'Operating point', ladder.operatingPoint),
-    rung('qualified', 'Qualified sustained', ladder.qualified),
+    bench ? { id: 'qualified', label: 'Qualified sustained', ...bench } : rung('qualified', 'Qualified sustained', ladder.qualified),
     ceiling,
     { ...rung('limit', 'Configured limit', ladder.configuredLimit), limit: true },
   ];
@@ -51,7 +60,9 @@ export function Ladder(props: Props) {
     return () => observer.disconnect();
   }, []);
 
-  const all = items(props);
+  const bench = useProvenCapacity(props.benchUrl);
+  const proven = bench.error ? null : bench.data?.current;
+  const all = items(props, proven);
   const valued = all.flatMap((i) => (i.value === null ? [] : [{ id: i.id, value: i.value }]));
   const max = props.ladder.configuredLimit.value ?? Math.max(0, ...valued.map((v) => v.value));
   const placed = new Map(max > 0 ? layoutRungs(valued, max, LABEL_PX / width).map((p) => [p.id, p]) : []);
@@ -83,8 +94,8 @@ export function Ladder(props: Props) {
                   {item.label} <Info label={`About ${item.label}`}>{item.help}</Info>
                 </span>
                 <span className={cn('font-mono text-[13px]', item.limit && 'text-bds-gray-60')}>
-                  {item.value!.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                  {item.limit ? null : <span className="ml-1 font-sans text-[11px] text-bds-gray-60">{item.tag}</span>}
+                  {item.atLeast ? '≥ ' : ''}{item.value!.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                  {item.limit ? null : <span className="ml-1 font-sans text-[11px] text-bds-gray-60">{item.tag}{item.source ? ` · ${item.source}` : ''}</span>}
                 </span>
               </div>
             </div>
@@ -100,12 +111,14 @@ export function Ladder(props: Props) {
           </li>
         ))}
       </ul>
-      {props.ladder.qualified.evidence?.length ? (
+      {!proven && props.ladder.qualified.evidence?.length ? (
         <Text variant="label.regular" tone="muted">
           <span className="flex flex-wrap gap-x-3">Qualified sustained by {props.ladder.qualified.evidence.map((l) => <a key={l.url} className="underline" href={l.url}>{l.label}</a>)}</span>
         </Text>
       ) : null}
       <Text variant="label.regular" tone="muted">{translation(props.translations)}</Text>
+      {props.benchUrl ? <ProvenCapacity data={bench.data} error={bench.error} /> : null}
+      {props.dashboardUrl ? <Text variant="label.regular" tone="muted"><a className="underline" href={props.dashboardUrl}>Mainnet load, gas limit, DA ceiling →</a></Text> : null}
     </section>
   );
 }
