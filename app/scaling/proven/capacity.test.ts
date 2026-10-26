@@ -142,3 +142,13 @@ it('marks a run unknown when one of its files fails, keeping the rest', async ()
   expect(current).toMatchObject({ mgas: 100, atTop: true });
   expect(unknown).toEqual(['iso-200']);
 });
+
+it('revalidates the run index instead of trusting a cached copy', async () => {
+  const inits = new Map<string, RequestInit | undefined>();
+  const fetchImpl = async (url: string, init?: RequestInit) => {
+    inits.set(url, init);
+    return Response.json({ runs: [] });
+  };
+  await loadProvenCapacity('https://bench.example', fetchImpl as typeof fetch, NOW);
+  expect(inits.get('https://bench.example/output/metadata.json')?.cache).toBe('no-cache');
+});
