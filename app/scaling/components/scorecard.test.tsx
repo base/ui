@@ -65,6 +65,7 @@ const text = (html: string) => {
   return out.replaceAll('&#x27;', "'");
 };
 const bar = (b: string, label: string) => text(`<li${b.split('<li').find((li) => li.includes(`>${label}<`)) ?? '>'}`);
+// The proven-capacity block, then the payments and swaps cards.
 const cards = (a: string) => a.split('uppercase tracking-wide').slice(1);
 const row = (d: string, name: string) => text(`<tr${d.split('<tr').find((tr) => tr.includes(`>${name}<`)) ?? '>'}`);
 
@@ -77,17 +78,16 @@ describe('without bench data', () => {
   it('fetches nothing without a URL and falls back to the snapshot and DA estimates', () => {
     const { a, c, b, d } = render({});
     expect(swr.key).toBeNull();
-    expect(text(a)).toContain('64transactions per secondaveraged over the last 30 days');
-    expect(text(a)).toContain('5.5M per day · 12.5 Mgas/s median · Usage data as of 2026-01-02');
-    expect(text(a)).not.toMatch(/Proven capacity|Used today|Headroom|proven capacity is|payments\/s/);
-    const [payments, swaps] = cards(a);
-    expect(text(payments)).toContain('Payments per second, provenpendingDA caps at ~1,517Estimated');
-    expect(text(swaps)).toContain('Swaps per second, provenpendingDA caps at ~799Estimated');
+    const [capacity, payments, swaps] = cards(a);
+    expect(text(capacity)).toContain('Proven capacity—Mgas/stoday 12.5 median (64 tx/s) · Usage data as of 2026-01-02');
+    expect(text(a)).not.toMatch(/\dtransactions per second|averaged over the last|per day|headroom|Used today/);
+    expect(text(payments)).toContain('PaymentspendingDA caps ~1,517Estimated');
+    expect(text(swaps)).toContain('SwapspendingDA caps ~799Estimated');
     expect(a).not.toContain('data-tick');
     expect(text(a)).toContain("First limit: DA. Ethereum's blob target fills at ~57 Mgas/s of payments Estimated or 190 Mgas/s of mainnet-like traffic Measured.");
     expect(text(c)).toContain('200 Mgas/s');
     expect(text(c)).not.toContain('proven');
-    expect(bar(b, 'DA · Payments (B20)')).toContain('~57Estimated· binding');
+    expect(bar(b, 'DA · Payments (B20)')).toContain('~57 Mgas/s ≈ 1,517/sEstimated· binding');
     expect(bar(b, 'Execution (sequencer)')).toContain('no proven run');
     expect(bar(b, 'Validators')).toContain('pending');
     expect(text(d)).toContain('Measured at the proven rate');
@@ -95,23 +95,22 @@ describe('without bench data', () => {
     expect(d).not.toContain('Qualified by');
   });
 
-  it('heads with gas per second when the snapshot has no transactions per second', () => {
+  it('drops the tx/s clause when the snapshot has no transactions per second', () => {
     const snapshot = fixture();
     delete snapshot.usage;
     snapshot.ladder.observed.p99 = { ...snapshot.ladder.observed.p99, value: 42.24, tag: 'measured' };
     const { a } = render({}, snapshot);
-    expect(text(a)).toContain('12.5Mgas/s medianaveraged over 24 h');
-    expect(text(a)).toContain('42.2 p99 · Usage data as of 2026-01-02');
-    expect(text(a)).not.toMatch(/transactions per second|per day/);
+    expect(text(a)).toContain('today 12.5 median · 42.2 p99 · Usage data as of 2026-01-02');
+    expect(text(a)).not.toContain('tx/s');
   });
 
   it('uses a qualified snapshot rung and links the runs behind it', () => {
     const snapshot = fixture();
     snapshot.ladder.qualified = { ...snapshot.ladder.qualified, value: 30, tag: 'measured', evidence: [{ label: 'Synthetic run', url: 'https://example.com/scaling/runs/bench/synthetic-1' }] };
     const { a, c } = render({}, snapshot);
-    expect(text(a)).toContain('Proven capacity 30 Mgas/s, from the snapshot · Synthetic run');
+    expect(text(a)).toContain('Proven capacity30Mgas/stoday 12.5 median (64 tx/s) · 2.4× headroom');
+    expect(text(a)).toContain('Proven capacity from the snapshot · Synthetic run');
     expect(a).toContain('href="https://example.com/scaling/runs/bench/synthetic-1"');
-    expect(text(a)).toContain('12.5 Mgas/s median · proven capacity is 2.4× that');
     expect(text(c)).toContain('proven 30');
   });
 
@@ -121,7 +120,8 @@ describe('without bench data', () => {
     swr.result = { error: new TypeError('Failed to fetch'), data: bench(400, true) };
     const { a, c } = render();
     expect(text(a)).toContain('VPN');
-    expect(text(cards(a)[0])).toContain('pending');
+    expect(text(cards(a)[0])).toContain('Proven capacity—Mgas/s');
+    expect(text(cards(a)[1])).toContain('pending');
     expect(text(c)).not.toContain('proven');
   });
 
@@ -137,7 +137,7 @@ describe('with a proven run', () => {
   it('heads with today, the headroom over the median, the first limit and the last change', () => {
     swr.result = { data: bench(400, true) };
     const { a } = render();
-    expect(text(a)).toContain('5.5M per day · 12.5 Mgas/s median · proven capacity is 32× that · Usage data as of 2026-01-02');
+    expect(text(cards(a)[0])).toContain('Proven capacity≥ 400Mgas/stoday 12.5 median (64 tx/s) · 32× headroom · Usage data as of 2026-01-02');
     expect(text(a)).toContain('of mainnet-like traffic Measured, below the proven 400.');
     expect(text(a)).toContain('↑ from 40 Mgas/s on 2026-01-06 · compare');
     expect(a).toContain('href="https://github.com/base/base/compare/aaaa...bbbb"');
@@ -179,7 +179,9 @@ describe('with a proven run', () => {
     expect(bar(b, 'Validators')).toContain('≥ 400 · 7.3× replay headroom');
     expect(bar(b, 'Proof node')).toContain('≥ 400 · lag p99 4 blocks');
     expect(b.match(/bg-bds-red-60/g)).toHaveLength(1);
-    expect(bar(b, 'DA · Payments (B20)')).toContain('binding');
+    expect(bar(b, 'DA · Payments (B20)')).toContain('~57 Mgas/s ≈ 1,517/sEstimated· binding');
+    expect(bar(b, 'DA · Mainnet mix')).toContain('190 Mgas/s ≈ 981/sMeasured');
+    expect(bar(b, 'Execution (sequencer)')).not.toContain('/s');
     expect(text(b)).toContain('today p50 12.5');
     expect(text(b)).toContain('gas limit 200');
     expect(text(b)).toContain('State joins once a runway is chosen.');
@@ -205,7 +207,7 @@ describe('with a proven run', () => {
   it('binds below the top rate when the proven rate is under every DA ceiling', () => {
     swr.result = { data: bench(40, false) };
     const { a, b } = render();
-    expect(text(a)).toContain('proven capacity is 3.2× that');
+    expect(text(a)).toContain('Proven capacity40Mgas/stoday 12.5 median (64 tx/s) · 3.2× headroom');
     expect(text(a)).toContain('First limit: above 40 Mgas/s, where the next rate tested did not pass.');
     expect(bar(b, 'Execution (sequencer)')).toMatch(/40· binding$/);
   });
@@ -236,32 +238,26 @@ describe('with a proven run', () => {
   it('switches DA bars to measured once payments and swaps have bench DA runs', () => {
     swr.result = { data: bench(400, true, { da: { mix: null, payment: run(200, 'payment', daResult(8e7, 20, false)), swap: run(200, 'swap', daResult(4e7, 9, true)) } }) };
     const { a, b } = render();
-    expect(bar(b, 'DA · Payments (B20)')).toContain('76Measured· binding');
-    expect(bar(b, 'DA · Swaps')).toContain('152Measured');
+    expect(bar(b, 'DA · Payments (B20)')).toContain('76 Mgas/s ≈ 1,896/sMeasured· binding');
+    expect(bar(b, 'DA · Swaps')).toContain('152 Mgas/s ≈ 3,793/sMeasured');
     expect(text(a)).toContain('fills at 76 Mgas/s of payments Measured');
   });
 
-  it('cards payments and swaps per second with today and the DA cap on a 0 to proven bar', () => {
+  it('cards payments and swaps per second with ≥ only at the top rate, and their DA caps', () => {
     swr.result = { data: bench(400, true, { current: { mix: null, swap: { mgas: 100, atTop: false, run: run(100, 'swap') }, payment: { mgas: 200, atTop: true, run: run(200, 'payment') } } }) };
-    const [payments, swaps] = cards(render().a);
-    expect(payments).toContain('href="/scaling/runs/bench/synthetic-payment-200">≥ 2.1k</a>');
-    // Today 64.2 and the DA cap 1,517 tx/s on a 0–2,100 scale.
-    expect(payments).toMatch(/data-tick="today"[^>]*left:3\.057\d*%/);
-    expect(payments).toMatch(/data-tick="da"[^>]*left:72\.24\d*%/);
-    expect(text(payments)).toContain('DA caps at ~1,517Estimated');
-    expect(swaps).toContain('>1.1k</a>');
-    // The DA cap of ~799 swaps/s sits at 76% of the 1,050 proven.
-    expect(swaps).toMatch(/data-tick="da"[^>]*left:76\.0\d*%/);
+    const [, payments, swaps] = cards(render().a);
+    expect(payments).toContain('href="/scaling/runs/bench/synthetic-payment-200"');
+    expect(text(payments)).toContain('Payments≥ 2.1k/sDA caps ~1,517Estimated');
+    expect(text(swaps)).toContain('Swaps1.1k/sDA caps ~799Estimated');
+    expect(render().a).not.toContain('data-tick');
   });
 
-  it('uses the bench DA run for the cap once measured, and omits the today tick without usage data', () => {
+  it('uses the bench DA run for the cap once measured', () => {
     const daRun = run(200, 'payment', { result: { seconds: 600, gas_used: 4e10, transactions: 1e6, transaction_bytes: 0, frame_bytes: 8e7, gas_per_second: 0, bytes_per_gas: 0, compression_ratio: 0, blobs_per_l1_slot: 20, blob_fill: 1, blob_target_gas_per_second: 0 }, target: 14, withinTarget: false });
     swr.result = { data: bench(400, true, { current: { mix: null, swap: null, payment: { mgas: 200, atTop: true, run: run(200, 'payment') } }, da: { mix: null, payment: daRun, swap: null } }) };
     const snapshot = fixture();
     delete snapshot.usage;
-    const [payments] = cards(render({ benchUrl: BENCH }, snapshot).a);
-    expect(text(payments)).toContain('DA caps at ~1,896Measured');
-    expect(payments).not.toContain('data-tick="today"');
-    expect(payments).toContain('data-tick="da"');
+    const [, payments] = cards(render({ benchUrl: BENCH }, snapshot).a);
+    expect(text(payments)).toContain('DA caps ~1,896Measured');
   });
 });

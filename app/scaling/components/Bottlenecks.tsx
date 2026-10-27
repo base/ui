@@ -5,7 +5,7 @@ import type { Proven } from '../proven/capacity';
 import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Tag } from './Tag';
 
-export type Bar = { id: string; label: string; value: number | null; text: string; tag?: DaWorkload['tag'] };
+export type Bar = { id: string; label: string; value: number | null; text: string; tag?: DaWorkload['tag']; perSecond?: number };
 
 const x = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}×`;
 
@@ -13,8 +13,8 @@ const x = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}×`;
 // over budget, their limit is somewhere below it.
 export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): Bar[] {
   const da = workloads.map((w): Bar => {
-    const value = daCapacity(w, BLOB_TARGET).mgasPerSecond;
-    return { id: `da-${w.payload}`, label: `DA · ${w.label}`, value, text: `${w.tag === 'estimated' ? '~' : ''}${fmt(value)}`, tag: w.tag };
+    const { mgasPerSecond: value, txPerSecond } = daCapacity(w, BLOB_TARGET);
+    return { id: `da-${w.payload}`, label: `DA · ${w.label}`, value, text: `${w.tag === 'estimated' ? '~' : ''}${fmt(value)}`, tag: w.tag, perSecond: txPerSecond };
   });
   const run = proven?.run;
   const m = proven?.mgas ?? null;
@@ -54,7 +54,7 @@ export function Bottlenecks({ bars, max, p50, limit }: { bars: Bar[]; max: numbe
       <Text as="h2" variant="headline">What breaks first? <span className="text-bds-gray-60">· Mgas/s</span></Text>
       <ul aria-label="Ceiling by subsystem" className="flex flex-col gap-2 text-[13px]">
         {bars.map((b) => (
-          <li key={b.id} className="grid grid-cols-1 items-center gap-x-3 gap-y-1 sm:grid-cols-[11rem_1fr_15rem]">
+          <li key={b.id} className="grid grid-cols-1 items-center gap-x-3 gap-y-1 sm:grid-cols-[11rem_1fr_19rem]">
             <span>{b.label}</span>
             <div className="relative h-[18px]">
               {b.value === null ? null : (
@@ -63,14 +63,14 @@ export function Bottlenecks({ bars, max, p50, limit }: { bars: Bar[]; max: numbe
               {lines.map((l) => (l.value === null ? null : <div key={l.label} className={cn('absolute -inset-y-1 border-l border-dashed', l.className)} style={{ left: pct(l.value) }} />))}
             </div>
             <span className="flex items-center gap-1.5 text-bds-gray-60">
-              {b.text}
+              {b.text}{b.perSecond === undefined ? null : ` Mgas/s ≈ ${fmt(b.perSecond)}/s`}
               {b.tag ? <Tag tag={b.tag} /> : null}
               {b === binding ? <span className="text-bds-red-60">· binding</span> : null}
             </span>
           </li>
         ))}
       </ul>
-      <div className="relative h-4 text-[11px] sm:ml-[11.75rem] sm:mr-[15.75rem]">
+      <div className="relative h-4 text-[11px] sm:ml-[11.75rem] sm:mr-[19.75rem]">
         {lines.map((l) => (l.value === null ? null : <span key={l.label} className={cn('absolute whitespace-nowrap', l.className)} style={{ left: pct(l.value) }}>{l.label}</span>))}
       </div>
       <Text variant="label.regular" tone="muted">Same scale as the ladder. State joins once a runway is chosen.</Text>

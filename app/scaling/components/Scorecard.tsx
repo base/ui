@@ -30,7 +30,7 @@ export function Scorecard({ snapshot, benchUrl, dashboardUrl }: { snapshot: Snap
   const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);
   return (
     <>
-      <Headline ladder={ladder} windows={snapshot.windows} usage={snapshot.usage} collectedAt={snapshot.collectedAt} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} workloads={workloads} bars={bars} binding={bindingBar(bars)} />
+      <Headline ladder={ladder} usage={snapshot.usage} collectedAt={snapshot.collectedAt} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} workloads={workloads} bars={bars} binding={bindingBar(bars)} />
       <Ladder ladder={ladder} windows={snapshot.windows} collectedAt={snapshot.collectedAt} proven={mark} max={max} dashboardUrl={dashboardUrl} />
       <Bottlenecks bars={bars} max={max} p50={ladder.observed.p50.value} limit={ladder.configuredLimit.value} />
       <Subsystems proven={proven} guardrails={snapshot.guardrails} ceilings={snapshot.ceilings} />
