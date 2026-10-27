@@ -407,7 +407,7 @@ describe('what breaks first', () => {
     swr.result = { data: bench(400, true, { da: { mix: run(400, 'mix', daResult(4.3e7, 16, false)), payment: null, swap: null } }) };
     const { head, ladder, ranked, subsystems } = render();
     expect(rows(ranked)[2]).toMatch(/^3DA · Mix \(bench\)141 Mgas\/s≈ 3,528 tx\/sMeasuredMeasured in the bench: at 400 Mgas\/s, needs 40 blobs per L1 slot\. Target is 14\.$/);
-    expect(text(ladder)).toMatch(/141.*DA · mix/);
+    expect(text(ladder)).toMatch(/141.*DA · mix \(bench\)/);
     expect(tile(head, 'traffic mix')).toContain('capped by DA');
     expect(head).toContain('Its DA cap comes from the bench mix run, which is lighter per transaction and compresses worse than mainnet, so the cap is conservative.');
     expect(rows(subsystems.split('<h3')[1])[1]).toBe('Ceiling (Mgas/s) — (not in this run)— (not in this run)141');

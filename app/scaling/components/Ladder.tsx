@@ -45,7 +45,7 @@ const SHADES = {
   allowed: 'fill-bds-blue-10 bg-bds-blue-10 dark:fill-bds-blue-80 dark:bg-bds-blue-80',
   proven: 'fill-bds-gray-10 bg-bds-gray-10 dark:fill-white/10 dark:bg-white/10',
 };
-const SHORT: Record<string, string> = { 'da-payment': 'DA · payments', 'da-swap': 'DA · swaps', 'da-mix': 'DA · mix', 'disk-archive': 'archive disk', 'disk-full': 'full-node disk' };
+const SHORT: Record<string, string> = { 'da-payment': 'DA · payments', 'da-swap': 'DA · swaps', 'da-mix': 'DA · mix (bench)', 'disk-archive': 'archive disk', 'disk-full': 'full-node disk' };
 
 // Approximate label widths: a bold 12px value with its help icon over an 11px name.
 const widthOf = (p: Point, offScale: boolean, compact: boolean) =>
