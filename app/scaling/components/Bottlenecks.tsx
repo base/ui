@@ -58,7 +58,7 @@ export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): 
 
 function daEvidence(w: DaWorkload): string {
   if (w.tag === 'estimated') return 'est. · run pending';
-  if (w.bench && w.source?.url === runHref(w.bench.run)) return `measured · ${w.bench.da.result.blobs_per_l1_slot.toFixed(1)} blobs/slot at ${w.bench.run.mgas}`;
+  if (w.bench && w.source?.url === runHref(w.bench.run)) return `measured · ${w.bench.da.result.blobs_per_l1_slot.toFixed(1)} blobs/slot vs ${w.bench.da.target ?? BLOB_TARGET} at ${w.bench.run.mgas}`;
   return `measured · ${w.source?.label ?? 'source pending'}`;
 }
 
@@ -72,7 +72,7 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
   const m = proven?.mgas ?? null;
   const atLeast = (atTop: boolean) => (atTop ? `≥ ${m}` : `${m}`);
   const merged: Limit[] = m !== null && core.every((b) => b.value === m)
-    ? [{ id: 'core', label: 'Execution, validators, proof node', value: m, ceiling: atLeast(proven!.atTop), evidence: `all pass at ${m}` }]
+    ? [{ id: 'core', label: 'Execution, validators, proof node', value: m, ceiling: atLeast(proven!.atTop), evidence: `all pass at ${m} · ${proven!.atTop ? 'no limit found up to the top rate tested' : 'the next rate tested did not pass'}` }]
     : core.map((b) => ({
       id: b.id,
       label: b.label,
@@ -147,13 +147,26 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
   return [full, archive];
 }
 
-function Evidence({ proven }: { proven: Proven }) {
+function LastChange({ history }: { history: ProvenCapacity['history'] }) {
+  if (history.length < 2) return null;
+  const [previous, last] = history.slice(-2);
+  const down = last.mgas !== null && previous.mgas !== null && last.mgas < previous.mgas;
+  return (
+    <>
+      {' · '}{down ? '↓' : '↑'} from {previous.mgas === null ? 'none' : `${previous.mgas} Mgas/s`} on {day(last.at)}
+      {last.compareUrl ? <> · <a className="underline" href={last.compareUrl}>compare</a></> : null}
+    </>
+  );
+}
+
+function Evidence({ proven, history }: { proven: Proven; history: ProvenCapacity['history'] }) {
   const { run } = proven;
   return (
     <div className="flex flex-col gap-1">
       <Text variant="label.regular" tone="muted">
         Proven by <a className="underline" href={runHref(run)}>{run.outputDir}</a>: {run.mgas} Mgas/s run delivered {(run.gps / 1e6).toFixed(1)} Mgas/s · commit{' '}
         <a className="font-mono underline" href={`https://github.com/base/base/commit/${run.commit}`}>{run.commit.slice(0, 7)}</a> · {day(run.createdAt)}
+        <LastChange history={history} />
       </Text>
       <ul aria-label="Pipeline steps" className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-bds-gray-60">
         {run.steps.map((s) => (
@@ -167,7 +180,7 @@ function Evidence({ proven }: { proven: Proven }) {
   );
 }
 
-export function Bottlenecks({ limits, max, gasLimit, proven }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null }) {
+export function Bottlenecks({ limits, max, gasLimit, proven, history }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; history: ProvenCapacity['history'] }) {
   const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
   const ranked = limits.filter((l) => l.value !== null).length;
   const fixed = [{ label: 'TEE proving, RPC under sync', evidence: 'not measured yet' }];
@@ -213,7 +226,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven }: { limits: Limit[]
           </tbody>
         </table>
       </Card>
-      {proven ? <Evidence proven={proven} /> : null}
+      {proven ? <Evidence proven={proven} history={history} /> : null}
     </section>
   );
 }

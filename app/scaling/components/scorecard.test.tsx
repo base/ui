@@ -94,21 +94,17 @@ describe('freshness and headline', () => {
     expect(render().html).not.toContain('Usage data as of');
   });
 
-  it('heads with proven capacity, today and headroom, and the next bottleneck with its last change', () => {
+  it('heads with proven capacity, today and headroom only, leaving the next bottleneck and last change to What breaks first', () => {
     swr.result = { data: bench(400, true) };
-    const { head } = render();
+    const { head, ranked } = render();
     // 400 proven ÷ 12.5 today = 32×, a floor because 400 is the top rate tested.
     expect(text(head)).toContain("≥ 400Mgas/s≥ 32×Proven capacity ÷ today's median gas rate. What breaks first lists the limits that apply before proven capacity.today 12.5· 64 tx/s");
     expect(text(head)).toContain('proven ≥ 400Payments (B20)');
     expect(text(head)).not.toMatch(/p99|mix DA|archive disk ≤/);
-    expect(text(head)).toContain('Next bottleneck to solveDA · Payments (B20) at ~57 Mgas/s≈ 1,517 payments/s');
-    expect(text(head)).toContain('↑ from 40 Mgas/s on 2026-01-06 · compare');
-    expect(text(head)).not.toMatch(/First limit:|Payments per second|In transactions/);
-  });
-
-  it('adds blobs per slot to the callout once the binding DA workload has a bench run', () => {
-    swr.result = { data: bench(400, true, { da: { mix: null, payment: run(200, 'payment', daResult(8e7, 20, false)), swap: null } }) };
-    expect(text(render().head)).toContain('DA · Payments (B20) at 76 Mgas/s≈ 1,896 payments/s · 20.0 blobs/slot vs 14 at 200');
+    expect(text(head)).not.toMatch(/Next bottleneck|may cap lower|↑ from|First limit:|Payments per second|In transactions/);
+    // The last change sits on the run line under the ranked table.
+    expect(text(ranked)).toMatch(/Proven by synthetic-400: .* · 2026-01-06 · ↑ from 40 Mgas\/s on 2026-01-06 · compare/);
+    expect(ranked).toContain('href="https://github.com/base/base/compare/aaaa...bbbb"');
   });
 
   it('falls back to the snapshot without a bench host, and says so while loading or failed', () => {
@@ -124,10 +120,6 @@ describe('freshness and headline', () => {
     expect(text(render().head)).toMatch(/per second\.—Mgas\/s.*VPN/);
   });
 
-  it('names the merged core limit when the proven rate is below every DA ceiling', () => {
-    swr.result = { data: bench(40, false) };
-    expect(text(render().head)).toContain('Execution, validators, proof node at 40 Mgas/sthe next rate tested did not pass');
-  });
 });
 
 describe('workload tiles', () => {
@@ -259,7 +251,7 @@ describe('what breaks first', () => {
   it('merges execution, validators and proof node when they share the proven ceiling, with the run evidence', () => {
     swr.result = { data: bench(400, true) };
     const { ranked } = render();
-    expect(rows(ranked)[3]).toBe('4Execution, validators, proof node≥ 400all pass at 400');
+    expect(rows(ranked)[3]).toBe('4Execution, validators, proof node≥ 400all pass at 400 · no limit found up to the top rate tested');
     expect(ranked.match(/>next</g)).toHaveLength(1);
     expect(ranked.match(/bg-bds-red-60/g)).toHaveLength(2);
     expect(ranked).toMatch(/border-dashed[^"]*" style="left:50%"/);
@@ -280,12 +272,12 @@ describe('what breaks first', () => {
 
   it('marks the core limit next when it is the lowest ceiling', () => {
     swr.result = { data: bench(40, false) };
-    expect(rows(render().ranked)[0]).toBe('1Execution, validators, proof nodenext40all pass at 40');
+    expect(rows(render().ranked)[0]).toBe('1Execution, validators, proof nodenext40all pass at 40 · the next rate tested did not pass');
   });
 
   it('shows a measured DA workload with its blobs per slot', () => {
     swr.result = { data: bench(400, true, { da: { mix: null, payment: run(200, 'payment', daResult(8e7, 20, false)), swap: null } }) };
-    expect(rows(render().ranked)[0]).toBe('1DA · Payments (B20)next76 ≈ 1,896/s Measuredmeasured · 20.0 blobs/slot at 200');
+    expect(rows(render().ranked)[0]).toBe('1DA · Payments (B20)next76 ≈ 1,896/s Measuredmeasured · 20.0 blobs/slot vs 14 at 200');
   });
 });
 
@@ -295,7 +287,7 @@ describe('reverts, measured swaps and disk', () => {
     swr.result = { data: bench(400, true, { da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
     const ranked = render().ranked;
     expect(rows(ranked).slice(0, 4).map((r) => r.slice(0, 22))).toEqual(['1DA · Payments (B20)ne', '2DA · Mainnet mix190 ≈', '3DA · Swaps232 ≈ 5,800', '4Execution, validators']);
-    expect(rows(ranked)[2]).toContain('Measuredmeasured · 22.4 blobs/slot at 400');
+    expect(rows(ranked)[2]).toContain('Measuredmeasured · 22.4 blobs/slot vs 14 at 400');
     const swapsRow = ranked.split('<tr').find((r) => r.includes('>DA · Swaps<'))!;
     expect(swapsRow).toMatch(/style="width:58\.\d+%"/);
     expect(swapsRow).toMatch(/border-dashed[^"]*" style="left:50%"/);
@@ -365,20 +357,8 @@ describe('disk ceilings', () => {
     swr.result = { data: withStorage() };
     const snapshot = fixture();
     snapshot.production!.archiveBytes!.value = 50e12;
-    const { head, ranked } = render({ benchUrl: BENCH }, snapshot);
+    const { ranked } = render({ benchUrl: BENCH }, snapshot);
     expect(rows(ranked)[0]).toMatch(/^1Disk · archive nodenextover budget1-year runway/);
-    expect(text(head)).toContain('Next bottleneck to solveDisk · archive node is over budget');
-  });
-
-  it('notes a disk ceiling below a tile’s sustainable rate under the tiles', () => {
-    const swapDa = run(400, 'swap', daResult(2.6158e7, 22.4, false));
-    swr.result = { data: withStorage({ current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: run(400, 'swap') } }, da: { mix: null, payment: null, swap: swapDa } }) };
-    // Swaps are sustainable to the 200 Mgas/s gas limit, above the ~138 archive ceiling.
-    expect(text(render().head)).toContain('Archive disk may cap lower (≤ 138 Mgas/s at 1-year runway)');
-    // A half-year archive runway lifts the ceiling to ~302 Mgas/s, above every tile.
-    const shortRunway = fixture();
-    shortRunway.policy!.runwayYears!.archive = 0.5;
-    expect(text(render({ benchUrl: BENCH }, shortRunway).head)).not.toContain('may cap lower');
   });
 });
 

@@ -42,18 +42,18 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
   const mark = proven ? benchMark(proven) : !benchUrl && qualified.value !== null ? { value: qualified.value, atLeast: false, help: qualified.help } : null;
   const workloads = daWorkloads(data?.da);
   const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot));
-  const next = limits[0]?.value != null ? limits[0] : null;
+  const binding = limits[0]?.value != null ? limits[0] : null;
   const values = [ladder.observed.p50, ladder.observed.p99, ladder.operatingPoint, ladder.configuredLimit].map((r) => r.value ?? 0);
   const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);
   return (
     <>
       <Freshness snapshot={snapshot} latestAt={data?.latestAt ?? null} />
-      <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} next={next} limits={limits} />
+      <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} limits={limits} />
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} />
-      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} />
+      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} />
       <WorkloadSubsystems current={data?.current} />
       <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />
-      <Work work={snapshot.work} binding={areaOf(next)} />
+      <Work work={snapshot.work} binding={areaOf(binding)} />
     </>
   );
 }

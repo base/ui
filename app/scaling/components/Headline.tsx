@@ -15,7 +15,7 @@ export type BenchState = { configured: boolean; data?: ProvenCapacity; error?: u
 const TRAFFIC: Record<Workload, string> = { payment: 'payments', swap: 'swaps', mix: 'tx' };
 const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
 
-type Props = Pick<Snapshot, 'ladder' | 'usage'> & { bench: BenchState; proven: ProvenMark; next: Limit | null; limits: Limit[] };
+type Props = Pick<Snapshot, 'ladder' | 'usage'> & { bench: BenchState; proven: ProvenMark; limits: Limit[] };
 
 // Only states other than a loaded bench result need a note.
 function benchNote({ configured, data, error }: BenchState, proven: ProvenMark, qualified: Snapshot['ladder']['qualified']): ReactNode {
@@ -183,58 +183,15 @@ function translations({ ladder, usage, bench, proven, limits }: Pick<Props, 'lad
   ];
 }
 
-function Next({ limit, proven }: { limit: Limit; proven: ProvenMark }) {
-  const w = limit.workload;
-  const bench = w?.bench;
-  const sub = limit.id.startsWith('disk-')
-    ? limit.evidence
-    : w
-    ? [`≈ ${fmt(limit.perSecond!)} ${TRAFFIC[w.payload]}/s`, bench && `${bench.da.result.blobs_per_l1_slot.toFixed(1)} blobs/slot vs ${bench.da.target ?? BLOB_TARGET} at ${bench.run.mgas}`].filter(Boolean).join(' · ')
-    : proven?.atLeast ? 'no limit found up to the top rate tested' : 'the next rate tested did not pass';
-  return (
-    <div className="flex flex-col gap-0.5 rounded-r-md border-l-[3px] border-bds-red-60 bg-bds-red-0 px-3.5 py-2.5 dark:bg-white/5">
-      <span className="text-[11px] font-[600] uppercase tracking-wide text-bds-red-60">Next bottleneck to solve</span>
-      <span className="text-[17px] font-[600]">{limit.label} {limit.value === 0 ? 'is over budget' : `at ${limit.ceiling.split(' ≈ ')[0]} Mgas/s`}</span>
-      <span className="text-[12px] text-bds-gray-60">{sub}</span>
-    </div>
-  );
-}
-
-function LastChange({ history }: { history: ProvenCapacity['history'] }) {
-  if (history.length < 2) return null;
-  const [previous, last] = history.slice(-2);
-  const down = last.mgas !== null && previous.mgas !== null && last.mgas < previous.mgas;
-  return (
-    <Text variant="label.regular" tone="muted">
-      {down ? '↓' : '↑'} from {previous.mgas === null ? 'none' : `${previous.mgas} Mgas/s`} on {day(last.at)}
-      {last.compareUrl ? <> · <a className="underline" href={last.compareUrl}>compare</a></> : null}
-    </Text>
-  );
-}
-
-// Disk ceilings come from one workload's storage run, so they stay out of the tiles; a note flags one
-// that is lower than what a tile calls sustainable.
-function diskNote(rows: Translation[], limits: Limit[], gasLimit: number | null): string | null {
-  const sustained = rows.flatMap((r) => (r.proven ? [sustainable(r.proven.mgas, r.da, gasLimit).mgas] : []));
-  const disk = limits.filter((l) => l.id.startsWith('disk-') && l.value !== null).toSorted((a, b) => a.value! - b.value!)[0];
-  if (!disk || !sustained.length || disk.value! >= Math.max(...sustained)) return null;
-  const which = disk.id === 'disk-archive' ? 'Archive' : 'Full-node';
-  return disk.value === 0 ? `${which} disk is over budget` : `${which} disk may cap lower (≤ ${fmt(disk.value!)} Mgas/s at ${disk.runwayYears}-year runway)`;
-}
-
-export function Headline({ ladder, usage, bench, proven, next, limits }: Props) {
+export function Headline({ ladder, usage, bench, proven, limits }: Props) {
   const note = benchNote(bench, proven, ladder.qualified);
   const rows = translations({ ladder, usage, bench, proven, limits });
-  const disk = diskNote(rows, limits, ladder.configuredLimit.value);
   return (
-    <section aria-label="Proven capacity and next bottleneck" className="flex flex-col gap-3">
+    <section aria-label="Proven capacity" className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-3.5 min-[760px]:grid-cols-3 min-[1100px]:grid-cols-[minmax(220px,1.1fr)_repeat(3,minmax(0,1fr))]">
         <div className="min-[760px]:col-span-3 min-[1100px]:col-span-1"><Capacity ladder={ladder} usage={usage} proven={proven} /></div>
         {rows.map((row, i) => <Tile key={i} row={row} gasLimit={ladder.configuredLimit.value} />)}
       </div>
-      {disk ? <Text variant="label.regular" tone="muted">{disk}</Text> : null}
-      {next ? <Next limit={next} proven={proven} /> : null}
-      {bench.data ? <LastChange history={bench.data.history} /> : null}
       {note ? <Text variant="label.regular" tone="muted">{note}</Text> : null}
     </section>
   );
