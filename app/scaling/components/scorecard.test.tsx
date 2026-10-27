@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProvenCapacity, Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
+import { sustainable } from './Headline';
 import { Scorecard } from './Scorecard';
 
 // Synthetic data only: real bench results and snapshots are internal and never committed.
@@ -58,8 +59,8 @@ const fixture = (): Snapshot => JSON.parse(readFileSync(new URL('../fixtures/syn
 // In page order: the freshness line, then headline, ladder, ranked limits, workloads, guardrails, work.
 const render = (props: { benchUrl?: string } = { benchUrl: BENCH }, snapshot = fixture()) => {
   const html = renderToStaticMarkup(<Scorecard snapshot={snapshot} {...props} />);
-  const [fresh, head, ladder, ranked, workloads, guardrails, work] = html.split('<section');
-  return { html, fresh, head, ladder, ranked, workloads, guardrails, work };
+  const [fresh, head, ladder, ranked, subsystems, guardrails, work] = html.split('<section');
+  return { html, fresh, head, ladder, ranked, subsystems, guardrails, work };
 };
 // Strip tags until none remain, so a tag split across a removed one cannot survive.
 const text = (html: string) => {
@@ -72,7 +73,8 @@ const text = (html: string) => {
 };
 // Table rows after a header row (skip 2) or without one (skip 1).
 const rows = (html: string, skip = 2) => html.split('<tr').slice(skip).map((r) => text(`<tr${r}`));
-const card = (html: string, label: string) => text(`<x${html.split('rounded-lg border').find((c) => c.includes(`>${label}<`)) ?? '>'}`.replace(/<[^>]*$/, ''));
+// A header tile, found by text in its label.
+const tile = (head: string, label: string) => text(`<x${head.split('rounded-lg border').find((c) => c.includes(label)) ?? '>'}`.replace(/<[^>]*$/, ''));
 
 beforeEach(() => {
   swr.result = {};
@@ -90,10 +92,10 @@ describe('freshness and headline', () => {
   it('heads with proven capacity, today and headroom, and the next bottleneck with its last change', () => {
     swr.result = { data: bench(400, true) };
     const { head } = render();
-    expect(text(head)).toContain('Proven capacity≥ 400Mgas/stoday 12.5 median (64 tx/s) · 32×');
+    expect(text(head)).toContain('≥ 400Mgas/stoday 12.5 (64 tx/s) · 32×');
     expect(text(head)).toContain('Next bottleneck to solveDA · Payments (B20) at ~57 Mgas/s≈ 1,517 payments/s');
     expect(text(head)).toContain('↑ from 40 Mgas/s on 2026-01-06 · compare');
-    expect(text(head)).not.toMatch(/First limit|Payments per second/);
+    expect(text(head)).not.toMatch(/First limit|Payments per second|In transactions/);
   });
 
   it('adds blobs per slot to the callout once the binding DA workload has a bench run', () => {
@@ -106,16 +108,71 @@ describe('freshness and headline', () => {
     delete snapshot.usage;
     snapshot.ladder.qualified = { ...snapshot.ladder.qualified, value: 30, tag: 'measured', evidence: [{ label: 'Synthetic run', url: 'https://example.com/scaling/runs/bench/synthetic-1' }] };
     const head = text(render({}, snapshot).head);
-    expect(head).toContain('Proven capacity30Mgas/stoday 12.5 median · 2.4×');
+    expect(head).toContain('30Mgas/stoday 12.5 · 2.4×');
     expect(head).toContain('Proven capacity from the snapshot · Synthetic run');
     expect(text(render().head)).toContain('Loading bench results…');
     swr.result = { error: new TypeError('Failed to fetch'), data: bench(400, true) };
-    expect(text(render().head)).toMatch(/Proven capacity—Mgas\/s.*VPN/);
+    expect(text(render().head)).toMatch(/per second\.—Mgas\/s.*VPN/);
   });
 
   it('names the merged core limit when the proven rate is below every DA ceiling', () => {
     swr.result = { data: bench(40, false) };
     expect(text(render().head)).toContain('Execution, validators, proof node at 40 Mgas/sthe next rate tested did not pass');
+  });
+});
+
+describe('workload tiles', () => {
+  it('takes the lowest of the proven, DA and gas-limit ceilings, preferring DA then the gas limit on ties', () => {
+    expect(sustainable(400, 82, 200)).toEqual({ mgas: 82, cap: 'DA' });
+    expect(sustainable(400, 232, 200)).toEqual({ mgas: 200, cap: 'gas limit' });
+    expect(sustainable(40, 82, 200)).toEqual({ mgas: 40, cap: 'execution' });
+    expect(sustainable(200, 200, 200)).toEqual({ mgas: 200, cap: 'DA' });
+    expect(sustainable(300, 400, 300)).toEqual({ mgas: 300, cap: 'gas limit' });
+    expect(sustainable(300, 400, null)).toEqual({ mgas: 300, cap: 'execution' });
+  });
+
+  it('converts proven and sustainable rates with each proven run’s gas per successful tx, and today’s mix with mainnet gas per tx', () => {
+    swr.result = { data: bench(400, true, { current: { mix: { mgas: 400, atTop: true, run: run(400) }, swap: null, payment: { mgas: 200, atTop: true, run: run(200, 'payment') } } }) };
+    const { head } = render();
+    // 195 Mgas/s ÷ 2,100 tx/s = 92,857 gas per tx; DA payments ~57.3 Mgas/s.
+    expect(tile(head, 'Payments (B20)')).toMatch(/≥ 2\.2k\/ssustainable today 617\/s.*capped by DA$/);
+    expect(tile(head, 'Swaps (Uniswap v3)')).toContain('pendingsustainable today pending');
+    // 12.5 Mgas/s ÷ 64.2 tx/s = ~195k gas per tx on mainnet; DA mix ~190 Mgas/s.
+    expect(tile(head, 'traffic mix')).toMatch(/≥ 2\.1k\/s \(32×\)sustainable today 974\/s \(15×\).*capped by DA/);
+    expect(tile(head, 'traffic mix')).toContain("At today's mainnet average of ~195k gas per transaction (12.5 Mgas/s ÷ 64 tx/s), not the bench mix.");
+  });
+
+  it('caps swaps at the gas limit once their DA is measured above it, with successful tx/s and the reverted note', () => {
+    const swap = { ...run(400, 'swap'), reverted: 0.155 };
+    swr.result = { data: bench(400, true, { current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: swap } }, da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
+    expect(tile(render().head, 'Swaps (Uniswap v3)')).toMatch(/≥ 3.6k\/ssustainable today.*capped by gas limit16% reverted/);
+    expect(tile(render().head, 'Swaps (Uniswap v3)')).toMatch(/sustainable today 1,797\/s.*capped by gas limit/);
+    expect(render().head).toContain('text-bds-orange-60">sustainable today');
+  });
+
+  it('caps by execution below every other ceiling, without ≥ below the top rate', () => {
+    swr.result = { data: bench(40, false, { current: { mix: null, swap: null, payment: { mgas: 40, atTop: false, run: run(40, 'payment') } } }) };
+    expect(tile(render().head, 'Payments (B20)')).toMatch(/Payments \(B20\)480\/ssustainable today 480\/s.*capped by execution$/);
+  });
+
+  it('keeps the mix tile in gas without the snapshot’s transactions per second', () => {
+    swr.result = { data: bench(400, true) };
+    const snapshot = fixture();
+    delete snapshot.usage;
+    const mix = tile(render({ benchUrl: BENCH }, snapshot).head, 'traffic mix');
+    expect(mix).toContain('—sustainable today —');
+    expect(mix).toContain('stays in gas: today 12.5 Mgas/s');
+  });
+});
+
+describe('subsystems by workload', () => {
+  it('lists replay headroom, proof-node latency and archive growth per workload, with — when missing', () => {
+    swr.result = { data: bench(400, true, { current: { mix: { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } }, swap: null, payment: { mgas: 200, atTop: true, run: run(200, 'payment') } } }) };
+    expect(rows(render().subsystems)).toEqual([
+      'Validators7.3× replay headroom—7.3× replay headroom',
+      'Proof nodelag p99 4 · executePayload p99 733 ms—lag p99 4 · executePayload p99 733 ms',
+      'Disk · archive——≥ 5.0 TB/year at 400 Mgas/s',
+    ]);
   });
 });
 
@@ -191,32 +248,7 @@ describe('what breaks first', () => {
   });
 });
 
-describe('by workload', () => {
-  it('cards each workload with its proven rate, DA ceiling, replay headroom and proof-node latency', () => {
-    swr.result = { data: bench(400, true, { current: { mix: { mgas: 400, atTop: true, run: run(400) }, swap: null, payment: { mgas: 200, atTop: true, run: run(200, 'payment') } } }) };
-    const { workloads } = render();
-    expect(card(workloads, 'Payments (B20)')).toBe('Payments (B20)≥ 2.1k/sDA~57 · breaks firstValidators7.3×Proof nodelag 4 · 733 msDisk—');
-    expect(card(workloads, 'Swaps (Uniswap v3)')).toBe('Swaps (Uniswap v3)pendingDA~115 EstimatedValidators—Proof node—Disk—');
-    expect(card(workloads, 'Mainnet mix')).toBe('Mainnet mix≥ 4.2k tx/sbench mixDA190 · breaks firstValidators7.3×Proof nodelag 4 · 733 msDisk—');
-  });
-
-  it('keeps the DA tag when the ceiling is above the proven rate', () => {
-    swr.result = { data: bench(40, false, { current: { mix: null, swap: null, payment: { mgas: 40, atTop: false, run: run(40, 'payment') } } }) };
-    expect(card(render().workloads, 'Payments (B20)')).toContain('420/sDA~57 Estimated');
-  });
-});
-
 describe('reverts, measured swaps and disk', () => {
-  it('counts successful tx/s on workload cards and notes reverts above 1%', () => {
-    const reverting = { ...run(200, 'swap'), reverted: 0.155 };
-    swr.result = { data: bench(400, true, { current: { mix: null, payment: { mgas: 200, atTop: true, run: { ...run(200, 'payment'), reverted: 0.005 } }, swap: { mgas: 200, atTop: true, run: reverting } } }) };
-    const { workloads } = render();
-    // 2,100 delivered × 0.845 successful.
-    expect(card(workloads, 'Swaps (Uniswap v3)')).toContain('Swaps (Uniswap v3)≥ 1.8k/s16% reverted');
-    expect(card(workloads, 'Payments (B20)')).toContain('Payments (B20)≥ 2.1k/sDA');
-    expect(card(workloads, 'Payments (B20)')).not.toContain('reverted');
-  });
-
   it('ranks a measured swaps DA ceiling by its value, past the gas limit', () => {
     // 4e10 gas and 2.6158e7 frame bytes put the 14-blob ceiling at ~232 Mgas/s.
     swr.result = { data: bench(400, true, { da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
@@ -236,7 +268,7 @@ describe('reverts, measured swaps and disk', () => {
     expect(full).toBe('—Disk · full node—history window ~9.2 TB + proofs ~2.3 TB at 400 Mgas/s (lower bound); state growth per year from this workload: 10.5 GB, from the mainnet mix run. Bench workloads create little new state, so this undercounts mainnet state growth; runway pending.');
     expect(archive).toBe('—Disk · archive node—grows ≥ 5.0 TB/year at 400 Mgas/s (lower bound), from the mainnet mix run');
     expect(full).not.toMatch(/years? left/);
-    expect(card(render().workloads, 'Mainnet mix')).toContain('Diskarchive ≥ 5.0 TB/year');
+    expect(rows(render().subsystems)[2]).toBe('Disk · archive——≥ 5.0 TB/year at 400 Mgas/s');
   });
 
   it('adds an archive runway only when the current archive size is known, and falls back to the newest other workload', () => {

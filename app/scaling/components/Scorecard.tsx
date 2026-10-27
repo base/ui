@@ -9,7 +9,7 @@ import { Headline } from './Headline';
 import { Ladder, type ProvenMark } from './Ladder';
 import { day, useProvenCapacity } from './ProvenCapacity';
 import { Work } from './Work';
-import { Workloads } from './Workloads';
+import { WorkloadSubsystems } from './WorkloadSubsystems';
 
 function benchMark({ mgas, atTop, run }: Proven): ProvenMark {
   const top = atTop ? ` ≥ because ${mgas} Mgas/s is the highest rate the bench runs.` : '';
@@ -48,10 +48,10 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
   return (
     <>
       <Freshness snapshot={snapshot} latestAt={data?.latestAt ?? null} />
-      <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} next={next} />
+      <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} next={next} limits={limits} />
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} />
       <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} storage={pickStorage(data)} />
-      <Workloads current={data?.current} limits={limits} />
+      <WorkloadSubsystems current={data?.current} />
       <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />
       <Work work={snapshot.work} binding={areaOf(next)} />
     </>

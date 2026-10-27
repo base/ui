@@ -26,9 +26,9 @@ it('ends the first screen with DA and guardrails links, and no benchmark links',
   expect(html).not.toMatch(/As of|manually refreshed|Synthetic fixture: every number/);
 });
 
-it('orders the first screen: freshness, headline, ladder, ranked limits, workloads, guardrails, work, links', async () => {
+it('orders the first screen: freshness, headline, ladder, ranked limits, subsystems by workload, guardrails, work, links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  const order = ['Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'By workload', 'Guardrails</h2>', 'Work by limit', 'DA by workload'].map((h) => html.indexOf(h));
+  const order = ['Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Guardrails</h2>', 'Work by limit', 'DA by workload'].map((h) => html.indexOf(h));
   expect(order.every((i, k) => i > (order[k - 1] ?? -1))).toBe(true);
   expect(html).not.toMatch(/Subsystem detail|Progress<|Ceilings by bottleneck|Usage data as of/);
 });
