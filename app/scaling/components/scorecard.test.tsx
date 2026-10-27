@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProvenCapacity, Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import { sustainable } from './Headline';
+import type { Limit } from './Bottlenecks';
+import { firstLimit, headroomLabel, sustainable } from './Headline';
+import type { ProvenMark } from './Ladder';
 import { Scorecard } from './Scorecard';
 
 // Synthetic data only: real bench results and snapshots are internal and never committed.
@@ -79,7 +81,7 @@ const text = (html: string) => {
 // Table rows after a header row (skip 2) or without one (skip 1), without the mocked help popovers.
 const rows = (html: string, skip = 2) => html.replace(/ ?<span class="help">[^<]*<\/span>/g, '').split('<tr').slice(skip).map((r) => text(`<tr${r}`));
 // A header tile, found by text in its label.
-const tile = (head: string, label: string) => text(`<x${head.split('rounded-lg border').find((c) => c.includes(label)) ?? '>'}`.replace(/<[^>]*$/, ''));
+const tile = (head: string, label: string) => text(`<x${head.split('rounded-lg border').slice(1).find((c) => c.includes(label)) ?? '>'}`.replace(/<[^>]*$/, ''));
 
 beforeEach(() => {
   swr.result = {};
@@ -97,10 +99,13 @@ describe('freshness and headline', () => {
   it('heads with proven capacity, today and headroom, and the next bottleneck with its last change', () => {
     swr.result = { data: bench(400, true) };
     const { head } = render();
-    expect(text(head)).toContain('≥ 400Mgas/stoday 12.5 (64 tx/s) · 32×');
+    // First limit for today's mix is the ~190 Mgas/s mix DA ceiling: 189.7 ÷ 12.5 = 15×.
+    expect(text(head)).toContain("≥ 400Mgas/s15×First limit for today's traffic mix ÷ today's median gas rate. today 12.5 · 64 tx/s");
+    expect(text(head)).toContain('mix DA 190Payments (B20)');
+    expect(text(head)).not.toMatch(/32×|p99/);
     expect(text(head)).toContain('Next bottleneck to solveDA · Payments (B20) at ~57 Mgas/s≈ 1,517 payments/s');
     expect(text(head)).toContain('↑ from 40 Mgas/s on 2026-01-06 · compare');
-    expect(text(head)).not.toMatch(/First limit|Payments per second|In transactions/);
+    expect(text(head)).not.toMatch(/First limit:|Payments per second|In transactions/);
   });
 
   it('adds blobs per slot to the callout once the binding DA workload has a bench run', () => {
@@ -113,7 +118,8 @@ describe('freshness and headline', () => {
     delete snapshot.usage;
     snapshot.ladder.qualified = { ...snapshot.ladder.qualified, value: 30, tag: 'measured', evidence: [{ label: 'Synthetic run', url: 'https://example.com/scaling/runs/bench/synthetic-1' }] };
     const head = text(render({}, snapshot).head);
-    expect(head).toContain('30Mgas/stoday 12.5 · 2.4×');
+    expect(head).toContain('30Mgas/s2.4×');
+    expect(head).toContain('today 12.5proven 30');
     expect(head).toContain('Proven capacity from the snapshot · Synthetic run');
     expect(text(render().head)).toContain('Loading bench results…');
     swr.result = { error: new TypeError('Failed to fetch'), data: bench(400, true) };
@@ -143,7 +149,8 @@ describe('workload tiles', () => {
     expect(tile(head, 'Payments (B20)')).toMatch(/≥ 2\.2k\/ssustainable today 617\/s.*capped by DA$/);
     expect(tile(head, 'Swaps (Uniswap v3)')).toContain('pendingsustainable today pending');
     // 12.5 Mgas/s ÷ 64.2 tx/s = ~195k gas per tx on mainnet; DA mix ~190 Mgas/s.
-    expect(tile(head, 'traffic mix')).toMatch(/≥ 2\.1k\/s \(32×\)sustainable today 974\/s \(15×\).*capped by DA/);
+    // The traffic tile repeats the 15× headroom because its sustainable rate is the same mix DA limit.
+    expect(tile(head, 'traffic mix')).toMatch(/≥ 2\.1k\/ssustainable today 974\/s \(15×\).*capped by DA/);
     expect(tile(head, 'traffic mix')).toContain("At today's mainnet average of ~195k gas per transaction (12.5 Mgas/s ÷ 64 tx/s), not the bench mix.");
   });
 
@@ -167,6 +174,51 @@ describe('workload tiles', () => {
     const mix = tile(render({ benchUrl: BENCH }, snapshot).head, 'traffic mix');
     expect(mix).toContain('—sustainable today —');
     expect(mix).toContain('stays in gas: today 12.5 Mgas/s');
+  });
+});
+
+describe('headroom', () => {
+  const limit = (id: string, value: number): Limit => ({ id, label: id, value, ceiling: '', evidence: '' });
+  const proven = (value: number, atLeast: boolean): ProvenMark => ({ value, atLeast, help: '' });
+
+  it('takes the lowest limit that applies to today’s traffic, with its bound', () => {
+    const mix = [limit('da-payment', 57), limit('da-mix', 190), limit('disk-archive', 150), limit('disk-full', 568)];
+    expect(firstLimit(mix, 200, proven(400, true))).toMatchObject({ mgas: 150, bound: '≤', name: 'archive disk' });
+    expect(firstLimit([limit('da-mix', 190)], 200, proven(400, true))).toMatchObject({ mgas: 190, bound: '', name: 'mix DA' });
+    expect(firstLimit([limit('da-mix', 250)], 200, proven(400, true))).toMatchObject({ mgas: 200, bound: '', name: 'gas limit' });
+    expect(firstLimit([limit('da-mix', 250)], 200, proven(100, true))).toMatchObject({ mgas: 100, bound: '≥', name: 'proven' });
+    expect(firstLimit([limit('da-mix', 250)], null, proven(300, false))).toMatchObject({ mgas: 250, name: 'mix DA' });
+    expect(firstLimit([], null, null)).toBeNull();
+  });
+
+  it('formats the multiple with one decimal below 10 and the limit’s bound', () => {
+    expect(headroomLabel({ mgas: 150, bound: '≤', name: 'archive disk', reason: '' }, 18.7)).toBe('≤ 8.0×');
+    expect(headroomLabel({ mgas: 400, bound: '≥', name: 'proven', reason: '' }, 18.7)).toBe('≥ 21×');
+    expect(headroomLabel({ mgas: 190, bound: '', name: 'mix DA', reason: '' }, 18.7)).toBe('10×');
+  });
+
+  it('places today, the first limit and the headroom label on a 0–proven span, and explains an upper bound', () => {
+    const data = bench(400, true);
+    data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
+    swr.result = { data };
+    const { head } = render();
+    // Today 12.5 and the ~151 archive ceiling on a 0–400 span; the label sits halfway between.
+    expect(head).toMatch(/data-span="today"[^>]*left:3\.125%/);
+    expect(head).toMatch(/data-span="limit"[^>]*left:37\.76\d*%/);
+    expect(head).toMatch(/data-span="headroom"[^>]*left:20\.44\d*%/);
+    expect(text(head)).toContain("≤ 12×First limit for today's traffic mix ÷ today's median gas rate. ≤ because the archive disk ceiling is an upper bound.");
+    expect(text(head)).toContain('archive disk ≤ 151');
+    // The traffic tile's sustainable rate (mix DA) is not the first limit, so it shows no multiple.
+    expect(tile(head, 'traffic mix')).toMatch(/sustainable today 974\/sHighest/);
+  });
+
+  it('hides the span without today’s median', () => {
+    swr.result = { data: bench(400, true) };
+    const snapshot = fixture();
+    snapshot.ladder.observed.p50 = { ...snapshot.ladder.observed.p50, value: null, tag: 'not-measured' };
+    const { head } = render({ benchUrl: BENCH }, snapshot);
+    expect(head).not.toContain('data-span');
+    expect(text(head)).toContain('≥ 400Mgas/s');
   });
 });
 
