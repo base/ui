@@ -137,8 +137,6 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
 export type StorageSource = { storage: Storage; run: Run };
 
 export const bytes = (n: number) => (n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : `${(n / 1e9).toFixed(1)} GB`);
-export const growth = (archive: Storage['archive']) =>
-  `${archive.growthBound === 'lower' ? '≥' : archive.growthBound === 'upper' ? '≤' : '~'} ${bytes(archive.growthBytesPerYear)}/year`;
 const WORKLOAD: Record<Workload, string> = { mix: 'mainnet mix', payment: 'payments', swap: 'swaps' };
 
 // The mix run's storage data when present, else the newest payments or swaps run that has it.

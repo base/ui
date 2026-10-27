@@ -71,6 +71,8 @@ export type Run = {
   proofNode: (Replay & { proofs: Proofs | null }) | null;
   da: Da | null;
   storage: Storage | null;
+  // load-test-result.json's block_latency: transaction send to inclusion.
+  blockLatency: { p50Ms: number; p99Ms: number } | null;
 };
 
 // Reverted transactions count toward gas/s but not toward transactions per second.
@@ -196,6 +198,7 @@ async function loadRun(root: string, meta: BenchmarkRun, fetchImpl: typeof fetch
     gps,
     tps: load.throughput.tps,
     reverted: load.throughput.total_submitted ? (load.throughput.total_reverted ?? 0) / load.throughput.total_submitted : 0,
+    blockLatency: load.block_latency?.p50 && load.block_latency?.p99 ? { p50Ms: durationMs(load.block_latency.p50), p99Ms: durationMs(load.block_latency.p99) } : null,
     passed: validation.comparable === true && gps >= PASS_RATIO * mgas * 1e6,
     commit: provenance.source.revision,
     createdAt: Date.parse(meta.createdAt),
@@ -224,6 +227,9 @@ async function loadDetails(root: string, run: Run, fetchImpl: typeof fetch): Pro
     storage,
   };
 }
+
+// Rust Durations serialize as { secs, nanos }.
+const durationMs = (d: { secs: number; nanos: number }) => d.secs * 1e3 + d.nanos / 1e6;
 
 // replay-result.json also lists every block's timings; keep only the summary.
 const pickReplay = ({ blocksPerSecond, newPayload, match }: Replay): Replay => ({ blocksPerSecond, newPayload, match });

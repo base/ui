@@ -35,7 +35,7 @@ it('is modeled once every workload is measured', () => {
 });
 
 const run = (workload: Run['workload'], da: Run['da']): Run => ({
-  id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, reverted: 0, storage: null, passed: true,
+  id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, reverted: 0, storage: null, blockLatency: null, passed: true,
   commit: 'c0ffee', createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], replay: null, proofNode: null, da,
 });
 const da = (frame_bytes: number, gas_used: number, transactions: number): Da => ({

@@ -67,7 +67,7 @@ describe('Guardrails', () => {
 describe('scorecardGuardrails', () => {
   const LATENCY = { p50Ms: 2, p99Ms: 9, maxMs: 12 };
   const run = (blocksPerSecond: number, lagP99 = 4, executeP99 = 9): Run => ({
-    id: 'synthetic', outputDir: 'synthetic-400', workload: 'mix', mgas: 400, gps: 4e8, tps: 6000, reverted: 0, storage: null, passed: true, commit: 'c0ffee',
+    id: 'synthetic', outputDir: 'synthetic-400', workload: 'mix', mgas: 400, gps: 4e8, tps: 6000, reverted: 0, storage: null, blockLatency: null, passed: true, commit: 'c0ffee',
     createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], da: null,
     replay: { blocksPerSecond, newPayload: LATENCY, match: true },
     proofNode: {

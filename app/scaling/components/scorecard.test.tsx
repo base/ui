@@ -31,7 +31,7 @@ const daResult = (frame_bytes: number, blobs: number, withinTarget: boolean | nu
   withinTarget,
 });
 const run = (mgas: number, workload: Run['workload'] = 'mix', da: Run['da'] = null, lag = 4): Run => ({
-  id: `synthetic-${workload}-${mgas}`, outputDir: `synthetic-${mgas}`, workload, mgas, gps: (mgas - 5) * 1e6, tps: mgas * 10.5, reverted: 0, storage: null, passed: true,
+  id: `synthetic-${workload}-${mgas}`, outputDir: `synthetic-${mgas}`, workload, mgas, gps: (mgas - 5) * 1e6, tps: mgas * 10.5, reverted: 0, storage: null, blockLatency: null, passed: true,
   commit: 'bbbbbbbbbbbbbbbb', createdAt: T0 + 5 * DAY, steps: STEPS, da,
   replay: { blocksPerSecond: 36.4, newPayload: LATENCY, match: true },
   proofNode: {
@@ -200,12 +200,94 @@ describe('headroom span', () => {
 });
 
 describe('subsystems by workload', () => {
-  it('lists replay headroom, proof-node latency and archive growth per workload, with — when missing', () => {
-    swr.result = { data: bench(400, true, { current: { mix: { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } }, swap: null, payment: { mgas: 200, atTop: true, run: run(200, 'payment') } } }) };
-    expect(rows(render().subsystems)).toEqual([
-      'Validators7.3× replay headroom—7.3× replay headroom',
-      'Proof nodelag p99 4 · executePayload p99 733 ms—lag p99 4 · executePayload p99 733 ms',
-      'Disk · archive——≥ 5.0 TB/year at 400 Mgas/s',
+  const cards = (html: string) => html.split('<h3').slice(1).map((c) => `<h3${c}`);
+  const titles = (html: string) => cards(html).map((c) => text(c.split('</h3>')[0]));
+  const card = (html: string, title: string) => cards(html).find((c) => text(c.split('</h3>')[0]).startsWith(title))!;
+  const withStorage = () => {
+    const data = bench(400, true);
+    data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
+    return data;
+  };
+
+  it('orders cards by their category’s place in What breaks first, unranked ones last in the default order', () => {
+    swr.result = { data: bench(400, true) };
+    // DA ~57 first; the merged core row ties proof node, validators and sequencer; no storage leaves both disks unranked.
+    expect(titles(render().subsystems).map((t) => t.split(' · ')[0])).toEqual(['DA', 'Proof node', 'Validators', 'Sequencer', 'Disk', 'Disk']);
+    swr.result = { data: withStorage() };
+    expect(titles(render().subsystems)).toEqual([
+      'DA · not measured yet',
+      'Disk · archive · 1-year runway',
+      'Proof node · within budget (lag ≤ 10, ≤ 1 s)',
+      'Validators · all keep up',
+      'Sequencer · 400 delivered',
+      'Disk · full node · 2-year runway',
+    ]);
+  });
+
+  it('stacks one card per row below 760 px and labels columns with full names', () => {
+    swr.result = { data: bench(400, true) };
+    const html = render().subsystems;
+    expect(html).toContain('grid grid-cols-1 gap-3 min-[760px]:grid-cols-2');
+    expect(html).toContain('<abbr class="no-underline" title="Payments (B20)">Pay</abbr>');
+    expect(html).toContain('title="Mainnet mix (bench run)"');
+  });
+
+  it('rescales DA blobs to the load rate and names workloads whose ceiling is under the gas limit', () => {
+    // Payments: 20 blobs over a 160 Mgas/s window at a 200 Mgas/s load → 25, ceiling ~76. Swaps: ~232, above the 200 gas limit.
+    swr.result = { data: bench(400, true, { da: { mix: null, payment: run(200, 'payment', daResult(8e7, 20, false)), swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
+    const da = card(render().subsystems, 'DA');
+    expect(text(da.split('</h3>')[0])).toBe('DA · binding for payments');
+    expect(da.split('</h3>')[0]).toContain('text-bds-red-60');
+    expect(rows(da)).toEqual(['Blobs per L1 slot at each run’s rate 2556— (not in this run)', 'Ceiling (Mgas/s) 76232— (not in this run)']);
+    swr.result = { data: bench(400, true, { da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
+    expect(text(card(render().subsystems, 'DA').split('</h3>')[0])).toBe('DA · below target at the 200 Mgas/s gas limit');
+  });
+
+  it('projects disk per workload run, saying which runs lack a storage measurement', () => {
+    const data = withStorage();
+    data.current.payment = { mgas: 200, atTop: true, run: run(200, 'payment') };
+    swr.result = { data };
+    const html = render().subsystems;
+    // (0.0086 bench + 0.0008 mainnet state) B/gas × 400 Mgas/s × 1 year; (0.0086 × 31 d + 0.0045 × 15 d) × 400 Mgas/s.
+    expect(rows(card(html, 'Disk · archive'))).toEqual([
+      'Growth at 400 — (needs a run with storage measurement)— (no proven run for this workload)≥ 118.7 TB/yr',
+      'Ceiling (1-year runway) — (needs a run with storage measurement)— (no proven run for this workload)≤ 138',
+    ]);
+    expect(rows(card(html, 'Disk · full node'))[0]).toBe('Size at 400 — (needs a run with storage measurement)— (no proven run for this workload)11.5 TB');
+    expect(html).toContain('title="needs a run with storage measurement"');
+  });
+
+  it('flags proof-node budgets and validators that fall behind', () => {
+    const data = bench(400, true);
+    const slow = run(400, 'mix', null, 11);
+    slow.proofNode!.proofs!.methods.debug_executePayload.latency.p99Ms = 1200;
+    slow.replay = { ...slow.replay!, blocksPerSecond: 4 };
+    data.current.mix = { mgas: 400, atTop: true, run: slow };
+    data.current.swap = { mgas: 400, atTop: true, run: run(400, 'swap') };
+    swr.result = { data };
+    const html = render().subsystems;
+    expect(text(card(html, 'Proof node').split('</h3>')[0])).toBe('Proof node · lag over 10 for mix; executePayload over 1 s for mix');
+    expect(rows(card(html, 'Proof node'))).toEqual([
+      'Lag p99 (max) — (no proven run for this workload)4 (20)11 (20)',
+      'executePayload p99 — (no proven run for this workload)733 ms1200 ms',
+      'Witness p50 — (no proven run for this workload)— (not in this run)— (not in this run)',
+    ]);
+    expect(text(card(html, 'Validators').split('</h3>')[0])).toBe('Validators · mix does not keep up');
+    expect(rows(card(html, 'Validators'))[0]).toBe('Replay speed — (no proven run for this workload)7.3×0.8×');
+    expect(card(html, 'Validators').split('</h3>')[0]).toContain('text-bds-red-60');
+  });
+
+  it('shows delivered rate, successful tx/s with reverts over 1%, and block latency', () => {
+    const data = bench(400, true);
+    data.current.swap = { mgas: 400, atTop: true, run: { ...run(400, 'swap'), reverted: 0.155, blockLatency: { p50Ms: 205.4, p99Ms: 306.3 } } };
+    data.current.payment = { mgas: 200, atTop: true, run: { ...run(200, 'payment'), reverted: 0.005 } };
+    swr.result = { data };
+    const seq = card(render().subsystems, 'Sequencer');
+    expect(text(seq.split('</h3>')[0])).toBe('Sequencer · 200–400 delivered');
+    // 4,200 submitted tx/s × (1 − 15.5% reverted) = 3,549.
+    expect(rows(seq)).toEqual([
+      'Delivered (Mgas/s) 195.02,090 tx/s395.03,549 tx/s16% reverted395.04,200 tx/s',
+      'Block latency p50 / p99 — (not in this run)205 / 306 ms— (not in this run)',
     ]);
   });
 });

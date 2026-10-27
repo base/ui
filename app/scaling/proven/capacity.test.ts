@@ -20,6 +20,8 @@ type Spec = {
   // false: written before the step pipeline, so no pipeline-result.json.
   pipeline?: boolean;
   missing?: string[];
+  // Older load-test-result.json files have no block_latency.
+  noLatency?: boolean;
   withinTarget?: boolean | null;
 };
 
@@ -70,7 +72,10 @@ function load(specs: Spec[]) {
     const delivered = (s.delivered ?? 1) * s.mgas;
     switch (file) {
       case 'validation.json': return Response.json({ comparable: s.comparable ?? true, reasons: [] });
-      case 'load-test-result.json': return Response.json({ throughput: { gps: delivered * 1e6, tps: delivered * 10, total_submitted: 1000, total_reverted: 155 } });
+      case 'load-test-result.json': return Response.json({
+        throughput: { gps: delivered * 1e6, tps: delivered * 10, total_submitted: 1000, total_reverted: 155 },
+        ...(s.noLatency ? {} : { block_latency: { p50: { secs: 0, nanos: 205_382_593 }, p99: { secs: 1, nanos: 6_265_374 } } }),
+      });
       case 'pipeline-result.json': return Response.json({ suite: 'synthetic', comparable: s.comparable ?? true, steps: STEPS(s) });
       case 'replay-result.json': return Response.json(REPLAY);
       case 'proof-node/replay-result.json': return Response.json({ ...REPLAY, blocksPerSecond: 20, proofs: PROOFS });
@@ -101,6 +106,7 @@ it('counts only pipeline runs built from main, with their steps, replays and DA 
       gps: 100e6,
       tps: 1000,
       reverted: 0.155,
+      blockLatency: { p50Ms: 205.382593, p99Ms: 1006.265374 },
       passed: true,
       commit: 'rev-main-100',
       createdAt: NOW - 3 * DAY,
@@ -276,4 +282,13 @@ it('revalidates the run index instead of trusting a cached copy', async () => {
   };
   await loadProvenCapacity('https://bench.example', fetchImpl as typeof fetch, NOW);
   expect(inits.get('https://bench.example/output/metadata.json')?.cache).toBe('no-cache');
+});
+
+it('reads block latency from load-test-result.json as milliseconds, and its absence as null', async () => {
+  const { current } = await load([
+    { dir: 'latency-100', mgas: 100, daysAgo: 1 },
+    { dir: 'old-200', mgas: 200, daysAgo: 1, noLatency: true, workload: 'swap' },
+  ]);
+  expect(current.mix?.run.blockLatency).toEqual({ p50Ms: 205.382593, p99Ms: 1006.265374 });
+  expect(current.swap?.run.blockLatency).toBeNull();
 });
