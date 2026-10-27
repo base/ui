@@ -101,7 +101,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven }: { limits: Limit[]
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">What breaks first <span className="text-bds-gray-60">· Mgas/s</span></Text>
       <Card className="overflow-x-auto bg-background dark:bg-white/5">
-        <table className="w-full border-collapse text-[13px]">
+        <table className="w-full min-w-[760px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-bds-gray-10 dark:border-white/10">
               <th className={TH}>#</th><th className={TH}>Limit</th><th className={cn(TH, 'text-right')}>Ceiling</th><th className={cn(TH, 'w-[28%]')} /><th className={TH}>Evidence</th>
@@ -126,7 +126,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven }: { limits: Limit[]
                       {gasLimit === null ? null : <span className="absolute -inset-y-1 border-l-[1.5px] border-dashed border-bds-orange-60" style={{ left: pct(gasLimit) }} />}
                     </div>
                   </td>
-                  <td className={cn(TD, 'text-[12px]', l.tag === 'estimated' || l.value === null ? 'text-bds-gray-60' : '')}>{l.evidence}</td>
+                  <td className={cn(TD, 'min-w-[14rem] text-[12px]', l.tag === 'estimated' || l.value === null ? 'text-bds-gray-60' : '')}>{l.evidence}</td>
                 </tr>
               );
             })}
