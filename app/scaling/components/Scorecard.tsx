@@ -3,7 +3,7 @@
 import { daWorkloads } from '../da/workloads';
 import type { Proven } from '../proven/capacity';
 import type { Area, Snapshot } from '../snapshot.mjs';
-import { bottleneckBars, Bottlenecks, rankLimits, type Limit } from './Bottlenecks';
+import { bottleneckBars, Bottlenecks, pickStorage, rankLimits, type Limit } from './Bottlenecks';
 import { Guardrails } from './Guardrails';
 import { Headline } from './Headline';
 import { Ladder, type ProvenMark } from './Ladder';
@@ -50,7 +50,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
       <Freshness snapshot={snapshot} latestAt={data?.latestAt ?? null} />
       <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} next={next} />
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} />
-      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} />
+      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} storage={pickStorage(data)} />
       <Workloads current={data?.current} limits={limits} />
       <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />
       <Work work={snapshot.work} binding={areaOf(next)} />

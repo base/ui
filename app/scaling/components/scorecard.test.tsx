@@ -29,7 +29,7 @@ const daResult = (frame_bytes: number, blobs: number, withinTarget: boolean | nu
   withinTarget,
 });
 const run = (mgas: number, workload: Run['workload'] = 'mix', da: Run['da'] = null, lag = 4): Run => ({
-  id: `synthetic-${workload}-${mgas}`, outputDir: `synthetic-${mgas}`, workload, mgas, gps: (mgas - 5) * 1e6, tps: mgas * 10.5, passed: true,
+  id: `synthetic-${workload}-${mgas}`, outputDir: `synthetic-${mgas}`, workload, mgas, gps: (mgas - 5) * 1e6, tps: mgas * 10.5, reverted: 0, storage: null, passed: true,
   commit: 'bbbbbbbbbbbbbbbb', createdAt: T0 + 5 * DAY, steps: STEPS, da,
   replay: { blocksPerSecond: 36.4, newPayload: LATENCY, match: true },
   proofNode: {
@@ -38,6 +38,11 @@ const run = (mgas: number, workload: Run['workload'] = 'mix', da: Run['da'] = nu
   },
 });
 const none = { mix: null, payment: null, swap: null };
+const storage = (currentBytes: number | null = null): NonNullable<Run['storage']> => ({
+  diskBudgetBytes: 45e12,
+  archive: { growthBytesPerYear: 5e12, growthBound: 'lower', currentBytes, runwayYears: null, runwayBound: 'upper' },
+  fullNode: { stateGrowthBytesPerYear: 1.05e10, historyFootprintBytes: 9.2e12, historyFootprintBound: 'lower', proofFootprintBytes: 2.3e12 },
+});
 const bench = (mgas: number, atTop: boolean, more: Partial<ProvenCapacity> = {}): ProvenCapacity => ({
   current: { ...none, mix: { mgas, atTop, run: run(mgas) } },
   da: none,
@@ -147,7 +152,8 @@ describe('what breaks first', () => {
       '—Execution (sequencer)—no proven run',
       '—Validators—pending',
       '—Proof node—pending',
-      '—State (full node)—runway pending',
+      '—Disk · full node—runway pending',
+      '—Disk · archive node—not measured yet',
       '—TEE proving, RPC under sync—not measured yet',
     ]);
   });
@@ -189,14 +195,53 @@ describe('by workload', () => {
   it('cards each workload with its proven rate, DA ceiling, replay headroom and proof-node latency', () => {
     swr.result = { data: bench(400, true, { current: { mix: { mgas: 400, atTop: true, run: run(400) }, swap: null, payment: { mgas: 200, atTop: true, run: run(200, 'payment') } } }) };
     const { workloads } = render();
-    expect(card(workloads, 'Payments (B20)')).toBe('Payments (B20)≥ 2.1k/sDA~57 · breaks firstValidators7.3×Proof nodelag 4 · 733 ms');
-    expect(card(workloads, 'Swaps (Uniswap v3)')).toBe('Swaps (Uniswap v3)pendingDA~115 EstimatedValidators—Proof node—');
-    expect(card(workloads, 'Mainnet mix')).toBe('Mainnet mix≥ 4.2k tx/sbench mixDA190 · breaks firstValidators7.3×Proof nodelag 4 · 733 ms');
+    expect(card(workloads, 'Payments (B20)')).toBe('Payments (B20)≥ 2.1k/sDA~57 · breaks firstValidators7.3×Proof nodelag 4 · 733 msDisk—');
+    expect(card(workloads, 'Swaps (Uniswap v3)')).toBe('Swaps (Uniswap v3)pendingDA~115 EstimatedValidators—Proof node—Disk—');
+    expect(card(workloads, 'Mainnet mix')).toBe('Mainnet mix≥ 4.2k tx/sbench mixDA190 · breaks firstValidators7.3×Proof nodelag 4 · 733 msDisk—');
   });
 
   it('keeps the DA tag when the ceiling is above the proven rate', () => {
     swr.result = { data: bench(40, false, { current: { mix: null, swap: null, payment: { mgas: 40, atTop: false, run: run(40, 'payment') } } }) };
     expect(card(render().workloads, 'Payments (B20)')).toContain('420/sDA~57 Estimated');
+  });
+});
+
+describe('reverts, measured swaps and disk', () => {
+  it('counts successful tx/s on workload cards and notes reverts above 1%', () => {
+    const reverting = { ...run(200, 'swap'), reverted: 0.155 };
+    swr.result = { data: bench(400, true, { current: { mix: null, payment: { mgas: 200, atTop: true, run: { ...run(200, 'payment'), reverted: 0.005 } }, swap: { mgas: 200, atTop: true, run: reverting } } }) };
+    const { workloads } = render();
+    // 2,100 delivered × 0.845 successful.
+    expect(card(workloads, 'Swaps (Uniswap v3)')).toContain('Swaps (Uniswap v3)≥ 1.8k/s16% reverted');
+    expect(card(workloads, 'Payments (B20)')).toContain('Payments (B20)≥ 2.1k/sDA');
+    expect(card(workloads, 'Payments (B20)')).not.toContain('reverted');
+  });
+
+  it('ranks a measured swaps DA ceiling by its value, past the gas limit', () => {
+    // 4e10 gas and 2.6158e7 frame bytes put the 14-blob ceiling at ~232 Mgas/s.
+    swr.result = { data: bench(400, true, { da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
+    const ranked = render().ranked;
+    expect(rows(ranked).slice(0, 4).map((r) => r.slice(0, 22))).toEqual(['1DA · Payments (B20)ne', '2DA · Mainnet mix190 ≈', '3DA · Swaps232 ≈ 5,800', '4Execution, validators']);
+    expect(rows(ranked)[2]).toContain('Measuredmeasured · 22.4 blobs/slot at 400');
+    const swapsRow = ranked.split('<tr').find((r) => r.includes('>DA · Swaps<'))!;
+    expect(swapsRow).toMatch(/style="width:58\.\d+%"/);
+    expect(swapsRow).toMatch(/border-dashed[^"]*" style="left:50%"/);
+  });
+
+  it('shows full-node and archive disk rows from the mix run, with bounds and no full-node runway', () => {
+    const data = bench(400, true);
+    data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
+    swr.result = { data };
+    const [full, archive] = rows(render().ranked).slice(4, 6);
+    expect(full).toBe('—Disk · full node—history window ~9.2 TB + proofs ~2.3 TB at 400 Mgas/s (lower bound); state growth per year from this workload: 10.5 GB, from the mainnet mix run. Bench workloads create little new state, so this undercounts mainnet state growth; runway pending.');
+    expect(archive).toBe('—Disk · archive node—grows ≥ 5.0 TB/year at 400 Mgas/s (lower bound), from the mainnet mix run');
+    expect(full).not.toMatch(/years? left/);
+    expect(card(render().workloads, 'Mainnet mix')).toContain('Diskarchive ≥ 5.0 TB/year');
+  });
+
+  it('adds an archive runway only when the current archive size is known, and falls back to the newest other workload', () => {
+    swr.result = { data: bench(400, true, { current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: { ...run(400, 'swap'), storage: storage(35e12) } } } }) };
+    expect(rows(render().ranked).find((r) => r.includes('archive node'))).toBe('—Disk · archive node—grows ≥ 5.0 TB/year at 400 Mgas/s (lower bound) · ~2.0 years left of 45.0 TB (upper bound), from the swaps run');
   });
 });
 

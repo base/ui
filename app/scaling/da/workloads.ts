@@ -38,8 +38,9 @@ export const DA_WORKLOADS: DaWorkload[] = [
   },
 ];
 
-// A bench DA run replaces an estimate with frame_bytes ÷ transactions and gas_used ÷ transactions, so
-// bytes/tx ÷ gas/tx is the run's bytes per gas. The mainnet mix keeps its measurement from real
+// A bench DA run replaces an estimate with frame_bytes and gas_used per successful transaction (reverted
+// ones still use gas and blob space), so bytes/tx ÷ gas/tx is the run's bytes per gas and tx/s counts
+// successful transactions only. The mainnet mix keeps its measurement from real
 // mainnet blocks, which the synthetic bench mix only approximates.
 export function daWorkloads(da: ProvenCapacity['da'] | undefined, workloads: DaWorkload[] = DA_WORKLOADS): DaWorkload[] {
   return workloads.map((w) => {
@@ -47,7 +48,8 @@ export function daWorkloads(da: ProvenCapacity['da'] | undefined, workloads: DaW
     if (!run?.da) return w;
     const bench = { run, da: run.da };
     if (w.tag === 'measured') return { ...w, bench };
-    const { frame_bytes, gas_used, transactions } = run.da.result;
+    const { frame_bytes, gas_used } = run.da.result;
+    const transactions = run.da.result.transactions * (1 - run.reverted);
     return {
       ...w,
       gasPerTx: gas_used / transactions,

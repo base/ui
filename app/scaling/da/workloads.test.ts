@@ -35,7 +35,7 @@ it('is modeled once every workload is measured', () => {
 });
 
 const run = (workload: Run['workload'], da: Run['da']): Run => ({
-  id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, passed: true,
+  id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, reverted: 0, storage: null, passed: true,
   commit: 'c0ffee', createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], replay: null, proofNode: null, da,
 });
 const da = (frame_bytes: number, gas_used: number, transactions: number): Da => ({
@@ -56,6 +56,17 @@ it('measures bytes/tx and gas/tx from a bench DA run, keeping the mainnet mix an
   expect(swaps).toBe(DA_WORKLOADS[1]);
   expect(mix).toMatchObject({ bytesPerTx: DA_WORKLOADS[2].bytesPerTx, tag: 'measured', bench: { da: { withinTarget: false } } });
   expect(daWorkloads(undefined)).toEqual(DA_WORKLOADS);
+});
+
+it('counts only successful transactions per second, keeping gas per second', () => {
+  const swap = { ...run('swap', da(1.58e8, 2.4e11, 2e6)), reverted: 0.155 };
+  const [, swaps] = daWorkloads({ payment: null, swap, mix: null });
+  // 2,000,000 × 0.845 = 1,690,000 successful transactions carry all the bytes and gas.
+  expect(swaps.gasPerTx).toBeCloseTo(2.4e11 / 1.69e6);
+  expect(swaps.bytesPerTx).toBeCloseTo(1.58e8 / 1.69e6);
+  const allTx = daWorkloads({ payment: null, swap: { ...swap, reverted: 0 }, mix: null })[1];
+  expect(daCapacity(swaps, BLOB_TARGET).txPerSecond).toBeCloseTo(0.845 * daCapacity(allTx, BLOB_TARGET).txPerSecond);
+  expect(daCapacity(swaps, BLOB_TARGET).mgasPerSecond).toBeCloseTo(daCapacity(allTx, BLOB_TARGET).mgasPerSecond);
 });
 
 it('is modeled once payments and swaps are measured', () => {

@@ -77,7 +77,7 @@ describe('DA from bench runs', () => {
     withinTarget,
   });
   const run = (workload: Run['workload'], runDa: Run['da']): Run => ({
-    id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, passed: true,
+    id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, reverted: 0, storage: null, passed: true,
     commit: 'c0ffee', createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], replay: null, proofNode: null, da: runDa,
   });
   const rows = (html: string) => html.split('<tr').slice(2);

@@ -38,6 +38,11 @@ const PROOFS = {
   witnessBytes: { samples: 3000, p50: 4096, p99: 8192, max: 9000 },
 };
 const DA = { seconds: 600, gas_used: 6e10, transactions: 1e6, transaction_bytes: 1.5e8, frame_bytes: 6e7, gas_per_second: 1e8, bytes_per_gas: 0.001, compression_ratio: 2.5, blobs_per_l1_slot: 15.5, blob_fill: 0.98, blob_target_gas_per_second: 1.5e8 };
+const STORAGE = {
+  diskBudgetBytes: 45e12,
+  archive: { growthBytesPerYear: 1e14, growthBound: 'lower', currentBytes: null, runwayYears: null, runwayBound: 'upper' },
+  fullNode: { stateGrowthBytesPerYear: 1e10, historyFootprintBytes: 9e12, historyFootprintBound: 'lower', proofFootprintBytes: 2e12 },
+};
 
 // Run outputs are cached by outputDir across calls, so every test uses its own dirs.
 function load(specs: Spec[]) {
@@ -65,11 +70,12 @@ function load(specs: Spec[]) {
     const delivered = (s.delivered ?? 1) * s.mgas;
     switch (file) {
       case 'validation.json': return Response.json({ comparable: s.comparable ?? true, reasons: [] });
-      case 'load-test-result.json': return Response.json({ throughput: { gps: delivered * 1e6, tps: delivered * 10 } });
+      case 'load-test-result.json': return Response.json({ throughput: { gps: delivered * 1e6, tps: delivered * 10, total_submitted: 1000, total_reverted: 155 } });
       case 'pipeline-result.json': return Response.json({ suite: 'synthetic', comparable: s.comparable ?? true, steps: STEPS(s) });
       case 'replay-result.json': return Response.json(REPLAY);
       case 'proof-node/replay-result.json': return Response.json({ ...REPLAY, blocksPerSecond: 20, proofs: PROOFS });
       case 'da-result.json': return Response.json(DA);
+      case 'storage-growth.json': return Response.json(STORAGE);
     }
     if (s.ref === null) return new Response(HTML);
     return Response.json({ source: { repository: 'base/base', ref: s.ref ?? 'main', revision: `rev-${dir}` } });
@@ -94,6 +100,7 @@ it('counts only pipeline runs built from main, with their steps, replays and DA 
       mgas: 100,
       gps: 100e6,
       tps: 1000,
+      reverted: 0.155,
       passed: true,
       commit: 'rev-main-100',
       createdAt: NOW - 3 * DAY,
@@ -101,6 +108,7 @@ it('counts only pipeline runs built from main, with their steps, replays and DA 
       replay: { blocksPerSecond: 36.4, newPayload: LATENCY, match: true },
       proofNode: { blocksPerSecond: 20, newPayload: LATENCY, match: true, proofs: PROOFS },
       da: { result: DA, target: 14, withinTarget: false },
+      storage: STORAGE,
     },
   });
   expect(unknown).toEqual([]);
@@ -133,11 +141,11 @@ it('fails a run whose pipeline step failed', async () => {
   expect(current.mix).toMatchObject({ mgas: 100, atTop: false });
 });
 
-it('reads missing replay, proof-node and DA files as null, and an unjudged blob target as null', async () => {
+it('reads missing replay, proof-node and storage files as null, and an unjudged blob target as null', async () => {
   const { current } = await load([
-    { dir: 'partial-100', mgas: 100, daysAgo: 1, missing: ['replay-result.json', 'proof-node/replay-result.json'], withinTarget: null },
+    { dir: 'partial-100', mgas: 100, daysAgo: 1, missing: ['replay-result.json', 'proof-node/replay-result.json', 'storage-growth.json'], withinTarget: null },
   ]);
-  expect(current.mix?.run).toMatchObject({ replay: null, proofNode: null, da: { target: 14, withinTarget: null } });
+  expect(current.mix?.run).toMatchObject({ replay: null, proofNode: null, storage: null, da: { target: 14, withinTarget: null } });
 });
 
 it('ignores alias copies and non-sustained scenarios', async () => {
@@ -247,6 +255,8 @@ it('fetches replay, proof-node and DA files only for proven and latest-DA runs',
   };
   const { current, da } = await loadProvenCapacity('https://bench.example', fetchImpl as typeof fetch, NOW);
   expect(current.mix?.run.outputDir).toBe('sel-200');
+  // Without submitted and reverted totals, nothing counts as reverted.
+  expect(current.mix?.run.reverted).toBe(0);
   expect(da.mix?.outputDir).toBe('sel-300');
   const details = fetched.filter((p) => /replay-result|da-result/.test(p)).map((p) => p.split('/')[0]);
   expect([...new Set(details)].toSorted()).toEqual(['sel-200', 'sel-300']);

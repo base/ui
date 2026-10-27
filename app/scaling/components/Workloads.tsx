@@ -1,6 +1,7 @@
 import { Text } from '../../components/ui/Text';
-import { runHref, type ProvenCapacity, type Workload } from '../proven/capacity';
-import { times, type Limit } from './Bottlenecks';
+import { runHref, successfulTps, type ProvenCapacity, type Workload } from '../proven/capacity';
+import { growth, times, type Limit } from './Bottlenecks';
+import { Info } from './Info';
 import { REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Tag } from './Tag';
 
@@ -13,7 +14,14 @@ const TD = 'py-1 text-[12px]';
 export function Workloads({ current, limits }: { current: ProvenCapacity['current'] | undefined; limits: Limit[] }) {
   return (
     <section className="flex flex-col gap-3">
-      <Text as="h2" variant="headline">By workload</Text>
+      <Text as="h2" variant="headline">
+        <span className="inline-flex items-center gap-1">
+          By workload
+          <Info label="About transactions per second">
+            Successful transactions per second at the proven rate: delivered tx/s × (1 − reverted ÷ submitted). Reverted transactions still use gas and count toward Mgas/s.
+          </Info>
+        </span>
+      </Text>
       <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
         {CARDS.map(([w, label]) => {
           const proven = current?.[w] ?? null;
@@ -27,12 +35,18 @@ export function Workloads({ current, limits }: { current: ProvenCapacity['curren
               <span className="text-[16px] font-[600]">{label}</span>
               {proven ? (
                 <a className="text-[24px] font-[600] leading-[1.1] tabular-nums text-base-blue" href={runHref(proven.run)}>
-                  {proven.atTop ? '≥ ' : ''}{compact(proven.run.tps)}<span className="text-[13px] font-[500]">{w === 'mix' ? ' tx/s' : '/s'}</span>
+                  {proven.atTop ? '≥ ' : ''}{compact(successfulTps(proven.run))}<span className="text-[13px] font-[500]">{w === 'mix' ? ' tx/s' : '/s'}</span>
                   {w === 'mix' ? <span className="ml-1 text-[13px] font-[500] text-bds-gray-60">bench mix</span> : null}
                 </a>
               ) : (
                 <span className="text-[24px] font-[600] leading-[1.1] text-bds-gray-60">pending</span>
               )}
+              {run && run.reverted > 0.01 ? (
+                <span className="flex items-center gap-1 text-[12px] text-bds-gray-60">
+                  {Math.round(run.reverted * 100)}% reverted
+                  <Info label="About reverted transactions">Reverted transactions still use gas and count toward Mgas/s; tx/s counts successful ones only.</Info>
+                </span>
+              ) : null}
               <table className="mt-1 w-full border-collapse">
                 <tbody>
                   <tr className="border-b border-bds-gray-10 text-bds-red-60 dark:border-white/10">
@@ -43,9 +57,13 @@ export function Workloads({ current, limits }: { current: ProvenCapacity['curren
                     <td className={TD}>Validators</td>
                     <td className={`${TD} text-right tabular-nums`}>{run?.replay ? times(run.replay.blocksPerSecond / REPLAY_BLOCKS_PER_SECOND) : '—'}</td>
                   </tr>
-                  <tr>
+                  <tr className="border-b border-bds-gray-10 dark:border-white/10">
                     <td className={TD}>Proof node</td>
                     <td className={`${TD} text-right tabular-nums`}>{proofs ? `lag ${proofs.headLagBlocks.p99}${execute === undefined ? '' : ` · ${Math.round(execute)} ms`}` : '—'}</td>
+                  </tr>
+                  <tr>
+                    <td className={TD}>Disk</td>
+                    <td className={`${TD} text-right tabular-nums`}>{run?.storage ? `archive ${growth(run.storage.archive)}` : '—'}</td>
                   </tr>
                 </tbody>
               </table>

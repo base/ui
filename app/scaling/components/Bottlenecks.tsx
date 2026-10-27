@@ -2,8 +2,9 @@ import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { BLOB_TARGET, daCapacity, fmt, type DaWorkload } from '../da/workloads';
-import { runHref, type PipelineStep, type Proven } from '../proven/capacity';
+import { runHref, type PipelineStep, type Proven, type ProvenCapacity, type Run, type Storage, type Workload } from '../proven/capacity';
 import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
+import { Info } from './Info';
 import { day } from './ProvenCapacity';
 import { Tag } from './Tag';
 
@@ -70,6 +71,41 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
   return [...da, ...merged].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
 }
 
+export type StorageSource = { storage: Storage; run: Run };
+
+export const bytes = (n: number) => (n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : `${(n / 1e9).toFixed(1)} GB`);
+export const growth = (archive: Storage['archive']) =>
+  `${archive.growthBound === 'lower' ? '≥' : archive.growthBound === 'upper' ? '≤' : '~'} ${bytes(archive.growthBytesPerYear)}/year`;
+const WORKLOAD: Record<Workload, string> = { mix: 'mainnet mix', payment: 'payments', swap: 'swaps' };
+
+// The mix run's storage data when present, else the newest payments or swaps run that has it.
+export function pickStorage(data: ProvenCapacity | undefined): StorageSource | null {
+  if (!data) return null;
+  const { current, da } = data;
+  const others = [current.payment?.run, current.swap?.run, da.payment, da.swap].filter((r) => r?.storage).toSorted((a, b) => b!.createdAt - a!.createdAt);
+  const run = [current.mix?.run, da.mix].find((r) => r?.storage) ?? others[0];
+  return run ? { storage: run.storage!, run } : null;
+}
+
+// No Mgas/s ceiling: bench workloads create little new state, so a full-node runway from them is not
+// meaningful yet.
+function diskRows(source: StorageSource | null): { label: string; evidence: string }[] {
+  if (!source) return [{ label: 'Disk · full node', evidence: 'runway pending' }, { label: 'Disk · archive node', evidence: 'not measured yet' }];
+  const { storage: { archive, fullNode, diskBudgetBytes }, run } = source;
+  const at = `at ${run.mgas} Mgas/s`;
+  const from = `from the ${WORKLOAD[run.workload]} run`;
+  const years = archive.currentBytes === null ? null : archive.runwayYears ?? (diskBudgetBytes - archive.currentBytes) / archive.growthBytesPerYear;
+  const months = years === null ? 0 : Math.max(1, Math.round(years * 12));
+  const runway = years === null ? '' : ` · ~${years < 1 ? `${months} month${months === 1 ? '' : 's'}` : `${years.toFixed(1)} years`} left of ${bytes(diskBudgetBytes)} (${archive.runwayBound} bound)`;
+  return [
+    {
+      label: 'Disk · full node',
+      evidence: `history window ~${bytes(fullNode.historyFootprintBytes)} + proofs ~${bytes(fullNode.proofFootprintBytes)} ${at} (${fullNode.historyFootprintBound} bound); state growth per year from this workload: ${bytes(fullNode.stateGrowthBytesPerYear)}, ${from}. Bench workloads create little new state, so this undercounts mainnet state growth; runway pending.`,
+    },
+    { label: 'Disk · archive node', evidence: `grows ${growth(archive)} ${at} (${archive.growthBound} bound)${runway}, ${from}` },
+  ];
+}
+
 function Evidence({ proven }: { proven: Proven }) {
   const { run } = proven;
   return (
@@ -90,11 +126,11 @@ function Evidence({ proven }: { proven: Proven }) {
   );
 }
 
-export function Bottlenecks({ limits, max, gasLimit, proven }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null }) {
+export function Bottlenecks({ limits, max, gasLimit, proven, storage }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; storage: StorageSource | null }) {
   const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
   const ranked = limits.filter((l) => l.value !== null).length;
   const fixed = [
-    { label: 'State (full node)', evidence: 'runway pending' },
+    ...diskRows(storage),
     { label: 'TEE proving, RPC under sync', evidence: 'not measured yet' },
   ];
   return (
@@ -104,7 +140,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven }: { limits: Limit[]
         <table className="w-full min-w-[760px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-bds-gray-10 dark:border-white/10">
-              <th className={TH}>#</th><th className={TH}>Limit</th><th className={cn(TH, 'text-right')}>Ceiling</th><th className={cn(TH, 'w-[28%]')} /><th className={TH}>Evidence</th>
+              <th className={TH}>#</th><th className={TH}>Limit</th><th className={cn(TH, 'text-right')}><span className="inline-flex items-center gap-1">Ceiling <Info label="About the ceiling">Mgas/s. For DA rows, ≈ /s converts it to successful transactions per second: blob capacity ÷ frame bytes per successful transaction. Reverted transactions still use gas and blob space.</Info></span></th><th className={cn(TH, 'w-[28%]')} /><th className={TH}>Evidence</th>
             </tr>
           </thead>
           <tbody>

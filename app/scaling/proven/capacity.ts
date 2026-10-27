@@ -37,6 +37,13 @@ export type DaResult = {
 // `target` and `withinTarget` come from the pipeline's DA step; the blob target is recorded, not gating.
 export type Da = { result: DaResult; target: number | null; withinTarget: boolean | null };
 
+// `storage-growth.json`: disk growth measured over the run, projected to a year at its gas rate.
+export type Storage = {
+  diskBudgetBytes: number;
+  archive: { growthBytesPerYear: number; growthBound: string; currentBytes: number | null; runwayYears: number | null; runwayBound: string };
+  fullNode: { stateGrowthBytesPerYear: number; historyFootprintBytes: number; historyFootprintBound: string; proofFootprintBytes: number };
+};
+
 export type Run = {
   id: string;
   outputDir: string;
@@ -44,6 +51,8 @@ export type Run = {
   mgas: number;
   gps: number;
   tps: number;
+  // Share of submitted transactions that reverted; they still use gas.
+  reverted: number;
   passed: boolean;
   commit: string;
   createdAt: number;
@@ -51,7 +60,11 @@ export type Run = {
   replay: Replay | null;
   proofNode: (Replay & { proofs: Proofs | null }) | null;
   da: Da | null;
+  storage: Storage | null;
 };
+
+// Reverted transactions count toward gas/s but not toward transactions per second.
+export const successfulTps = (run: Run) => run.tps * (1 - run.reverted);
 
 export type Proven = { mgas: number; atTop: boolean; run: Run };
 
@@ -83,7 +96,7 @@ const WORKLOADS = Object.keys(PAYLOADS) as Workload[];
 // Run outputs never change once written. `null` marks a run that does not count: not built from
 // main, or written before the step pipeline.
 const runCache = new Map<string, Run | null>();
-const detailCache = new Map<string, Pick<Run, 'replay' | 'proofNode' | 'da'>>();
+const detailCache = new Map<string, Pick<Run, 'replay' | 'proofNode' | 'da' | 'storage'>>();
 
 export const runHref = (run: Run) => `/scaling/runs/bench/${encodeURIComponent(run.id)}`;
 
@@ -172,6 +185,7 @@ async function loadRun(root: string, meta: BenchmarkRun, fetchImpl: typeof fetch
     mgas,
     gps,
     tps: load.throughput.tps,
+    reverted: load.throughput.total_submitted ? (load.throughput.total_reverted ?? 0) / load.throughput.total_submitted : 0,
     passed: validation.comparable === true && gps >= PASS_RATIO * mgas * 1e6,
     commit: provenance.source.revision,
     createdAt: Date.parse(meta.createdAt),
@@ -179,17 +193,24 @@ async function loadRun(root: string, meta: BenchmarkRun, fetchImpl: typeof fetch
     replay: null,
     proofNode: null,
     da: null,
+    storage: null,
   };
 }
 
-async function loadDetails(root: string, run: Run, fetchImpl: typeof fetch): Promise<Pick<Run, 'replay' | 'proofNode' | 'da'>> {
+async function loadDetails(root: string, run: Run, fetchImpl: typeof fetch): Promise<Pick<Run, 'replay' | 'proofNode' | 'da' | 'storage'>> {
   const get = (file: string) => getJson(fetchImpl, `${root}${run.outputDir}/${file}`);
-  const [replay, proofNode, da] = await Promise.all([get('replay-result.json'), get('proof-node/replay-result.json'), get('da-result.json')]);
+  const [replay, proofNode, da, storage] = await Promise.all([
+    get('replay-result.json'),
+    get('proof-node/replay-result.json'),
+    get('da-result.json'),
+    get('storage-growth.json'),
+  ]);
   const daOutputs = run.steps.find((s) => s.name === 'da')?.outputs;
   return {
     replay: replay && pickReplay(replay),
     proofNode: proofNode && { ...pickReplay(proofNode), proofs: proofNode.proofs ?? null },
     da: da && { result: da, target: (daOutputs?.target as number) ?? null, withinTarget: (daOutputs?.withinTarget as boolean) ?? null },
+    storage,
   };
 }
 
