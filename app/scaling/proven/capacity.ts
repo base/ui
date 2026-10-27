@@ -64,12 +64,13 @@ export type Step = {
 };
 
 // `history` is the mainnet mix's; `da` is the latest counting run per workload in the window whose DA
-// step passed. Replay, proof-node and DA results are loaded only for the runs in `current` and `da`:
+// step passed; `latestAt` is when the newest counting run was created. Replay, proof-node and DA results are loaded only for the runs in `current` and `da`:
 // replay files list every block, and every other run would download them for nothing.
 export type ProvenCapacity = {
   current: Record<Workload, Proven | null>;
   da: Record<Workload, Run | null>;
   history: Step[];
+  latestAt: number | null;
   unknown: string[];
 };
 
@@ -127,6 +128,7 @@ export async function loadProvenCapacity(
     current: Object.fromEntries(WORKLOADS.map((w) => [w, provenAt(of(full, w), now)])) as ProvenCapacity['current'],
     da: Object.fromEntries(WORKLOADS.map((w) => [w, daRun(w)])) as ProvenCapacity['da'],
     history: history(of(full, 'mix'), now),
+    latestAt: runs.length ? Math.max(...runs.map((r) => r.createdAt)) : null,
     unknown,
   };
 }

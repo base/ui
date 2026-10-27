@@ -6,7 +6,6 @@ import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import type { Rung, Snapshot } from '../snapshot.mjs';
 import { Info } from './Info';
-import { usageAsOf } from './ProvenCapacity';
 
 const BAR_Y = 50;
 const BAR_H = 24;
@@ -16,7 +15,7 @@ const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 })
 
 export type ProvenMark = { value: number; atLeast: boolean; help: string } | null;
 
-type Props = Pick<Snapshot, 'ladder' | 'windows' | 'collectedAt'> & { proven: ProvenMark; max: number; dashboardUrl?: string };
+type Props = Pick<Snapshot, 'ladder' | 'windows'> & { proven: ProvenMark; max: number };
 type Label = { id: string; text: string; help: string; x: number; className: string };
 
 const SHADES = {
@@ -29,7 +28,7 @@ const SHADES = {
 // Width of a label with its help button, so fanned labels can be kept apart.
 const labelPx = (text: string) => text.length * CHAR_PX + 20;
 
-export function Ladder({ ladder, windows, collectedAt, proven, max, dashboardUrl }: Props) {
+export function Ladder({ ladder, windows, proven, max }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(960);
   useLayoutEffect(() => {
@@ -125,9 +124,7 @@ export function Ladder({ ladder, windows, collectedAt, proven, max, dashboardUrl
         {legend.map(([label, shade]) => (
           <span key={label} className="flex items-center gap-1.5"><span aria-hidden="true" className={cn('h-2.5 w-4 rounded-sm', shade)} />{label}</span>
         ))}
-        <span>{usageAsOf(collectedAt)}</span>
       </div>
-      {dashboardUrl ? <Text variant="label.regular" tone="muted"><a className="underline" href={dashboardUrl}>Mainnet load, gas limit, DA ceiling →</a></Text> : null}
     </section>
   );
 }

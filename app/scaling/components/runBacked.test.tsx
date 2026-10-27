@@ -11,7 +11,6 @@ import type { Snapshot } from '../snapshot.mjs';
 import { AREAS } from './CeilingCards';
 import { RunBackedCeilingCard } from './RunBackedCeilingCard';
 import { DaWorkloads } from './DaWorkloads';
-import { Progress } from './Progress';
 import { RelatedRuns } from './RelatedRuns';
 
 // Synthetic data only: real snapshots and runs are internal and never committed.
@@ -69,16 +68,6 @@ it('lists the newest runs of each kind covering an area', () => {
   expect(links('execution')).toEqual([...newestLoads, '/scaling/runs/bench/test-synthetic-1', '/scaling/runs/bench/test-synthetic-2']);
   expect(links('da')).toEqual(newestLoads);
   expect(links('state')).toEqual([]);
-});
-
-it('shows gas/s and status for evidence that points at a run page', () => {
-  swr.byKey['scaling-bench-metadata'] = { data: metadata };
-  swr.byKey['scaling-load-result'] = { data: runFixture.loadTests[0].result };
-  const [item] = snapshot().work;
-  const at = (url: string) => renderToStaticMarkup(<Progress work={[{ ...item, evidence: { label: 'Run', url } }]} />);
-  expect(at('https://example.com/scaling/runs/bench/test-synthetic-1')).toMatch(/42\.0 Mgas\/s.*?success/);
-  expect(at('https://example.com/scaling/runs/load/sepolia/2026-01-08T00-00-01')).toMatch(/12\.5 Mgas\/s.*?success/);
-  expect(at('https://example.com/synthetic/doc')).not.toContain('Mgas/s');
 });
 
 describe('DA from bench runs', () => {

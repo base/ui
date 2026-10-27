@@ -8,7 +8,6 @@ import type { Snapshot } from '../snapshot.mjs';
 import { AREAS } from './CeilingCards';
 import { RunBackedCeilingCard } from './RunBackedCeilingCard';
 import { Guardrails, scorecardGuardrails } from './Guardrails';
-import { Progress } from './Progress';
 
 // Synthetic data only: real snapshots are internal and never committed.
 function fixture(): Snapshot {
@@ -38,32 +37,30 @@ describe('CeilingCard', () => {
 });
 
 describe('Guardrails', () => {
-  it('shows comparator and unit with the threshold, tags provisional and unset thresholds, and colors only known statuses', () => {
-    const rows = renderToStaticMarkup(<Guardrails guardrails={fixture().guardrails} collectedAt={fixture().collectedAt} />).split('<tr').slice(2);
-    expect(rows[0]).toContain('≤ 80 %');
-    expect(rows[0]).toContain('bg-bds-green-50');
-    expect(rows[1]).toContain('≥ 99.9 %');
-    expect(rows[1]).toContain('bg-bds-red-50');
+  const detailed = () => renderToStaticMarkup(<Guardrails guardrails={fixture().guardrails} collectedAt={fixture().collectedAt} detailed />);
+  const labels = (html: string) => html.split('<tr').slice(2).map((r) => r.match(/<td[^>]*>([^<]+)</)![1]);
+
+  it('lists breached then met rows, with comparator, unit, owner and status color', () => {
+    const [shown] = detailed().split('<details');
+    expect(labels(shown)).toEqual(['RPC availability', 'DA utilization', 'Validator keep-up']);
+    const rows = shown.split('<tr').slice(2);
+    expect(rows[0]).toContain('≥ 99.9 %');
+    expect(rows[0]).toContain('bg-bds-red-50');
+    expect(rows[1]).toContain('≤ 80 %');
     expect(rows[2]).toContain('≤ 3 blocks');
-    expect(rows[2]).not.toContain('>Provisional<');
     expect(rows[2]).toContain('Synthetic owner');
     expect(rows[2]).toContain('bg-bds-green-50');
-    expect(rows[3]).toContain('>Unset<');
-    expect(rows[3]).toContain('bg-bds-gray-30');
-    expect(rows[3]).not.toMatch(/bg-bds-(green|red)/);
   });
 
-  it('sorts rows with a value first, then unknown, then muted not-monitored rows', () => {
-    const html = renderToStaticMarkup(<Guardrails guardrails={fixture().guardrails.reverse()} collectedAt={fixture().collectedAt} />);
+  it('collapses unknown and not-monitored rows under a count, tagging unset thresholds', () => {
+    const html = detailed();
+    const collapsed = html.split('<details')[1];
+    expect(collapsed).toContain('Not measured 3');
+    expect(labels(collapsed)).toEqual(['RPC p99 latency', 'Propagation p99', 'State growth']);
+    expect(collapsed).toContain('>Unset<');
+    expect(collapsed).toContain('Not monitored');
+    expect(collapsed).not.toMatch(/bg-bds-(green|red)/);
     expect(html).toContain('Usage data as of 2026-01-02; bench rows show their run.');
-    const rows = html.split('<tr').slice(2);
-    expect(rows.map((r) => r.match(/<td[^>]*>(?:<span[^>]*>)?([^<]+?) ?</)![1])).toEqual([
-      'RPC p99 latency', 'Validator keep-up', 'RPC availability', 'DA utilization', 'State growth', 'Propagation p99',
-    ]);
-    expect(rows[4]).toContain('>Unknown</span>');
-    expect(rows[5]).toContain('text-bds-gray-60');
-    expect(rows[5]).toContain('Not monitored');
-    expect(rows.slice(0, 5).join('')).not.toContain('Not monitored');
   });
 });
 
@@ -109,21 +106,3 @@ describe('scorecardGuardrails', () => {
   });
 });
 
-describe('Progress', () => {
-  it('shows Linear state and a labelled bar when linked, and proposed with no bar otherwise', () => {
-    const [linked, proposed] = renderToStaticMarkup(<Progress work={fixture().work} />).split('px-4 py-3').slice(1);
-    expect(linked).toContain('>started<');
-    expect(linked).toContain('aria-label="4 of 10 issues done"');
-    expect(linked).toContain('width:40%');
-    expect(linked).toContain('Realized:');
-    expect(linked).toContain('href="https://example.com/synthetic/linear/project"');
-    expect(proposed).toContain('>proposed<');
-    expect(proposed).not.toContain('progressbar');
-    expect(proposed).not.toContain('Realized:');
-  });
-
-  it('hides realized without evidence', () => {
-    const [item] = fixture().work;
-    expect(renderToStaticMarkup(<Progress work={[{ ...item, evidence: null }]} />)).not.toContain('Realized:');
-  });
-});

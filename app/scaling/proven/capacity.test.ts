@@ -107,7 +107,7 @@ it('counts only pipeline runs built from main, with their steps, replays and DA 
 });
 
 it('keeps each payload separate, with the latest DA run per payload', async () => {
-  const { current, da, history } = await load([
+  const { current, da, history, latestAt } = await load([
     { dir: 'pay-mix-400', mgas: 400, daysAgo: 3 },
     { dir: 'pay-b20-200', mgas: 200, daysAgo: 3, workload: 'payment' },
     { dir: 'pay-b20-300', mgas: 300, daysAgo: 2, workload: 'payment', delivered: 0.5 },
@@ -121,6 +121,8 @@ it('keeps each payload separate, with the latest DA run per payload', async () =
   expect(da.payment?.outputDir).toBe('pay-b20-300');
   expect(da.swap).toBeNull();
   expect(history.map((s) => s.mgas)).toEqual([400]);
+  // The newest counting run, here one without a DA result.
+  expect(latestAt).toBe(NOW - DAY);
 });
 
 it('fails a run whose pipeline step failed', async () => {

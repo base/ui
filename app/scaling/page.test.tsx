@@ -16,28 +16,27 @@ afterEach(() => vi.unstubAllEnvs());
 
 const area = async (id: string) => renderToStaticMarkup(await ScalingAreaPage({ params: Promise.resolve({ area: id }) }));
 
-it('links the first screen to four detail pages instead of listing metric rows', async () => {
+it('ends the first screen with DA and guardrails links, and no benchmark links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  for (const page of ['da', 'execution', 'state', 'guardrails']) expect(html).toContain(`href="/scaling/${page}"`);
-  expect(html).not.toContain('href="/scaling/networking"');
+  expect(html).toContain('<a class="underline" href="/scaling/da">DA by workload</a><a class="underline" href="/scaling/guardrails">Guardrails</a>');
+  expect(html).not.toMatch(/href="\/benchmark|href="\/scaling\/networking"/);
   expect(html).not.toContain('Blob utilization');
   expect(html).not.toContain('href="/scaling/runs"');
   expect(html).toMatch(/<h1[^>]*>synthetic-testnet capacity<\/h1>/);
   expect(html).not.toMatch(/As of|manually refreshed|Synthetic fixture: every number/);
 });
 
-it('orders the first screen headline, ladder, bottleneck bars, subsystem table, guardrails, progress', async () => {
+it('orders the first screen: freshness, headline, ladder, ranked limits, workloads, guardrails, work, links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  const order = ['How much can Base handle', 'How close are we, and to what?', 'What breaks first?', 'Subsystem detail', 'Guardrails →', 'Progress'].map((h) => html.indexOf(h));
+  const order = ['Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'By workload', 'Guardrails</h2>', 'Work by limit', 'DA by workload'].map((h) => html.indexOf(h));
   expect(order.every((i, k) => i > (order[k - 1] ?? -1))).toBe(true);
-  expect(html).not.toContain('Ceilings by bottleneck');
+  expect(html).not.toMatch(/Subsystem detail|Progress<|Ceilings by bottleneck|Usage data as of/);
 });
 
-it('labels snapshot usage with its date instead of a stale banner, on every page', async () => {
+it('dates snapshot data without a stale banner', async () => {
   // The fixture is far older than any staleness window.
-  const pages = [await ScalingPage(), await ScalingGuardrailsPage()].map((p) => renderToStaticMarkup(p));
-  for (const html of pages) expect(html).toContain('Usage data as of 2026-01-02');
-  for (const html of [...pages, await area('da')]) expect(html).not.toContain('Stale');
+  expect(renderToStaticMarkup(await ScalingGuardrailsPage())).toContain('Usage data as of 2026-01-02');
+  for (const html of [renderToStaticMarkup(await ScalingPage()), renderToStaticMarkup(await ScalingGuardrailsPage()), await area('da')]) expect(html).not.toContain('Stale');
 });
 
 it('shows every metric row on its detail page', async () => {
@@ -73,7 +72,7 @@ it('404s an unknown area and networking, which has no ceiling', async () => {
   for (const id of ['bogus', 'networking']) await expect(area(id)).rejects.toMatchObject({ digest: 'NEXT_HTTP_ERROR_FALLBACK;404' });
 });
 
-it('passes the runtime bench and dashboard URLs to the ladder', async () => {
+it('passes the runtime bench and dashboard URLs to the scorecard and footer', async () => {
   expect(renderToStaticMarkup(await ScalingPage())).not.toContain('Loading bench results');
   vi.stubEnv('SCALING_BENCH_BASE_URL', 'https://bench.example.com');
   vi.stubEnv('SCALING_DATADOG_DASHBOARD_URL', 'https://dashboards.example.com/scaling');
@@ -90,7 +89,7 @@ it('adds bench guardrail rows when a bench host is set, unknown until its result
   expect(renderToStaticMarkup(await ScalingGuardrailsPage())).toContain('No qualifying mainnet-mix bench run is loaded.');
 });
 
-it('links the first-screen guardrail strip to the guardrails page', async () => {
+it('links the first-screen guardrail summary to the guardrails page', async () => {
   expect(renderToStaticMarkup(await ScalingPage())).toContain('<a class="underline" href="/scaling/guardrails">Guardrails →</a>');
 });
 

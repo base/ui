@@ -2,8 +2,6 @@ import Link from 'next/link';
 
 import { Text } from '../components/ui/Text';
 
-import { Guardrails } from './components/Guardrails';
-import { Progress } from './components/Progress';
 import { Scorecard } from './components/Scorecard';
 import { Header, loadSnapshot, Unavailable } from './loadSnapshot';
 
@@ -15,19 +13,17 @@ export default async function ScalingPage() {
   if (loaded.kind !== 'ok') return <Unavailable loaded={loaded} />;
 
   const { snapshot } = loaded;
-  const benchUrl = process.env.SCALING_BENCH_BASE_URL;
+  const dashboardUrl = process.env.SCALING_DATADOG_DASHBOARD_URL;
   return (
     <div className="flex flex-col gap-10 pb-8">
       <Header title={`${snapshot.network} capacity`} />
-
-      <Scorecard snapshot={snapshot} benchUrl={benchUrl} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
-      <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />
-
-      <Progress work={snapshot.work} />
-
+      <Scorecard snapshot={snapshot} benchUrl={process.env.SCALING_BENCH_BASE_URL} />
       <Text variant="label.regular" tone="muted">
-        Experiment results: <Link className="underline" href="/benchmark/run">Benchmarks</Link> ·{' '}
-        <Link className="underline" href="/benchmark/load-tests">Load tests</Link>
+        <span className="flex flex-wrap gap-x-4">
+          <Link className="underline" href="/scaling/da">DA by workload</Link>
+          <Link className="underline" href="/scaling/guardrails">Guardrails</Link>
+          {dashboardUrl ? <a className="underline" href={dashboardUrl}>Mainnet load, gas limit, DA ceiling</a> : null}
+        </span>
       </Text>
     </div>
   );
