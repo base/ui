@@ -19,6 +19,9 @@ const rank = (g: Guardrail) => (g.status === 'not-monitored' ? 2 : g.value === n
 
 const fmt = (n: number, unit: string) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`.trim();
 
+export const KEEP_UP_BLOCKS = 3;
+export const REPLAY_BLOCKS_PER_SECOND = 5;
+
 const judge = (g: Omit<Guardrail, 'status'>): Guardrail => ({
   ...g,
   status: g.value === null || g.threshold === null ? 'unknown' : (g.comparator === '<=' ? g.value <= g.threshold : g.value >= g.threshold) ? 'ok' : 'breached',
@@ -28,9 +31,9 @@ const judge = (g: Omit<Guardrail, 'status'>): Guardrail => ({
 // bench run: undefined without a bench host, null when none is loaded.
 export function scorecardGuardrails(snapshot: Guardrail[], run: Run | null | undefined): Guardrail[] {
   const keepUp = (g?: Guardrail) => judge({
-    id: 'validator-keep-up', label: 'Validator keep-up', value: g?.value ?? null, unit: 'blocks', threshold: 3, comparator: '<=',
+    id: 'validator-keep-up', label: 'Validator keep-up', value: g?.value ?? null, unit: 'blocks', threshold: KEEP_UP_BLOCKS, comparator: '<=',
     thresholdTag: 'set', owner: g?.owner ?? null, asOf: g?.asOf ?? null,
-    help: 'How far production validators trail the tip, from the snapshot. They must stay within 3 blocks.',
+    help: `How far production validators trail the tip, from the snapshot. They must stay within ${KEEP_UP_BLOCKS} blocks.`,
   });
   const rows = snapshot.some((g) => g.id === 'validator-keep-up')
     ? snapshot.map((g) => (g.id === 'validator-keep-up' ? keepUp(g) : g))
@@ -50,8 +53,8 @@ export function scorecardGuardrails(snapshot: Guardrail[], run: Run | null | und
     }),
     judge({
       ...bench, id: 'validator-replay-headroom', label: 'Validator replay headroom', value: run?.replay?.blocksPerSecond ?? null, unit: 'blocks/s',
-      comparator: '>=', threshold: 5, thresholdTag: 'set',
-      help: `Blocks per second a validator replays the bench blocks at. Keeping up needs 5, one block per 200 ms.${source}`,
+      comparator: '>=', threshold: REPLAY_BLOCKS_PER_SECOND, thresholdTag: 'set',
+      help: `Blocks per second a validator replays the bench blocks at. Keeping up needs ${REPLAY_BLOCKS_PER_SECOND}, one block per ${1000 / REPLAY_BLOCKS_PER_SECOND} ms.${source}`,
     }),
   ];
 }

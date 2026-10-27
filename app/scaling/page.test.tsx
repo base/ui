@@ -24,6 +24,13 @@ it('links the first screen to four detail pages instead of listing metric rows',
   expect(html).toContain('href="/scaling/runs"');
 });
 
+it('orders the first screen headline, ladder, bottleneck bars, subsystem table, guardrails, progress', async () => {
+  const html = renderToStaticMarkup(await ScalingPage());
+  const order = ['How much can Base handle', 'How close are we, and to what?', 'What breaks first?', 'Subsystem detail', 'Guardrails →', 'Progress'].map((h) => html.indexOf(h));
+  expect(order.every((i, k) => i > (order[k - 1] ?? -1))).toBe(true);
+  expect(html).not.toContain('Ceilings by bottleneck');
+});
+
 it('shows every metric row on its detail page', async () => {
   for (const section of fixture.sections) {
     const html = section.id === 'outcomes' ? renderToStaticMarkup(await ScalingGuardrailsPage()) : await area(section.id);

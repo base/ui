@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import { CeilingCards } from './CeilingCards';
+import { AREAS } from './CeilingCards';
+import { RunBackedCeilingCard } from './RunBackedCeilingCard';
 import { Guardrails, scorecardGuardrails } from './Guardrails';
 import { Progress } from './Progress';
 
@@ -16,9 +17,9 @@ function fixture(): Snapshot {
 
 const cards = (html: string) => html.split('<a ').slice(1);
 
-describe('CeilingCards', () => {
+describe('CeilingCard', () => {
   it('renders every area but networking in a fixed order with its tag, and badges the binding card', () => {
-    const html = cards(renderToStaticMarkup(<CeilingCards ceilings={fixture().ceilings.reverse()} />));
+    const html = cards(renderToStaticMarkup(<>{AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={fixture().ceilings.reverse()} />)}</>));
     expect(html.map((c) => c.match(/href="\/scaling\/(\w+)"/)![1])).toEqual(['da', 'execution', 'state']);
     expect(html.map((c) => c.match(/border-dashed[^>]*>([^<]+)</)![1])).toEqual(['Modeled', 'Estimated', 'Not modeled']);
     expect(html.map((c) => c.includes('>Binding<'))).toEqual([true, false, false]);
@@ -27,7 +28,7 @@ describe('CeilingCards', () => {
   it('moves the binding badge to a lower measured ceiling, and shows a dash, reason and pending inputs when there is no value', () => {
     const { ceilings } = fixture();
     ceilings[1] = { ...ceilings[1], value: 90, tag: 'measured' };
-    const html = cards(renderToStaticMarkup(<CeilingCards ceilings={ceilings} />));
+    const html = cards(renderToStaticMarkup(<>{AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={ceilings} />)}</>));
     expect(html.map((c) => c.includes('>Binding<'))).toEqual([false, true, false]);
     expect(html[2]).toContain('>—<');
     expect(html[2]).toContain('live-state growth not measured');

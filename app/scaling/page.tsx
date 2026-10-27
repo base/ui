@@ -2,11 +2,9 @@ import Link from 'next/link';
 
 import { Text } from '../components/ui/Text';
 
-import { CeilingCards } from './components/CeilingCards';
 import { Guardrails } from './components/Guardrails';
-import { Ladder } from './components/Ladder';
 import { Progress } from './components/Progress';
-import { withDaWorkloads } from './da/workloads';
+import { Scorecard } from './components/Scorecard';
 import { Header, loadSnapshot, Unavailable } from './loadSnapshot';
 
 // The snapshot is a runtime file, so render per request rather than at build.
@@ -17,14 +15,12 @@ export default async function ScalingPage() {
   if (loaded.kind !== 'ok') return <Unavailable loaded={loaded} />;
 
   const { snapshot } = loaded;
-  const ceilings = withDaWorkloads(snapshot.ceilings);
   const benchUrl = process.env.SCALING_BENCH_BASE_URL;
   return (
     <div className="flex flex-col gap-10 pb-8">
       <Header loaded={loaded} title={`Scaling scorecard · ${snapshot.network}`} action={<Link className="underline" href="/scaling/runs">Runs →</Link>} />
 
-      <Ladder ladder={snapshot.ladder} ceilings={ceilings} translations={snapshot.translations} windows={snapshot.windows} benchUrl={benchUrl} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
-      <CeilingCards ceilings={ceilings} benchUrl={benchUrl} />
+      <Scorecard snapshot={snapshot} benchUrl={benchUrl} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
       <Guardrails guardrails={snapshot.guardrails} benchUrl={benchUrl} />
 
       <Progress work={snapshot.work} />

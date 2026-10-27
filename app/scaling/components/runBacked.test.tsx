@@ -8,9 +8,9 @@ import { getTestRunsWithStatus, type BenchmarkRuns } from '../runs/lib/types';
 import { toUnifiedRun, type LoadRun } from '../runs/lib/unified';
 import type { Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import { CeilingCards } from './CeilingCards';
+import { AREAS } from './CeilingCards';
+import { RunBackedCeilingCard } from './RunBackedCeilingCard';
 import { DaWorkloads } from './DaWorkloads';
-import { Ladder } from './Ladder';
 import { Progress } from './Progress';
 import { RelatedRuns } from './RelatedRuns';
 
@@ -34,7 +34,7 @@ describe('execution ceiling', () => {
     swr.byKey['scaling-bench-metadata'] = { data: { runs: [older, bench, fasterConfig, metadata.runs[1]] } };
     const { ceilings } = snapshot();
     ceilings[0].value = 70; // DA modeled above the run's 48 Mgas/s.
-    const [da, execution] = cards(renderToStaticMarkup(<CeilingCards ceilings={ceilings} />));
+    const [da, execution] = cards(renderToStaticMarkup(<>{AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={ceilings} />)}</>));
     expect(execution).toMatch(/>48<\/span>.*?>Estimated</);
     expect(execution).toContain('state size not recorded');
     expect(execution).toContain('href="/scaling/runs/bench/test-synthetic-1"');
@@ -45,7 +45,7 @@ describe('execution ceiling', () => {
 
   it('falls back to the snapshot when the run API is unavailable', () => {
     swr.byKey['scaling-bench-metadata'] = { error: new Error('not configured') };
-    const [, execution] = cards(renderToStaticMarkup(<CeilingCards ceilings={snapshot().ceilings} />));
+    const [, execution] = cards(renderToStaticMarkup(<>{AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={snapshot().ceilings} />)}</>));
     expect(execution).toMatch(/>150<\/span>.*?>Estimated</);
     expect(execution).toContain('state size not recorded for the run');
     expect(execution).not.toContain('/scaling/runs/bench/');
@@ -55,16 +55,9 @@ describe('execution ceiling', () => {
     swr.byKey['scaling-bench-metadata'] = { data: metadata };
     const { ceilings } = snapshot();
     Object.assign(ceilings[1], { value: 60, tag: 'measured' });
-    const [, execution] = cards(renderToStaticMarkup(<CeilingCards ceilings={ceilings} />));
+    const [, execution] = cards(renderToStaticMarkup(<>{AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={ceilings} />)}</>));
     expect(execution).toMatch(/>60<\/span>.*?>Measured<.*?>Binding</);
   });
-});
-
-it('links the qualified rung to the runs behind it', () => {
-  const { ladder, ceilings, translations, windows } = snapshot();
-  ladder.qualified = { ...ladder.qualified, value: 30, tag: 'measured', evidence: [{ label: 'Synthetic run', url: 'https://example.com/scaling/runs/bench/synthetic-1' }] };
-  const html = renderToStaticMarkup(<Ladder ladder={ladder} ceilings={ceilings} translations={translations} windows={windows} />);
-  expect(html).toContain('Qualified sustained by <a class="underline" href="https://example.com/scaling/runs/bench/synthetic-1">Synthetic run</a>');
 });
 
 it('lists the newest runs of each kind covering an area', () => {

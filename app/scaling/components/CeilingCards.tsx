@@ -7,7 +7,6 @@ import type { UnifiedRun } from '../runs/lib/unified';
 import { deriveBinding, type Ceiling, type CeilingInput } from '../snapshot.mjs';
 import { DaWorkloadRows } from './DaWorkloads';
 import { Info } from './Info';
-import { RunBackedCeilingCard } from './RunBackedCeilingCard';
 import { Tag } from './Tag';
 
 // Networking stays a work area but has no ceiling page: nothing measures its limit.
@@ -16,17 +15,6 @@ export const AREAS: [Ceiling['area'], string][] = [['da', 'DA'], ['execution', '
 function input({ name, value, unit, status, asOf }: CeilingInput): string {
   const shown = value === null ? status : `${value} ${unit}`.trim();
   return [name, shown, value === null ? null : status, asOf && new Date(asOf).toISOString().slice(0, 10)].filter(Boolean).join(' · ');
-}
-
-export function CeilingCards({ ceilings, benchUrl }: { ceilings: Ceiling[]; benchUrl?: string }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <Text as="h2" variant="headline">Ceilings by bottleneck <span className="text-bds-gray-60">· Mgas/s</span></Text>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={ceilings} benchUrl={benchUrl} />)}
-      </div>
-    </section>
-  );
 }
 
 export function CeilingCard({ area, ceilings, workloads, run }: { area: Ceiling['area']; ceilings: Ceiling[]; workloads?: DaWorkload[]; run?: UnifiedRun }) {
