@@ -350,7 +350,7 @@ describe('what breaks first', () => {
     swr.result = { data: bench(400, true, { da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
     const ranked = render().ranked;
     expect(rows(ranked).slice(0, 4).map((r) => r.slice(0, 22))).toEqual(['1DA · Payments (B20)ne', '2DA · Mainnet mix190 M', '3DA · Swaps232 Mgas/s≈', '4Execution, validators']);
-    const swapsRow = ranked.split('<tr').find((r) => r.includes('>DA · Swaps<'))!;
+    const swapsRow = ranked.split('<tr').find((r) => r.includes('>DA · Swaps'))!;
     expect(swapsRow).toMatch(/style="width:58\.\d+%"/);
     expect(swapsRow).toMatch(/border-dashed[^"]*" style="left:50%"/);
   });
