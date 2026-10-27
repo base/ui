@@ -4,7 +4,7 @@ import { daWorkloads, DA_WORKLOADS, type DaWorkload } from '../da/workloads';
 import type { Proven } from '../proven/capacity';
 import type { Area, Snapshot } from '../snapshot.mjs';
 import { bottleneckBars, Bottlenecks, diskLimits, pickStorage, rankLimits, type Limit } from './Bottlenecks';
-import { Headline } from './Headline';
+import { Headline, mainnetGasPerTx } from './Headline';
 import { Ladder, type ProvenMark } from './Ladder';
 import { day, useProvenCapacity } from './ProvenCapacity';
 import { Work } from './Work';
@@ -42,7 +42,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
   const qualified = ladder.qualified;
   const mark = proven ? benchMark(proven) : !benchUrl && qualified.value !== null ? { value: qualified.value, atLeast: false, help: qualified.help } : null;
   const workloads = daWorkloads(data?.da, SCALING_WORKLOADS);
-  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot));
+  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot), mainnetGasPerTx(snapshot));
   const binding = limits[0]?.value != null ? limits[0] : null;
   const values = [ladder.observed.p50, ladder.observed.p99, ladder.operatingPoint, ladder.configuredLimit].map((r) => r.value ?? 0);
   const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);
@@ -51,7 +51,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
       <Freshness snapshot={snapshot} latestAt={data?.latestAt ?? null} />
       <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} limits={limits} />
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} limits={limits} />
-      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} />
+      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} mainnetGasPerTx={mainnetGasPerTx(snapshot)} />
       <WorkloadSubsystems cards={subsystemCards(data, limits, snapshot, ladder.configuredLimit.value)} />
       <Work work={snapshot.work} binding={areaOf(binding)} />
     </>

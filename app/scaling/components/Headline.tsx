@@ -33,6 +33,13 @@ function benchNote({ configured, data, error }: BenchState, proven: ProvenMark, 
 // "≥ 21×" when proven is the top rate tested, a floor.
 export const headroomLabel = (proven: NonNullable<ProvenMark>, today: number) => `${proven.atLeast ? '≥ ' : ''}${times(proven.value / today)}`;
 
+// Today's mainnet gas per transaction: median gas rate ÷ transactions per second. Null without either.
+export const mainnetGasPerTx = ({ ladder, usage }: Pick<Snapshot, 'ladder' | 'usage'>) => {
+  const p50 = ladder.observed.p50.value;
+  const tps = usage?.transactionsPerSecond.value ?? null;
+  return p50 !== null && tps ? (p50 * 1e6) / tps : null;
+};
+
 export type Placement = { side: 'center' | 'left' | 'right'; x: number };
 
 // Centers a label on x, or pins it to the nearer edge when centering would overflow. `estimate` is an
@@ -168,8 +175,8 @@ function translations({ ladder, usage, bench, proven, limits }: Pick<Props, 'lad
     };
   };
   const p50 = ladder.observed.p50.value;
+  const gasPerTx = mainnetGasPerTx({ ladder, usage });
   const tps = usage?.transactionsPerSecond.value ?? null;
-  const gasPerTx = p50 !== null && tps ? (p50 * 1e6) / tps : null;
   const mixHelp = gasPerTx !== null
     ? `At today's mainnet average of ~${Math.round(gasPerTx / 1e3)}k gas per transaction (${n(p50!)} Mgas/s ÷ ${fmt(tps!)} tx/s), not the bench mix. ${MIX_DA}`
     : `The snapshot has no transactions per second, so this row stays in gas: today ${p50 === null ? 'not measured' : `${n(p50)} Mgas/s`}. ${MIX_DA}`;

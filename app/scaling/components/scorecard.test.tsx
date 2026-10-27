@@ -370,9 +370,9 @@ describe('ladder', () => {
 describe('what breaks first', () => {
   it('ranks DA estimates first without bench data, with units, and leaves unproven limits unranked', () => {
     expect(rows(render({}).ranked)).toEqual([
-      '1DA · Payments (B20)next~57 Mgas/s≈ 1,517 tx/sEstimatedEstimated until a bench run measures it. Target is 14, shared by all rollups.',
-      '2DA · Swaps~115 Mgas/s≈ 799 tx/sEstimatedEstimated until a bench run measures it. Target is 14.',
-      '3DA · Mix (bench)~190 Mgas/s≈ 981 tx/sEstimatedEstimated until a bench run measures it. Target is 14.',
+      '1DA · Payments (B20)next~57 Mgas/s≈ 1,517 tx/sEstimatedEstimated: no bench DA run yet, so this uses the formula. Target is 14, shared by all rollups.',
+      '2DA · Swaps~115 Mgas/s≈ 799 tx/sEstimatedEstimated: no bench DA run yet, so this uses the formula. Target is 14.',
+      '3DA · Mix (bench)~190 Mgas/s≈ 974 tx/sEstimatedEstimated: no bench DA run yet, so this uses the formula. Target is 14.',
       '—Execution (sequencer)—no proven run',
       '—Validators—pending',
       '—Proof node—pending',
@@ -385,7 +385,7 @@ describe('what breaks first', () => {
   it('merges execution, validators and proof node when they share the proven ceiling, with the run in help', () => {
     swr.result = { data: bench(400, true) };
     const { ranked } = render();
-    expect(rows(ranked)[3]).toBe('4Execution, validators, proof node≥ 400 Mgas/sMeasured in the bench: all passed at 400 Mgas/s, the highest rate tested.');
+    expect(rows(ranked)[3]).toBe('4Execution, validators, proof node≥ 400 Mgas/s≥ 2,054 tx/sMeasured in the bench: all passed at 400 Mgas/s, the highest rate tested.');
     expect(ranked).toContain('Run synthetic-400. Validator replay: 36.4 blocks/s, 7.3× the 5 needed. Proof node: lag p99 4 blocks, executePayload p99 733 ms.');
     expect(ranked.match(/>next</g)).toHaveLength(1);
     expect(ranked).toMatch(/border-dashed[^"]*" style="left:50%"/);
@@ -396,8 +396,8 @@ describe('what breaks first', () => {
     over.current.mix = { mgas: 400, atTop: true, run: run(400, 'mix', null, 11) };
     swr.result = { data: over };
     expect(rows(render().ranked).slice(3, 6)).toEqual([
-      '4Execution (sequencer)≥ 400 Mgas/stop rate tested',
-      '5Validators≥ 400 Mgas/s7.3× replay headroom',
+      '4Execution (sequencer)≥ 400 Mgas/s≥ 2,054 tx/stop rate tested',
+      '5Validators≥ 400 Mgas/s≥ 2,054 tx/s7.3× replay headroom',
       '—Proof node—over budget at 400 · lag p99 11 blocks',
     ]);
   });
@@ -406,23 +406,58 @@ describe('what breaks first', () => {
     // 4.3e7 frame bytes over 4e10 gas put the 14-blob ceiling at ~141 Mgas/s; 16 blobs over a 160 Mgas/s window at 400 → 40.
     swr.result = { data: bench(400, true, { da: { mix: run(400, 'mix', daResult(4.3e7, 16, false)), payment: null, swap: null } }) };
     const { head, ladder, ranked, subsystems } = render();
-    expect(rows(ranked)[2]).toMatch(/^3DA · Mix \(bench\)141 Mgas\/s≈ 3,528 tx\/sMeasuredMeasured in the bench: at 400 Mgas\/s, needs 40 blobs per L1 slot\. Target is 14\.$/);
+    // The mix converts at today's mainnet gas per transaction, so it equals the traffic tile's sustainable today.
+    expect(rows(ranked)[2]).toMatch(/^3DA · Mix \(bench\)141 Mgas\/s≈ 725 tx\/sMeasured in the bench: at 400 Mgas\/s, needs 40 blobs per L1 slot\. Target is 14\.$/);
+    // 12.5 Mgas/s ÷ 64.2 tx/s today ≈ 195k gas per transaction; the bench mix run used 40k.
+    expect(ranked).toContain('tx/s at today&#x27;s mainnet average of ~195k gas per transaction (the bench mix is lighter: ~40k).');
+    expect(ranked).not.toContain('>Measured<');
     expect(text(ladder)).toMatch(/141.*DA · mix \(bench\)/);
     expect(tile(head, 'traffic mix')).toContain('capped by DA');
     expect(head).toContain('Its DA cap comes from the bench mix run, which is lighter per transaction and compresses worse than mainnet, so the cap is conservative.');
     expect(rows(subsystems.split('<h3')[1])[1]).toBe('Ceiling (Mgas/s) — (not in this run)— (not in this run)141');
   });
 
+  it('converts every ceiling to tx/s: payments and swaps with their own transactions, every other row at today’s mainnet average', () => {
+    const data = bench(400, true, { da: { mix: run(400, 'mix', daResult(4.3e7, 16, false)), payment: run(200, 'payment', daResult(8e7, 20, false)), swap: null } });
+    data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
+    swr.result = { data };
+    const { head, ranked } = render();
+    const row = (label: string) => rows(ranked).find((r) => r.includes(label))!;
+    // Payments: its DA run's 40k gas per successful transaction. Every other row: 12.5 Mgas/s ÷ 64.2 tx/s ≈ 195k, a bound kept on both numbers.
+    expect(row('Payments')).toContain('76 Mgas/s≈ 1,896 tx/s');
+    expect(row('Mix (bench)')).toContain('141 Mgas/s≈ 725 tx/s');
+    expect(row('archive node')).toContain('≤ 138 Mgas/s≤ 710 tx/s');
+    expect(row('Execution, validators')).toContain('≥ 400 Mgas/s≥ 2,054 tx/s');
+    expect(row('full node')).toContain('≤ 553 Mgas/s≤ 2,841 tx/s');
+    expect(row('TEE proving')).not.toContain('tx/s');
+    // Same function and rounding as the traffic tile's sustainable today.
+    expect(tile(head, 'traffic mix')).toContain(`sustainable today ${/≈ ([\d,]+) tx\/s/.exec(row('Mix (bench)'))![1]}/s`);
+    expect(ranked).toContain('tx/s for payments and swaps uses that workload&#x27;s transactions; every other row uses today&#x27;s mainnet average of ~195k gas per transaction.');
+  });
+
+  it('keeps shared rows in Mgas/s without today’s transactions per second', () => {
+    const data = bench(400, true, { da: { mix: run(400, 'mix', daResult(4.3e7, 16, false)), payment: run(200, 'payment', daResult(8e7, 20, false)), swap: null } });
+    data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
+    swr.result = { data };
+    const snapshot = fixture();
+    delete snapshot.usage;
+    const { ranked } = render({ benchUrl: BENCH }, snapshot);
+    const row = (label: string) => rows(ranked).find((r) => r.includes(label))!;
+    expect(row('Payments')).toContain('76 Mgas/s≈ 1,896 tx/s');
+    for (const label of ['Mix (bench)', 'archive node', 'Execution, validators', 'full node']) expect(row(label)).not.toContain('tx/s');
+    expect(ranked).toContain('the snapshot has no transactions per second, so every other row stays in Mgas/s.');
+  });
+
   it('says the next rate did not pass when the core limit is lowest below the top rate', () => {
     swr.result = { data: bench(40, false) };
-    expect(rows(render().ranked)[0]).toBe('1Execution, validators, proof nodenext40 Mgas/sMeasured in the bench: all passed at 40 Mgas/s; the next rate tested did not pass.');
+    expect(rows(render().ranked)[0]).toBe('1Execution, validators, proof nodenext40 Mgas/s≈ 205 tx/sMeasured in the bench: all passed at 40 Mgas/s; the next rate tested did not pass.');
   });
 
   it('rescales a bench DA run’s posting-window blobs to its load rate, with the details in help', () => {
     // 20 blobs per slot over a window at 160 Mgas/s, rescaled to the 200 Mgas/s load: 25.
     swr.result = { data: bench(400, true, { da: { mix: null, payment: run(200, 'payment', daResult(8e7, 20, false)), swap: null } }) };
     const { ranked } = render();
-    expect(rows(ranked)[0]).toBe('1DA · Payments (B20)next76 Mgas/s≈ 1,896 tx/sMeasuredMeasured in the bench: at 200 Mgas/s, needs 25 blobs per L1 slot. Target is 14, shared by all rollups.');
+    expect(rows(ranked)[0]).toBe('1DA · Payments (B20)next76 Mgas/s≈ 1,896 tx/sMeasured in the bench: at 200 Mgas/s, needs 25 blobs per L1 slot. Target is 14, shared by all rollups.');
     expect(ranked).toContain('Run synthetic-200: 0.00200 compressed bytes per gas (compression 4.5×). Over the batch posting window it averaged 20.0 blobs per L1 slot at 160.0 Mgas/s; scaling that window to the 200 Mgas/s load gives 25.');
     expect(ranked).toContain('14 × 130,044 bytes per blob ÷ 12 s per slot ÷ bytes per gas.');
   });
@@ -476,8 +511,8 @@ describe('disk ceilings', () => {
       '—TEE proving, RPC under sy',
     ]);
     // (45 TB − 4 TB) ÷ (1e6 × (0.0086 bench + 0.0008 mainnet state) B/gas × 1 year); (45 TB − 1.1 TB state) ÷ (1e6 × (history 31 d + proofs 15 d + 2 years of 0.0008 B/gas state)).
-    expect(disk(ranked, 'archive node')).toBe('3Disk · archive node≤ 138 Mgas/sProjected from bench growth: one year fills the 45.0 TB disk (4.0 TB used today). Upper bound.');
-    expect(disk(ranked, 'full node')).toBe('6Disk · full node≤ 553 Mgas/sProjected from bench growth: 31 days of history, 15 days of proofs and 2 years of state growth fit in 45.0 TB. Upper bound.');
+    expect(disk(ranked, 'archive node')).toBe('3Disk · archive node≤ 138 Mgas/s≤ 710 tx/sProjected from bench growth: one year fills the 45.0 TB disk (4.0 TB used today). Upper bound.');
+    expect(disk(ranked, 'full node')).toBe('6Disk · full node≤ 553 Mgas/s≤ 2,841 tx/sProjected from bench growth: 31 days of history, 15 days of proofs and 2 years of state growth fit in 45.0 TB. Upper bound.');
   });
 
   it('pluralizes the runway', () => {
@@ -504,7 +539,7 @@ describe('disk ceilings', () => {
     delete snapshot.production!.stateBytesPerGas;
     // (45 TB − 4 TB) ÷ (1e6 × 0.0086 B/gas × 1 year).
     const { ranked } = render({ benchUrl: BENCH }, snapshot);
-    expect(disk(ranked, 'archive node')).toMatch(/≤ 151 Mgas\/sProjected from bench growth/);
+    expect(disk(ranked, 'archive node')).toMatch(/≤ 151 Mgas\/s≤ 776 tx\/sProjected from bench growth/);
     expect(ranked).toContain('0.00860 bytes per gas from the mainnet mix run (bench state only)');
   });
 

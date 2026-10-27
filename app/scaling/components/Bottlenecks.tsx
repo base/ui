@@ -21,6 +21,8 @@ export type Limit = {
   perSecond?: number;
   workload?: DaWorkload;
   help?: string;
+  // Help beside the ceiling itself.
+  ceilingHelp?: string;
   runwayYears?: number;
 };
 
@@ -78,7 +80,7 @@ function daText(w: DaWorkload, first: boolean): { evidence: string; help: string
   }
   // Without a bench DA run every /scaling workload, the mix included, is an estimate.
   return {
-    evidence: `Estimated until a bench run measures it. Target is ${BLOB_TARGET}${shared}.`,
+    evidence: `Estimated: no bench DA run yet, so this uses the formula. Target is ${BLOB_TARGET}${shared}.`,
     help: `Estimated ${fmt(w.bytesPerTx)} compressed bytes and ${fmt(w.gasPerTx)} gas per transaction. ${blobRule(BLOB_TARGET)}`,
   };
 }
@@ -95,13 +97,19 @@ function coreHelp(run: Run): string {
 }
 
 // Lowest ceiling first; limits without a ceiling keep their order after the ranked ones.
-export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = []): Limit[] {
+// `mainnetGasPerTx` (today's usage p50 ÷ tx/s) converts every row not specific to one workload, as the traffic tile does.
+export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = [], mainnetGasPerTx: number | null = null): Limit[] {
   const m = proven?.mgas ?? null;
   const text = new Map<string, (first: boolean) => { evidence: string; help: string }>();
   const da = bars.filter((b) => b.id.startsWith('da-')).map((b): Limit => {
     const w = workloads.find((x) => `da-${x.payload}` === b.id)!;
     text.set(b.id, (first) => daText(w, first));
-    return { id: b.id, label: b.label, value: b.value, ceiling: b.text, evidence: '', tag: b.tag, perSecond: b.perSecond, workload: w };
+    // Payments and swaps convert with their own transactions; the mix, like every shared row, at today's mainnet average below.
+    const mix = b.id === 'da-mix';
+    const perSecond = mix ? undefined : b.perSecond;
+    const bench = w.bench ? ` (the bench mix${w.gasPerTx < mainnetGasPerTx! ? ' is lighter' : ''}: ~${Math.round(w.gasPerTx / 1e3)}k)` : '';
+    const ceilingHelp = mix && mainnetGasPerTx ? `tx/s at today's mainnet average of ~${Math.round(mainnetGasPerTx! / 1e3)}k gas per transaction${bench}.` : undefined;
+    return { id: b.id, label: b.label, value: b.value, ceiling: b.text, evidence: '', tag: b.tag, perSecond, workload: w, ceilingHelp };
   });
   const core = bars.filter((b) => !b.id.startsWith('da-'));
   const atLeast = (atTop: boolean) => (atTop ? `≥ ${m}` : `${m}`);
@@ -123,7 +131,8 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
     }));
   const sorted = [...da, ...merged, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
   const firstDa = sorted.find((l) => l.id.startsWith('da-'))?.id;
-  return sorted.map((l) => (text.has(l.id) ? { ...l, ...text.get(l.id)!(l.id === firstDa) } : l));
+  const atMainnet = (l: Limit) => l.perSecond === undefined && mainnetGasPerTx !== null && l.value !== null && l.value > 0 ? { perSecond: (l.value * 1e6) / mainnetGasPerTx } : {};
+  return sorted.map((l) => ({ ...l, ...atMainnet(l), ...(text.has(l.id) ? text.get(l.id)!(l.id === firstDa) : {}) }));
 }
 
 export type StorageSource = { storage: Storage; run: Run };
@@ -254,7 +263,12 @@ function ProvenBy({ proven, history }: { proven: Proven; history: ProvenCapacity
   );
 }
 
-export function Bottlenecks({ limits, max, gasLimit, proven, history }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; history: ProvenCapacity['history'] }) {
+// A ≤ or ≥ ceiling bounds its tx/s the same way; other ceilings convert approximately.
+const bound = (ceiling: string) => /^[≤≥]/.exec(ceiling)?.[0];
+const ceilingHelp = (gasPerTx: number | null) =>
+  `tx/s for payments and swaps uses that workload's transactions; ${gasPerTx ? `every other row uses today's mainnet average of ~${Math.round(gasPerTx / 1e3)}k gas per transaction` : 'the snapshot has no transactions per second, so every other row stays in Mgas/s'}. Reverted transactions still use gas and blob space.`;
+
+export function Bottlenecks({ limits, max, gasLimit, proven, history, mainnetGasPerTx = null }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; history: ProvenCapacity['history']; mainnetGasPerTx?: number | null }) {
   const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
   const ranked = limits.filter((l) => l.value !== null).length;
   const fixed = [{ label: 'TEE proving, RPC under sync', evidence: 'Not measured yet.' }];
@@ -265,7 +279,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven, history }: { limits
         <table className="w-full min-w-[760px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-bds-gray-10 dark:border-white/10">
-              <th className={TH}>#</th><th className={TH}>Limit</th><th className={cn(TH, 'text-right')}><span className="inline-flex items-center gap-1">Ceiling <Info label="About the ceiling">Mgas/s. For DA rows, ≈ /s converts it to successful transactions per second: blob capacity ÷ frame bytes per successful transaction. Reverted transactions still use gas and blob space.</Info></span></th><th className={cn(TH, 'w-[28%]')} /><th className={TH}>Evidence</th>
+              <th className={TH}>#</th><th className={TH}>Limit</th><th className={cn(TH, 'text-right')}><span className="inline-flex items-center gap-1">Ceiling <Info label="About the ceiling">{ceilingHelp(mainnetGasPerTx)}</Info></span></th><th className={cn(TH, 'w-[28%]')} /><th className={TH}>Evidence</th>
             </tr>
           </thead>
           <tbody>
@@ -281,8 +295,10 @@ export function Bottlenecks({ limits, max, gasLimit, proven, history }: { limits
                   </td>
                   <td className={cn(TD, 'text-right tabular-nums', next && 'text-bds-red-60')}>
                     <span className="whitespace-nowrap">{l.ceiling}{l.value !== null && l.value > 0 ? ' Mgas/s' : ''}</span>
-                    {l.perSecond === undefined ? null : <span className="block whitespace-nowrap text-[12px] text-bds-gray-60 lg:ml-1 lg:inline">≈ {fmt(l.perSecond)} tx/s</span>}
-                    {l.tag ? <span className="ml-1 whitespace-nowrap"><Tag tag={l.tag} /></span> : null}
+                    {l.perSecond === undefined ? null : <span className="block whitespace-nowrap text-[12px] text-bds-gray-60 lg:ml-1 lg:inline">{bound(l.ceiling) ?? '≈'} {fmt(l.perSecond)} tx/s</span>}
+                    {l.ceilingHelp ? <span className="ml-1 inline-flex align-middle"><Info label={`About the ${l.label} ceiling`}>{l.ceilingHelp}</Info></span> : null}
+                    {/* Measured is the norm; only the exception is tagged. */}
+                    {l.tag === 'estimated' ? <span className="ml-1 whitespace-nowrap"><Tag tag={l.tag} /></span> : null}
                   </td>
                   <td className={TD}>
                     <div className="relative h-2.5 min-w-[90px] rounded bg-bds-gray-10 dark:bg-white/10">
