@@ -37,11 +37,10 @@ const daCeiling = ({ result }: NonNullable<Run['da']>) => (BLOB_TARGET * BLOB_DA
 // The posting window's blobs per slot, rescaled from its gas rate to the run's load rate.
 const blobsAt = (run: Run) => Math.round((run.da!.result.blobs_per_l1_slot * run.mgas) / (run.da!.result.gas_per_second / 1e6));
 
-function daCard(da: ProvenCapacity['da'], gasLimit: number | null, mainnetMix: Limit | undefined): SubsystemCard {
+function daCard(da: ProvenCapacity['da'], gasLimit: number | null): SubsystemCard {
   const runs = Object.fromEntries(COLUMNS.map(([w]) => [w, da[w]?.da ? da[w]! : undefined])) as Record<Workload, Run | undefined>;
   const measured = COLUMNS.filter(([w]) => runs[w]);
   const binding = measured.filter(([w]) => gasLimit !== null && daCeiling(runs[w]!.da!) < gasLimit).map(([w]) => NAME[w]);
-  const mainnet = mainnetMix?.value ? ` What breaks first uses real mainnet traffic for the mix instead: ${fmt(mainnetMix.value)} Mgas/s.` : '';
   return {
     id: 'da',
     title: 'DA',
@@ -55,7 +54,7 @@ function daCard(da: ProvenCapacity['da'], gasLimit: number | null, mainnetMix: L
       },
       {
         label: 'Ceiling (Mgas/s)',
-        help: `Gas rate that fills the ${BLOB_TARGET}-blob target: ${BLOB_TARGET} × ${BLOB_DATA_BYTES.toLocaleString('en-US')} bytes per blob ÷ ${L1_SLOT_SECONDS} s per slot ÷ the run's compressed bytes per gas. Mix is the bench run's mainnet mix.${mainnet}`,
+        help: `Gas rate that fills the ${BLOB_TARGET}-blob target: ${BLOB_TARGET} × ${BLOB_DATA_BYTES.toLocaleString('en-US')} bytes per blob ÷ ${L1_SLOT_SECONDS} s per slot ÷ the run's compressed bytes per gas. Mix is the bench run's mainnet mix, as in What breaks first.`,
         cells: cells(runs, (r) => ({ value: fmt(daCeiling(r.da!)), bad: gasLimit !== null && daCeiling(r.da!) < gasLimit }), NOT_IN_RUN),
       },
     ],
@@ -204,7 +203,7 @@ const MATCHES: Record<Category, (id: string) => boolean> = {
 export function subsystemCards(data: ProvenCapacity | undefined, limits: Limit[], snapshot: Pick<Snapshot, 'policy' | 'production'>, gasLimit: number | null): SubsystemCard[] {
   const runs = Object.fromEntries(COLUMNS.map(([w]) => [w, data?.current[w]?.run])) as Record<Workload, Run | undefined>;
   const da = data?.da ?? { mix: null, payment: null, swap: null };
-  const cards = [daCard(da, gasLimit, limits.find((l) => l.id === 'da-mix')), ...diskCards(runs, snapshot), proofCard(runs), validatorCard(runs), sequencerCard(runs)];
+  const cards = [daCard(da, gasLimit), ...diskCards(runs, snapshot), proofCard(runs), validatorCard(runs), sequencerCard(runs)];
   const rank = (c: SubsystemCard) => {
     const i = limits.findIndex((l) => l.value !== null && MATCHES[c.id](l.id));
     return i < 0 ? Infinity : i;

@@ -151,6 +151,8 @@ function Tile({ row: r, gasLimit }: { row: Translation; gasLimit: number | null 
   );
 }
 
+const MIX_DA = 'Its DA cap comes from the bench mix run, which is lighter per transaction and compresses worse than mainnet, so the cap is conservative.';
+
 // Bench workloads convert with their proven run's gas per successful transaction; today's traffic mix
 // with mainnet's own gas per transaction, since the bench mix only approximates mainnet.
 function translations({ ladder, usage, bench, proven, limits }: Pick<Props, 'ladder' | 'usage' | 'bench' | 'proven' | 'limits'>): Translation[] {
@@ -169,8 +171,8 @@ function translations({ ladder, usage, bench, proven, limits }: Pick<Props, 'lad
   const tps = usage?.transactionsPerSecond.value ?? null;
   const gasPerTx = p50 !== null && tps ? (p50 * 1e6) / tps : null;
   const mixHelp = gasPerTx !== null
-    ? `At today's mainnet average of ~${Math.round(gasPerTx / 1e3)}k gas per transaction (${n(p50!)} Mgas/s ÷ ${fmt(tps!)} tx/s), not the bench mix.`
-    : `The snapshot has no transactions per second, so this row stays in gas: today ${p50 === null ? 'not measured' : `${n(p50)} Mgas/s`}.`;
+    ? `At today's mainnet average of ~${Math.round(gasPerTx / 1e3)}k gas per transaction (${n(p50!)} Mgas/s ÷ ${fmt(tps!)} tx/s), not the bench mix. ${MIX_DA}`
+    : `The snapshot has no transactions per second, so this row stays in gas: today ${p50 === null ? 'not measured' : `${n(p50)} Mgas/s`}. ${MIX_DA}`;
   return [
     benchRow('payment', 'Payments (B20)'),
     benchRow('swap', 'Swaps (Uniswap v3)'),

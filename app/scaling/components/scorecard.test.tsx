@@ -371,8 +371,7 @@ describe('what breaks first', () => {
     expect(rows(render({}).ranked)).toEqual([
       '1DA · Payments (B20)next~57 Mgas/s≈ 1,517 tx/sEstimatedEstimated until a bench run measures it. Target is 14, shared by all rollups.',
       '2DA · Swaps~115 Mgas/s≈ 799 tx/sEstimatedEstimated until a bench run measures it. Target is 14.',
-      // 14 blobs × 12.5 Mgas/s today ÷ the ~190 Mgas/s mix ceiling ≈ 0.9 blobs per slot.
-      "3DA · Mainnet mix190 Mgas/s≈ 981 tx/sMeasuredMeasured on mainnet: today's traffic uses about 0.9 blobs per L1 slot. Target is 14.",
+      '3DA · Mix (bench)~190 Mgas/s≈ 981 tx/sEstimatedEstimated until a bench run measures it. Target is 14.',
       '—Execution (sequencer)—no proven run',
       '—Validators—pending',
       '—Proof node—pending',
@@ -386,10 +385,7 @@ describe('what breaks first', () => {
     swr.result = { data: bench(400, true) };
     const { ranked } = render();
     expect(rows(ranked)[3]).toBe('4Execution, validators, proof node≥ 400 Mgas/sMeasured in the bench: all passed at 400 Mgas/s, the highest rate tested.');
-    // 14 × 400 ÷ ~190 ≈ 30 blobs per slot at the proven rate.
-    expect(rows(ranked)[2]).toContain("today's traffic uses about 0.9 blobs per L1 slot; at 400 Mgas/s it would need 30. Target is 14.");
     expect(ranked).toContain('Run synthetic-400. Validator replay: 36.4 blocks/s, 7.3× the 5 needed. Proof node: lag p99 4 blocks, executePayload p99 733 ms.');
-    expect(ranked).toContain('Source: base-bench da, mainnet 2 h (mainnet blocks run through the production batcher encoder). Mainnet averages 193,349 gas and 154.7 compressed bytes per transaction.');
     expect(ranked.match(/>next</g)).toHaveLength(1);
     expect(ranked).toMatch(/border-dashed[^"]*" style="left:50%"/);
   });
@@ -403,6 +399,17 @@ describe('what breaks first', () => {
       '5Validators≥ 400 Mgas/s7.3× replay headroom',
       '—Proof node—over budget at 400 · lag p99 11 blocks',
     ]);
+  });
+
+  it('ranks the mix by the bench mix run’s DA everywhere on the page, with the bench evidence', () => {
+    // 4.3e7 frame bytes over 4e10 gas put the 14-blob ceiling at ~141 Mgas/s; 16 blobs over a 160 Mgas/s window at 400 → 40.
+    swr.result = { data: bench(400, true, { da: { mix: run(400, 'mix', daResult(4.3e7, 16, false)), payment: null, swap: null } }) };
+    const { head, ladder, ranked, subsystems } = render();
+    expect(rows(ranked)[2]).toMatch(/^3DA · Mix \(bench\)141 Mgas\/s≈ 3,528 tx\/sMeasuredMeasured in the bench: at 400 Mgas\/s, needs 40 blobs per L1 slot\. Target is 14\.$/);
+    expect(text(ladder)).toMatch(/141.*DA · mix/);
+    expect(tile(head, 'traffic mix')).toContain('capped by DA');
+    expect(head).toContain('Its DA cap comes from the bench mix run, which is lighter per transaction and compresses worse than mainnet, so the cap is conservative.');
+    expect(rows(subsystems.split('<h3')[1])[1]).toBe('Ceiling (Mgas/s) — (not in this run)— (not in this run)141');
   });
 
   it('says the next rate did not pass when the core limit is lowest below the top rate', () => {
@@ -431,7 +438,7 @@ describe('what breaks first', () => {
     // 4e10 gas and 2.6158e7 frame bytes put the 14-blob ceiling at ~232 Mgas/s.
     swr.result = { data: bench(400, true, { da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
     const ranked = render().ranked;
-    expect(rows(ranked).slice(0, 4).map((r) => r.slice(0, 22))).toEqual(['1DA · Payments (B20)ne', '2DA · Mainnet mix190 M', '3DA · Swaps232 Mgas/s≈', '4Execution, validators']);
+    expect(rows(ranked).slice(0, 4).map((r) => r.slice(0, 22))).toEqual(['1DA · Payments (B20)ne', '2DA · Mix (bench)~190 ', '3DA · Swaps232 Mgas/s≈', '4Execution, validators']);
     const swapsRow = ranked.split('<tr').find((r) => r.includes('>DA · Swaps'))!;
     expect(swapsRow).toMatch(/style="width:58\.\d+%"/);
     expect(swapsRow).toMatch(/border-dashed[^"]*" style="left:50%"/);
@@ -462,7 +469,7 @@ describe('disk ceilings', () => {
       '1DA · Payments (B20)next~5',
       '2DA · Swaps~115 Mgas/s≈ 79',
       '3Disk · archive node≤ 138 ',
-      '4DA · Mainnet mix190 Mgas/',
+      '4DA · Mix (bench)~190 Mgas',
       '5Execution, validators, pr',
       '6Disk · full node≤ 553 Mga',
       '—TEE proving, RPC under sy',

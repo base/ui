@@ -1,6 +1,6 @@
 'use client';
 
-import { daWorkloads } from '../da/workloads';
+import { daWorkloads, DA_WORKLOADS, type DaWorkload } from '../da/workloads';
 import type { Proven } from '../proven/capacity';
 import type { Area, Snapshot } from '../snapshot.mjs';
 import { bottleneckBars, Bottlenecks, diskLimits, pickStorage, rankLimits, type Limit } from './Bottlenecks';
@@ -16,6 +16,10 @@ function benchMark({ mgas, atTop, run }: Proven): ProvenMark {
   const help = `Bench-proven: the highest rate whose latest main run in the last 14 days was comparable and delivered ≥ 95% of target. Run ${run.outputDir}, commit ${run.commit.slice(0, 7)}, ${day(run.createdAt)}.${top} Comparable requires every enabled pipeline step to pass; the DA blob target and proof-node lag and latency are recorded, not gated.`;
   return { value: mgas, atLeast: atTop, help };
 }
+
+// /scaling ranks the mix by the bench mix run's DA, like payments and swaps; until one exists, mainnet's measurement
+// stands in as an estimate. /scaling/da keeps the mainnet measurement.
+const SCALING_WORKLOADS: DaWorkload[] = DA_WORKLOADS.map((w) => (w.payload === 'mix' ? { ...w, label: 'Mix (bench)', tag: 'estimated', asOf: null, source: undefined } : w));
 
 const at = (t: number) => `${new Date(t).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 const areaOf = (limit: Limit | null): Area | null => (!limit ? null : limit.id.startsWith('da-') ? 'da' : limit.id.startsWith('disk-') ? 'state' : 'execution');
@@ -40,8 +44,8 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
   const proven = data?.current.mix ?? null;
   const qualified = ladder.qualified;
   const mark = proven ? benchMark(proven) : !benchUrl && qualified.value !== null ? { value: qualified.value, atLeast: false, help: qualified.help } : null;
-  const workloads = daWorkloads(data?.da);
-  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot), ladder.observed.p50.value);
+  const workloads = daWorkloads(data?.da, SCALING_WORKLOADS);
+  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot));
   const binding = limits[0]?.value != null ? limits[0] : null;
   const values = [ladder.observed.p50, ladder.observed.p99, ladder.operatingPoint, ladder.configuredLimit].map((r) => r.value ?? 0);
   const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);

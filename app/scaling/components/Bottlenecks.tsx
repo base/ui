@@ -61,7 +61,7 @@ const blobRule = (target: number) =>
   `The ceiling is the gas rate that fills the ${target}-blob target: ${target} × ${fmt(BLOB_DATA_BYTES)} bytes per blob ÷ ${L1_SLOT_SECONDS} s per slot ÷ bytes per gas.`;
 
 // Evidence and help for a DA row. `first` marks the lowest DA row, where the shared target is named.
-function daText(w: DaWorkload, ceiling: number, first: boolean, today: number | null, provenMgas: number | null): { evidence: string; help: string } {
+function daText(w: DaWorkload, first: boolean): { evidence: string; help: string } {
   const shared = first ? ', shared by all rollups' : '';
   const bench = w.bench && w.source?.url === runHref(w.bench.run) ? w.bench : null;
   if (bench) {
@@ -76,18 +76,10 @@ function daText(w: DaWorkload, ceiling: number, first: boolean, today: number | 
       help: `Run ${run.outputDir}: ${da.result.bytes_per_gas.toPrecision(3)} compressed bytes per gas (compression ${da.result.compression_ratio.toFixed(1)}×). Over the batch posting window it averaged ${da.result.blobs_per_l1_slot.toFixed(1)} blobs per L1 slot at ${windowMgas.toFixed(1)} Mgas/s; scaling that window to the ${run.mgas} Mgas/s load gives ${blobs}. ${blobRule(target)}`,
     };
   }
-  const target = BLOB_TARGET;
-  if (w.tag === 'estimated') {
-    return {
-      evidence: `Estimated until a bench run measures it. Target is ${target}${shared}.`,
-      help: `Estimated ${fmt(w.bytesPerTx)} compressed bytes and ${fmt(w.gasPerTx)} gas per transaction. ${blobRule(target)}`,
-    };
-  }
-  const now = today === null ? null : `today's traffic uses about ${((target * today) / ceiling).toFixed(1)} blobs per L1 slot`;
-  const atProven = provenMgas === null ? null : `at ${provenMgas} Mgas/s it would need ${Math.round((target * provenMgas) / ceiling)}`;
+  // Without a bench DA run every /scaling workload, the mix included, is an estimate.
   return {
-    evidence: `Measured on mainnet${now || atProven ? `: ${[now, atProven].filter(Boolean).join('; ')}` : ''}. Target is ${target}${shared}.`,
-    help: `Source: ${w.source?.label ?? 'mainnet'} (mainnet blocks run through the production batcher encoder). Mainnet averages ${fmt(w.gasPerTx)} gas and ${w.bytesPerTx} compressed bytes per transaction. ${blobRule(target)}`,
+    evidence: `Estimated until a bench run measures it. Target is ${BLOB_TARGET}${shared}.`,
+    help: `Estimated ${fmt(w.bytesPerTx)} compressed bytes and ${fmt(w.gasPerTx)} gas per transaction. ${blobRule(BLOB_TARGET)}`,
   };
 }
 
@@ -103,12 +95,12 @@ function coreHelp(run: Run): string {
 }
 
 // Lowest ceiling first; limits without a ceiling keep their order after the ranked ones.
-export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = [], today: number | null = null): Limit[] {
+export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = []): Limit[] {
   const m = proven?.mgas ?? null;
   const text = new Map<string, (first: boolean) => { evidence: string; help: string }>();
   const da = bars.filter((b) => b.id.startsWith('da-')).map((b): Limit => {
     const w = workloads.find((x) => `da-${x.payload}` === b.id)!;
-    text.set(b.id, (first) => daText(w, b.value!, first, today, m));
+    text.set(b.id, (first) => daText(w, first));
     return { id: b.id, label: b.label, value: b.value, ceiling: b.text, evidence: '', tag: b.tag, perSecond: b.perSecond, workload: w };
   });
   const core = bars.filter((b) => !b.id.startsWith('da-'));
