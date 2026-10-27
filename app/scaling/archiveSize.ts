@@ -11,6 +11,7 @@ const REVALIDATE_SECONDS = 3_600;
 export type ArchiveSize = { size: number; sizeWithoutProofs: number; block: number; date: string; source: 'chain.base.org' };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isDay = (date: string) => !Number.isNaN(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date;
 const isSize = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
 
 // The mainnet archive entry, checked field by field; extra fields are ignored. Null when the shape is off.
@@ -20,7 +21,8 @@ export function parseArchiveSize(json: unknown): ArchiveSize | null {
   if (!isObj(entry)) return null;
   const { size, block, date, components } = entry;
   if (!isSize(size) || size === 0 || !Number.isSafeInteger(block) || (block as number) <= 0) return null;
-  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Array.isArray(components)) return null;
+  // A real calendar day: 2026-02-30 matches the pattern but is not one.
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !isDay(date) || !Array.isArray(components)) return null;
   if (!components.every((c) => isObj(c) && typeof c.name === 'string' && isSize(c.size))) return null;
   const proofs = (components as { name: string; size: number }[]).find((c) => c.name === 'proofs')?.size ?? 0;
   if (proofs > size) return null;

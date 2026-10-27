@@ -242,6 +242,9 @@ describe('subsystems by workload', () => {
     expect(rows(da)).toEqual(['Blobs per L1 slot at each run’s rate 2556— (not in this run)', 'Ceiling (Mgas/s) 76232— (not in this run)']);
     swr.result = { data: bench(400, true, { da: { mix: null, payment: null, swap: run(400, 'swap', daResult(2.6158e7, 22.4, false)) } }) };
     expect(text(card(render().subsystems, 'DA').split('</h3>')[0])).toBe('DA · below target at the 200 Mgas/s gas limit');
+    const noLimit = fixture();
+    noLimit.ladder.configuredLimit = { ...noLimit.ladder.configuredLimit, value: null };
+    expect(text(card(render({ benchUrl: BENCH }, noLimit).subsystems, 'DA').split('</h3>')[0])).toBe('DA · no gas limit to compare against');
   });
 
   it('projects disk per workload run, saying which runs lack a storage measurement', () => {

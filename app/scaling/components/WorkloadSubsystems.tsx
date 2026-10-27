@@ -44,7 +44,7 @@ function daCard(da: ProvenCapacity['da'], gasLimit: number | null): SubsystemCar
   return {
     id: 'da',
     title: 'DA',
-    takeaway: !measured.length ? 'not measured yet' : binding.length ? `binding for ${and(binding)}` : `below target at the ${gasLimit} Mgas/s gas limit`,
+    takeaway: !measured.length ? 'not measured yet' : binding.length ? `binding for ${and(binding)}` : gasLimit === null ? 'no gas limit to compare against' : `below target at the ${gasLimit} Mgas/s gas limit`,
     bad: binding.length > 0,
     rows: [
       {

@@ -31,6 +31,7 @@ it('rejects a response that is not the expected shape', () => {
     [{ ...mainnet, size: 0 }],
     [{ ...mainnet, block: 1.5 }],
     [{ ...mainnet, date: 'yesterday' }],
+    [{ ...mainnet, date: '2026-02-30' }],
     [{ ...mainnet, components: null }],
     [{ ...mainnet, components: [{ name: 'proofs', size: -1 }] }],
     [{ ...mainnet, components: [{ name: 'proofs', size: 7e12 }] }],
