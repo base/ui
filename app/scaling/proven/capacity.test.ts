@@ -141,6 +141,12 @@ it('fails a run whose pipeline step failed', async () => {
   expect(current.mix).toMatchObject({ mgas: 100, atTop: false });
 });
 
+it('keeps a run and its other details when only storage-growth.json fails', async () => {
+  const { current, unknown } = await load([{ dir: 'storage-500', mgas: 100, daysAgo: 1, fail: 'storage-growth.json' }]);
+  expect(current.mix?.run).toMatchObject({ storage: null, da: { target: 14 }, replay: { match: true } });
+  expect(unknown).toEqual([]);
+});
+
 it('reads missing replay, proof-node and storage files as null, and an unjudged blob target as null', async () => {
   const { current } = await load([
     { dir: 'partial-100', mgas: 100, daysAgo: 1, missing: ['replay-result.json', 'proof-node/replay-result.json', 'storage-growth.json'], withinTarget: null },

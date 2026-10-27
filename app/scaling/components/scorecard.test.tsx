@@ -242,6 +242,8 @@ describe('reverts, measured swaps and disk', () => {
   it('adds an archive runway only when the current archive size is known, and falls back to the newest other workload', () => {
     swr.result = { data: bench(400, true, { current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: { ...run(400, 'swap'), storage: storage(35e12) } } } }) };
     expect(rows(render().ranked).find((r) => r.includes('archive node'))).toBe('—Disk · archive node—grows ≥ 5.0 TB/year at 400 Mgas/s (lower bound) · ~2.0 years left of 45.0 TB (upper bound), from the swaps run');
+    swr.result = { data: bench(400, true, { current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: { ...run(400, 'swap'), storage: storage(50e12) } } } }) };
+    expect(rows(render().ranked).find((r) => r.includes('archive node'))).toContain('(lower bound) · over the 45.0 TB budget, from the swaps run');
   });
 });
 

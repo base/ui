@@ -96,7 +96,9 @@ function diskRows(source: StorageSource | null): { label: string; evidence: stri
   const from = `from the ${WORKLOAD[run.workload]} run`;
   const years = archive.currentBytes === null ? null : archive.runwayYears ?? (diskBudgetBytes - archive.currentBytes) / archive.growthBytesPerYear;
   const months = years === null ? 0 : Math.max(1, Math.round(years * 12));
-  const runway = years === null ? '' : ` · ~${years < 1 ? `${months} month${months === 1 ? '' : 's'}` : `${years.toFixed(1)} years`} left of ${bytes(diskBudgetBytes)} (${archive.runwayBound} bound)`;
+  const runway = years === null ? ''
+    : years <= 0 ? ` · over the ${bytes(diskBudgetBytes)} budget`
+    : ` · ~${years < 1 ? `${months} month${months === 1 ? '' : 's'}` : `${years.toFixed(1)} years`} left of ${bytes(diskBudgetBytes)} (${archive.runwayBound} bound)`;
   return [
     {
       label: 'Disk · full node',

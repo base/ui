@@ -203,7 +203,8 @@ async function loadDetails(root: string, run: Run, fetchImpl: typeof fetch): Pro
     get('replay-result.json'),
     get('proof-node/replay-result.json'),
     get('da-result.json'),
-    get('storage-growth.json'),
+    // Newer than the other files and only shown as context, so its failure must not drop them.
+    get('storage-growth.json').catch(() => null),
   ]);
   const daOutputs = run.steps.find((s) => s.name === 'da')?.outputs;
   return {
