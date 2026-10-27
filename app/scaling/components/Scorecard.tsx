@@ -24,12 +24,13 @@ export function Scorecard({ snapshot, benchUrl, dashboardUrl }: { snapshot: Snap
   const proven = data?.current.mix ?? null;
   const qualified = ladder.qualified;
   const mark = proven ? benchMark(proven) : !benchUrl && qualified.value !== null ? { value: qualified.value, atLeast: false, help: qualified.help } : null;
-  const bars = bottleneckBars(daWorkloads(data?.da), proven);
+  const workloads = daWorkloads(data?.da);
+  const bars = bottleneckBars(workloads, proven);
   const values = [ladder.observed.p50, ladder.observed.p99, ladder.operatingPoint, ladder.configuredLimit].map((r) => r.value ?? 0);
   const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);
   return (
     <>
-      <Headline ladder={ladder} windows={snapshot.windows} collectedAt={snapshot.collectedAt} translations={snapshot.translations} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} bars={bars} binding={bindingBar(bars)} />
+      <Headline ladder={ladder} windows={snapshot.windows} usage={snapshot.usage} collectedAt={snapshot.collectedAt} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} workloads={workloads} bars={bars} binding={bindingBar(bars)} />
       <Ladder ladder={ladder} windows={snapshot.windows} collectedAt={snapshot.collectedAt} proven={mark} max={max} dashboardUrl={dashboardUrl} />
       <Bottlenecks bars={bars} max={max} p50={ladder.observed.p50.value} limit={ladder.configuredLimit.value} />
       <Subsystems proven={proven} guardrails={snapshot.guardrails} ceilings={snapshot.ceilings} />

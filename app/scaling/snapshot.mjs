@@ -45,8 +45,10 @@
  *   schemaVersion: 2, network: string, collectedAt: string, context: string, windows: Record<string, Window>,
  *   ladder: Ladder, ceilings: Ceiling[], guardrails: Guardrail[],
  *   translations: { gasPerPayment: Constant | null, gasPerSwap: Constant | null },
+ *   usage?: { transactionsPerSecond: Usage },
  *   sections: Section[], work: WorkItem[]
  * }} Snapshot
+ * @typedef {{ value: number, window: string, help: string, source?: Link }} Usage
  */
 
 const STATUSES = ['observed', 'partial', 'unavailable', 'not-measured'];
@@ -210,6 +212,16 @@ export function parseSnapshot(data) {
     if (c.unit !== 'gas') fail(`${path}.unit`, 'expected gas');
     str(c, 'derivation', path);
     windowRef(c, 'window', path);
+  }
+
+  // Optional: without it the page heads with gas per second instead of transactions per second.
+  if (data.usage !== undefined) {
+    const tps = obj(obj(data, 'usage', 'snapshot'), 'transactionsPerSecond', 'usage');
+    const path = 'usage.transactionsPerSecond';
+    if (!(Number.isFinite(tps.value) && tps.value >= 0)) fail(`${path}.value`, 'expected a non-negative number');
+    if (!Object.hasOwn(windows, tps.window)) fail(`${path}.window`, 'expected a key of windows');
+    str(tps, 'help', path);
+    if (tps.source !== undefined) link(tps.source, `${path}.source`);
   }
 
   const metric = (m, path) => {

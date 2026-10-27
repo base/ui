@@ -5,7 +5,8 @@
   "context": "Synthetic fixture: every number is invented to exercise the schema. Not a measurement of any network.",
   "windows": {
     "day": { "label": "24 h", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z" },
-    "week": { "label": "7 d", "start": "2025-12-26T00:00:00Z", "end": "2026-01-02T00:00:00Z" }
+    "week": { "label": "7 d", "start": "2025-12-26T00:00:00Z", "end": "2026-01-02T00:00:00Z" },
+    "month": { "label": "the last 30 days", "start": "2025-12-03T00:00:00Z", "end": "2026-01-02T00:00:00Z" }
   },
   "ladder": {
     "observed": {
@@ -194,6 +195,14 @@
       "window": "week"
     },
     "gasPerSwap": null
+  },
+  "usage": {
+    "transactionsPerSecond": {
+      "value": 64.2,
+      "window": "month",
+      "help": "Invented: synthetic transactions per second averaged over the window.",
+      "source": { "label": "Synthetic dashboard", "url": "https://example.com/synthetic/tps" }
+    }
   },
   "sections": [
     {

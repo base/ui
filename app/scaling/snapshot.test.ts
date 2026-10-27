@@ -24,6 +24,17 @@ describe('parseSnapshot', () => {
     expect(result.snapshot.work[1].linear).toBeNull();
   });
 
+  it('treats usage as optional, and checks its value, window and help when present', () => {
+    const { usage, ...withoutUsage } = fixture();
+    expect(errorsOf(withoutUsage)).toEqual([]);
+    const bad = { ...withoutUsage, usage: { transactionsPerSecond: { ...usage.transactionsPerSecond, value: -1, window: 'year', help: '' } } };
+    expect(errorsOf(bad)).toEqual([
+      'usage.transactionsPerSecond.value: expected a non-negative number',
+      'usage.transactionsPerSecond.window: expected a key of windows',
+      'usage.transactionsPerSecond.help: expected non-empty string',
+    ]);
+  });
+
   it('rejects schema version 1 and names the migration', () => {
     const errors = errorsOf({ ...fixture(), schemaVersion: 1 });
     expect(errors).toHaveLength(1);
