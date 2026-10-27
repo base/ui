@@ -49,7 +49,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
     <>
       <Freshness snapshot={snapshot} latestAt={data?.latestAt ?? null} />
       <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} limits={limits} />
-      <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} />
+      <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} limits={limits} />
       <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} />
       <WorkloadSubsystems current={data?.current} />
       <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />

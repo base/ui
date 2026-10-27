@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProvenCapacity, Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
 import { headroomLabel, place, sustainable } from './Headline';
+import { layoutPoints, type PlacedPoint, type Point } from './Ladder';
 import { Scorecard } from './Scorecard';
 
 // Synthetic data only: real bench results and snapshots are internal and never committed.
@@ -210,17 +211,67 @@ describe('subsystems by workload', () => {
 });
 
 describe('ladder', () => {
-  it('shades the used band in two tones at p50 and p99, notches the fee target, and marks the gas limit and proven rate', () => {
+  it('shades the used band in two tones and labels today, p99, fee target, gas limit and proven', () => {
     swr.result = { data: bench(400, true) };
     const snapshot = fixture();
     snapshot.ladder.observed.p99 = { ...snapshot.ladder.observed.p99, value: 42.24, tag: 'measured' };
     const { ladder } = render({ benchUrl: BENCH }, snapshot);
     expect(ladder).toMatch(/data-band="p50" width="3.125%"/);
     expect(ladder).toMatch(/data-band="p99" width="10.56%"/);
-    expect(ladder).toContain('data-notch="fee"');
-    for (const label of ['p50 12.5', 'p99 42.2', 'fee target 40', 'gas limit 200', 'proven ≥ 400', '400 Mgas/s']) expect(text(ladder)).toContain(label);
+    const label = (id: string) => text(ladder.split(`data-label="${id}"`)[1]?.split('data-label=')[0] ?? '').replace(/^[^>]*>/, '');
+    expect(label('today')).toMatch(/^12\.5.*today/);
+    expect(label('p99')).toMatch(/^42\.2.*p99/);
+    expect(label('fee')).toMatch(/^40.*fee target/);
+    expect(label('gas')).toMatch(/^200.*gas limit/);
+    expect(label('proven')).toMatch(/^≥ 400.*proven/);
+    expect(ladder).toMatch(/data-tick="gas" class="[^"]*border-dashed border-bds-orange-60/);
     expect(text(ladder)).toContain('up to medianmedian to p99allowed by policyproven, not yet allowed');
-    expect(text(ladder)).not.toMatch(/DA ·|42\.24|Usage data/);
+    expect(text(ladder)).not.toMatch(/42\.24|Usage data/);
+  });
+
+  it('ticks every ranked breaking point in its colour at its value, and none for unranked rows', () => {
+    swr.result = { data: bench(400, true) };
+    const { ladder } = render();
+    // On the 960 px server-render width: DA payments ~57, swaps ~115, mix ~190 Mgas/s of 400.
+    expect(ladder).toMatch(/data-tick="da-payment" class="[^"]*border-bds-red-60" style="left:137\.43\d*px/);
+    expect(ladder).toMatch(/data-tick="da-swap" class="[^"]*border-bds-red-60" style="left:275\.94\d*px/);
+    expect(ladder).toMatch(/data-tick="da-mix" class="[^"]*border-bds-red-60" style="left:455\.09\d*px/);
+    // Without a storage run both disk rows are unranked, so neither gets a tick.
+    expect(ladder).not.toMatch(/data-(tick|label)="disk-/);
+  });
+
+  it('pins a breaking point beyond the scale to the right edge without a tick', () => {
+    const data = bench(400, true);
+    data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
+    swr.result = { data };
+    const { ladder } = render();
+    expect(ladder).toMatch(/data-tick="disk-archive" class="[^"]*border-bds-purple-60"/);
+    expect(ladder).not.toContain('data-tick="disk-full"');
+    expect(text(ladder.split('data-label="disk-full"')[1].split('data-label=')[0])).toMatch(/≤ 553 →.*full-node disk/);
+  });
+
+  it('keeps labels apart in a crowded set, dropping names to a legend before stacking tiers', () => {
+    const point = (id: string, value: number): Point => ({ id, value, valueText: String(value), name: `limit ${id}`, tone: 'da', help: '' });
+    const crowded = [10, 12, 14, 16, 18, 20, 22, 24, 26, 600].map((v, i) => point(`p${i}`, v));
+    for (const width of [960, 600, 320]) {
+      const placed = layoutPoints(crowded, 400, width);
+      const top = (p: PlacedPoint) => (p.side === 'above' ? -1 : 1) * (p.tier + 1);
+      for (const a of placed) {
+        expect(a.left).toBeGreaterThanOrEqual(0);
+        expect(a.left + a.width).toBeLessThanOrEqual(width + 0.001);
+        for (const b of placed) {
+          if (a !== b && top(a) === top(b)) expect(a.left + a.width <= b.left || b.left + b.width <= a.left).toBe(true);
+        }
+      }
+      expect(placed.at(-1)).toMatchObject({ id: 'p9', offScale: true, x: width });
+    }
+    // Long names on a 320 px track: the third label fits beside the first only without its name.
+    const long = (id: string, value: number): Point => ({ ...point(id, value), name: 'a breaking point with a long name' });
+    expect(layoutPoints([long('a', 100), long('b', 180), long('c', 270)], 320, 320).map((p) => [p.side, p.tier, p.compact])).toEqual([
+      ['above', 0, false],
+      ['below', 0, false],
+      ['above', 0, true],
+    ]);
   });
 
   it('shades only to p50 without a p99, and draws no used band without either', () => {

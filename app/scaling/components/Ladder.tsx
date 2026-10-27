@@ -5,30 +5,87 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import type { Rung, Snapshot } from '../snapshot.mjs';
+import type { Limit } from './Bottlenecks';
 import { Info } from './Info';
 
-const BAR_Y = 50;
 const BAR_H = 24;
-const ROW_PX = 18;
-const CHAR_PX = 7.5;
+// Each label is two 12px lines; rows sit GAP_PX from the bar and touch each other, so a second row stays
+// within 30px of the bar.
+const ROW_PX = 24;
+const GAP_PX = 6;
 const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
 
 export type ProvenMark = { value: number; atLeast: boolean; help: string } | null;
 
-type Props = Pick<Snapshot, 'ladder' | 'windows'> & { proven: ProvenMark; max: number };
-type Label = { id: string; text: string; help: string; x: number; className: string };
+type Tone = 'today' | 'p99' | 'fee' | 'da' | 'disk' | 'gas' | 'proven';
+export type Point = { id: string; value: number; valueText: string; name: string; tone: Tone; help: string };
+export type PlacedPoint = Point & { x: number; offScale: boolean; side: 'above' | 'below'; tier: number; left: number; width: number; compact: boolean };
 
+const TEXT: Record<Tone, string> = {
+  today: 'text-bds-blue-90 dark:text-white',
+  p99: 'text-bds-blue-50',
+  fee: 'text-bds-gray-60',
+  da: 'text-bds-red-60',
+  disk: 'text-bds-purple-60',
+  gas: 'text-bds-orange-60',
+  proven: 'text-base-blue',
+};
+const TICK: Record<Tone, string> = {
+  today: 'border-bds-blue-90 dark:border-white',
+  p99: 'border-bds-blue-50',
+  fee: 'border-dotted border-bds-gray-60',
+  da: 'border-bds-red-60',
+  disk: 'border-bds-purple-60',
+  gas: 'border-dashed border-bds-orange-60',
+  proven: 'border-base-blue',
+};
 const SHADES = {
   median: 'fill-base-blue bg-base-blue',
   p99: 'fill-bds-blue-30 bg-bds-blue-30',
   allowed: 'fill-bds-blue-10 bg-bds-blue-10 dark:fill-bds-blue-80 dark:bg-bds-blue-80',
   proven: 'fill-bds-gray-10 bg-bds-gray-10 dark:fill-white/10 dark:bg-white/10',
 };
+const SHORT: Record<string, string> = { 'da-payment': 'DA · payments', 'da-swap': 'DA · swaps', 'da-mix': 'DA · mix', 'disk-archive': 'archive disk', 'disk-full': 'full-node disk' };
 
-// Width of a label with its help button, so fanned labels can be kept apart.
-const labelPx = (text: string) => text.length * CHAR_PX + 20;
+// Approximate label widths: a bold 12px value with its help icon over an 11px name.
+const widthOf = (p: Point, offScale: boolean, compact: boolean) =>
+  Math.max((p.valueText.length + (offScale ? 2 : 0)) * 7.6 + 24, compact ? 0 : p.name.length * 6) + 2;
 
-export function Ladder({ ladder, windows, proven, max }: Props) {
+// Labels alternate above and below in value order, in one row hugging the bar on each side. A label
+// that collides first tries the other side, then a nudge that keeps it over its tick, then drops its
+// name (listed under the ladder); only then does it take a second row. Off-scale points sit at the
+// right edge without a tick.
+export function layoutPoints(points: Point[], max: number, width: number): PlacedPoint[] {
+  const ends: Record<'above' | 'below', number[]> = { above: [], below: [] };
+  return points.toSorted((a, b) => a.value - b.value).map((p, i) => {
+    const offScale = p.value > max;
+    const x = offScale ? width : (Math.max(0, p.value) / max) * width;
+    const preferred = i % 2 === 0 ? 'above' : 'below';
+    const sides = [preferred, preferred === 'above' ? 'below' : 'above'] as const;
+    for (let tier = 0; ; tier++) {
+      for (const compact of [false, true]) {
+        const w = Math.min(width, widthOf(p, offScale, compact));
+        const centered = Math.min(Math.max(x - w / 2, 0), width - w);
+        for (const nudge of [false, true]) {
+          for (const side of sides) {
+            const end = ends[side][tier] ?? -Infinity;
+            const left = nudge ? Math.max(centered, end + GAP_PX) : centered;
+            const clear = left >= end + GAP_PX && left + w <= width && Math.abs(left + w / 2 - x) <= w;
+            // A new, empty row always fits, so the loop ends.
+            if (clear || end === -Infinity) {
+              ends[side][tier] = left + w;
+              return { ...p, x, offScale, side, tier, left, width: w, compact };
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+type Props = Pick<Snapshot, 'ladder' | 'windows'> & { proven: ProvenMark; max: number; limits: Limit[] };
+
+export function Ladder({ ladder, windows, proven, max, limits }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(960);
   useLayoutEffect(() => {
@@ -38,88 +95,88 @@ export function Ladder({ ladder, windows, proven, max }: Props) {
   }, []);
 
   const help = (r: Rung) => (r.window ? `${r.help} Window: ${windows[r.window].label}.` : r.help);
-  const frac = (v: number) => Math.min(1, v / max);
-  const pct = (v: number) => `${frac(v) * 100}%`;
-  const px = (v: number) => frac(v) * width;
+  const pct = (v: number) => `${Math.min(1, v / max) * 100}%`;
   const { p50, p99 } = ladder.observed;
   const limit = ladder.configuredLimit.value;
-  const fee = ladder.operatingPoint.value;
   const median = p50.value;
   const tail = median === null ? null : p99.value;
-
-  // p50 and p99 are the shade boundaries; their labels fan out to the right on angled leaders.
-  let nextFree = 0;
-  const fanned = ([['p50', median, p50], ['p99', tail, p99]] as const).flatMap(([id, value, rung]) => {
-    if (value === null) return [];
-    const text = `${id} ${n(value)}`;
-    const left = Math.min(Math.max(px(value) + 17, nextFree), width - labelPx(text));
-    nextFree = left + labelPx(text) + 8;
-    return [{ id, value, text, left, help: help(rung) }];
-  });
-  const usedEnd = tail ?? median ?? 0;
-  const below: Label[] = [
-    ...(fee === null ? [] : [{ id: 'fee', text: `fee target ${n(fee)}`, help: help(ladder.operatingPoint), x: fee, className: 'text-[12px] text-bds-gray-60' }]),
-    ...(limit === null ? [] : [{ id: 'limit', text: `gas limit ${n(limit)}`, help: help(ladder.configuredLimit), x: limit, className: 'text-bds-orange-60' }]),
-    ...(proven ? [{ id: 'proven', text: `proven ${proven.atLeast ? '≥ ' : ''}${n(proven.value)}`, help: proven.help, x: proven.value, className: 'font-[600] text-base-blue' }] : []),
+  const rung = (id: string, r: Rung, name: string, tone: Tone): Point[] => (r.value === null ? [] : [{ id, value: r.value, valueText: n(r.value), name, tone, help: help(r) }]);
+  const points: Point[] = [
+    ...rung('today', p50, 'today', 'today'),
+    ...(tail === null ? [] : rung('p99', p99, 'p99', 'p99')),
+    ...rung('fee', ladder.operatingPoint, 'fee target', 'fee'),
+    ...rung('gas', ladder.configuredLimit, 'gas limit', 'gas'),
+    ...(proven ? [{ id: 'proven', value: proven.value, valueText: `${proven.atLeast ? '≥ ' : ''}${n(proven.value)}`, name: 'proven', tone: 'proven' as const, help: proven.help }] : []),
+    // The ranked breaking points from What breaks first; unranked rows have no ceiling to mark.
+    ...limits.filter((l) => l.value !== null && SHORT[l.id]).map((l): Point => ({
+      id: l.id,
+      value: l.value!,
+      valueText: l.value === 0 ? 'over budget' : l.ceiling.split(' ≈ ')[0],
+      name: SHORT[l.id],
+      tone: l.id.startsWith('disk-') ? 'disk' : 'da',
+      help: l.help ?? l.evidence,
+    })),
   ];
-  // Labels under the bar take the first row where they clear the previous label.
-  const rowEnds: number[] = [];
-  const placedBelow = below.toSorted((a, b) => a.x - b.x).map((l) => {
-    const w = labelPx(l.text);
-    const left = Math.min(Math.max(px(l.x) - w / 2, 0), width - w);
-    let row = rowEnds.findIndex((end) => end + 6 <= left);
-    if (row === -1) row = rowEnds.length;
-    rowEnds[row] = left + w;
-    return { ...l, left, row };
-  });
-  const axisTop = BAR_Y + BAR_H + 10 + Math.max(1, rowEnds.length) * ROW_PX;
-  const height = axisTop + 14;
-  const captions = [
-    limit !== null && limit > usedEnd && { text: 'allowed by policy', from: usedEnd, to: limit, className: 'text-bds-blue-60' },
-    proven && limit !== null && proven.value > limit && { text: 'proven, not yet allowed', from: limit, to: proven.value, className: 'text-bds-gray-50' },
-  ].filter((c) => !!c);
+  const placed = layoutPoints(points, max, width);
+  const tiers = (side: 'above' | 'below') => placed.filter((p) => p.side === side).reduce((h, p) => Math.max(h, (p.tier + 1) * ROW_PX), 0);
+  const barTop = tiers('above') + GAP_PX;
+  const height = barTop + BAR_H + GAP_PX + tiers('below') + 16;
+  const nearEdge = (p: PlacedPoint) => (p.side === 'above' ? barTop - GAP_PX - p.tier * ROW_PX : barTop + BAR_H + GAP_PX + p.tier * ROW_PX);
   const legend = [
     median !== null && ['up to median', SHADES.median],
     tail !== null && ['median to p99', SHADES.p99],
     limit !== null && ['allowed by policy', SHADES.allowed],
     proven && limit !== null && proven.value > limit && ['proven, not yet allowed', SHADES.proven],
   ].filter((l) => !!l);
+  const compact = placed.filter((p) => p.compact);
 
   return (
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">How close are we, and to what? <span className="text-bds-gray-60">· Mgas/s</span></Text>
-      <div ref={ref} role="group" aria-label="Usage against policy and proven capacity" className="relative text-[13px]" style={{ height }}>
+      <div ref={ref} role="group" aria-label="Usage against policy, breaking points and proven capacity" className="relative" style={{ height }}>
         <svg aria-hidden="true" width="100%" height={height} className="absolute inset-0 overflow-visible">
-          <rect width="100%" y={BAR_Y} height={BAR_H} rx={5} className={SHADES.proven} />
-          {limit === null ? null : <rect width={pct(limit)} y={BAR_Y} height={BAR_H} rx={5} className={SHADES.allowed} />}
-          {tail === null ? null : <rect data-band="p99" width={pct(tail)} y={BAR_Y} height={BAR_H} rx={5} className={SHADES.p99} />}
-          {median === null ? null : <rect data-band="p50" width={pct(median)} y={BAR_Y} height={BAR_H} rx={5} className={SHADES.median} />}
-          {fanned.map((f) => (
-            <g key={f.id} className={f.id === 'p50' ? 'stroke-base-blue' : 'stroke-bds-blue-50'}>
-              <line x1={px(f.value)} x2={px(f.value)} y1={BAR_Y} y2={38} />
-              <line x1={px(f.value)} x2={f.left - 4} y1={38} y2={22} />
-            </g>
-          ))}
-          {fee === null ? null : <path data-notch="fee" d={`M${px(fee)} ${BAR_Y + BAR_H + 2} l-4 6 h8 z`} className="fill-bds-gray-60" />}
-          {limit === null ? null : <line x1={pct(limit)} x2={pct(limit)} y1={BAR_Y - 4} y2={BAR_Y + BAR_H + 4} strokeWidth={2} className="stroke-bds-orange-60" />}
-          {proven ? <line x1={pct(proven.value)} x2={pct(proven.value)} y1={BAR_Y - 4} y2={BAR_Y + BAR_H + 4} strokeWidth={3} className="stroke-base-blue" /> : null}
+          <rect width="100%" y={barTop} height={BAR_H} rx={5} className={SHADES.proven} />
+          {limit === null ? null : <rect width={pct(limit)} y={barTop} height={BAR_H} rx={5} className={SHADES.allowed} />}
+          {tail === null ? null : <rect data-band="p99" width={pct(tail)} y={barTop} height={BAR_H} rx={5} className={SHADES.p99} />}
+          {median === null ? null : <rect data-band="p50" width={pct(median)} y={barTop} height={BAR_H} rx={5} className={SHADES.median} />}
         </svg>
-        {fanned.map((f) => (
-          <span key={f.id} className={cn('absolute flex items-center gap-1 whitespace-nowrap font-[600]', f.id === 'p50' ? 'text-base-blue' : 'text-bds-blue-50')} style={{ left: f.left, top: 10 }}>
-            {f.text} <Info label={`About ${f.text}`}>{f.help}</Info>
-          </span>
+        {placed.filter((p) => !p.offScale).map((p) => (
+          <span key={p.id} data-tick={p.id} className={cn('absolute w-0 border-l-2', TICK[p.tone])} style={{ left: p.x, top: barTop - 4, height: BAR_H + 8 }} />
         ))}
-        {captions.map((c) => (
-          <span key={c.text} className={cn('absolute -translate-x-1/2 whitespace-nowrap text-[12px]', c.className)} style={{ left: pct((c.from + c.to) / 2), top: 30 }}>{c.text}</span>
-        ))}
-        {placedBelow.map((l) => (
-          <span key={l.id} className={cn('absolute flex items-center gap-1 whitespace-nowrap', l.className)} style={{ left: l.left, top: BAR_Y + BAR_H + 10 + l.row * ROW_PX }}>
-            {l.text} <Info label={`About ${l.text}`}>{l.help}</Info>
-          </span>
-        ))}
-        <span className="absolute left-0 text-[11px] text-bds-gray-50" style={{ top: axisTop }}>0</span>
-        <span className="absolute right-0 text-[11px] text-bds-gray-50" style={{ top: axisTop }}>{n(max)} Mgas/s</span>
+        {placed.map((p) => {
+          const top = p.side === 'above' ? nearEdge(p) - ROW_PX : nearEdge(p);
+          return (
+            <span key={p.id}>
+              {p.tier > 0 && !p.offScale ? (
+                <span
+                  data-connector={p.id}
+                  className={cn('absolute w-0 border-l', TICK[p.tone])}
+                  style={p.side === 'above' ? { left: p.x, top: nearEdge(p), height: barTop - nearEdge(p) } : { left: p.x, top: barTop + BAR_H, height: nearEdge(p) - barTop - BAR_H }}
+                />
+              ) : null}
+            <span
+              data-label={p.id}
+              data-tier={p.tier}
+              className={cn('absolute flex flex-col items-center whitespace-nowrap text-center', TEXT[p.tone], p.side === 'above' ? 'justify-end' : 'justify-start')}
+              style={{ left: p.left, width: p.width, top, height: ROW_PX }}
+            >
+              <span className="flex h-3 items-center gap-1 text-[12px] font-[700] leading-3 tabular-nums">
+                {p.valueText}{p.offScale ? ' →' : ''}
+                <Info label={`About ${p.name}`}>{p.help}</Info>
+              </span>
+              {p.compact ? null : <span className="text-[11px] leading-3 opacity-80">{p.name}</span>}
+            </span>
+            </span>
+          );
+        })}
+        <span className="absolute left-0 text-[11px] text-bds-gray-50" style={{ top: height - 14 }}>0</span>
+        <span className="absolute right-0 text-[11px] text-bds-gray-50" style={{ top: height - 14 }}>{n(max)} Mgas/s</span>
       </div>
+      {compact.length ? (
+        <p data-legend="names" className="flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+          {compact.map((p) => <span key={p.id} className={TEXT[p.tone]}><b>{p.valueText}</b> {p.name}</span>)}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-bds-gray-60">
         {legend.map(([label, shade]) => (
           <span key={label} className="flex items-center gap-1.5"><span aria-hidden="true" className={cn('h-2.5 w-4 rounded-sm', shade)} />{label}</span>
