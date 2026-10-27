@@ -69,7 +69,7 @@ describe('Ladder bench capacity', () => {
     expect(html).not.toContain('bench</span>');
   });
 
-  it('shows ≥ at the top rate with bench provenance, the rule, run, commit, caveat, evidence and chart', () => {
+  it('shows ≥ at the top rate with bench provenance, the rule, run, commit, caveat, evidence and the last change', () => {
     swr.result = { data: bench(400, true) };
     const html = render();
     expect(rung(html, 'Qualified sustained')).toMatch(/^≥ 400<span[^>]*>measured · bench$/);
@@ -79,8 +79,8 @@ describe('Ladder bench capacity', () => {
     expect(html).toContain('Qualified by <a class="underline" href="/scaling/runs/bench/synthetic-mix-400">synthetic-400</a>: 400 Mgas/s run delivered 395.0 Mgas/s');
     expect(html).toMatch(/bg-bds-green-50"><\/span>validator replay passed</);
     expect(html).toContain('title="needs a synthetic L1"');
-    expect(html).toContain('aria-label="Proven capacity over time"');
-    expect(html).toContain('40 Mgas/s → 400 Mgas/s');
+    expect(html).not.toContain('Proven capacity over time');
+    expect(html).toContain('↑ from 40 Mgas/s on 2026-01-06 · <a class="underline" href="https://github.com/base/base/compare/aaaa...bbbb">compare</a>');
     // The page passes #214's estimated DA ceiling, which never binds.
     expect(ceilingLabel(html)).toBe('execution');
   });

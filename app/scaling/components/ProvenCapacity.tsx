@@ -5,7 +5,6 @@ import useSWR from 'swr';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { loadProvenCapacity, runHref, type PipelineStep, type ProvenCapacity as Capacity } from '../proven/capacity';
-import { LineChart } from '../runs/components/LineChart';
 
 export type Bench = Capacity & { now: number };
 
@@ -26,14 +25,14 @@ export function ProvenCapacity({ data, error }: { data?: Bench; error?: unknown 
     : <Result capacity={data} />;
 }
 
-function Result({ capacity: { current, history, unknown, now } }: { capacity: Bench }) {
+function Result({ capacity: { current, history, unknown } }: { capacity: Bench }) {
   // A run whose files failed to load is skipped, so an older result at its rate may count instead.
   const partial = unknown.length ? <Text variant="label.regular" tone="muted">{unknown.length} run(s) could not be loaded, so this result may be wrong.</Text> : null;
   if (!current.mix) return partial ?? <Text variant="label.regular" tone="muted">No main run passed in the last 14 days.</Text>;
   const { run } = current.mix;
-  const y = (m: number | null) => (m ?? 0) * 1e6;
-  const points = history.flatMap((s, i): [number, number][] => (i ? [[s.at, y(history[i - 1].mgas)], [s.at, y(s.mgas)]] : [[s.at, y(s.mgas)]]));
-  points.push([now, y(current.mix.mgas)]);
+  // Only the latest change is shown; the full history lives on /scaling/runs.
+  const last = history.length > 1 ? history[history.length - 1] : null;
+  const previous = last ? history[history.length - 2] : null;
   return (
     <>
       {partial}
@@ -49,17 +48,12 @@ function Result({ capacity: { current, history, unknown, now } }: { capacity: Be
           </li>
         ))}
       </ul>
-      <LineChart title="Proven capacity over time" unit="gas/s" xLabel={day}
-        series={[{ name: 'proven', stroke: 'stroke-base-blue', dot: 'bg-base-blue', points }]} />
-      <ul className="flex flex-col gap-1 text-[13px]">
-        {history.map((s, i) => (
-          <li key={s.at} className="flex gap-2">
-            <span className="font-mono text-bds-gray-60">{day(s.at)}</span>
-            <span>{i ? `${mgas(history[i - 1].mgas)} → ` : ''}{mgas(s.mgas)}</span>
-            {s.compareUrl ? <a className="underline" href={s.compareUrl}>compare</a> : null}
-          </li>
-        ))}
-      </ul>
+      {last && previous ? (
+        <Text variant="label.regular" tone="muted">
+          {last.mgas !== null && previous.mgas !== null && last.mgas < previous.mgas ? '↓' : '↑'} from {mgas(previous.mgas)} on {day(last.at)}
+          {last.compareUrl ? <> · <a className="underline" href={last.compareUrl}>compare</a></> : null}
+        </Text>
+      ) : null}
     </>
   );
 }
