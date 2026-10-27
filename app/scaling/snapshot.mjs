@@ -56,7 +56,6 @@ const AREAS = ['da', 'execution', 'state', 'networking'];
 // Each section renders on its area page, or on the guardrails page for outcomes.
 const SECTION_IDS = ['da', 'execution', 'state', 'outcomes'];
 const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
-const DAY_MS = 86_400_000;
 // Captures a bench run id, or a load test's network and timestamp.
 export const RUN_PAGE = /^https:\/\/[^/]+\/scaling\/runs\/(?:bench\/([^/?#]+)|load\/([^/?#]+)\/([^/?#]+))\/?(?:[?#].*)?$/;
 const V1_MESSAGE =
@@ -277,13 +276,4 @@ export function deriveBinding(ceilings) {
     if ((c.tag === 'measured' || c.tag === 'modeled') && (binding === null || c.value < binding.value)) binding = c;
   }
   return binding;
-}
-
-/**
- * @param {string} collectedAt
- * @param {Date} now
- * @param {number} [days]
- */
-export function isStale(collectedAt, now, days = 10) {
-  return now.getTime() - Date.parse(collectedAt) > days * DAY_MS;
 }

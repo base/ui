@@ -8,7 +8,7 @@ import { Text } from '../../components/ui/Text';
 import type { Run } from '../proven/capacity';
 import type { Guardrail } from '../snapshot.mjs';
 import { Info } from './Info';
-import { useProvenCapacity } from './ProvenCapacity';
+import { useProvenCapacity, usageAsOf } from './ProvenCapacity';
 import { Tag } from './Tag';
 
 const TH = 'px-4 py-2 text-left text-[12px] font-[500] text-bds-gray-60';
@@ -21,6 +21,9 @@ const fmt = (n: number, unit: string) => `${n.toLocaleString('en-US', { maximumF
 
 export const KEEP_UP_BLOCKS = 3;
 export const REPLAY_BLOCKS_PER_SECOND = 5;
+// Proof-node budgets at the tested rate, owner-approved 2026-10-27.
+export const PROOF_LAG_P99_BLOCKS = 10;
+export const EXECUTE_PAYLOAD_P99_MS = 1000;
 
 const judge = (g: Omit<Guardrail, 'status'>): Guardrail => ({
   ...g,
@@ -45,11 +48,13 @@ export function scorecardGuardrails(snapshot: Guardrail[], run: Run | null | und
     ...rows,
     judge({
       ...bench, id: 'proof-node-head-lag', label: 'Proof-node head lag p99', value: run?.proofNode?.proofs?.headLagBlocks.p99 ?? null, unit: 'blocks',
-      help: `How far proof history trails the inserted head while the proof node replays the bench blocks.${source} Threshold pending.`,
+      threshold: PROOF_LAG_P99_BLOCKS, thresholdTag: 'set',
+      help: `How far proof history trails the inserted head while the proof node replays the bench blocks.${source}`,
     }),
     judge({
       ...bench, id: 'proof-node-execute-payload', label: 'debug_executePayload p99', value: run?.proofNode?.proofs?.methods.debug_executePayload?.latency.p99Ms ?? null, unit: 'ms',
-      help: `Latency of the witness call the prover makes for each block, on the proof node.${source} Threshold pending.`,
+      threshold: EXECUTE_PAYLOAD_P99_MS, thresholdTag: 'set',
+      help: `Latency of the witness call the prover makes for each block, on the proof node.${source}`,
     }),
     judge({
       ...bench, id: 'validator-replay-headroom', label: 'Validator replay headroom', value: run?.replay?.blocksPerSecond ?? null, unit: 'blocks/s',
@@ -59,7 +64,7 @@ export function scorecardGuardrails(snapshot: Guardrail[], run: Run | null | und
   ];
 }
 
-export function Guardrails({ guardrails, detailed = false, benchUrl }: { guardrails: Guardrail[]; detailed?: boolean; benchUrl?: string }) {
+export function Guardrails({ guardrails, collectedAt, detailed = false, benchUrl }: { guardrails: Guardrail[]; collectedAt: string; detailed?: boolean; benchUrl?: string }) {
   const bench = useProvenCapacity(benchUrl);
   const run = benchUrl ? (bench.error ? null : bench.data?.current.mix?.run ?? null) : undefined;
   return (
@@ -102,7 +107,7 @@ export function Guardrails({ guardrails, detailed = false, benchUrl }: { guardra
           </tbody>
         </table>
       </Card>
-      <Text variant="footnote" tone="muted">Breached SLOs are not attributed to saturation until triaged.</Text>
+      <Text variant="footnote" tone="muted">{usageAsOf(collectedAt)}; bench rows show their run. Breached SLOs are not attributed to saturation until triaged.</Text>
     </section>
   );
 }

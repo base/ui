@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { deriveBinding, isStale, parseSnapshot } from './snapshot.mjs';
+import { deriveBinding, parseSnapshot } from './snapshot.mjs';
 
 // Synthetic data only: real snapshots are internal and never committed.
 function fixture() {
@@ -142,15 +142,5 @@ describe('deriveBinding', () => {
     Object.assign(ceilings[0], { value: null, tag: 'not-modeled' });
     ceilings[1].tag = 'estimated';
     expect(deriveBinding(ceilings)).toBeNull();
-  });
-});
-
-describe('isStale', () => {
-  const collectedAt = fixture().collectedAt;
-
-  it('flags snapshots older than the threshold', () => {
-    expect(isStale(collectedAt, new Date('2026-01-13T00:00:00Z'))).toBe(true);
-    expect(isStale(collectedAt, new Date('2026-01-11T00:00:00Z'))).toBe(false);
-    expect(isStale(collectedAt, new Date('2026-01-13T00:00:00Z'), 20)).toBe(false);
   });
 });

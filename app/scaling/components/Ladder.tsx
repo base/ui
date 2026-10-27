@@ -6,6 +6,7 @@ import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import type { Rung, Snapshot } from '../snapshot.mjs';
 import { Info } from './Info';
+import { usageAsOf } from './ProvenCapacity';
 import { layoutRungs, type Anchor } from './ladderLayout';
 
 const LABEL_PX = 130;
@@ -18,9 +19,9 @@ const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 2 })
 type Marker = { id: string; label: string; value: number; help: string; tick: string; text: string };
 export type ProvenMark = { value: number; atLeast: boolean; help: string } | null;
 
-type Props = Pick<Snapshot, 'ladder' | 'windows'> & { proven: ProvenMark; max: number; dashboardUrl?: string };
+type Props = Pick<Snapshot, 'ladder' | 'windows' | 'collectedAt'> & { proven: ProvenMark; max: number; dashboardUrl?: string };
 
-export function Ladder({ ladder, windows, proven, max, dashboardUrl }: Props) {
+export function Ladder({ ladder, windows, collectedAt, proven, max, dashboardUrl }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(960);
   useLayoutEffect(() => {
@@ -86,7 +87,7 @@ export function Ladder({ ladder, windows, proven, max, dashboardUrl }: Props) {
             <span key={b.label} className="flex items-center gap-1.5"><span aria-hidden="true" className={cn('h-2.5 w-4 rounded-sm', b.className)} />{b.label}</span>
           ))}
         </span>
-        <span className="font-mono">0 – {n(max)} Mgas/s</span>
+        <span>{usageAsOf(collectedAt)} · <span className="font-mono">0 – {n(max)} Mgas/s</span></span>
       </div>
       {dashboardUrl ? <Text variant="label.regular" tone="muted"><a className="underline" href={dashboardUrl}>Mainnet load, gas limit, DA ceiling →</a></Text> : null}
     </section>

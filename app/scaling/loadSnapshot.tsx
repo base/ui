@@ -2,19 +2,17 @@ import { readFile } from 'node:fs/promises';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { Banner } from '../components/ui/Banner';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Text } from '../components/ui/Text';
 
-import { isStale, parseSnapshot, type Snapshot } from './snapshot.mjs';
+import { parseSnapshot, type Snapshot } from './snapshot.mjs';
 
-const STALE_AFTER_DAYS = 10;
 const DAY_MS = 86_400_000;
 
 export type Loaded =
   | { kind: 'unconfigured' }
   | { kind: 'invalid'; errors: string[] }
-  | { kind: 'ok'; snapshot: Snapshot; ageDays: number; stale: boolean };
+  | { kind: 'ok'; snapshot: Snapshot; ageDays: number };
 
 export async function loadSnapshot(): Promise<Loaded> {
   const path = process.env.SCALING_SNAPSHOT_PATH;
@@ -22,9 +20,8 @@ export async function loadSnapshot(): Promise<Loaded> {
   try {
     const result = parseSnapshot(JSON.parse(await readFile(path, 'utf8')));
     if (!result.ok) return { kind: 'invalid', errors: result.errors };
-    const { collectedAt } = result.snapshot;
-    const ageDays = Math.floor((Date.now() - Date.parse(collectedAt)) / DAY_MS);
-    return { kind: 'ok', snapshot: result.snapshot, ageDays, stale: isStale(collectedAt, new Date(), STALE_AFTER_DAYS) };
+    const ageDays = Math.floor((Date.now() - Date.parse(result.snapshot.collectedAt)) / DAY_MS);
+    return { kind: 'ok', snapshot: result.snapshot, ageDays };
   } catch (error) {
     return { kind: 'invalid', errors: [error instanceof Error ? error.message : String(error)] };
   }
@@ -48,7 +45,7 @@ export function Unavailable({ loaded }: { loaded: Exclude<Loaded, { kind: 'ok' }
 }
 
 export function Header({ loaded, title, crumb, action }: { loaded: Extract<Loaded, { kind: 'ok' }>; title: ReactNode; crumb?: string; action?: ReactNode }) {
-  const { snapshot, ageDays, stale } = loaded;
+  const { snapshot, ageDays } = loaded;
   return (
     <header className="flex flex-col gap-3">
       {crumb ? (
@@ -60,9 +57,6 @@ export function Header({ loaded, title, crumb, action }: { loaded: Extract<Loade
         As of {formatTime(snapshot.collectedAt)} ({ageDays === 0 ? 'today' : `${ageDays}d old`}) · manually refreshed
         snapshot, not live data. {snapshot.context}
       </Text>
-      {stale ? (
-        <Banner>Stale: this snapshot is older than {STALE_AFTER_DAYS} days. Refresh it before using these numbers.</Banner>
-      ) : null}
     </header>
   );
 }

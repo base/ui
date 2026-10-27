@@ -2,14 +2,15 @@ import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { BLOB_TARGET, daCapacity, fmt, type DaWorkload } from '../da/workloads';
 import type { Proven } from '../proven/capacity';
-import { REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
+import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Tag } from './Tag';
 
 export type Bar = { id: string; label: string; value: number | null; text: string; tag?: DaWorkload['tag'] };
 
 const x = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}×`;
 
-// Validators and the proof node kept up at the proven rate, so their limit is at least that rate.
+// Validators and the proof node within budget at the proven rate have a limit of at least that rate;
+// over budget, their limit is somewhere below it.
 export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): Bar[] {
   const da = workloads.map((w): Bar => {
     const value = daCapacity(w, BLOB_TARGET).mgasPerSecond;
@@ -18,15 +19,20 @@ export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): 
   const run = proven?.run;
   const m = proven?.mgas ?? null;
   const proofs = run?.proofNode?.proofs;
+  const replay = run?.replay;
+  const executeP99 = proofs?.methods.debug_executePayload?.latency.p99Ms;
+  const proofOk = proofs && executeP99 !== undefined && proofs.headLagBlocks.p99 <= PROOF_LAG_P99_BLOCKS && executeP99 <= EXECUTE_PAYLOAD_P99_MS;
   return [
     ...da,
     { id: 'execution', label: 'Execution (sequencer)', value: m, text: !proven ? 'no proven run' : proven.atTop ? `≥ ${m} · top rate tested` : `${m}` },
-    run?.replay
-      ? { id: 'validators', label: 'Validators', value: m, text: `≥ ${m} · ${x(run.replay.blocksPerSecond / REPLAY_BLOCKS_PER_SECOND)} replay headroom` }
-      : { id: 'validators', label: 'Validators', value: null, text: 'pending' },
-    proofs
-      ? { id: 'proof-node', label: 'Proof node', value: m, text: `≥ ${m} · lag p99 ${proofs.headLagBlocks.p99} blocks` }
-      : { id: 'proof-node', label: 'Proof node', value: null, text: 'pending' },
+    !replay
+      ? { id: 'validators', label: 'Validators', value: null, text: 'pending' }
+      : replay.match && replay.blocksPerSecond >= REPLAY_BLOCKS_PER_SECOND
+        ? { id: 'validators', label: 'Validators', value: m, text: `≥ ${m} · ${x(replay.blocksPerSecond / REPLAY_BLOCKS_PER_SECOND)} replay headroom` }
+        : { id: 'validators', label: 'Validators', value: null, text: `below budget at ${m}` },
+    !proofs
+      ? { id: 'proof-node', label: 'Proof node', value: null, text: 'pending' }
+      : { id: 'proof-node', label: 'Proof node', value: proofOk ? m : null, text: `${proofOk ? `≥ ${m}` : `over budget at ${m}`} · lag p99 ${proofs.headLagBlocks.p99} blocks` },
   ];
 }
 

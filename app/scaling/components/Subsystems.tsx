@@ -7,7 +7,7 @@ import { Text } from '../../components/ui/Text';
 import { BLOB_TARGET } from '../da/workloads';
 import { runHref, type PipelineStep, type Proven } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import { KEEP_UP_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
+import { EXECUTE_PAYLOAD_P99_MS, KEEP_UP_BLOCKS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { day } from './ProvenCapacity';
 import { Tag } from './Tag';
 
@@ -20,7 +20,7 @@ const TONE: Record<Tone, string> = { ok: 'text-bds-green-60', bad: 'text-bds-red
 const STEP_DOT: Record<PipelineStep['status'], string> = { passed: 'bg-bds-green-50', failed: 'bg-bds-red-50', skipped: 'bg-bds-gray-30', 'not-implemented': 'bg-bds-gray-30' };
 const SECONDS_PER_YEAR = 365.25 * 86_400;
 const PENDING: [string, Tone] = ['pending', 'muted'];
-const x = (v: number) => `${v < 10 ? v.toFixed(1) : Math.round(v)}×`;
+const x = (v: number) => (!Number.isFinite(v) ? '—' : `${v < 10 ? v.toFixed(1) : Math.round(v)}×`);
 
 function stepStatus(proven: Proven | null, name: string, passed: [string, Tone]): [string, Tone] {
   const status = proven?.run.steps.find((s) => s.name === name)?.status;
@@ -53,13 +53,19 @@ function rows(proven: Proven | null, { guardrails, ceilings }: Pick<Snapshot, 'g
       ].filter(Boolean).join('; ') || 'pending',
       budget: `≥ ${REPLAY_BLOCKS_PER_SECOND} blocks/s; production lag ≤ ${KEEP_UP_BLOCKS} blocks`,
       headroom: replay ? x(replay.blocksPerSecond / REPLAY_BLOCKS_PER_SECOND) : '—',
-      status: !replay ? PENDING : !replay.match ? ['mismatch', 'bad'] : replay.blocksPerSecond >= REPLAY_BLOCKS_PER_SECOND ? ['pass', 'ok'] : ['below budget', 'bad'],
+      status: !replay ? PENDING
+        : !replay.match ? ['mismatch', 'bad']
+        : replay.blocksPerSecond < REPLAY_BLOCKS_PER_SECOND ? ['below budget', 'bad']
+        : keepUp !== null && keepUp > KEEP_UP_BLOCKS ? ['production lag over budget', 'bad']
+        : ['pass', 'ok'],
     },
     {
       name: 'Proof node',
       measured: proofs ? [`lag p99 ${proofs.headLagBlocks.p99} blocks`, executePayload && `executePayload p99 ${executePayload.latency.p99Ms} ms`].filter(Boolean).join('; ') : 'pending',
-      budget: <span className="text-bds-gray-60">pending</span>, headroom: '—',
-      status: stepStatus(proven, 'proof_node', ['budget pending', 'muted']),
+      budget: `≤ ${PROOF_LAG_P99_BLOCKS} blocks; ≤ ${EXECUTE_PAYLOAD_P99_MS} ms`,
+      headroom: proofs && executePayload ? `${x(PROOF_LAG_P99_BLOCKS / proofs.headLagBlocks.p99)} / ${x(EXECUTE_PAYLOAD_P99_MS / executePayload.latency.p99Ms)}` : '—',
+      status: stepStatus(proven, 'proof_node', !proofs || !executePayload ? PENDING
+        : proofs.headLagBlocks.p99 <= PROOF_LAG_P99_BLOCKS && executePayload.latency.p99Ms <= EXECUTE_PAYLOAD_P99_MS ? ['pass', 'ok'] : ['over budget', 'bad']),
     },
     {
       name: 'DA (bench mix)', href: '/scaling/da',

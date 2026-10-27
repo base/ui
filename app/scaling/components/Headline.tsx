@@ -5,7 +5,7 @@ import { runHref, type Proven, type ProvenCapacity, type Workload } from '../pro
 import type { Snapshot } from '../snapshot.mjs';
 import type { Bar } from './Bottlenecks';
 import type { ProvenMark } from './Ladder';
-import { day } from './ProvenCapacity';
+import { day, usageAsOf } from './ProvenCapacity';
 import { Tag } from './Tag';
 
 export type BenchState = { configured: boolean; data?: ProvenCapacity; error?: unknown };
@@ -17,7 +17,7 @@ const TRAFFIC: Record<Workload, string> = { payment: 'payments', swap: 'swaps', 
 const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 2 });
 const list = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
-type Props = Pick<Snapshot, 'ladder' | 'windows' | 'translations'> & {
+type Props = Pick<Snapshot, 'ladder' | 'windows' | 'translations' | 'collectedAt'> & {
   bench: BenchState;
   proven: ProvenMark;
   bars: Bar[];
@@ -88,7 +88,7 @@ function BenchTranslation({ current }: { current: ProvenCapacity['current'] }) {
   return <>{rate(current.payment, 'payments/s', 'B20 transfers')} · {rate(current.swap, 'swaps/s', 'Uniswap v3')}</>;
 }
 
-export function Headline({ ladder, windows, translations, bench, proven, bars, binding }: Props) {
+export function Headline({ ladder, windows, translations, collectedAt, bench, proven, bars, binding }: Props) {
   const { p50, p99 } = ladder.observed;
   const window = p50.window ? ` · ${windows[p50.window].label}` : '';
   const headroom = proven && p50.value ? proven.value / p50.value : null;
@@ -97,7 +97,7 @@ export function Headline({ ladder, windows, translations, bench, proven, bars, b
       <Text as="h2" variant="headline">How much can Base handle, and how much do we use?</Text>
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <Stat label="Proven capacity" value={proven ? `${proven.atLeast ? '≥ ' : ''}${n(proven.value)}` : '—'} caption={provenCaption(bench, proven, ladder.qualified)} />
-        <Stat label="Used today" value={p50.value === null ? '—' : n(p50.value)} caption={`Mgas/s median · ${p99.value === null ? 'p99 not measured' : `${n(p99.value)} p99`}${window}`} />
+        <Stat label="Used today" value={p50.value === null ? '—' : n(p50.value)} caption={<>Mgas/s median · {p99.value === null ? 'p99 not measured' : `${n(p99.value)} p99`}{window}<br />{usageAsOf(collectedAt)}</>} />
         <Stat label="Headroom" value={headroom === null ? '—' : `${headroom < 10 ? headroom.toFixed(1) : Math.round(headroom)}×`} caption="proven ÷ median use" />
       </div>
       {binding ? (

@@ -31,6 +31,13 @@ it('orders the first screen headline, ladder, bottleneck bars, subsystem table, 
   expect(html).not.toContain('Ceilings by bottleneck');
 });
 
+it('labels snapshot usage with its date instead of a stale banner, on every page', async () => {
+  // The fixture is far older than any staleness window.
+  const pages = [await ScalingPage(), await ScalingGuardrailsPage()].map((p) => renderToStaticMarkup(p));
+  for (const html of pages) expect(html).toContain('Usage data as of 2026-01-02');
+  for (const html of [...pages, await area('da')]) expect(html).not.toContain('Stale');
+});
+
 it('shows every metric row on its detail page', async () => {
   for (const section of fixture.sections) {
     const html = section.id === 'outcomes' ? renderToStaticMarkup(await ScalingGuardrailsPage()) : await area(section.id);

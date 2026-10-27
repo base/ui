@@ -21,7 +21,7 @@ export default async function ScalingPage() {
       <Header loaded={loaded} title={`Scaling scorecard · ${snapshot.network}`} action={<Link className="underline" href="/scaling/runs">Runs →</Link>} />
 
       <Scorecard snapshot={snapshot} benchUrl={benchUrl} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
-      <Guardrails guardrails={snapshot.guardrails} benchUrl={benchUrl} />
+      <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />
 
       <Progress work={snapshot.work} />
 

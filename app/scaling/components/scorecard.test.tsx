@@ -69,7 +69,7 @@ describe('without bench data', () => {
     const { a, c, b, d } = render({});
     expect(swr.key).toBeNull();
     expect(text(a)).toContain('Proven capacity—Not established');
-    expect(text(a)).toContain('Used today12.5Mgas/s median · p99 not measured · 24 h');
+    expect(text(a)).toContain('Used today12.5Mgas/s median · p99 not measured · 24 hUsage data as of 2026-01-02');
     expect(text(a)).toContain('Headroom—');
     expect(text(a)).toContain("First limit: DA. Ethereum's blob target fills at ~57 Mgas/s of payments Estimated or 190 Mgas/s of mainnet-like traffic Measured.");
     expect(text(a)).toContain('1 Mgas/s ≈ 19 payments/s ≈ swaps/s pending');
@@ -124,9 +124,14 @@ describe('with a proven run', () => {
 
   it('draws the ladder from 0 to the proven rate with three bands and five markers, keeping help text', () => {
     swr.result = { data: bench(400, true) };
-    const { c } = render({ benchUrl: BENCH, dashboardUrl: 'https://dashboards.example.com/scaling' });
-    expect(text(c)).toContain('0 – 400 Mgas/s');
-    for (const label of ['used', 'allowed by policy', 'proven, not yet allowed', 'p50 12.5', 'fee target 40', 'gas limit 200', 'proven ≥ 400']) expect(text(c)).toContain(label);
+    const snapshot = fixture();
+    snapshot.ladder.observed.p99 = { ...snapshot.ladder.observed.p99, value: 42.2, tag: 'measured' };
+    const { c } = render({ benchUrl: BENCH, dashboardUrl: 'https://dashboards.example.com/scaling' }, snapshot);
+    expect(text(c)).toContain('Usage data as of 2026-01-02 · 0 – 400 Mgas/s');
+    for (const label of ['used', 'allowed by policy', 'proven, not yet allowed', 'p50 12.5', 'p99 42.2', 'fee target 40', 'gas limit 200', 'proven ≥ 400']) expect(text(c)).toContain(label);
+    // p99 has its own dashed tick at 42.2 / 400, and ends the used band there.
+    expect(c).toMatch(/border-dashed[^"]*" style="left:10.55%/);
+    expect(c).toMatch(/bg-base-blue" style="top:\d+px;height:22px;width:10.55%/);
     expect(text(c)).not.toMatch(/DA ·|Ceiling|payments/);
     expect(c).toContain('400 Mgas/s is the highest rate the bench runs');
     expect(c).toContain('href="https://dashboards.example.com/scaling"');
@@ -145,6 +150,23 @@ describe('with a proven run', () => {
     expect(text(b)).toContain('State joins once a runway is chosen.');
   });
 
+  it('fails the proof node and validator rows over budget, and drops their bars to unknown', () => {
+    const over = bench(400, true);
+    const proven = over.current.mix!;
+    proven.run.proofNode!.proofs!.headLagBlocks.p99 = 11;
+    over.current.mix = proven;
+    swr.result = { data: over };
+    const snapshot = fixture();
+    snapshot.guardrails = snapshot.guardrails.map((g) => (g.id === 'validator-keep-up' ? { ...g, value: 4, status: 'breached' } : g));
+    const { b, d } = render({ benchUrl: BENCH }, snapshot);
+    expect(row(d, 'Proof node')).toMatch(/0\.9× \/ 1\.4×over budget$/);
+    expect(row(d, 'Validator replay')).toMatch(/production lag over budget$/);
+    expect(bar(b, 'Proof node')).toContain('over budget at 400 · lag p99 11 blocks');
+    proven.run.proofNode!.proofs!.headLagBlocks.p99 = 4;
+    proven.run.proofNode!.proofs!.methods.debug_executePayload.latency.p99Ms = 1200;
+    expect(row(render().d, 'Proof node')).toMatch(/over budget$/);
+  });
+
   it('binds below the top rate when the proven rate is under every DA ceiling', () => {
     swr.result = { data: bench(40, false) };
     const { a, b } = render();
@@ -159,7 +181,7 @@ describe('with a proven run', () => {
     expect(text(d)).toContain('Measured at 400 Mgas/s');
     expect(row(d, 'Sequencer')).toBe('Sequencer395.0 Mgas/s delivered≥ 95% of target—pass');
     expect(row(d, 'Validator replay')).toBe('Validator replay36.4 blocks/s, newPayload p99 60 ms; production lag 3 blocks≥ 5 blocks/s; production lag ≤ 3 blocks7.3×pass');
-    expect(row(d, 'Proof node')).toBe('Proof nodelag p99 4 blocks; executePayload p99 733 mspending—budget pending');
+    expect(row(d, 'Proof node')).toBe('Proof nodelag p99 4 blocks; executePayload p99 733 ms≤ 10 blocks; ≤ 1000 ms2.5× / 1.4×pass');
     expect(row(d, 'DA (bench mix)')).toBe('DA (bench mix)15.5 blobs per L1 slot14 blobs0.9×over target');
     expect(row(d, 'State (full node)')).toBe('State (full node)pending45 TB—runway pending');
     expect(text(d)).toContain('TEE proving, RPC under syncnot measured yet');
