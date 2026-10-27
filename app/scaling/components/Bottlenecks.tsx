@@ -132,14 +132,17 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
     `The ${bytes(budget)} disk budget must hold today's state, the history window (${days(fullNode.historyWindowSeconds)} d) and proof window (${days(fullNode.proofWindowSeconds)} d) at this rate, and the runway's state growth at production's bytes per gas. History bytes per gas comes from ${from} and is a lower bound, because the sequencer prunes history, so this ceiling is an upper bound.`,
   );
 
-  // storage-growth.json's archive bytes per gas already sums every MDBX table, state included, with
-  // static files and RocksDB, so production state growth is not added on top.
+  // storage-growth.json's archive bytes per gas sums every MDBX table, state included, with static files
+  // and RocksDB. Bench runs write almost no new state, so production state growth is added on top; that
+  // double counts the bench run's tiny state growth.
   const archiveNeed = !runway ? 'a runway policy' : !archiveNow ? 'the production archive size' : null;
+  const archivePerGas = bytesPerGas.archive + (statePerGas ?? 0);
+  const stateBasis = statePerGas === undefined ? 'bench state only' : `+ mainnet state growth ${statePerGas} B/gas`;
   const archive = row(
     'disk-archive', 'Disk · archive node', archiveNeed,
-    archiveNeed ? 0 : (budget - archiveNow!.value) / (1e6 * bytesPerGas.archive * YEAR_SECONDS * runway!.archive), runway?.archive,
-    `${runway?.archive}-year runway · archive ${archiveNow ? bytes(archiveNow.value) : ''} on ${archiveNow?.asOf} (${archiveNow?.source}) · growth at ${from}'s bytes/gas`,
-    `The ${bytes(budget)} disk budget minus today's archive must cover the runway's growth. Growth per gas comes from ${from} and is a lower bound for that workload, because the sequencer prunes history, so the ceiling is an upper bound. That workload may write more bytes per gas than mainnet traffic does${archiveNow ? ` (Base's whole archive is ${bytes(archiveNow.value)})` : ''}, which makes the ceiling conservative in the other direction.${archiveNow?.note ? ` Archive size: ${archiveNow.note}.` : ''}`,
+    archiveNeed ? 0 : (budget - archiveNow!.value) / (1e6 * archivePerGas * YEAR_SECONDS * runway!.archive), runway?.archive,
+    `${runway?.archive}-year runway · archive ${archiveNow ? bytes(archiveNow.value) : ''} on ${archiveNow?.asOf} (${archiveNow?.source}) · growth at ${from}'s bytes/gas ${stateBasis}`,
+    `The ${bytes(budget)} disk budget minus today's archive must cover the runway's growth. ${statePerGas === undefined ? 'Without production state growth, only the bench run\'s state growth is counted.' : 'The rate adds mainnet state growth; the bench run writes almost no new state.'} Growth per gas comes from ${from} and is a lower bound for that workload, because the sequencer prunes history, so the ceiling is an upper bound. That workload may write more bytes per gas than mainnet traffic does${archiveNow ? ` (Base's whole archive is ${bytes(archiveNow.value)})` : ''}, which makes the ceiling conservative in the other direction.${archiveNow?.note ? ` Archive size: ${archiveNow.note}.` : ''}`,
   );
   return [full, archive];
 }

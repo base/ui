@@ -6,9 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProvenCapacity, Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import type { Limit } from './Bottlenecks';
-import { firstLimit, headroomLabel, sustainable } from './Headline';
-import type { ProvenMark } from './Ladder';
+import { headroomLabel, place, sustainable } from './Headline';
 import { Scorecard } from './Scorecard';
 
 // Synthetic data only: real bench results and snapshots are internal and never committed.
@@ -99,10 +97,10 @@ describe('freshness and headline', () => {
   it('heads with proven capacity, today and headroom, and the next bottleneck with its last change', () => {
     swr.result = { data: bench(400, true) };
     const { head } = render();
-    // First limit for today's mix is the ~190 Mgas/s mix DA ceiling: 189.7 ÷ 12.5 = 15×.
-    expect(text(head)).toContain("≥ 400Mgas/s15×First limit for today's traffic mix ÷ today's median gas rate. today 12.5 · 64 tx/s");
-    expect(text(head)).toContain('mix DA 190Payments (B20)');
-    expect(text(head)).not.toMatch(/32×|p99/);
+    // 400 proven ÷ 12.5 today = 32×, a floor because 400 is the top rate tested.
+    expect(text(head)).toContain("≥ 400Mgas/s≥ 32×Proven capacity ÷ today's median gas rate. What breaks first lists the limits that apply before proven capacity.today 12.5· 64 tx/s");
+    expect(text(head)).toContain('proven ≥ 400Payments (B20)');
+    expect(text(head)).not.toMatch(/p99|mix DA|archive disk ≤/);
     expect(text(head)).toContain('Next bottleneck to solveDA · Payments (B20) at ~57 Mgas/s≈ 1,517 payments/s');
     expect(text(head)).toContain('↑ from 40 Mgas/s on 2026-01-06 · compare');
     expect(text(head)).not.toMatch(/First limit:|Payments per second|In transactions/);
@@ -149,8 +147,9 @@ describe('workload tiles', () => {
     expect(tile(head, 'Payments (B20)')).toMatch(/≥ 2\.2k\/ssustainable today 617\/s.*capped by DA$/);
     expect(tile(head, 'Swaps (Uniswap v3)')).toContain('pendingsustainable today pending');
     // 12.5 Mgas/s ÷ 64.2 tx/s = ~195k gas per tx on mainnet; DA mix ~190 Mgas/s.
-    // The traffic tile repeats the 15× headroom because its sustainable rate is the same mix DA limit.
-    expect(tile(head, 'traffic mix')).toMatch(/≥ 2\.1k\/ssustainable today 974\/s \(15×\).*capped by DA/);
+    // Tiles carry no multiples; the header owns the one multiple.
+    expect(tile(head, 'traffic mix')).toMatch(/≥ 2\.1k\/ssustainable today 974\/sHighest.*capped by DA/);
+    expect(head.split('rounded-lg border').slice(1).join('')).not.toContain('×');
     expect(tile(head, 'traffic mix')).toContain("At today's mainnet average of ~195k gas per transaction (12.5 Mgas/s ÷ 64 tx/s), not the bench mix.");
   });
 
@@ -177,48 +176,33 @@ describe('workload tiles', () => {
   });
 });
 
-describe('headroom', () => {
-  const limit = (id: string, value: number): Limit => ({ id, label: id, value, ceiling: '', evidence: '' });
-  const proven = (value: number, atLeast: boolean): ProvenMark => ({ value, atLeast, help: '' });
-
-  it('takes the lowest limit that applies to today’s traffic, with its bound', () => {
-    const mix = [limit('da-payment', 57), limit('da-mix', 190), limit('disk-archive', 150), limit('disk-full', 568)];
-    expect(firstLimit(mix, 200, proven(400, true))).toMatchObject({ mgas: 150, bound: '≤', name: 'archive disk' });
-    expect(firstLimit([limit('da-mix', 190)], 200, proven(400, true))).toMatchObject({ mgas: 190, bound: '', name: 'mix DA' });
-    expect(firstLimit([limit('da-mix', 250)], 200, proven(400, true))).toMatchObject({ mgas: 200, bound: '', name: 'gas limit' });
-    expect(firstLimit([limit('da-mix', 250)], 200, proven(100, true))).toMatchObject({ mgas: 100, bound: '≥', name: 'proven' });
-    expect(firstLimit([limit('da-mix', 250)], null, proven(300, false))).toMatchObject({ mgas: 250, name: 'mix DA' });
-    expect(firstLimit([], null, null)).toBeNull();
+describe('headroom span', () => {
+  it('divides proven capacity by today’s median, marking a floor with ≥', () => {
+    expect(headroomLabel({ value: 400, atLeast: true, help: '' }, 18.67)).toBe('≥ 21×');
+    expect(headroomLabel({ value: 80, atLeast: false, help: '' }, 18.67)).toBe('4.3×');
   });
 
-  it('formats the multiple with one decimal below 10 and the limit’s bound', () => {
-    expect(headroomLabel({ mgas: 150, bound: '≤', name: 'archive disk', reason: '' }, 18.7)).toBe('≤ 8.0×');
-    expect(headroomLabel({ mgas: 400, bound: '≥', name: 'proven', reason: '' }, 18.7)).toBe('≥ 21×');
-    expect(headroomLabel({ mgas: 190, bound: '', name: 'mix DA', reason: '' }, 18.7)).toBe('10×');
-  });
-
-  it('places today, the first limit and the headroom label on a 0–proven span, and explains an upper bound', () => {
-    const data = bench(400, true);
-    data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
-    swr.result = { data };
+  it('places today on a 0–proven track and centers the multiple over the gap, clamping labels inside', () => {
+    swr.result = { data: bench(400, true) };
     const { head } = render();
-    // Today 12.5 and the ~151 archive ceiling on a 0–400 span; the label sits halfway between.
-    expect(head).toMatch(/data-span="today"[^>]*left:3\.125%/);
-    expect(head).toMatch(/data-span="limit"[^>]*left:37\.76\d*%/);
-    expect(head).toMatch(/data-span="headroom"[^>]*left:20\.44\d*%/);
-    expect(text(head)).toContain("≤ 12×First limit for today's traffic mix ÷ today's median gas rate. ≤ because the archive disk ceiling is an upper bound.");
-    expect(text(head)).toContain('archive disk ≤ 151');
-    // The traffic tile's sustainable rate (mix DA) is not the first limit, so it shows no multiple.
-    expect(tile(head, 'traffic mix')).toMatch(/sustainable today 974\/sHighest/);
+    // The server render assumes a 240 px column: today 12.5 of 400 sits at 7.5 px, so its label pins left.
+    expect(head).toMatch(/data-span="today"[^>]*left:7.5px/);
+    expect(head).toMatch(/data-span="gap"[^>]*left:7.5px/);
+    expect(head).toMatch(/data-span="headroom"[^>]*left:123.75px;transform:translateX\(-50%\)/);
+    expect(head).toMatch(/data-span-label="today"[^>]*style="left:0"/);
+    expect(head).not.toContain('data-span="limit"');
+    expect(place(120, 40, 240)).toEqual({ side: 'center', x: 120 });
+    expect(place(3, 40, 240)).toEqual({ side: 'left', x: 0 });
+    expect(place(238, 40, 240)).toEqual({ side: 'right', x: 240 });
   });
 
-  it('hides the span without today’s median', () => {
+  it('hides the span without today’s median or a proven rate', () => {
     swr.result = { data: bench(400, true) };
     const snapshot = fixture();
     snapshot.ladder.observed.p50 = { ...snapshot.ladder.observed.p50, value: null, tag: 'not-measured' };
-    const { head } = render({ benchUrl: BENCH }, snapshot);
-    expect(head).not.toContain('data-span');
-    expect(text(head)).toContain('≥ 400Mgas/s');
+    expect(render({ benchUrl: BENCH }, snapshot).head).not.toContain('data-span');
+    swr.result = { data: { current: none, da: none, history: [], latestAt: null, unknown: [] } };
+    expect(render().head).not.toContain('data-span');
   });
 });
 
@@ -333,14 +317,14 @@ describe('disk ceilings', () => {
     expect(rows(ranked).map((r) => r.slice(0, 26))).toEqual([
       '1DA · Payments (B20)next~5',
       '2DA · Swaps~115 ≈ 799/s Es',
-      '3Disk · archive node≤ 151u',
+      '3Disk · archive node≤ 138u',
       '4DA · Mainnet mix190 ≈ 981',
       '5Execution, validators, pr',
       '6Disk · full node≤ 553uppe',
       '—TEE proving, RPC under sy',
     ]);
-    // (45 TB − 4 TB) ÷ (1e6 × 0.0086 B/gas × 1 year); (45 TB − 1.1 TB state) ÷ (1e6 × (history 31 d + proofs 15 d + 2 years of 0.0008 B/gas state)).
-    expect(disk(ranked, 'archive node')).toBe("3Disk · archive node≤ 151upper bound · 1-year runway · archive 4.0 TB on 2026-01-01 (Synthetic archive snapshot) · growth at the mainnet mix run's bytes/gas");
+    // (45 TB − 4 TB) ÷ (1e6 × (0.0086 bench + 0.0008 mainnet state) B/gas × 1 year); (45 TB − 1.1 TB state) ÷ (1e6 × (history 31 d + proofs 15 d + 2 years of 0.0008 B/gas state)).
+    expect(disk(ranked, 'archive node')).toBe("3Disk · archive node≤ 138upper bound · 1-year runway · archive 4.0 TB on 2026-01-01 (Synthetic archive snapshot) · growth at the mainnet mix run's bytes/gas + mainnet state growth 0.0008 B/gas");
     expect(disk(ranked, 'full node')).toBe("6Disk · full node≤ 553upper bound · 2-year runway · state 1.1 TB now · history 31 d + proofs 15 d at the mainnet mix run's bytes/gas · production state growth 0.0008 B/gas");
   });
 
@@ -351,6 +335,14 @@ describe('disk ceilings', () => {
     expect(help).toContain('is a lower bound, because the sequencer prunes history, so this ceiling is an upper bound.');
     expect(help).toContain("may write more bytes per gas than mainnet traffic does (Base&#x27;s whole archive is 4.0 TB)");
     expect(help).toContain('Archive size: invented size.');
+  });
+
+  it('counts only the bench run’s state in the archive ceiling without production state growth', () => {
+    swr.result = { data: withStorage() };
+    const snapshot = fixture();
+    delete snapshot.production!.stateBytesPerGas;
+    // (45 TB − 4 TB) ÷ (1e6 × 0.0086 B/gas × 1 year).
+    expect(disk(render({ benchUrl: BENCH }, snapshot).ranked, 'archive node')).toMatch(/≤ 151upper bound .*bytes\/gas bench state only$/);
   });
 
   it('names the missing input and leaves the row unranked', () => {
@@ -381,8 +373,8 @@ describe('disk ceilings', () => {
   it('notes a disk ceiling below a tile’s sustainable rate under the tiles', () => {
     const swapDa = run(400, 'swap', daResult(2.6158e7, 22.4, false));
     swr.result = { data: withStorage({ current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: run(400, 'swap') } }, da: { mix: null, payment: null, swap: swapDa } }) };
-    // Swaps are sustainable to the 200 Mgas/s gas limit, above the ~151 archive ceiling.
-    expect(text(render().head)).toContain('Archive disk may cap lower (≤ 151 Mgas/s at 1-year runway)');
+    // Swaps are sustainable to the 200 Mgas/s gas limit, above the ~138 archive ceiling.
+    expect(text(render().head)).toContain('Archive disk may cap lower (≤ 138 Mgas/s at 1-year runway)');
     // A half-year archive runway lifts the ceiling to ~302 Mgas/s, above every tile.
     const shortRunway = fixture();
     shortRunway.policy!.runwayYears!.archive = 0.5;

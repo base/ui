@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
@@ -30,36 +30,39 @@ function benchNote({ configured, data, error }: BenchState, proven: ProvenMark, 
   return data.current.mix ? partial || null : `No main run passed in the last 14 days. ${partial}`.trim();
 }
 
-export type FirstLimit = { mgas: number; bound: '≤' | '≥' | ''; name: string; reason: string };
+// "≥ 21×" when proven is the top rate tested, a floor.
+export const headroomLabel = (proven: NonNullable<ProvenMark>, today: number) => `${proven.atLeast ? '≥ ' : ''}${times(proven.value / today)}`;
 
-// The lowest limit that applies to today's traffic mix. Payment- and swap-specific DA rows do not;
-// on ties the earlier entry wins, so an exact limit beats a bound.
-export function firstLimit(limits: Limit[], gasLimit: number | null, proven: ProvenMark): FirstLimit | null {
-  const value = (id: string) => limits.find((l) => l.id === id)?.value ?? null;
-  const candidates: (FirstLimit | null)[] = [
-    value('da-mix') === null ? null : { mgas: value('da-mix')!, bound: '', name: 'mix DA', reason: '' },
-    gasLimit === null ? null : { mgas: gasLimit, bound: '', name: 'gas limit', reason: '' },
-    value('disk-archive') === null ? null : { mgas: value('disk-archive')!, bound: '≤', name: 'archive disk', reason: '≤ because the archive disk ceiling is an upper bound.' },
-    value('disk-full') === null ? null : { mgas: value('disk-full')!, bound: '≤', name: 'full-node disk', reason: '≤ because the full-node disk ceiling is an upper bound.' },
-    !proven ? null : {
-      mgas: proven.value,
-      bound: proven.atLeast ? '≥' : '',
-      name: 'proven',
-      reason: proven.atLeast ? `≥ because ${n(proven.value)} Mgas/s is the highest rate tested, a floor.` : '',
-    },
-  ];
-  return candidates.reduce<FirstLimit | null>((low, c) => (c && (!low || c.mgas < low.mgas) ? c : low), null);
+export type Placement = { side: 'center' | 'left' | 'right'; x: number };
+
+// Centers a label on x, or pins it to the nearer edge when centering would overflow. `estimate` is an
+// approximate label width; a centered label renders with translateX(-50%), so it stays exact.
+export function place(x: number, estimate: number, width: number): Placement {
+  if (x - estimate / 2 < 0) return { side: 'left', x: 0 };
+  if (x + estimate / 2 > width) return { side: 'right', x: width };
+  return { side: 'center', x };
 }
 
-export const headroomLabel = (limit: FirstLimit, today: number) => `${limit.bound ? `${limit.bound} ` : ''}${times(limit.mgas / today)}`;
+const placed = (p: Placement): CSSProperties =>
+  p.side === 'left' ? { left: 0 } : p.side === 'right' ? { right: 0 } : { left: p.x, transform: 'translateX(-50%)' };
 
-function Capacity({ ladder, usage, proven, limit }: Pick<Props, 'ladder' | 'usage' | 'proven'> & { limit: FirstLimit | null }) {
+function Capacity({ ladder, usage, proven }: Pick<Props, 'ladder' | 'usage' | 'proven'>) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(240);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
   const today = ladder.observed.p50.value;
   const tps = usage?.transactionsPerSecond;
-  const end = Math.max(proven?.value ?? 0, limit?.mgas ?? 0, today ?? 0);
-  const pct = (v: number) => (end > 0 ? Math.min(100, Math.max(0, (v / end) * 100)) : 0);
+  const span = proven && today !== null && today > 0 ? proven : null;
+  const todayX = span ? Math.min(width, (today! / span.value) * width) : 0;
+  const headroom = span ? headroomLabel(span, today!) : '';
+  const todayText = `today ${today === null ? '' : n(today)}${tps ? ` · ${fmt(tps.value)} tx/s` : ''}`;
   return (
-    <div className={cn(SLOTS, 'border-transparent px-0')}>
+    <div ref={ref} className={cn(SLOTS, 'border-transparent px-0')}>
       <span data-slot="label" className={LABEL}>
         Proven capacity
         <Info label="About proven capacity">Execution, validators and proof node all pass at this rate on the mainnet snapshot. Workload tiles count successful transactions per second.</Info>
@@ -68,30 +71,28 @@ function Capacity({ ladder, usage, proven, limit }: Pick<Props, 'ladder' | 'usag
         {proven ? `${proven.atLeast ? '≥ ' : ''}${n(proven.value)}` : '—'}
         <span className="ml-1.5 text-[14px] font-[500] text-bds-gray-60">Mgas/s</span>
       </span>
-      {today !== null && limit ? (
-        <div aria-label="Today against the first limit" role="group" className="flex flex-col gap-1">
-          <div className="relative mt-5 h-2">
-            <div className="absolute inset-x-0 top-[3px] h-0.5 rounded bg-bds-gray-10 dark:bg-white/10" />
-            <span
-              data-span="headroom"
-              className="absolute -top-5 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap text-[15px] font-[650] leading-4 text-base-blue"
-              style={{ left: `${(pct(today) + pct(limit.mgas)) / 2}%` }}
-            >
-              {headroomLabel(limit, today)}
-              <Info label="About headroom">First limit for today&apos;s traffic mix ÷ today&apos;s median gas rate. {limit.reason}</Info>
-            </span>
-            <span data-span="today" className="absolute top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-bds-blue-90 dark:bg-white" style={{ left: `${pct(today)}%` }} />
-            <span data-span="limit" className="absolute top-0 h-2 w-2 -translate-x-1/2 rounded-full bg-bds-red-60" style={{ left: `${pct(limit.mgas)}%` }} />
-            <span data-span="proven" className="absolute -top-0.5 right-0 h-3 w-px bg-bds-gray-40" />
-          </div>
-          <div className="flex justify-between gap-2 text-[12px]">
-            <span className="whitespace-nowrap">
-              <b className="text-bds-blue-90 dark:text-white">today {n(today)}</b>
-              {tps ? <span className="text-bds-gray-60"> · {fmt(tps.value)} tx/s</span> : null}
-              {tps ? <> <Info label="About transactions per second">{tps.help}</Info></> : null}
-            </span>
-            <span className="whitespace-nowrap text-bds-red-60">{limit.name} {limit.bound ? `${limit.bound} ` : ''}{fmt(limit.mgas)}</span>
-          </div>
+      {span ? (
+        <div role="group" aria-label="Today against proven capacity" className="relative h-[52px]">
+          <span
+            data-span="headroom"
+            className="absolute top-0 flex items-center gap-1 whitespace-nowrap text-[18px] font-[700] leading-[22px] text-base-blue"
+            style={placed(place((todayX + width) / 2, headroom.length * 11 + 20, width))}
+          >
+            {headroom}
+            <Info label="About headroom">Proven capacity ÷ today&apos;s median gas rate. What breaks first lists the limits that apply before proven capacity.</Info>
+          </span>
+          <div className="absolute inset-x-0 top-[27px] h-0.5 rounded bg-bds-gray-10 dark:bg-white/10" />
+          <div data-span="gap" className="absolute right-0 top-[25px] h-1.5 rounded bg-base-blue opacity-25" style={{ left: todayX }} />
+          <span data-span="today" className="absolute top-[24px] h-2 w-2 -translate-x-1/2 rounded-full bg-bds-blue-90 dark:bg-white" style={{ left: todayX }} />
+          <span data-span="proven" className="absolute right-0 top-[24px] h-2 w-2 rounded-full bg-base-blue" />
+          <span data-span-label="today" className="absolute top-[34px] flex items-center gap-1 whitespace-nowrap text-[12px] leading-4" style={placed(place(todayX, todayText.length * 6 + 16, width))}>
+            <b className="text-bds-blue-90 dark:text-white">today {n(today!)}</b>
+            {tps ? <span className="text-bds-gray-60">· {fmt(tps.value)} tx/s</span> : null}
+            {tps ? <Info label="About transactions per second">{tps.help}</Info> : null}
+          </span>
+          <span data-span-label="proven" className="absolute right-0 top-[34px] whitespace-nowrap text-[12px] leading-4 text-bds-gray-60">
+            proven {span.atLeast ? '≥ ' : ''}{n(span.value)}
+          </span>
         </div>
       ) : null}
     </div>
@@ -101,12 +102,10 @@ function Capacity({ ladder, usage, proven, limit }: Pick<Props, 'ladder' | 'usag
 type Cap = 'DA' | 'gas limit' | 'execution';
 type Translation = {
   label: ReactNode;
-  today: number | null;
   gasPerTx: number | null;
   proven: { mgas: number; atLeast: boolean } | null;
   da: number;
   reverted?: number;
-  vsToday?: boolean;
 };
 
 // The lowest of the three ceilings; ties go to DA, then the gas limit.
@@ -123,11 +122,9 @@ const VALUE = 'whitespace-nowrap leading-[44px] tabular-nums';
 const CAP_TONE: Record<Cap, string> = { DA: 'text-bds-red-60', 'gas limit': 'text-bds-orange-60', execution: '' };
 const compact = (v: number) => new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(v).toLowerCase();
 
-// The traffic tile repeats the headroom multiple only when its sustainable rate is the same first limit.
-function Tile({ row: r, gasLimit, headroomMgas }: { row: Translation; gasLimit: number | null; headroomMgas: number | null }) {
+function Tile({ row: r, gasLimit }: { row: Translation; gasLimit: number | null }) {
   const s = r.proven && sustainable(r.proven.mgas, r.da, gasLimit);
   const tx = (mgas: number) => (mgas * 1e6) / r.gasPerTx!;
-  const vs = (v: number) => (r.vsToday && r.today && s?.mgas === headroomMgas ? <span className="text-bds-gray-60"> ({times(v / r.today)})</span> : null);
   return (
     <div className={cn(SLOTS, 'rounded-lg border-bds-gray-10 px-3.5 dark:border-white/10')}>
       <span data-slot="label" className={LABEL}>{r.label}</span>
@@ -135,7 +132,7 @@ function Tile({ row: r, gasLimit, headroomMgas }: { row: Translation; gasLimit: 
         {!r.proven ? 'pending' : r.gasPerTx === null ? '—' : <>{r.proven.atLeast ? '≥ ' : ''}{compact(tx(r.proven.mgas))}/s</>}
       </span>
       <span className={cn('flex h-[18px] items-center gap-1 whitespace-nowrap text-[12px] leading-[18px]', s && r.gasPerTx !== null ? CAP_TONE[s.cap] : 'text-bds-gray-60')}>
-        sustainable today {!s ? 'pending' : r.gasPerTx === null ? '—' : <>{fmt(tx(s.mgas))}/s{vs(tx(s.mgas))}</>}
+        sustainable today {!s ? 'pending' : r.gasPerTx === null ? '—' : `${fmt(tx(s.mgas))}/s`}
         <Info label="About sustainable today">
           Highest rate we can run continuously now: below the L1 blob target and within the current gas limit{gasLimit === null ? '' : ` (${n(gasLimit)} Mgas/s)`}. Capped by DA or the gas limit, not execution.
         </Info>
@@ -162,7 +159,6 @@ function translations({ ladder, usage, bench, proven, limits }: Pick<Props, 'lad
     const p = bench.data?.current[w] ?? null;
     return {
       label,
-      today: null,
       gasPerTx: p ? p.run.gps / successfulTps(p.run) : null,
       proven: p && { mgas: p.mgas, atLeast: p.atTop },
       da: daOf(w),
@@ -180,11 +176,9 @@ function translations({ ladder, usage, bench, proven, limits }: Pick<Props, 'lad
     benchRow('swap', 'Swaps (Uniswap v3)'),
     {
       label: <span className="inline-flex items-center gap-1">Today&apos;s traffic mix <Info label="About today's traffic mix">{mixHelp}</Info></span>,
-      today: tps,
       gasPerTx,
       proven: proven && { mgas: proven.value, atLeast: proven.atLeast },
       da: daOf('mix'),
-      vsToday: true,
     },
   ];
 }
@@ -232,12 +226,11 @@ export function Headline({ ladder, usage, bench, proven, next, limits }: Props) 
   const note = benchNote(bench, proven, ladder.qualified);
   const rows = translations({ ladder, usage, bench, proven, limits });
   const disk = diskNote(rows, limits, ladder.configuredLimit.value);
-  const limit = firstLimit(limits, ladder.configuredLimit.value, proven);
   return (
     <section aria-label="Proven capacity and next bottleneck" className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-3.5 min-[760px]:grid-cols-3 min-[1100px]:grid-cols-[minmax(220px,1.1fr)_repeat(3,minmax(0,1fr))]">
-        <div className="min-[760px]:col-span-3 min-[1100px]:col-span-1"><Capacity ladder={ladder} usage={usage} proven={proven} limit={limit} /></div>
-        {rows.map((row, i) => <Tile key={i} row={row} gasLimit={ladder.configuredLimit.value} headroomMgas={limit?.mgas ?? null} />)}
+        <div className="min-[760px]:col-span-3 min-[1100px]:col-span-1"><Capacity ladder={ladder} usage={usage} proven={proven} /></div>
+        {rows.map((row, i) => <Tile key={i} row={row} gasLimit={ladder.configuredLimit.value} />)}
       </div>
       {disk ? <Text variant="label.regular" tone="muted">{disk}</Text> : null}
       {next ? <Next limit={next} proven={proven} /> : null}
