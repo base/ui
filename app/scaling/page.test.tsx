@@ -21,7 +21,9 @@ it('links the first screen to four detail pages instead of listing metric rows',
   for (const page of ['da', 'execution', 'state', 'guardrails']) expect(html).toContain(`href="/scaling/${page}"`);
   expect(html).not.toContain('href="/scaling/networking"');
   expect(html).not.toContain('Blob utilization');
-  expect(html).toContain('href="/scaling/runs"');
+  expect(html).not.toContain('href="/scaling/runs"');
+  expect(html).toMatch(/<h1[^>]*>synthetic-testnet capacity<\/h1>/);
+  expect(html).not.toMatch(/As of|manually refreshed|Synthetic fixture: every number/);
 });
 
 it('orders the first screen headline, ladder, bottleneck bars, subsystem table, guardrails, progress', async () => {
@@ -45,10 +47,10 @@ it('shows every metric row on its detail page', async () => {
   }
 });
 
-it('renders an area with breadcrumb, as-of header, ceiling, metric details, gaps and a runs slot', async () => {
+it('renders an area with breadcrumb, no as-of line, ceiling, metric details, gaps and a runs slot', async () => {
   const html = await area('da');
   expect(html).toContain('href="/scaling">Scaling</a> / DA');
-  expect(html).toContain('As of 2026-01-02 00:00 UTC');
+  expect(html).not.toContain('As of 2026-01-02');
   expect(html).toMatch(/>Ceiling <span[^>]*>· Mgas\/s<\/span>/);
   expect(html).toContain('Lowest: Payments (B20) · 14-blob target, no margin');
   expect(html).toContain('>1,517<');
@@ -95,7 +97,7 @@ it('links the first-screen guardrail strip to the guardrails page', async () => 
 it('shows guardrail help inline and the outcomes table on the guardrails page', async () => {
   const html = renderToStaticMarkup(await ScalingGuardrailsPage());
   expect(html).toContain('href="/scaling">Scaling</a> / Guardrails');
-  expect(html).toContain('As of 2026-01-02 00:00 UTC');
+  expect(html).not.toContain('As of 2026-01-02');
   for (const g of fixture.guardrails) if (g.id !== 'validator-keep-up') expect(html).toContain(g.help);
   expect(html).toContain('They must stay within 3 blocks.');
   expect(html).not.toContain('Proof-node head lag p99');

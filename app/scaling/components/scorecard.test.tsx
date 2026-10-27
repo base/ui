@@ -81,7 +81,7 @@ describe('without bench data', () => {
     expect(text(a)).toContain('Headroom—');
     expect(text(a)).toContain("First limit: DA. Ethereum's blob target fills at ~57 Mgas/s of payments Estimated or 190 Mgas/s of mainnet-like traffic Measured.");
     expect(text(a)).toContain('1 Mgas/s ≈ 19 payments/s ≈ swaps/s pending');
-    expect(text(c)).toContain('0 – 200 Mgas/s');
+    expect(text(c)).toContain('200 Mgas/s');
     expect(text(c)).not.toContain('proven');
     expect(bar(b, 'DA · Payments (B20)')).toContain('~57Estimated· binding');
     expect(bar(b, 'Execution (sequencer)')).toContain('no proven run');
@@ -130,19 +130,33 @@ describe('with a proven run', () => {
     expect(a).toContain('href="https://github.com/base/base/compare/aaaa...bbbb"');
   });
 
-  it('draws the ladder from 0 to the proven rate with three bands and five markers, keeping help text', () => {
+  it('shades the used band in two tones at p50 and p99, notches the fee target, and marks the gas limit and proven rate', () => {
     swr.result = { data: bench(400, true) };
     const snapshot = fixture();
-    snapshot.ladder.observed.p99 = { ...snapshot.ladder.observed.p99, value: 42.2, tag: 'measured' };
+    snapshot.ladder.observed.p99 = { ...snapshot.ladder.observed.p99, value: 42.24, tag: 'measured' };
     const { c } = render({ benchUrl: BENCH, dashboardUrl: 'https://dashboards.example.com/scaling' }, snapshot);
-    expect(text(c)).toContain('Usage data as of 2026-01-02 · 0 – 400 Mgas/s');
-    for (const label of ['used', 'allowed by policy', 'proven, not yet allowed', 'p50 12.5', 'p99 42.2', 'fee target 40', 'gas limit 200', 'proven ≥ 400']) expect(text(c)).toContain(label);
-    // p99 has its own dashed tick at 42.2 / 400, and ends the used band there.
-    expect(c).toMatch(/border-dashed[^"]*" style="left:10.55%/);
-    expect(c).toMatch(/bg-base-blue" style="top:\d+px;height:22px;width:10.55%/);
-    expect(text(c)).not.toMatch(/DA ·|Ceiling|payments/);
+    // 12.5 / 400 and 42.24 / 400 of the axis.
+    expect(c).toMatch(/data-band="p50" width="3.125%"/);
+    expect(c).toMatch(/data-band="p99" width="10.56%"/);
+    expect(c).toContain('data-notch="fee"');
+    for (const label of ['p50 12.5', 'p99 42.2', 'fee target 40', 'gas limit 200', 'proven ≥ 400', 'allowed by policy', 'proven, not yet allowed', '400 Mgas/s']) expect(text(c)).toContain(label);
+    expect(text(c)).toContain('up to medianmedian to p99allowed by policyproven, not yet allowedUsage data as of 2026-01-02');
+    expect(text(c)).not.toMatch(/DA ·|Ceiling|payments|42\.24/);
     expect(c).toContain('400 Mgas/s is the highest rate the bench runs');
     expect(c).toContain('href="https://dashboards.example.com/scaling"');
+  });
+
+  it('shades only to p50 without a p99, and draws no used band without either', () => {
+    const { c } = render({});
+    expect(c).toMatch(/data-band="p50" width="6.25%"/);
+    expect(c).not.toContain('data-band="p99"');
+    expect(text(c)).toContain('p50 12.5');
+    expect(text(c)).not.toMatch(/p99|median to p99/);
+    const snapshot = fixture();
+    snapshot.ladder.observed.p50 = { ...snapshot.ladder.observed.p50, value: null, tag: 'not-measured' };
+    const empty = render({}, snapshot).c;
+    expect(empty).not.toContain('data-band');
+    expect(text(empty)).not.toMatch(/p50|up to median/);
   });
 
   it('bars each subsystem on the same scale and highlights the lowest', () => {

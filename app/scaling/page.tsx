@@ -18,7 +18,7 @@ export default async function ScalingPage() {
   const benchUrl = process.env.SCALING_BENCH_BASE_URL;
   return (
     <div className="flex flex-col gap-10 pb-8">
-      <Header loaded={loaded} title={`Scaling scorecard · ${snapshot.network}`} action={<Link className="underline" href="/scaling/runs">Runs →</Link>} />
+      <Header title={`${snapshot.network} capacity`} />
 
       <Scorecard snapshot={snapshot} benchUrl={benchUrl} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
       <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />

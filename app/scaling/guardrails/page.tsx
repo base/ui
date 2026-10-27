@@ -12,7 +12,7 @@ export default async function ScalingGuardrailsPage() {
   const outcomes = snapshot.sections.find((s) => s.id === 'outcomes');
   return (
     <div className="flex flex-col gap-10 pb-8">
-      <Header loaded={loaded} title={`Guardrails · ${snapshot.network}`} crumb="Guardrails" />
+      <Header title={`Guardrails · ${snapshot.network}`} crumb="Guardrails" />
       <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={process.env.SCALING_BENCH_BASE_URL} detailed />
       {outcomes ? <SectionTable section={outcomes} windows={snapshot.windows} /> : null}
     </div>

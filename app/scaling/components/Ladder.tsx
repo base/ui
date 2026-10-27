@@ -7,19 +7,27 @@ import { Text } from '../../components/ui/Text';
 import type { Rung, Snapshot } from '../snapshot.mjs';
 import { Info } from './Info';
 import { usageAsOf } from './ProvenCapacity';
-import { layoutRungs, type Anchor } from './ladderLayout';
 
-const LABEL_PX = 130;
-const ROW = 36;
-const BAR = 22;
-const ALIGN: Record<Anchor, string> = { start: 'items-start text-left', middle: 'items-center text-center', end: 'items-end text-right' };
-const SHIFT: Record<Anchor, string> = { start: 'none', middle: 'translateX(-50%)', end: 'translateX(-100%)' };
-const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+const BAR_Y = 50;
+const BAR_H = 24;
+const ROW_PX = 18;
+const CHAR_PX = 7.5;
+const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
 
-type Marker = { id: string; label: string; value: number; help: string; tick: string; text: string };
 export type ProvenMark = { value: number; atLeast: boolean; help: string } | null;
 
 type Props = Pick<Snapshot, 'ladder' | 'windows' | 'collectedAt'> & { proven: ProvenMark; max: number; dashboardUrl?: string };
+type Label = { id: string; text: string; help: string; x: number; className: string };
+
+const SHADES = {
+  median: 'fill-base-blue bg-base-blue',
+  p99: 'fill-bds-blue-30 bg-bds-blue-30',
+  allowed: 'fill-bds-blue-10 bg-bds-blue-10 dark:fill-bds-blue-80 dark:bg-bds-blue-80',
+  proven: 'fill-bds-gray-10 bg-bds-gray-10 dark:fill-white/10 dark:bg-white/10',
+};
+
+// Width of a label with its help button, so fanned labels can be kept apart.
+const labelPx = (text: string) => text.length * CHAR_PX + 20;
 
 export function Ladder({ ladder, windows, collectedAt, proven, max, dashboardUrl }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -31,63 +39,93 @@ export function Ladder({ ladder, windows, collectedAt, proven, max, dashboardUrl
   }, []);
 
   const help = (r: Rung) => (r.window ? `${r.help} Window: ${windows[r.window].label}.` : r.help);
-  const mark = (id: string, name: string, r: Rung, tick: string, text = ''): Marker[] =>
-    r.value === null ? [] : [{ id, label: `${name} ${n(r.value)}`, value: r.value, help: help(r), tick, text }];
+  const frac = (v: number) => Math.min(1, v / max);
+  const pct = (v: number) => `${frac(v) * 100}%`;
+  const px = (v: number) => frac(v) * width;
   const { p50, p99 } = ladder.observed;
   const limit = ladder.configuredLimit.value;
-  const markers: Marker[] = [
-    ...mark('p50', 'p50', p50, 'border-l-2 border-white'),
-    ...mark('p99', 'p99', p99, 'border-l border-dashed border-bds-gray-100 dark:border-white'),
-    ...mark('operating', 'fee target', ladder.operatingPoint, 'border-l border-dashed border-bds-gray-100 dark:border-white'),
-    ...mark('limit', 'gas limit', ladder.configuredLimit, 'border-l-2 border-bds-orange-60', 'text-bds-orange-60'),
-    ...(proven
-      ? [{ id: 'proven', label: `proven ${proven.atLeast ? '≥ ' : ''}${n(proven.value)}`, value: proven.value, help: proven.help, tick: 'border-l-[3px] border-base-blue', text: 'font-[600] text-base-blue' }]
-      : []),
+  const fee = ladder.operatingPoint.value;
+  const median = p50.value;
+  const tail = median === null ? null : p99.value;
+
+  // p50 and p99 are the shade boundaries; their labels fan out to the right on angled leaders.
+  let nextFree = 0;
+  const fanned = ([['p50', median, p50], ['p99', tail, p99]] as const).flatMap(([id, value, rung]) => {
+    if (value === null) return [];
+    const text = `${id} ${n(value)}`;
+    const left = Math.min(Math.max(px(value) + 17, nextFree), width - labelPx(text));
+    nextFree = left + labelPx(text) + 8;
+    return [{ id, value, text, left, help: help(rung) }];
+  });
+  const usedEnd = tail ?? median ?? 0;
+  const below: Label[] = [
+    ...(fee === null ? [] : [{ id: 'fee', text: `fee target ${n(fee)}`, help: help(ladder.operatingPoint), x: fee, className: 'text-[12px] text-bds-gray-60' }]),
+    ...(limit === null ? [] : [{ id: 'limit', text: `gas limit ${n(limit)}`, help: help(ladder.configuredLimit), x: limit, className: 'text-bds-orange-60' }]),
+    ...(proven ? [{ id: 'proven', text: `proven ${proven.atLeast ? '≥ ' : ''}${n(proven.value)}`, help: proven.help, x: proven.value, className: 'font-[600] text-base-blue' }] : []),
   ];
-  const placed = max > 0 ? layoutRungs(markers, max, LABEL_PX / width) : [];
-  const depth = (side: string) => 1 + Math.max(-1, ...placed.filter((p) => p.side === side).map((p) => p.tier));
-  const above = depth('above');
-  const barTop = above * ROW + 6;
-  const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
-  const used = p99.value ?? p50.value;
-  const bands = [
-    used !== null && { label: 'used', className: 'bg-base-blue' },
-    limit !== null && { label: 'allowed by policy', className: 'bg-bds-blue-10 dark:bg-bds-blue-80' },
-    proven && limit !== null && proven.value > limit && { label: 'proven, not yet allowed', className: 'bg-bds-gray-10 dark:bg-white/10' },
-  ].filter((b) => b !== false && b !== null);
+  // Labels under the bar take the first row where they clear the previous label.
+  const rowEnds: number[] = [];
+  const placedBelow = below.toSorted((a, b) => a.x - b.x).map((l) => {
+    const w = labelPx(l.text);
+    const left = Math.min(Math.max(px(l.x) - w / 2, 0), width - w);
+    let row = rowEnds.findIndex((end) => end + 6 <= left);
+    if (row === -1) row = rowEnds.length;
+    rowEnds[row] = left + w;
+    return { ...l, left, row };
+  });
+  const axisTop = BAR_Y + BAR_H + 10 + Math.max(1, rowEnds.length) * ROW_PX;
+  const height = axisTop + 14;
+  const captions = [
+    limit !== null && limit > usedEnd && { text: 'allowed by policy', from: usedEnd, to: limit, className: 'text-bds-blue-60' },
+    proven && limit !== null && proven.value > limit && { text: 'proven, not yet allowed', from: limit, to: proven.value, className: 'text-bds-gray-50' },
+  ].filter((c) => !!c);
+  const legend = [
+    median !== null && ['up to median', SHADES.median],
+    tail !== null && ['median to p99', SHADES.p99],
+    limit !== null && ['allowed by policy', SHADES.allowed],
+    proven && limit !== null && proven.value > limit && ['proven, not yet allowed', SHADES.proven],
+  ].filter((l) => !!l);
 
   return (
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">How close are we, and to what? <span className="text-bds-gray-60">· Mgas/s</span></Text>
-      <div ref={ref} role="group" aria-label="Usage against policy and proven capacity" className="relative" style={{ height: barTop + BAR + 6 + depth('below') * ROW }}>
-        <div className="absolute inset-x-0 rounded bg-bds-gray-10 dark:bg-white/10" style={{ top: barTop, height: BAR }} />
-        {limit === null ? null : <div className="absolute left-0 rounded bg-bds-blue-10 dark:bg-bds-blue-80" style={{ top: barTop, height: BAR, width: pct(limit) }} />}
-        {used === null ? null : <div className="absolute left-0 rounded bg-base-blue" style={{ top: barTop, height: BAR, width: pct(used) }} />}
-        {placed.map((p) => {
-          const m = markers.find((x) => x.id === p.id)!;
-          const top = p.side === 'above' ? (above - 1 - p.tier) * ROW : barTop + BAR + 6 + p.tier * ROW;
-          return (
-            <div key={m.id}>
-              <div className={cn('absolute', m.tick)} style={{ left: `${p.x * 100}%`, top: barTop - 4, height: BAR + 8 }} />
-              <div
-                className={cn('absolute z-10 flex flex-col', p.side === 'above' ? 'justify-end' : 'justify-start', ALIGN[p.anchor])}
-                style={{ left: `${p.x * 100}%`, top, width: LABEL_PX, height: ROW, transform: SHIFT[p.anchor] }}
-              >
-                <span className={cn('flex items-center gap-1 font-mono text-[12px]', m.text)}>
-                  {m.label} <Info label={`About ${m.label}`}>{m.help}</Info>
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[12px] text-bds-gray-60">
-        <span className="flex flex-wrap gap-x-4 gap-y-1">
-          {bands.map((b) => (
-            <span key={b.label} className="flex items-center gap-1.5"><span aria-hidden="true" className={cn('h-2.5 w-4 rounded-sm', b.className)} />{b.label}</span>
+      <div ref={ref} role="group" aria-label="Usage against policy and proven capacity" className="relative text-[13px]" style={{ height }}>
+        <svg aria-hidden="true" width="100%" height={height} className="absolute inset-0 overflow-visible">
+          <rect width="100%" y={BAR_Y} height={BAR_H} rx={5} className={SHADES.proven} />
+          {limit === null ? null : <rect width={pct(limit)} y={BAR_Y} height={BAR_H} rx={5} className={SHADES.allowed} />}
+          {tail === null ? null : <rect data-band="p99" width={pct(tail)} y={BAR_Y} height={BAR_H} rx={5} className={SHADES.p99} />}
+          {median === null ? null : <rect data-band="p50" width={pct(median)} y={BAR_Y} height={BAR_H} rx={5} className={SHADES.median} />}
+          {fanned.map((f) => (
+            <g key={f.id} className={f.id === 'p50' ? 'stroke-base-blue' : 'stroke-bds-blue-50'}>
+              <line x1={px(f.value)} x2={px(f.value)} y1={BAR_Y} y2={38} />
+              <line x1={px(f.value)} x2={f.left - 4} y1={38} y2={22} />
+            </g>
           ))}
-        </span>
-        <span>{usageAsOf(collectedAt)} · <span className="font-mono">0 – {n(max)} Mgas/s</span></span>
+          {fee === null ? null : <path data-notch="fee" d={`M${px(fee)} ${BAR_Y + BAR_H + 2} l-4 6 h8 z`} className="fill-bds-gray-60" />}
+          {limit === null ? null : <line x1={pct(limit)} x2={pct(limit)} y1={BAR_Y - 4} y2={BAR_Y + BAR_H + 4} strokeWidth={2} className="stroke-bds-orange-60" />}
+          {proven ? <line x1={pct(proven.value)} x2={pct(proven.value)} y1={BAR_Y - 4} y2={BAR_Y + BAR_H + 4} strokeWidth={3} className="stroke-base-blue" /> : null}
+        </svg>
+        {fanned.map((f) => (
+          <span key={f.id} className={cn('absolute flex items-center gap-1 whitespace-nowrap font-[600]', f.id === 'p50' ? 'text-base-blue' : 'text-bds-blue-50')} style={{ left: f.left, top: 10 }}>
+            {f.text} <Info label={`About ${f.text}`}>{f.help}</Info>
+          </span>
+        ))}
+        {captions.map((c) => (
+          <span key={c.text} className={cn('absolute -translate-x-1/2 whitespace-nowrap text-[12px]', c.className)} style={{ left: pct((c.from + c.to) / 2), top: 30 }}>{c.text}</span>
+        ))}
+        {placedBelow.map((l) => (
+          <span key={l.id} className={cn('absolute flex items-center gap-1 whitespace-nowrap', l.className)} style={{ left: l.left, top: BAR_Y + BAR_H + 10 + l.row * ROW_PX }}>
+            {l.text} <Info label={`About ${l.text}`}>{l.help}</Info>
+          </span>
+        ))}
+        <span className="absolute left-0 text-[11px] text-bds-gray-50" style={{ top: axisTop }}>0</span>
+        <span className="absolute right-0 text-[11px] text-bds-gray-50" style={{ top: axisTop }}>{n(max)} Mgas/s</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-bds-gray-60">
+        {legend.map(([label, shade]) => (
+          <span key={label} className="flex items-center gap-1.5"><span aria-hidden="true" className={cn('h-2.5 w-4 rounded-sm', shade)} />{label}</span>
+        ))}
+        <span>{usageAsOf(collectedAt)}</span>
       </div>
       {dashboardUrl ? <Text variant="label.regular" tone="muted"><a className="underline" href={dashboardUrl}>Mainnet load, gas limit, DA ceiling →</a></Text> : null}
     </section>
