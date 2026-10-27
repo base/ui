@@ -55,7 +55,15 @@ const render = (props: { benchUrl?: string; dashboardUrl?: string } = { benchUrl
   const [, a, c, b, d] = html.split('<section');
   return { html, a, c, b, d };
 };
-const text = (html: string) => html.replace(/<[^>]+>/g, '').replaceAll('&#x27;', "'");
+// Strip tags until none remain, so a tag split across a removed one cannot survive.
+const text = (html: string) => {
+  let out = html;
+  for (let prev = ''; prev !== out; ) {
+    prev = out;
+    out = out.replace(/<[^>]*>/g, '');
+  }
+  return out.replaceAll('&#x27;', "'");
+};
 const bar = (b: string, label: string) => text(`<li${b.split('<li').find((li) => li.includes(`>${label}<`)) ?? '>'}`);
 const row = (d: string, name: string) => text(`<tr${d.split('<tr').find((tr) => tr.includes(`>${name}<`)) ?? '>'}`);
 
