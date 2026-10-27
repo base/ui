@@ -41,7 +41,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
   const qualified = ladder.qualified;
   const mark = proven ? benchMark(proven) : !benchUrl && qualified.value !== null ? { value: qualified.value, atLeast: false, help: qualified.help } : null;
   const workloads = daWorkloads(data?.da);
-  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot));
+  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot), ladder.observed.p50.value);
   const binding = limits[0]?.value != null ? limits[0] : null;
   const values = [ladder.observed.p50, ladder.observed.p99, ladder.operatingPoint, ladder.configuredLimit].map((r) => r.value ?? 0);
   const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);

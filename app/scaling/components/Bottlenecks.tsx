@@ -1,7 +1,7 @@
 import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
-import { BLOB_TARGET, daCapacity, fmt, type DaWorkload } from '../da/workloads';
+import { BLOB_DATA_BYTES, BLOB_TARGET, daCapacity, fmt, L1_SLOT_SECONDS, type DaWorkload } from '../da/workloads';
 import { runHref, type PipelineStep, type Proven, type ProvenCapacity, type Run, type Storage, type Workload } from '../proven/capacity';
 import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Info } from './Info';
@@ -56,23 +56,72 @@ export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): 
   ];
 }
 
-function daEvidence(w: DaWorkload): string {
-  if (w.tag === 'estimated') return 'est. · run pending';
-  if (w.bench && w.source?.url === runHref(w.bench.run)) return `measured · ${w.bench.da.result.blobs_per_l1_slot.toFixed(1)} blobs/slot vs ${w.bench.da.target ?? BLOB_TARGET} at ${w.bench.run.mgas}`;
-  return `measured · ${w.source?.label ?? 'source pending'}`;
+const TRAFFIC: Record<Workload, string> = { payment: 'payments', swap: 'swaps', mix: 'transactions' };
+const blobRule = (target: number) =>
+  `The ceiling is the gas rate that fills the ${target}-blob target: ${target} × ${fmt(BLOB_DATA_BYTES)} bytes per blob ÷ ${L1_SLOT_SECONDS} s per slot ÷ bytes per gas.`;
+
+// Evidence and help for a DA row. `first` marks the lowest DA row, where the shared target is named.
+function daText(w: DaWorkload, ceiling: number, first: boolean, today: number | null, provenMgas: number | null): { evidence: string; help: string } {
+  const shared = first ? ', shared by all rollups' : '';
+  const bench = w.bench && w.source?.url === runHref(w.bench.run) ? w.bench : null;
+  if (bench) {
+    const { run, da } = bench;
+    const target = da.target ?? BLOB_TARGET;
+    const windowMgas = da.result.gas_per_second / 1e6;
+    // The DA run reports blobs over its posting window, which runs below the load rate; rescale to the load.
+    const blobs = Math.round((da.result.blobs_per_l1_slot * run.mgas) / windowMgas);
+    const reverted = run.reverted > 0.01 ? ` ${Math.round(run.reverted * 100)}% of ${TRAFFIC[w.payload]} reverted.` : '';
+    return {
+      evidence: `Measured in the bench: at ${run.mgas} Mgas/s, needs ${blobs} blobs per L1 slot. Target is ${target}${shared}.${reverted}`,
+      help: `Run ${run.outputDir}: ${da.result.bytes_per_gas.toPrecision(3)} compressed bytes per gas (compression ${da.result.compression_ratio.toFixed(1)}×). Over the batch posting window it averaged ${da.result.blobs_per_l1_slot.toFixed(1)} blobs per L1 slot at ${windowMgas.toFixed(1)} Mgas/s; scaling that window to the ${run.mgas} Mgas/s load gives ${blobs}. ${blobRule(target)}`,
+    };
+  }
+  const target = BLOB_TARGET;
+  if (w.tag === 'estimated') {
+    return {
+      evidence: `Estimated until a bench run measures it. Target is ${target}${shared}.`,
+      help: `Estimated ${fmt(w.bytesPerTx)} compressed bytes and ${fmt(w.gasPerTx)} gas per transaction. ${blobRule(target)}`,
+    };
+  }
+  const now = today === null ? null : `today's traffic uses about ${((target * today) / ceiling).toFixed(1)} blobs per L1 slot`;
+  const atProven = provenMgas === null ? null : `at ${provenMgas} Mgas/s it would need ${Math.round((target * provenMgas) / ceiling)}`;
+  return {
+    evidence: `Measured on mainnet${now || atProven ? `: ${[now, atProven].filter(Boolean).join('; ')}` : ''}. Target is ${target}${shared}.`,
+    help: `Source: ${w.source?.label ?? 'mainnet'} (mainnet blocks run through the production batcher encoder). Mainnet averages ${fmt(w.gasPerTx)} gas and ${w.bytesPerTx} compressed bytes per transaction. ${blobRule(target)}`,
+  };
+}
+
+function coreHelp(run: Run): string {
+  const replay = run.replay;
+  const proofs = run.proofNode?.proofs;
+  const execute = proofs?.methods.debug_executePayload?.latency.p99Ms;
+  return [
+    `Run ${run.outputDir}.`,
+    replay && `Validator replay: ${replay.blocksPerSecond.toFixed(1)} blocks/s, ${times(replay.blocksPerSecond / REPLAY_BLOCKS_PER_SECOND)} the ${REPLAY_BLOCKS_PER_SECOND} needed.`,
+    proofs && `Proof node: lag p99 ${proofs.headLagBlocks.p99} blocks${execute === undefined ? '' : `, executePayload p99 ${Math.round(execute)} ms`}.`,
+  ].filter(Boolean).join(' ');
 }
 
 // Lowest ceiling first; limits without a ceiling keep their order after the ranked ones.
-export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = []): Limit[] {
+export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = [], today: number | null = null): Limit[] {
+  const m = proven?.mgas ?? null;
+  const text = new Map<string, (first: boolean) => { evidence: string; help: string }>();
   const da = bars.filter((b) => b.id.startsWith('da-')).map((b): Limit => {
     const w = workloads.find((x) => `da-${x.payload}` === b.id)!;
-    return { id: b.id, label: b.label, value: b.value, ceiling: `${b.text} ≈ ${fmt(b.perSecond!)}/s`, evidence: daEvidence(w), tag: b.tag, perSecond: b.perSecond, workload: w };
+    text.set(b.id, (first) => daText(w, b.value!, first, today, m));
+    return { id: b.id, label: b.label, value: b.value, ceiling: b.text, evidence: '', tag: b.tag, perSecond: b.perSecond, workload: w };
   });
   const core = bars.filter((b) => !b.id.startsWith('da-'));
-  const m = proven?.mgas ?? null;
   const atLeast = (atTop: boolean) => (atTop ? `≥ ${m}` : `${m}`);
   const merged: Limit[] = m !== null && core.every((b) => b.value === m)
-    ? [{ id: 'core', label: 'Execution, validators, proof node', value: m, ceiling: atLeast(proven!.atTop), evidence: `all pass at ${m} · ${proven!.atTop ? 'no limit found up to the top rate tested' : 'the next rate tested did not pass'}` }]
+    ? [{
+      id: 'core',
+      label: 'Execution, validators, proof node',
+      value: m,
+      ceiling: atLeast(proven!.atTop),
+      evidence: `Measured in the bench: all passed at ${m} Mgas/s${proven!.atTop ? ', the highest rate tested.' : '; the next rate tested did not pass.'}`,
+      help: coreHelp(proven!.run),
+    }]
     : core.map((b) => ({
       id: b.id,
       label: b.label,
@@ -80,7 +129,9 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
       ceiling: b.value === null ? '—' : atLeast(b.id !== 'execution' || proven!.atTop),
       evidence: b.value === null ? b.text : b.id === 'execution' && !proven!.atTop ? 'the next rate tested did not pass' : b.text.split(' · ').slice(1).join(' · '),
     }));
-  return [...da, ...merged, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
+  const sorted = [...da, ...merged, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
+  const firstDa = sorted.find((l) => l.id.startsWith('da-'))?.id;
+  return sorted.map((l) => (text.has(l.id) ? { ...l, ...text.get(l.id)!(l.id === firstDa) } : l));
 }
 
 export type StorageSource = { storage: Storage; run: Run };
@@ -101,81 +152,114 @@ export function pickStorage(data: ProvenCapacity | undefined): StorageSource | n
 
 const YEAR_SECONDS = 31_557_600;
 const days = (seconds: number) => Math.round(seconds / 86_400);
+const years = (n: number) => (n === 1 ? 'one year' : `${n} years`);
 
 // Disk ceilings: the gas rate at which the budget just holds what each node keeps. Bench bytes per gas
 // is a lower bound (the sequencer prunes history), so both ceilings are upper bounds.
 export function diskLimits(source: StorageSource | null, { policy, production }: Pick<Snapshot, 'policy' | 'production'>): Limit[] {
   const runway = policy?.runwayYears;
-  const statePerGas = production?.stateBytesPerGas?.value;
+  const state = production?.stateBytesPerGas;
   const archiveNow = production?.archiveBytes;
-  const policyHelp = runway
-    ? ` Runway policy: full node ${runway.fullNode} years, archive ${runway.archive} year${runway.archive === 1 ? '' : 's'}${runway.help ? ` (${runway.help})` : ''}.`
-    : ' No runway policy is set.';
-  const row = (id: string, label: string, need: string | null, mgas: number, years: number | undefined, evidence: string, help: string): Limit =>
-    need !== null
-      ? { id, label, value: null, ceiling: '—', evidence: `needs ${need}`, help: help + policyHelp }
-      : mgas <= 0
-        ? { id, label, value: 0, ceiling: 'over budget', evidence, help: help + policyHelp, runwayYears: years }
-        : { id, label, value: mgas, ceiling: `≤ ${fmt(mgas)}`, evidence: `upper bound · ${evidence}`, help: help + policyHelp, runwayYears: years };
+  const policyText = runway
+    ? `runway policy: full node ${years(runway.fullNode)}, archive ${years(runway.archive)}${runway.help ? ` (${runway.help})` : ''}`
+    : 'no runway policy is set';
+  type Row = { mgas: number; years: number; evidence: string; overBudget: string; help: string };
+  const row = (id: string, label: string, need: string | null, r?: () => Row): Limit => {
+    if (need !== null) return { id, label, value: null, ceiling: '—', evidence: `needs ${need}`, help: `Needs ${need}; ${policyText}.` };
+    const { mgas, years: runwayYears, evidence, overBudget, help } = r!();
+    return mgas <= 0
+      ? { id, label, value: 0, ceiling: 'over budget', evidence: overBudget, help, runwayYears }
+      : { id, label, value: mgas, ceiling: `≤ ${fmt(mgas)}`, evidence, help, runwayYears };
+  };
   if (!source) {
     const need = 'a bench storage-growth run';
-    return [row('disk-full', 'Disk · full node', need, 0, undefined, '', ''), row('disk-archive', 'Disk · archive node', need, 0, undefined, '', '')];
+    return [row('disk-full', 'Disk · full node', need), row('disk-archive', 'Disk · archive node', need)];
   }
   const { storage: { diskBudgetBytes: budget, bytesPerGas, current, fullNode }, run } = source;
   const from = `the ${WORKLOAD[run.workload]} run`;
+  const budgetText = `${bytes(budget)} disk budget (a bench config assumption)`;
 
-  const fullNeed = !runway ? 'a runway policy' : statePerGas === undefined ? 'production state growth' : bytesPerGas.proofs === null ? 'proof storage growth' : null;
-  const perMgas = fullNeed ? 0 : 1e6 * (bytesPerGas.history * fullNode.historyWindowSeconds + bytesPerGas.proofs! * fullNode.proofWindowSeconds + statePerGas! * YEAR_SECONDS * runway!.fullNode);
   const full = row(
-    'disk-full', 'Disk · full node', fullNeed, fullNeed ? 0 : (budget - current.state) / perMgas, runway?.fullNode,
-    `${runway?.fullNode}-year runway · state ${bytes(current.state)} now · history ${days(fullNode.historyWindowSeconds)} d + proofs ${days(fullNode.proofWindowSeconds)} d at ${from}'s bytes/gas · production state growth ${statePerGas} B/gas`,
-    `The ${bytes(budget)} disk budget must hold today's state, the history window (${days(fullNode.historyWindowSeconds)} d) and proof window (${days(fullNode.proofWindowSeconds)} d) at this rate, and the runway's state growth at production's bytes per gas. History bytes per gas comes from ${from} and is a lower bound, because the sequencer prunes history, so this ceiling is an upper bound.`,
+    'disk-full', 'Disk · full node',
+    !runway ? 'a runway policy' : !state ? 'production state growth' : bytesPerGas.proofs === null ? 'proof storage growth' : null,
+    () => {
+      const historyDays = days(fullNode.historyWindowSeconds);
+      const proofDays = days(fullNode.proofWindowSeconds);
+      const perMgas = 1e6 * (bytesPerGas.history * fullNode.historyWindowSeconds + bytesPerGas.proofs! * fullNode.proofWindowSeconds + state!.value * YEAR_SECONDS * runway!.fullNode);
+      const kept = `${historyDays} days of history, ${proofDays} days of proofs and ${years(runway!.fullNode)} of state growth`;
+      return {
+        mgas: (budget - current.state) / perMgas,
+        years: runway!.fullNode,
+        evidence: `Projected from bench growth: ${kept} fit in ${bytes(budget)}. Upper bound.`,
+        overBudget: `Projected from bench growth: today's state (${bytes(current.state)}) leaves no room in ${bytes(budget)}.`,
+        help: `Inputs: ${budgetText}; today's state ${bytes(current.state)}, measured at ${from}'s snapshot; ${bytesPerGas.history.toPrecision(3)} bytes per gas of history and ${bytesPerGas.proofs!.toPrecision(3)} of proofs from ${from}; ${state!.value} bytes per gas of production state growth${state!.source ? ` from ${state!.source}` : ''}; ${policyText}. Upper bound: history bytes per gas is a lower bound, because the sequencer prunes history.`,
+      };
+    },
   );
 
   // storage-growth.json's archive bytes per gas sums every MDBX table, state included, with static files
   // and RocksDB. Bench runs write almost no new state, so production state growth is added on top; that
   // double counts the bench run's tiny state growth.
-  const archiveNeed = !runway ? 'a runway policy' : !archiveNow ? 'the production archive size' : null;
-  const archivePerGas = bytesPerGas.archive + (statePerGas ?? 0);
-  const stateBasis = statePerGas === undefined ? 'bench state only' : `+ mainnet state growth ${statePerGas} B/gas`;
   const archive = row(
-    'disk-archive', 'Disk · archive node', archiveNeed,
-    archiveNeed ? 0 : (budget - archiveNow!.value) / (1e6 * archivePerGas * YEAR_SECONDS * runway!.archive), runway?.archive,
-    `${runway?.archive}-year runway · archive ${archiveNow ? bytes(archiveNow.value) : ''} on ${archiveNow?.asOf} (${archiveNow?.source}) · growth at ${from}'s bytes/gas ${stateBasis}`,
-    `The ${bytes(budget)} disk budget minus today's archive must cover the runway's growth. ${statePerGas === undefined ? 'Without production state growth, only the bench run\'s state growth is counted.' : 'The rate adds mainnet state growth; the bench run writes almost no new state.'} Growth per gas comes from ${from} and is a lower bound for that workload, because the sequencer prunes history, so the ceiling is an upper bound. That workload may write more bytes per gas than mainnet traffic does${archiveNow ? ` (Base's whole archive is ${bytes(archiveNow.value)})` : ''}, which makes the ceiling conservative in the other direction.${archiveNow?.note ? ` Archive size: ${archiveNow.note}.` : ''}`,
+    'disk-archive', 'Disk · archive node',
+    !runway ? 'a runway policy' : !archiveNow ? 'the production archive size' : null,
+    () => {
+      const perGas = bytesPerGas.archive + (state?.value ?? 0);
+      const stateText = state
+        ? ` plus ${state.value} bytes per gas of mainnet state growth${state.source ? ` from ${state.source}` : ''}, since the bench run writes almost no new state`
+        : ' (bench state only)';
+      return {
+        mgas: (budget - archiveNow!.value) / (1e6 * perGas * YEAR_SECONDS * runway!.archive),
+        years: runway!.archive,
+        evidence: `Projected from bench growth: ${years(runway!.archive)} ${runway!.archive === 1 ? 'fills' : 'fill'} the ${bytes(budget)} disk (${bytes(archiveNow!.value)} used today). Upper bound.`,
+        overBudget: `Projected from bench growth: today's archive (${bytes(archiveNow!.value)}) already fills the ${bytes(budget)} disk.`,
+        help: `Inputs: ${budgetText}; today's archive ${bytes(archiveNow!.value)} from ${archiveNow!.source} on ${archiveNow!.asOf}${archiveNow!.note ? ` (${archiveNow!.note})` : ''}; ${bytesPerGas.archive.toPrecision(3)} bytes per gas from ${from}${stateText}; ${policyText}. Upper bound: bench bytes per gas is a lower bound, because the sequencer prunes history. That workload may write more bytes per gas than mainnet traffic does (Base's whole archive is ${bytes(archiveNow!.value)}), which makes the ceiling conservative in the other direction.`,
+      };
+    },
   );
   return [full, archive];
 }
 
 function LastChange({ history }: { history: ProvenCapacity['history'] }) {
-  if (history.length < 2) return null;
   const [previous, last] = history.slice(-2);
   const down = last.mgas !== null && previous.mgas !== null && last.mgas < previous.mgas;
   return (
     <>
-      {' · '}{down ? '↓' : '↑'} from {previous.mgas === null ? 'none' : `${previous.mgas} Mgas/s`} on {day(last.at)}
+      {down ? '↓' : '↑'} from {previous.mgas === null ? 'none' : `${previous.mgas} Mgas/s`} on {day(last.at)}
       {last.compareUrl ? <> · <a className="underline" href={last.compareUrl}>compare</a></> : null}
     </>
   );
 }
 
-function Evidence({ proven, history }: { proven: Proven; history: ProvenCapacity['history'] }) {
+const DT = 'text-bds-gray-60';
+
+function ProvenBy({ proven, history }: { proven: Proven; history: ProvenCapacity['history'] }) {
   const { run } = proven;
   return (
-    <div className="flex flex-col gap-1">
-      <Text variant="label.regular" tone="muted">
-        Proven by <a className="underline" href={runHref(run)}>{run.outputDir}</a>: {run.mgas} Mgas/s run delivered {(run.gps / 1e6).toFixed(1)} Mgas/s · commit{' '}
-        <a className="font-mono underline" href={`https://github.com/base/base/commit/${run.commit}`}>{run.commit.slice(0, 7)}</a> · {day(run.createdAt)}
-        <LastChange history={history} />
-      </Text>
-      <ul aria-label="Pipeline steps" className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-bds-gray-60">
-        {run.steps.map((s) => (
-          <li key={s.name} className="flex items-center gap-1" title={s.reason ?? undefined}>
-            <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', STEP_DOT[s.status])} />
-            {s.name.replace('_', ' ')} {s.status}
-          </li>
-        ))}
-      </ul>
+    <div className="flex flex-col gap-2 text-[13px]">
+      <Text as="h3" variant="label">Proven by</Text>
+      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
+        <dt className={DT}>Run</dt>
+        <dd className="break-all"><a className="underline" href={runHref(run)}>{run.outputDir}</a></dd>
+        <dt className={DT}>Rate</dt>
+        <dd className="tabular-nums">{run.mgas} → {(run.gps / 1e6).toFixed(1)} Mgas/s</dd>
+        <dt className={DT}>Commit</dt>
+        <dd><a className="font-mono underline" href={`https://github.com/base/base/commit/${run.commit}`}>{run.commit.slice(0, 7)}</a></dd>
+        <dt className={DT}>Date</dt>
+        <dd>{day(run.createdAt)}</dd>
+        {history.length >= 2 ? <><dt className={DT}>Change</dt><dd><LastChange history={history} /></dd></> : null}
+        <dt className={DT}>Steps</dt>
+        <dd>
+          <ul aria-label="Pipeline steps" className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-bds-gray-60">
+            {run.steps.map((s) => (
+              <li key={s.name} className="flex items-center gap-1" title={s.reason ?? undefined}>
+                <span aria-hidden="true" className={cn('h-2 w-2 rounded-full', STEP_DOT[s.status])} />
+                {s.name.replace('_', ' ')} {s.status}
+              </li>
+            ))}
+          </ul>
+        </dd>
+      </dl>
     </div>
   );
 }
@@ -183,7 +267,7 @@ function Evidence({ proven, history }: { proven: Proven; history: ProvenCapacity
 export function Bottlenecks({ limits, max, gasLimit, proven, history }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; history: ProvenCapacity['history'] }) {
   const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
   const ranked = limits.filter((l) => l.value !== null).length;
-  const fixed = [{ label: 'TEE proving, RPC under sync', evidence: 'not measured yet' }];
+  const fixed = [{ label: 'TEE proving, RPC under sync', evidence: 'Not measured yet.' }];
   return (
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">What breaks first <span className="text-bds-gray-60">· Mgas/s</span></Text>
@@ -205,8 +289,10 @@ export function Bottlenecks({ limits, max, gasLimit, proven, history }: { limits
                     {l.help ? <> <Info label={`About ${l.label}`}>{l.help}</Info></> : null}
                     {next ? <span className="ml-1.5 rounded bg-bds-red-60 px-1.5 py-px text-[11px] font-[600] text-white">next</span> : null}
                   </td>
-                  <td className={cn(TD, 'whitespace-nowrap text-right tabular-nums', next && 'text-bds-red-60')}>
-                    {l.ceiling}{l.tag ? <> <Tag tag={l.tag} /></> : null}
+                  <td className={cn(TD, 'text-right tabular-nums', next && 'text-bds-red-60')}>
+                    <span className="whitespace-nowrap">{l.ceiling}{l.value !== null && l.value > 0 ? ' Mgas/s' : ''}</span>
+                    {l.perSecond === undefined ? null : <span className="block whitespace-nowrap text-[12px] text-bds-gray-60 lg:ml-1 lg:inline">≈ {fmt(l.perSecond)} tx/s</span>}
+                    {l.tag ? <span className="ml-1 whitespace-nowrap"><Tag tag={l.tag} /></span> : null}
                   </td>
                   <td className={TD}>
                     <div className="relative h-2.5 min-w-[90px] rounded bg-bds-gray-10 dark:bg-white/10">
@@ -226,7 +312,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven, history }: { limits
           </tbody>
         </table>
       </Card>
-      {proven ? <Evidence proven={proven} history={history} /> : null}
+      {proven ? <ProvenBy proven={proven} history={history} /> : null}
     </section>
   );
 }

@@ -111,7 +111,7 @@ export function Ladder({ ladder, windows, proven, max, limits }: Props) {
     ...limits.filter((l) => l.value !== null && SHORT[l.id]).map((l): Point => ({
       id: l.id,
       value: l.value!,
-      valueText: l.value === 0 ? 'over budget' : l.ceiling.split(' ≈ ')[0],
+      valueText: l.ceiling,
       name: SHORT[l.id],
       tone: l.id.startsWith('disk-') ? 'disk' : 'da',
       help: l.help ?? l.evidence,

@@ -4,8 +4,8 @@ import type { Ceiling, Link } from '../snapshot.mjs';
 // Ethereum's blob target and max per L1 block since BPO2 (2026-01-07), and the data one blob carries.
 export const BLOB_TARGET = 14;
 export const BLOB_MAX = 21;
-const BLOB_DATA_BYTES = 130_044;
-const L1_SLOT_SECONDS = 12;
+export const BLOB_DATA_BYTES = 130_044;
+export const L1_SLOT_SECONDS = 12;
 
 export type DaWorkload = {
   label: string;
