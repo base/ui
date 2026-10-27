@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
+import type { DaWorkload } from '../da/workloads';
 import type { UnifiedRun } from '../runs/lib/unified';
 import { deriveBinding, type Ceiling, type CeilingInput } from '../snapshot.mjs';
 import { DaWorkloadRows } from './DaWorkloads';
@@ -17,18 +18,18 @@ function input({ name, value, unit, status, asOf }: CeilingInput): string {
   return [name, shown, value === null ? null : status, asOf && new Date(asOf).toISOString().slice(0, 10)].filter(Boolean).join(' · ');
 }
 
-export function CeilingCards({ ceilings }: { ceilings: Ceiling[] }) {
+export function CeilingCards({ ceilings, benchUrl }: { ceilings: Ceiling[]; benchUrl?: string }) {
   return (
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">Ceilings by bottleneck <span className="text-bds-gray-60">· Mgas/s</span></Text>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={ceilings} />)}
+        {AREAS.map(([area]) => <RunBackedCeilingCard key={area} area={area} ceilings={ceilings} benchUrl={benchUrl} />)}
       </div>
     </section>
   );
 }
 
-export function CeilingCard({ area, ceilings, run }: { area: Ceiling['area']; ceilings: Ceiling[]; run?: UnifiedRun }) {
+export function CeilingCard({ area, ceilings, workloads, run }: { area: Ceiling['area']; ceilings: Ceiling[]; workloads?: DaWorkload[]; run?: UnifiedRun }) {
   const name = AREAS.find(([a]) => a === area)![1];
   const c = ceilings.find((x) => x.area === area)!;
   return (
@@ -45,7 +46,7 @@ export function CeilingCard({ area, ceilings, run }: { area: Ceiling['area']; ce
       {area === 'da' ? (
         <>
           <p className="text-[12px] text-bds-gray-60">{c.reason}</p>
-          <DaWorkloadRows />
+          <DaWorkloadRows workloads={workloads} />
         </>
       ) : (
         <>

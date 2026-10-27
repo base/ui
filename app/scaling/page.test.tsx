@@ -66,6 +66,14 @@ it('passes the runtime bench and dashboard URLs to the ladder', async () => {
   expect(html).toContain('href="https://dashboards.example.com/scaling"');
 });
 
+it('adds bench guardrail rows when a bench host is set, unknown until its results load', async () => {
+  vi.stubEnv('SCALING_BENCH_BASE_URL', 'https://bench.example.com');
+  for (const html of [renderToStaticMarkup(await ScalingGuardrailsPage()), renderToStaticMarkup(await ScalingPage())]) {
+    for (const label of ['Proof-node head lag p99', 'debug_executePayload p99', 'Validator replay headroom']) expect(html).toContain(label);
+  }
+  expect(renderToStaticMarkup(await ScalingGuardrailsPage())).toContain('No qualifying mainnet-mix bench run is loaded.');
+});
+
 it('links the first-screen guardrail strip to the guardrails page', async () => {
   expect(renderToStaticMarkup(await ScalingPage())).toContain('<a class="underline" href="/scaling/guardrails">Guardrails →</a>');
 });
@@ -74,7 +82,9 @@ it('shows guardrail help inline and the outcomes table on the guardrails page', 
   const html = renderToStaticMarkup(await ScalingGuardrailsPage());
   expect(html).toContain('href="/scaling">Scaling</a> / Guardrails');
   expect(html).toContain('As of 2026-01-02 00:00 UTC');
-  for (const g of fixture.guardrails) expect(html).toContain(g.help);
+  for (const g of fixture.guardrails) if (g.id !== 'validator-keep-up') expect(html).toContain(g.help);
+  expect(html).toContain('They must stay within 3 blocks.');
+  expect(html).not.toContain('Proof-node head lag p99');
   expect(html).not.toContain('Guardrails →');
   expect(html).toContain('Inclusion latency p50');
   expect(html).toContain('synthetic.inclusion_latency');

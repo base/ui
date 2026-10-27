@@ -4,7 +4,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
-import type { Proven } from '../proven/capacity';
+import { daWorkloads, withDaWorkloads } from '../da/workloads';
+import { runHref, type Proven, type ProvenCapacity as Capacity } from '../proven/capacity';
 import { deriveBinding, type Rung, type Snapshot } from '../snapshot.mjs';
 import { Info } from './Info';
 import { day, ProvenCapacity, useProvenCapacity } from './ProvenCapacity';
@@ -23,7 +24,7 @@ type Item = { id: string; label: string; value: number | null; tag: string; help
 
 function benchItem({ mgas, atTop, run }: Proven) {
   const top = atTop ? ` ≥ because ${mgas} Mgas/s is the highest rate the bench runs.` : '';
-  const help = `Bench-proven: the highest rate whose latest main run in the last 14 days was comparable and delivered ≥ 95% of target. Run ${run.outputDir}, commit ${run.commit.slice(0, 7)}, ${day(run.createdAt)}.${top} DA and proof guardrails are not checked.`;
+  const help = `Bench-proven: the highest rate whose latest main run in the last 14 days was comparable and delivered ≥ 95% of target. Run ${run.outputDir}, commit ${run.commit.slice(0, 7)}, ${day(run.createdAt)}.${top} Comparable requires every enabled pipeline step to pass; the DA blob target and proof-node lag and latency are recorded, not gated.`;
   return { value: mgas, tag: 'measured' as const, help, atLeast: atTop, source: 'bench' };
 }
 
@@ -51,6 +52,13 @@ function translation({ gasPerPayment, gasPerSwap }: Snapshot['translations']): s
   return `1 Mgas/s ≈ ${per(gasPerPayment, 'payments')} ≈ ${per(gasPerSwap, 'swaps')}`;
 }
 
+// Delivered tx/s of each workload's proven run; the rate can only be higher.
+function BenchTranslation({ current }: { current: Capacity['current'] }) {
+  const rate = (p: Proven | null, noun: string, what: string) =>
+    p ? <a className="underline" href={runHref(p.run)}>≥ {Math.floor(p.run.tps).toLocaleString('en-US')} {noun} ({what})</a> : `${noun} (${what}) pending`;
+  return <>{rate(current.payment, 'payments/s', 'B20 transfers')} · {rate(current.swap, 'swaps/s', 'Uniswap v3')}</>;
+}
+
 export function Ladder(props: Props) {
   const axisRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(960);
@@ -61,8 +69,9 @@ export function Ladder(props: Props) {
   }, []);
 
   const bench = useProvenCapacity(props.benchUrl);
-  const proven = bench.error ? null : bench.data?.current;
-  const all = items(props, proven);
+  const loaded = bench.error ? undefined : bench.data;
+  const proven = loaded?.current.mix;
+  const all = items(loaded ? { ...props, ceilings: withDaWorkloads(props.ceilings, daWorkloads(loaded.da)) } : props, proven);
   const valued = all.flatMap((i) => (i.value === null ? [] : [{ id: i.id, value: i.value }]));
   const max = props.ladder.configuredLimit.value ?? Math.max(0, ...valued.map((v) => v.value));
   const placed = new Map(max > 0 ? layoutRungs(valued, max, LABEL_PX / width).map((p) => [p.id, p]) : []);
@@ -116,7 +125,7 @@ export function Ladder(props: Props) {
           <span className="flex flex-wrap gap-x-3">Qualified sustained by {props.ladder.qualified.evidence.map((l) => <a key={l.url} className="underline" href={l.url}>{l.label}</a>)}</span>
         </Text>
       ) : null}
-      <Text variant="label.regular" tone="muted">{translation(props.translations)}</Text>
+      <Text variant="label.regular" tone="muted">{loaded ? <BenchTranslation current={loaded.current} /> : translation(props.translations)}</Text>
       {props.benchUrl ? <ProvenCapacity data={bench.data} error={bench.error} /> : null}
       {props.dashboardUrl ? <Text variant="label.regular" tone="muted"><a className="underline" href={props.dashboardUrl}>Mainnet load, gas limit, DA ceiling →</a></Text> : null}
     </section>

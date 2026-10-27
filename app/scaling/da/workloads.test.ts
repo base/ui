@@ -1,13 +1,14 @@
 import { expect, it } from 'vitest';
 
 import type { Ceiling } from '../snapshot.mjs';
-import { BLOB_MAX, BLOB_TARGET, daCapacity, withDaWorkloads, type DaWorkload } from './workloads';
+import type { Da, Run } from '../proven/capacity';
+import { BLOB_MAX, BLOB_TARGET, daCapacity, daWorkloads, DA_WORKLOADS, withDaWorkloads, type DaWorkload } from './workloads';
 
 const ceiling = (area: Ceiling['area'], value: number): Ceiling => ({
   area, value, unit: 'Mgas/s', tag: 'modeled', formula: 'snapshot', inputs: [], help: 'snapshot',
 });
 const workload = (label: string, bytesPerTx: number, gasPerTx: number, tag: DaWorkload['tag']): DaWorkload => ({
-  label, benchWorkload: label, bytesPerTx, gasPerTx, tag, asOf: null,
+  label, payload: 'mix', benchWorkload: label, bytesPerTx, gasPerTx, tag, asOf: null,
 });
 
 it('turns bytes per transaction into tx/s and gas/s at a blob count', () => {
@@ -31,4 +32,33 @@ it('replaces only the DA ceiling, with the lowest workload gas/s', () => {
 it('is modeled once every workload is measured', () => {
   const [da] = withDaWorkloads([ceiling('da', 820)], [workload('mix', 155, 193_000, 'measured')]);
   expect(da.tag).toBe('modeled');
+});
+
+const run = (workload: Run['workload'], da: Run['da']): Run => ({
+  id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, passed: true,
+  commit: 'c0ffee', createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], replay: null, proofNode: null, da,
+});
+const da = (frame_bytes: number, gas_used: number, transactions: number): Da => ({
+  result: { seconds: 600, gas_used, transactions, transaction_bytes: 0, frame_bytes, gas_per_second: 0, bytes_per_gas: frame_bytes / gas_used, compression_ratio: 0, blobs_per_l1_slot: 15.5, blob_fill: 1, blob_target_gas_per_second: 0 },
+  target: 14,
+  withinTarget: false,
+});
+
+it('measures bytes/tx and gas/tx from a bench DA run, keeping the mainnet mix and estimates without one', () => {
+  const payment = run('payment', da(8e7, 4e10, 1e6));
+  const [payments, swaps, mix] = daWorkloads({ payment, swap: run('swap', null), mix: run('mix', da(1, 1, 1)) });
+  expect(payments).toMatchObject({
+    bytesPerTx: 80, gasPerTx: 40_000, tag: 'measured', asOf: '2026-01-05T00:00:00.000Z',
+    source: { label: 'bench 200 Mgas/s run', url: '/scaling/runs/bench/synthetic-payment' }, bench: { run: payment },
+  });
+  // bytes/tx ÷ gas/tx is the run's frame bytes per gas, so the 14-blob formula matches the run's own.
+  expect(daCapacity(payments, BLOB_TARGET).mgasPerSecond).toBeCloseTo((14 * 130_044) / 12 / payment.da!.result.bytes_per_gas / 1e6);
+  expect(swaps).toBe(DA_WORKLOADS[1]);
+  expect(mix).toMatchObject({ bytesPerTx: DA_WORKLOADS[2].bytesPerTx, tag: 'measured', bench: { da: { withinTarget: false } } });
+  expect(daWorkloads(undefined)).toEqual(DA_WORKLOADS);
+});
+
+it('is modeled once payments and swaps are measured', () => {
+  const [da2] = withDaWorkloads([ceiling('da', 820)], daWorkloads({ payment: run('payment', da(8e7, 4e10, 1e6)), swap: run('swap', da(2e8, 1.4e11, 1e6)), mix: null }));
+  expect(da2.tag).toBe('modeled');
 });

@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import type { Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
 import { CeilingCards } from './CeilingCards';
-import { Guardrails } from './Guardrails';
+import { Guardrails, scorecardGuardrails } from './Guardrails';
 import { Progress } from './Progress';
 
 // Synthetic data only: real snapshots are internal and never committed.
@@ -42,8 +43,10 @@ describe('Guardrails', () => {
     expect(rows[0]).toContain('bg-bds-green-50');
     expect(rows[1]).toContain('≥ 99.9 %');
     expect(rows[1]).toContain('bg-bds-red-50');
-    expect(rows[2]).toContain('>Provisional<');
+    expect(rows[2]).toContain('≤ 3 blocks');
+    expect(rows[2]).not.toContain('>Provisional<');
     expect(rows[2]).toContain('Synthetic owner');
+    expect(rows[2]).toContain('bg-bds-green-50');
     expect(rows[3]).toContain('>Unset<');
     expect(rows[3]).toContain('bg-bds-gray-30');
     expect(rows[3]).not.toMatch(/bg-bds-(green|red)/);
@@ -59,6 +62,45 @@ describe('Guardrails', () => {
     expect(rows[5]).toContain('text-bds-gray-60');
     expect(rows[5]).toContain('Not monitored');
     expect(rows.slice(0, 5).join('')).not.toContain('Not monitored');
+  });
+});
+
+describe('scorecardGuardrails', () => {
+  const LATENCY = { p50Ms: 2, p99Ms: 9, maxMs: 12 };
+  const run = (blocksPerSecond: number): Run => ({
+    id: 'synthetic', outputDir: 'synthetic-400', workload: 'mix', mgas: 400, gps: 4e8, tps: 6000, passed: true, commit: 'c0ffee',
+    createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], da: null,
+    replay: { blocksPerSecond, newPayload: LATENCY, match: true },
+    proofNode: {
+      blocksPerSecond: 20, newPayload: LATENCY, match: true,
+      proofs: { headLagBlocks: { samples: 10, p50: 1, p99: 4, max: 9 }, failedProbes: 0, methods: { debug_executePayload: { errors: 0, latency: LATENCY } }, witnessBytes: { samples: 0, p50: 0, p99: 0, max: 0 } },
+    },
+  });
+  const byId = (rows: ReturnType<typeof scorecardGuardrails>) => Object.fromEntries(rows.map((g) => [g.id, g]));
+
+  it('judges validator keep-up against 3 blocks, unknown without a snapshot value', () => {
+    const guardrails = fixture().guardrails;
+    expect(byId(scorecardGuardrails(guardrails, undefined))['validator-keep-up']).toMatchObject({ value: 3, threshold: 3, thresholdTag: 'set', status: 'ok' });
+    const breached = guardrails.map((g) => (g.id === 'validator-keep-up' ? { ...g, value: 4 } : g));
+    expect(byId(scorecardGuardrails(breached, undefined))['validator-keep-up'].status).toBe('breached');
+    const rows = scorecardGuardrails(guardrails.filter((g) => g.id !== 'validator-keep-up'), undefined);
+    expect(rows.at(-1)).toMatchObject({ id: 'validator-keep-up', value: null, threshold: 3, status: 'unknown' });
+  });
+
+  it('adds bench rows only with a bench host: proof-node lag and latency without a threshold, and replay headroom against 5 blocks/s', () => {
+    expect(scorecardGuardrails(fixture().guardrails, undefined)).toHaveLength(6);
+    const rows = byId(scorecardGuardrails(fixture().guardrails, run(36.4)));
+    expect(rows['proof-node-head-lag']).toMatchObject({ value: 4, unit: 'blocks', threshold: null, thresholdTag: 'unset', status: 'unknown', asOf: '2026-01-05T00:00:00.000Z' });
+    expect(rows['proof-node-head-lag'].help).toContain('From bench run synthetic-400. Threshold pending.');
+    expect(rows['proof-node-execute-payload']).toMatchObject({ value: 9, unit: 'ms', status: 'unknown' });
+    expect(rows['validator-replay-headroom']).toMatchObject({ value: 36.4, threshold: 5, comparator: '>=', status: 'ok' });
+    expect(byId(scorecardGuardrails(fixture().guardrails, run(4)))['validator-replay-headroom'].status).toBe('breached');
+  });
+
+  it('shows bench rows as unknown when no qualifying run is loaded', () => {
+    const rows = scorecardGuardrails(fixture().guardrails, null).slice(-3);
+    expect(rows.map((g) => [g.value, g.status])).toEqual([[null, 'unknown'], [null, 'unknown'], [null, 'unknown']]);
+    expect(rows[0].help).toContain('No qualifying mainnet-mix bench run is loaded.');
   });
 });
 

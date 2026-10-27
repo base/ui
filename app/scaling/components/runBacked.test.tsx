@@ -6,8 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import runFixture from '../runs/fixtures/synthetic.json';
 import { getTestRunsWithStatus, type BenchmarkRuns } from '../runs/lib/types';
 import { toUnifiedRun, type LoadRun } from '../runs/lib/unified';
+import type { Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
 import { CeilingCards } from './CeilingCards';
+import { DaWorkloads } from './DaWorkloads';
 import { Ladder } from './Ladder';
 import { Progress } from './Progress';
 import { RelatedRuns } from './RelatedRuns';
@@ -84,4 +86,33 @@ it('shows gas/s and status for evidence that points at a run page', () => {
   expect(at('https://example.com/scaling/runs/bench/test-synthetic-1')).toMatch(/42\.0 Mgas\/s.*?success/);
   expect(at('https://example.com/scaling/runs/load/sepolia/2026-01-08T00-00-01')).toMatch(/12\.5 Mgas\/s.*?success/);
   expect(at('https://example.com/synthetic/doc')).not.toContain('Mgas/s');
+});
+
+describe('DA from bench runs', () => {
+  const da = (frame_bytes: number, withinTarget: boolean | null): Run['da'] => ({
+    result: { seconds: 600, gas_used: 4e10, transactions: 1e6, transaction_bytes: 0, frame_bytes, gas_per_second: 1.9e8, bytes_per_gas: 0, compression_ratio: 0, blobs_per_l1_slot: 15.5, blob_fill: 1, blob_target_gas_per_second: 0 },
+    target: 14,
+    withinTarget,
+  });
+  const run = (workload: Run['workload'], runDa: Run['da']): Run => ({
+    id: `synthetic-${workload}`, outputDir: `synthetic-${workload}`, workload, mgas: 200, gps: 2e8, tps: 4000, passed: true,
+    commit: 'c0ffee', createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], replay: null, proofNode: null, da: runDa,
+  });
+  const rows = (html: string) => html.split('<tr').slice(2);
+
+  it('keeps the estimates without a bench DA run', () => {
+    const html = rows(renderToStaticMarkup(<DaWorkloads observedP50={null} benchUrl="https://bench.example.com" />));
+    expect(html[0]).toMatch(/>~100<.*>Estimated<.*b20-transfer.*, pending/);
+    expect(html[0]).toContain('>—<');
+  });
+
+  it('switches a payload to measured with its run link, and shows blobs per slot against the target', () => {
+    swr.byKey['scaling-proven-capacity'] = { data: { da: { payment: run('payment', da(8e7, false)), swap: null, mix: run('mix', da(4e7, null)) } } };
+    const html = rows(renderToStaticMarkup(<DaWorkloads observedP50={null} benchUrl="https://bench.example.com" />));
+    expect(html[0]).toMatch(/>80<.*>40,000<.*>Measured<.*href="\/scaling\/runs\/bench\/synthetic-payment"[^>]*>bench 200 Mgas\/s run</);
+    expect(html[0]).toMatch(/15\.5 \/ 14<span[^>]*>over</);
+    expect(html[1]).toContain('>Estimated<');
+    expect(html[2]).toContain('>155<');
+    expect(html[2]).toMatch(/15\.5 \/ 14<\/span>/);
+  });
 });

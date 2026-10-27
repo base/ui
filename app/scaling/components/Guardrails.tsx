@@ -1,10 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 
 import { cn } from '../../components/ui/cn';
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
+import type { Run } from '../proven/capacity';
 import type { Guardrail } from '../snapshot.mjs';
 import { Info } from './Info';
+import { useProvenCapacity } from './ProvenCapacity';
 import { Tag } from './Tag';
 
 const TH = 'px-4 py-2 text-left text-[12px] font-[500] text-bds-gray-60';
@@ -15,7 +19,46 @@ const rank = (g: Guardrail) => (g.status === 'not-monitored' ? 2 : g.value === n
 
 const fmt = (n: number, unit: string) => `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${unit}`.trim();
 
-export function Guardrails({ guardrails, detailed = false }: { guardrails: Guardrail[]; detailed?: boolean }) {
+const judge = (g: Omit<Guardrail, 'status'>): Guardrail => ({
+  ...g,
+  status: g.value === null || g.threshold === null ? 'unknown' : (g.comparator === '<=' ? g.value <= g.threshold : g.value >= g.threshold) ? 'ok' : 'breached',
+});
+
+// Production validators may trail the tip by at most 3 blocks. `run` is the qualifying mainnet-mix
+// bench run: undefined without a bench host, null when none is loaded.
+export function scorecardGuardrails(snapshot: Guardrail[], run: Run | null | undefined): Guardrail[] {
+  const keepUp = (g?: Guardrail) => judge({
+    id: 'validator-keep-up', label: 'Validator keep-up', value: g?.value ?? null, unit: 'blocks', threshold: 3, comparator: '<=',
+    thresholdTag: 'set', owner: g?.owner ?? null, asOf: g?.asOf ?? null,
+    help: 'How far production validators trail the tip, from the snapshot. They must stay within 3 blocks.',
+  });
+  const rows = snapshot.some((g) => g.id === 'validator-keep-up')
+    ? snapshot.map((g) => (g.id === 'validator-keep-up' ? keepUp(g) : g))
+    : [...snapshot, keepUp()];
+  if (run === undefined) return rows;
+  const source = run ? ` From bench run ${run.outputDir}.` : ' No qualifying mainnet-mix bench run is loaded.';
+  const bench = { comparator: '<=' as const, threshold: null, thresholdTag: 'unset' as const, owner: null, asOf: run ? new Date(run.createdAt).toISOString() : null };
+  return [
+    ...rows,
+    judge({
+      ...bench, id: 'proof-node-head-lag', label: 'Proof-node head lag p99', value: run?.proofNode?.proofs?.headLagBlocks.p99 ?? null, unit: 'blocks',
+      help: `How far proof history trails the inserted head while the proof node replays the bench blocks.${source} Threshold pending.`,
+    }),
+    judge({
+      ...bench, id: 'proof-node-execute-payload', label: 'debug_executePayload p99', value: run?.proofNode?.proofs?.methods.debug_executePayload?.latency.p99Ms ?? null, unit: 'ms',
+      help: `Latency of the witness call the prover makes for each block, on the proof node.${source} Threshold pending.`,
+    }),
+    judge({
+      ...bench, id: 'validator-replay-headroom', label: 'Validator replay headroom', value: run?.replay?.blocksPerSecond ?? null, unit: 'blocks/s',
+      comparator: '>=', threshold: 5, thresholdTag: 'set',
+      help: `Blocks per second a validator replays the bench blocks at. Keeping up needs 5, one block per 200 ms.${source}`,
+    }),
+  ];
+}
+
+export function Guardrails({ guardrails, detailed = false, benchUrl }: { guardrails: Guardrail[]; detailed?: boolean; benchUrl?: string }) {
+  const bench = useProvenCapacity(benchUrl);
+  const run = benchUrl ? (bench.error ? null : bench.data?.current.mix?.run ?? null) : undefined;
   return (
     <section className="flex flex-col gap-3">
       {detailed ? null : <Text as="h2" variant="headline"><Link className="underline" href="/scaling/guardrails">Guardrails →</Link></Text>}
@@ -30,7 +73,7 @@ export function Guardrails({ guardrails, detailed = false }: { guardrails: Guard
             </tr>
           </thead>
           <tbody>
-            {guardrails.toSorted((a, b) => rank(a) - rank(b)).map((g) => (
+            {scorecardGuardrails(guardrails, run).toSorted((a, b) => rank(a) - rank(b)).map((g) => (
               <tr key={g.id} className={cn('border-b border-bds-gray-10 last:border-0 dark:border-white/10', g.status === 'not-monitored' && 'text-bds-gray-60')}>
                 <td className={TD}>
                   {detailed ? <>{g.label}<p className="text-bds-gray-60">{g.help}</p></> : (

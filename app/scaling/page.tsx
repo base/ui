@@ -18,13 +18,14 @@ export default async function ScalingPage() {
 
   const { snapshot } = loaded;
   const ceilings = withDaWorkloads(snapshot.ceilings);
+  const benchUrl = process.env.SCALING_BENCH_BASE_URL;
   return (
     <div className="flex flex-col gap-10 pb-8">
       <Header loaded={loaded} title={`Scaling scorecard · ${snapshot.network}`} action={<Link className="underline" href="/scaling/runs">Runs →</Link>} />
 
-      <Ladder ladder={snapshot.ladder} ceilings={ceilings} translations={snapshot.translations} windows={snapshot.windows} benchUrl={process.env.SCALING_BENCH_BASE_URL} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
-      <CeilingCards ceilings={ceilings} />
-      <Guardrails guardrails={snapshot.guardrails} />
+      <Ladder ladder={snapshot.ladder} ceilings={ceilings} translations={snapshot.translations} windows={snapshot.windows} benchUrl={benchUrl} dashboardUrl={process.env.SCALING_DATADOG_DASHBOARD_URL} />
+      <CeilingCards ceilings={ceilings} benchUrl={benchUrl} />
+      <Guardrails guardrails={snapshot.guardrails} benchUrl={benchUrl} />
 
       <Progress work={snapshot.work} />
 
