@@ -11,6 +11,9 @@ import fixture from './fixtures/synthetic.v2.json';
 import ScalingGuardrailsPage from './guardrails/page';
 import ScalingPage from './page';
 
+// No network in tests: the live archive size is unavailable, so the page keeps the snapshot's.
+vi.mock('./archiveSize', async (original) => ({ ...(await original<typeof import('./archiveSize')>()), loadArchiveSize: async () => null }));
+
 beforeEach(() => vi.stubEnv('SCALING_SNAPSHOT_PATH', fileURLToPath(new URL('./fixtures/synthetic.v2.json', import.meta.url))));
 afterEach(() => vi.unstubAllEnvs());
 

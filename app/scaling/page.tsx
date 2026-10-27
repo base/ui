@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Text } from '../components/ui/Text';
 
 import { Scorecard } from './components/Scorecard';
+import { loadArchiveSize, withArchiveSize } from './archiveSize';
 import { Header, loadSnapshot, Unavailable } from './loadSnapshot';
 
 // The snapshot is a runtime file, so render per request rather than at build.
@@ -12,7 +13,7 @@ export default async function ScalingPage() {
   const loaded = await loadSnapshot();
   if (loaded.kind !== 'ok') return <Unavailable loaded={loaded} />;
 
-  const { snapshot } = loaded;
+  const snapshot = withArchiveSize(loaded.snapshot, await loadArchiveSize());
   const dashboardUrl = process.env.SCALING_DATADOG_DASHBOARD_URL;
   return (
     <div className="flex flex-col gap-10 pb-8">
