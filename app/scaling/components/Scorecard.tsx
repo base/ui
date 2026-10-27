@@ -4,7 +4,6 @@ import { daWorkloads, DA_WORKLOADS, type DaWorkload } from '../da/workloads';
 import type { Proven } from '../proven/capacity';
 import type { Area, Snapshot } from '../snapshot.mjs';
 import { bottleneckBars, Bottlenecks, diskLimits, pickStorage, rankLimits, type Limit } from './Bottlenecks';
-import { Guardrails } from './Guardrails';
 import { Headline } from './Headline';
 import { Ladder, type ProvenMark } from './Ladder';
 import { day, useProvenCapacity } from './ProvenCapacity';
@@ -26,11 +25,9 @@ const areaOf = (limit: Limit | null): Area | null => (!limit ? null : limit.id.s
 
 function Freshness({ snapshot, latestAt }: { snapshot: Snapshot; latestAt: number | null }) {
   const usageWindow = snapshot.usage?.transactionsPerSecond.window ?? snapshot.ladder.observed.p50.window;
-  const slos = snapshot.guardrails.flatMap((g) => (g.asOf ? [Date.parse(g.asOf)] : []));
   const parts = [
     `Usage to ${day(Date.parse(usageWindow ? snapshot.windows[usageWindow].end : snapshot.collectedAt))}`,
     latestAt !== null && `bench ${at(latestAt)}`,
-    slos.length > 0 && `SLOs ${day(Math.max(...slos))}`,
   ].filter(Boolean);
   return <p className="-mt-8 text-[12px] text-bds-gray-60">{parts.join(' · ')}</p>;
 }
@@ -56,7 +53,6 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} limits={limits} />
       <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} />
       <WorkloadSubsystems cards={subsystemCards(data, limits, snapshot, ladder.configuredLimit.value)} />
-      <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />
       <Work work={snapshot.work} binding={areaOf(binding)} />
     </>
   );

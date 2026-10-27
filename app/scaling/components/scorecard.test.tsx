@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProvenCapacity, Run } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
+import { Guardrails } from './Guardrails';
 import { headroomLabel, place, sustainable } from './Headline';
 import { layoutPoints, type PlacedPoint, type Point } from './Ladder';
 import { Scorecard } from './Scorecard';
@@ -62,11 +63,11 @@ const bench = (mgas: number, atTop: boolean, more: Partial<ProvenCapacity> = {})
   ...more,
 });
 const fixture = (): Snapshot => JSON.parse(readFileSync(new URL('../fixtures/synthetic.v2.json', import.meta.url), 'utf8'));
-// In page order: the freshness line, then headline, ladder, ranked limits, workloads, guardrails, work.
+// In page order: the freshness line, then headline, ladder, ranked limits, workloads, work.
 const render = (props: { benchUrl?: string } = { benchUrl: BENCH }, snapshot = fixture()) => {
   const html = renderToStaticMarkup(<Scorecard snapshot={snapshot} {...props} />);
-  const [fresh, head, ladder, ranked, subsystems, guardrails, work] = html.split('<section');
-  return { html, fresh, head, ladder, ranked, subsystems, guardrails, work };
+  const [fresh, head, ladder, ranked, subsystems, work] = html.split('<section');
+  return { html, fresh, head, ladder, ranked, subsystems, work };
 };
 // Strip tags until none remain, so a tag split across a removed one cannot survive.
 const text = (html: string) => {
@@ -88,10 +89,10 @@ beforeEach(() => {
 });
 
 describe('freshness and headline', () => {
-  it('dates usage, bench and SLOs, dropping the bench part without bench data', () => {
-    expect(text(render({}).fresh)).toBe('Usage to 2026-01-02 · SLOs 2026-01-02');
+  it('dates usage and bench, dropping the bench part without bench data, and no SLOs', () => {
+    expect(text(render({}).fresh)).toBe('Usage to 2026-01-02');
     swr.result = { data: bench(400, true) };
-    expect(text(render().fresh)).toBe('Usage to 2026-01-02 · bench 2026-01-06 00:00 UTC · SLOs 2026-01-02');
+    expect(text(render().fresh)).toBe('Usage to 2026-01-02 · bench 2026-01-06 00:00 UTC');
     expect(render().html).not.toContain('Usage data as of');
   });
 
@@ -532,14 +533,17 @@ describe('disk ceilings', () => {
   });
 });
 
-describe('guardrails and work', () => {
+describe('guardrails summary and work', () => {
+  // The summary is off the first screen for now; the component stays for when it returns.
+  const guardrails = (benchUrl?: string) => renderToStaticMarkup(<Guardrails guardrails={fixture().guardrails} collectedAt={fixture().collectedAt} benchUrl={benchUrl} />);
+
   it('compresses guardrails to breached, met and not-measured counts with a link', () => {
-    const { guardrails } = render({});
-    expect(text(guardrails)).toContain('Breached 1 — RPC availability 99.5 %Met 2Not measured 3');
-    expect(text(guardrails)).toContain('RPC p99 latencyPropagation p99State growth');
-    expect(guardrails).toContain('href="/scaling/guardrails"');
+    const summary = guardrails();
+    expect(text(summary)).toContain('Breached 1 — RPC availability 99.5 %Met 2Not measured 3');
+    expect(text(summary)).toContain('RPC p99 latencyPropagation p99State growth');
+    expect(summary).toContain('href="/scaling/guardrails"');
     swr.result = { data: bench(400, true) };
-    expect(text(render().guardrails)).toContain('Met 5');
+    expect(text(guardrails(BENCH))).toContain('Met 5');
   });
 
   it('lists work by limit with the binding limit first', () => {

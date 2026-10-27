@@ -22,7 +22,6 @@ export default async function ScalingPage() {
       <Text variant="label.regular" tone="muted">
         <span className="flex flex-wrap gap-x-4">
           <Link className="underline" href="/scaling/da">DA by workload</Link>
-          <Link className="underline" href="/scaling/guardrails">Guardrails</Link>
           {dashboardUrl ? <a className="underline" href={dashboardUrl}>Mainnet load, gas limit, DA ceiling</a> : null}
         </span>
       </Text>
