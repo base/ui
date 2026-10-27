@@ -46,6 +46,11 @@
  *   ladder: Ladder, ceilings: Ceiling[], guardrails: Guardrail[],
  *   translations: { gasPerPayment: Constant | null, gasPerSwap: Constant | null },
  *   usage?: { transactionsPerSecond: Usage },
+ *   policy?: { runwayYears?: { fullNode: number, archive: number, help?: string, source?: Link } },
+ *   production?: {
+ *     archiveBytes?: { value: number, asOf: string, source: string, note?: string },
+ *     stateBytesPerGas?: { value: number, window?: string, source?: string }
+ *   },
  *   sections: Section[], work: WorkItem[]
  * }} Snapshot
  * @typedef {{ value: number, window: string, help: string, source?: Link }} Usage
@@ -222,6 +227,37 @@ export function parseSnapshot(data) {
     if (!Object.hasOwn(windows, tps.window)) fail(`${path}.window`, 'expected a key of windows');
     str(tps, 'help', path);
     if (tps.source !== undefined) link(tps.source, `${path}.source`);
+  }
+
+  // Optional disk inputs: without them the disk rows say which input they need instead of a ceiling.
+  const positive = (o, key, path) => {
+    if (!(Number.isFinite(o[key]) && o[key] > 0)) fail(`${path}.${key}`, 'expected a positive number');
+  };
+  if (data.policy !== undefined) {
+    const policy = obj(data, 'policy', 'snapshot');
+    if (policy.runwayYears !== undefined) {
+      const runway = obj(policy, 'runwayYears', 'policy');
+      positive(runway, 'fullNode', 'policy.runwayYears');
+      positive(runway, 'archive', 'policy.runwayYears');
+      if (runway.help !== undefined) str(runway, 'help', 'policy.runwayYears');
+      if (runway.source !== undefined) link(runway.source, 'policy.runwayYears.source');
+    }
+  }
+  if (data.production !== undefined) {
+    const production = obj(data, 'production', 'snapshot');
+    if (production.archiveBytes !== undefined) {
+      const archive = obj(production, 'archiveBytes', 'production');
+      positive(archive, 'value', 'production.archiveBytes');
+      date(archive, 'asOf', 'production.archiveBytes');
+      str(archive, 'source', 'production.archiveBytes');
+      if (archive.note !== undefined) str(archive, 'note', 'production.archiveBytes');
+    }
+    if (production.stateBytesPerGas !== undefined) {
+      const state = obj(production, 'stateBytesPerGas', 'production');
+      positive(state, 'value', 'production.stateBytesPerGas');
+      if (state.window !== undefined && !Object.hasOwn(windows, state.window)) fail('production.stateBytesPerGas.window', 'expected a key of windows');
+      if (state.source !== undefined) str(state, 'source', 'production.stateBytesPerGas');
+    }
   }
 
   const metric = (m, path) => {

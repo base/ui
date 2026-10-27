@@ -35,6 +35,25 @@ describe('parseSnapshot', () => {
     ]);
   });
 
+  it('treats the disk policy and production inputs as optional, and checks them when present', () => {
+    const { policy, production, ...without } = fixture();
+    expect(errorsOf(without)).toEqual([]);
+    const bad = {
+      ...without,
+      policy: { runwayYears: { ...policy.runwayYears, fullNode: 0 } },
+      production: {
+        archiveBytes: { ...production.archiveBytes, asOf: 'soon', source: '' },
+        stateBytesPerGas: { ...production.stateBytesPerGas, window: 'decade' },
+      },
+    };
+    expect(errorsOf(bad)).toEqual([
+      'policy.runwayYears.fullNode: expected a positive number',
+      'production.archiveBytes.asOf: expected ISO timestamp',
+      'production.archiveBytes.source: expected non-empty string',
+      'production.stateBytesPerGas.window: expected a key of windows',
+    ]);
+  });
+
   it('rejects schema version 1 and names the migration', () => {
     const errors = errorsOf({ ...fixture(), schemaVersion: 1 });
     expect(errors).toHaveLength(1);

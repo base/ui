@@ -41,8 +41,13 @@ const run = (mgas: number, workload: Run['workload'] = 'mix', da: Run['da'] = nu
 const none = { mix: null, payment: null, swap: null };
 const storage = (currentBytes: number | null = null): NonNullable<Run['storage']> => ({
   diskBudgetBytes: 45e12,
+  bytesPerGas: { history: 0.0086, proofs: 0.0045, archive: 0.0086 },
+  current: { state: 1.1e12 },
   archive: { growthBytesPerYear: 5e12, growthBound: 'lower', currentBytes, runwayYears: null, runwayBound: 'upper' },
-  fullNode: { stateGrowthBytesPerYear: 1.05e10, historyFootprintBytes: 9.2e12, historyFootprintBound: 'lower', proofFootprintBytes: 2.3e12 },
+  fullNode: {
+    stateGrowthBytesPerYear: 1.05e10, historyWindowSeconds: 2_678_400, historyFootprintBytes: 9.2e12, historyFootprintBound: 'lower',
+    proofWindowSeconds: 1_296_000, proofFootprintBytes: 2.3e12,
+  },
 });
 const bench = (mgas: number, atTop: boolean, more: Partial<ProvenCapacity> = {}): ProvenCapacity => ({
   current: { ...none, mix: { mgas, atTop, run: run(mgas) } },
@@ -71,8 +76,8 @@ const text = (html: string) => {
   }
   return out.replaceAll('&#x27;', "'");
 };
-// Table rows after a header row (skip 2) or without one (skip 1).
-const rows = (html: string, skip = 2) => html.split('<tr').slice(skip).map((r) => text(`<tr${r}`));
+// Table rows after a header row (skip 2) or without one (skip 1), without the mocked help popovers.
+const rows = (html: string, skip = 2) => html.replace(/ ?<span class="help">[^<]*<\/span>/g, '').split('<tr').slice(skip).map((r) => text(`<tr${r}`));
 // A header tile, found by text in its label.
 const tile = (head: string, label: string) => text(`<x${head.split('rounded-lg border').find((c) => c.includes(label)) ?? '>'}`.replace(/<[^>]*$/, ''));
 
@@ -209,8 +214,8 @@ describe('what breaks first', () => {
       '—Execution (sequencer)—no proven run',
       '—Validators—pending',
       '—Proof node—pending',
-      '—Disk · full node—runway pending',
-      '—Disk · archive node—not measured yet',
+      '—Disk · full node—needs a bench storage-growth run',
+      '—Disk · archive node—needs a bench storage-growth run',
       '—TEE proving, RPC under sync—not measured yet',
     ]);
   });
@@ -260,22 +265,76 @@ describe('reverts, measured swaps and disk', () => {
     expect(swapsRow).toMatch(/border-dashed[^"]*" style="left:50%"/);
   });
 
-  it('shows full-node and archive disk rows from the mix run, with bounds and no full-node runway', () => {
-    const data = bench(400, true);
+});
+
+describe('disk ceilings', () => {
+  const withStorage = (more: Partial<ProvenCapacity> = {}) => {
+    const data = bench(400, true, more);
     data.current.mix = { mgas: 400, atTop: true, run: { ...run(400), storage: storage() } };
-    swr.result = { data };
-    const [full, archive] = rows(render().ranked).slice(4, 6);
-    expect(full).toBe('—Disk · full node—history window ~9.2 TB + proofs ~2.3 TB at 400 Mgas/s (lower bound); state growth per year from this workload: 10.5 GB, from the mainnet mix run. Bench workloads create little new state, so this undercounts mainnet state growth; runway pending.');
-    expect(archive).toBe('—Disk · archive node—grows ≥ 5.0 TB/year at 400 Mgas/s (lower bound), from the mainnet mix run');
-    expect(full).not.toMatch(/years? left/);
-    expect(rows(render().subsystems)[2]).toBe('Disk · archive——≥ 5.0 TB/year at 400 Mgas/s');
+    return data;
+  };
+  const disk = (ranked: string, label: string) => rows(ranked).find((r) => r.includes(label))!;
+
+  it('ranks both disk rows by their upper-bound ceilings among the other limits', () => {
+    swr.result = { data: withStorage() };
+    const { ranked } = render();
+    expect(rows(ranked).map((r) => r.slice(0, 26))).toEqual([
+      '1DA · Payments (B20)next~5',
+      '2DA · Swaps~115 ≈ 799/s Es',
+      '3Disk · archive node≤ 151u',
+      '4DA · Mainnet mix190 ≈ 981',
+      '5Execution, validators, pr',
+      '6Disk · full node≤ 553uppe',
+      '—TEE proving, RPC under sy',
+    ]);
+    // (45 TB − 4 TB) ÷ (1e6 × 0.0086 B/gas × 1 year); (45 TB − 1.1 TB state) ÷ (1e6 × (history 31 d + proofs 15 d + 2 years of 0.0008 B/gas state)).
+    expect(disk(ranked, 'archive node')).toBe("3Disk · archive node≤ 151upper bound · 1-year runway · archive 4.0 TB on 2026-01-01 (Synthetic archive snapshot) · growth at the mainnet mix run's bytes/gas");
+    expect(disk(ranked, 'full node')).toBe("6Disk · full node≤ 553upper bound · 2-year runway · state 1.1 TB now · history 31 d + proofs 15 d at the mainnet mix run's bytes/gas · production state growth 0.0008 B/gas");
   });
 
-  it('adds an archive runway only when the current archive size is known, and falls back to the newest other workload', () => {
-    swr.result = { data: bench(400, true, { current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: { ...run(400, 'swap'), storage: storage(35e12) } } } }) };
-    expect(rows(render().ranked).find((r) => r.includes('archive node'))).toBe('—Disk · archive node—grows ≥ 5.0 TB/year at 400 Mgas/s (lower bound) · ~2.0 years left of 45.0 TB (upper bound), from the swaps run');
-    swr.result = { data: bench(400, true, { current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: { ...run(400, 'swap'), storage: storage(50e12) } } } }) };
-    expect(rows(render().ranked).find((r) => r.includes('archive node'))).toContain('(lower bound) · over the 45.0 TB budget, from the swaps run');
+  it('explains the runway policy and why the ceilings are upper bounds in help', () => {
+    swr.result = { data: withStorage() };
+    const help = render().ranked;
+    expect(help).toContain('Runway policy: full node 2 years, archive 1 year (Invented runway policy.).');
+    expect(help).toContain('is a lower bound, because the sequencer prunes history, so this ceiling is an upper bound.');
+    expect(help).toContain("may write more bytes per gas than mainnet traffic does (Base&#x27;s whole archive is 4.0 TB)");
+    expect(help).toContain('Archive size: invented size.');
+  });
+
+  it('names the missing input and leaves the row unranked', () => {
+    swr.result = { data: withStorage() };
+    const noPolicy = fixture();
+    delete noPolicy.policy;
+    expect(disk(render({ benchUrl: BENCH }, noPolicy).ranked, 'archive node')).toBe('—Disk · archive node—needs a runway policy');
+    expect(disk(render({ benchUrl: BENCH }, noPolicy).ranked, 'full node')).toBe('—Disk · full node—needs a runway policy');
+    const noProduction = fixture();
+    delete noProduction.production;
+    expect(disk(render({ benchUrl: BENCH }, noProduction).ranked, 'archive node')).toBe('—Disk · archive node—needs the production archive size');
+    expect(disk(render({ benchUrl: BENCH }, noProduction).ranked, 'full node')).toBe('—Disk · full node—needs production state growth');
+    const data = withStorage();
+    data.current.mix!.run.storage = { ...storage(), bytesPerGas: { history: 0.0086, proofs: null, archive: 0.0086 } };
+    swr.result = { data };
+    expect(disk(render().ranked, 'full node')).toBe('—Disk · full node—needs proof storage growth');
+  });
+
+  it('ranks an archive already over budget first', () => {
+    swr.result = { data: withStorage() };
+    const snapshot = fixture();
+    snapshot.production!.archiveBytes!.value = 50e12;
+    const { head, ranked } = render({ benchUrl: BENCH }, snapshot);
+    expect(rows(ranked)[0]).toMatch(/^1Disk · archive nodenextover budget1-year runway/);
+    expect(text(head)).toContain('Next bottleneck to solveDisk · archive node is over budget');
+  });
+
+  it('notes a disk ceiling below a tile’s sustainable rate under the tiles', () => {
+    const swapDa = run(400, 'swap', daResult(2.6158e7, 22.4, false));
+    swr.result = { data: withStorage({ current: { mix: null, payment: null, swap: { mgas: 400, atTop: true, run: run(400, 'swap') } }, da: { mix: null, payment: null, swap: swapDa } }) };
+    // Swaps are sustainable to the 200 Mgas/s gas limit, above the ~151 archive ceiling.
+    expect(text(render().head)).toContain('Archive disk may cap lower (≤ 151 Mgas/s at 1-year runway)');
+    // A half-year archive runway lifts the ceiling to ~302 Mgas/s, above every tile.
+    const shortRunway = fixture();
+    shortRunway.policy!.runwayYears!.archive = 0.5;
+    expect(text(render({ benchUrl: BENCH }, shortRunway).head)).not.toContain('may cap lower');
   });
 });
 

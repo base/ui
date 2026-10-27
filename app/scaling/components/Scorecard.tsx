@@ -3,7 +3,7 @@
 import { daWorkloads } from '../da/workloads';
 import type { Proven } from '../proven/capacity';
 import type { Area, Snapshot } from '../snapshot.mjs';
-import { bottleneckBars, Bottlenecks, pickStorage, rankLimits, type Limit } from './Bottlenecks';
+import { bottleneckBars, Bottlenecks, diskLimits, pickStorage, rankLimits, type Limit } from './Bottlenecks';
 import { Guardrails } from './Guardrails';
 import { Headline } from './Headline';
 import { Ladder, type ProvenMark } from './Ladder';
@@ -18,7 +18,7 @@ function benchMark({ mgas, atTop, run }: Proven): ProvenMark {
 }
 
 const at = (t: number) => `${new Date(t).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
-const areaOf = (limit: Limit | null): Area | null => (!limit ? null : limit.id.startsWith('da-') ? 'da' : 'execution');
+const areaOf = (limit: Limit | null): Area | null => (!limit ? null : limit.id.startsWith('da-') ? 'da' : limit.id.startsWith('disk-') ? 'state' : 'execution');
 
 function Freshness({ snapshot, latestAt }: { snapshot: Snapshot; latestAt: number | null }) {
   const usageWindow = snapshot.usage?.transactionsPerSecond.window ?? snapshot.ladder.observed.p50.window;
@@ -41,7 +41,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
   const qualified = ladder.qualified;
   const mark = proven ? benchMark(proven) : !benchUrl && qualified.value !== null ? { value: qualified.value, atLeast: false, help: qualified.help } : null;
   const workloads = daWorkloads(data?.da);
-  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven);
+  const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot));
   const next = limits[0]?.value != null ? limits[0] : null;
   const values = [ladder.observed.p50, ladder.observed.p99, ladder.operatingPoint, ladder.configuredLimit].map((r) => r.value ?? 0);
   const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);
@@ -50,7 +50,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
       <Freshness snapshot={snapshot} latestAt={data?.latestAt ?? null} />
       <Headline ladder={ladder} usage={snapshot.usage} bench={{ configured: !!benchUrl, data, error: bench.error }} proven={mark} next={next} limits={limits} />
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} />
-      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} storage={pickStorage(data)} />
+      <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} />
       <WorkloadSubsystems current={data?.current} />
       <Guardrails guardrails={snapshot.guardrails} collectedAt={snapshot.collectedAt} benchUrl={benchUrl} />
       <Work work={snapshot.work} binding={areaOf(next)} />

@@ -40,8 +40,18 @@ export type Da = { result: DaResult; target: number | null; withinTarget: boolea
 // `storage-growth.json`: disk growth measured over the run, projected to a year at its gas rate.
 export type Storage = {
   diskBudgetBytes: number;
+  // Proofs are null when the proofs disk usage could not be measured.
+  bytesPerGas: { history: number; proofs: number | null; archive: number };
+  current: { state: number };
   archive: { growthBytesPerYear: number; growthBound: string; currentBytes: number | null; runwayYears: number | null; runwayBound: string };
-  fullNode: { stateGrowthBytesPerYear: number; historyFootprintBytes: number; historyFootprintBound: string; proofFootprintBytes: number };
+  fullNode: {
+    stateGrowthBytesPerYear: number;
+    historyWindowSeconds: number;
+    historyFootprintBytes: number;
+    historyFootprintBound: string;
+    proofWindowSeconds: number;
+    proofFootprintBytes: number;
+  };
 };
 
 export type Run = {

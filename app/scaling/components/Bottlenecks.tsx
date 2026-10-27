@@ -6,11 +6,23 @@ import { runHref, type PipelineStep, type Proven, type ProvenCapacity, type Run,
 import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Info } from './Info';
 import { day } from './ProvenCapacity';
+import type { Snapshot } from '../snapshot.mjs';
 import { Tag } from './Tag';
 
 export type Bar = { id: string; label: string; value: number | null; text: string; tag?: DaWorkload['tag']; perSecond?: number };
 // One row of the ranked table: a bar, or execution, validators and proof node merged when they share a ceiling.
-export type Limit = { id: string; label: string; value: number | null; ceiling: string; evidence: string; tag?: DaWorkload['tag']; perSecond?: number; workload?: DaWorkload };
+export type Limit = {
+  id: string;
+  label: string;
+  value: number | null;
+  ceiling: string;
+  evidence: string;
+  tag?: DaWorkload['tag'];
+  perSecond?: number;
+  workload?: DaWorkload;
+  help?: string;
+  runwayYears?: number;
+};
 
 export const times = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}×`;
 const TH = 'px-3 py-2 text-left text-[11px] font-[600] uppercase tracking-wide text-bds-gray-60';
@@ -51,7 +63,7 @@ function daEvidence(w: DaWorkload): string {
 }
 
 // Lowest ceiling first; limits without a ceiling keep their order after the ranked ones.
-export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null): Limit[] {
+export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = []): Limit[] {
   const da = bars.filter((b) => b.id.startsWith('da-')).map((b): Limit => {
     const w = workloads.find((x) => `da-${x.payload}` === b.id)!;
     return { id: b.id, label: b.label, value: b.value, ceiling: `${b.text} ≈ ${fmt(b.perSecond!)}/s`, evidence: daEvidence(w), tag: b.tag, perSecond: b.perSecond, workload: w };
@@ -68,7 +80,7 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
       ceiling: b.value === null ? '—' : atLeast(b.id !== 'execution' || proven!.atTop),
       evidence: b.value === null ? b.text : b.id === 'execution' && !proven!.atTop ? 'the next rate tested did not pass' : b.text.split(' · ').slice(1).join(' · '),
     }));
-  return [...da, ...merged].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
+  return [...da, ...merged, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
 }
 
 export type StorageSource = { storage: Storage; run: Run };
@@ -87,25 +99,49 @@ export function pickStorage(data: ProvenCapacity | undefined): StorageSource | n
   return run ? { storage: run.storage!, run } : null;
 }
 
-// No Mgas/s ceiling: bench workloads create little new state, so a full-node runway from them is not
-// meaningful yet.
-function diskRows(source: StorageSource | null): { label: string; evidence: string }[] {
-  if (!source) return [{ label: 'Disk · full node', evidence: 'runway pending' }, { label: 'Disk · archive node', evidence: 'not measured yet' }];
-  const { storage: { archive, fullNode, diskBudgetBytes }, run } = source;
-  const at = `at ${run.mgas} Mgas/s`;
-  const from = `from the ${WORKLOAD[run.workload]} run`;
-  const years = archive.currentBytes === null ? null : archive.runwayYears ?? (diskBudgetBytes - archive.currentBytes) / archive.growthBytesPerYear;
-  const months = years === null ? 0 : Math.max(1, Math.round(years * 12));
-  const runway = years === null ? ''
-    : years <= 0 ? ` · over the ${bytes(diskBudgetBytes)} budget`
-    : ` · ~${years < 1 ? `${months} month${months === 1 ? '' : 's'}` : `${years.toFixed(1)} years`} left of ${bytes(diskBudgetBytes)} (${archive.runwayBound} bound)`;
-  return [
-    {
-      label: 'Disk · full node',
-      evidence: `history window ~${bytes(fullNode.historyFootprintBytes)} + proofs ~${bytes(fullNode.proofFootprintBytes)} ${at} (${fullNode.historyFootprintBound} bound); state growth per year from this workload: ${bytes(fullNode.stateGrowthBytesPerYear)}, ${from}. Bench workloads create little new state, so this undercounts mainnet state growth; runway pending.`,
-    },
-    { label: 'Disk · archive node', evidence: `grows ${growth(archive)} ${at} (${archive.growthBound} bound)${runway}, ${from}` },
-  ];
+const YEAR_SECONDS = 31_557_600;
+const days = (seconds: number) => Math.round(seconds / 86_400);
+
+// Disk ceilings: the gas rate at which the budget just holds what each node keeps. Bench bytes per gas
+// is a lower bound (the sequencer prunes history), so both ceilings are upper bounds.
+export function diskLimits(source: StorageSource | null, { policy, production }: Pick<Snapshot, 'policy' | 'production'>): Limit[] {
+  const runway = policy?.runwayYears;
+  const statePerGas = production?.stateBytesPerGas?.value;
+  const archiveNow = production?.archiveBytes;
+  const policyHelp = runway
+    ? ` Runway policy: full node ${runway.fullNode} years, archive ${runway.archive} year${runway.archive === 1 ? '' : 's'}${runway.help ? ` (${runway.help})` : ''}.`
+    : ' No runway policy is set.';
+  const row = (id: string, label: string, need: string | null, mgas: number, years: number | undefined, evidence: string, help: string): Limit =>
+    need !== null
+      ? { id, label, value: null, ceiling: '—', evidence: `needs ${need}`, help: help + policyHelp }
+      : mgas <= 0
+        ? { id, label, value: 0, ceiling: 'over budget', evidence, help: help + policyHelp, runwayYears: years }
+        : { id, label, value: mgas, ceiling: `≤ ${fmt(mgas)}`, evidence: `upper bound · ${evidence}`, help: help + policyHelp, runwayYears: years };
+  if (!source) {
+    const need = 'a bench storage-growth run';
+    return [row('disk-full', 'Disk · full node', need, 0, undefined, '', ''), row('disk-archive', 'Disk · archive node', need, 0, undefined, '', '')];
+  }
+  const { storage: { diskBudgetBytes: budget, bytesPerGas, current, fullNode }, run } = source;
+  const from = `the ${WORKLOAD[run.workload]} run`;
+
+  const fullNeed = !runway ? 'a runway policy' : statePerGas === undefined ? 'production state growth' : bytesPerGas.proofs === null ? 'proof storage growth' : null;
+  const perMgas = fullNeed ? 0 : 1e6 * (bytesPerGas.history * fullNode.historyWindowSeconds + bytesPerGas.proofs! * fullNode.proofWindowSeconds + statePerGas! * YEAR_SECONDS * runway!.fullNode);
+  const full = row(
+    'disk-full', 'Disk · full node', fullNeed, fullNeed ? 0 : (budget - current.state) / perMgas, runway?.fullNode,
+    `${runway?.fullNode}-year runway · state ${bytes(current.state)} now · history ${days(fullNode.historyWindowSeconds)} d + proofs ${days(fullNode.proofWindowSeconds)} d at ${from}'s bytes/gas · production state growth ${statePerGas} B/gas`,
+    `The ${bytes(budget)} disk budget must hold today's state, the history window (${days(fullNode.historyWindowSeconds)} d) and proof window (${days(fullNode.proofWindowSeconds)} d) at this rate, and the runway's state growth at production's bytes per gas. History bytes per gas comes from ${from} and is a lower bound, because the sequencer prunes history, so this ceiling is an upper bound.`,
+  );
+
+  // storage-growth.json's archive bytes per gas already sums every MDBX table, state included, with
+  // static files and RocksDB, so production state growth is not added on top.
+  const archiveNeed = !runway ? 'a runway policy' : !archiveNow ? 'the production archive size' : null;
+  const archive = row(
+    'disk-archive', 'Disk · archive node', archiveNeed,
+    archiveNeed ? 0 : (budget - archiveNow!.value) / (1e6 * bytesPerGas.archive * YEAR_SECONDS * runway!.archive), runway?.archive,
+    `${runway?.archive}-year runway · archive ${archiveNow ? bytes(archiveNow.value) : ''} on ${archiveNow?.asOf} (${archiveNow?.source}) · growth at ${from}'s bytes/gas`,
+    `The ${bytes(budget)} disk budget minus today's archive must cover the runway's growth. Growth per gas comes from ${from} and is a lower bound for that workload, because the sequencer prunes history, so the ceiling is an upper bound. That workload may write more bytes per gas than mainnet traffic does${archiveNow ? ` (Base's whole archive is ${bytes(archiveNow.value)})` : ''}, which makes the ceiling conservative in the other direction.${archiveNow?.note ? ` Archive size: ${archiveNow.note}.` : ''}`,
+  );
+  return [full, archive];
 }
 
 function Evidence({ proven }: { proven: Proven }) {
@@ -128,13 +164,10 @@ function Evidence({ proven }: { proven: Proven }) {
   );
 }
 
-export function Bottlenecks({ limits, max, gasLimit, proven, storage }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; storage: StorageSource | null }) {
+export function Bottlenecks({ limits, max, gasLimit, proven }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null }) {
   const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
   const ranked = limits.filter((l) => l.value !== null).length;
-  const fixed = [
-    ...diskRows(storage),
-    { label: 'TEE proving, RPC under sync', evidence: 'not measured yet' },
-  ];
+  const fixed = [{ label: 'TEE proving, RPC under sync', evidence: 'not measured yet' }];
   return (
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">What breaks first <span className="text-bds-gray-60">· Mgas/s</span></Text>
@@ -153,6 +186,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven, storage }: { limits
                   <td className={cn(TD, 'text-bds-gray-60')}>{i < ranked ? i + 1 : '—'}</td>
                   <td className={cn(TD, 'whitespace-nowrap')}>
                     {l.label}
+                    {l.help ? <> <Info label={`About ${l.label}`}>{l.help}</Info></> : null}
                     {next ? <span className="ml-1.5 rounded bg-bds-red-60 px-1.5 py-px text-[11px] font-[600] text-white">next</span> : null}
                   </td>
                   <td className={cn(TD, 'whitespace-nowrap text-right tabular-nums', next && 'text-bds-red-60')}>

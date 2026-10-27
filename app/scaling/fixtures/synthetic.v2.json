@@ -196,6 +196,13 @@
     },
     "gasPerSwap": null
   },
+  "policy": {
+    "runwayYears": { "fullNode": 2, "archive": 1, "help": "Invented runway policy." }
+  },
+  "production": {
+    "archiveBytes": { "value": 4000000000000, "asOf": "2026-01-01", "source": "Synthetic archive snapshot", "note": "invented size" },
+    "stateBytesPerGas": { "value": 0.0008, "window": "week", "source": "Synthetic dashboard" }
+  },
   "usage": {
     "transactionsPerSecond": {
       "value": 64.2,
