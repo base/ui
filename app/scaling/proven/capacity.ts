@@ -63,7 +63,9 @@ export type Step = {
   compareUrl: string | null;
 };
 
-// `history` is the mainnet mix's; `da` is the latest counting run per workload with a DA result.
+// `history` is the mainnet mix's; `da` is the latest counting run per workload in the window whose DA
+// step passed. Replay, proof-node and DA results are loaded only for the runs in `current` and `da`:
+// replay files list every block, and every other run would download them for nothing.
 export type ProvenCapacity = {
   current: Record<Workload, Proven | null>;
   da: Record<Workload, Run | null>;
@@ -80,6 +82,7 @@ const WORKLOADS = Object.keys(PAYLOADS) as Workload[];
 // Run outputs never change once written. `null` marks a run that does not count: not built from
 // main, or written before the step pipeline.
 const runCache = new Map<string, Run | null>();
+const detailCache = new Map<string, Pick<Run, 'replay' | 'proofNode' | 'da'>>();
 
 export const runHref = (run: Run) => `/scaling/runs/bench/${encodeURIComponent(run.id)}`;
 
@@ -103,13 +106,27 @@ export async function loadProvenCapacity(
       unknown.push(meta.outputDir);
     }
   });
-  const of = (w: Workload) => runs.filter((r) => r.workload === w);
   const inWindow = (r: Run) => r.createdAt > now - WINDOW_MS && r.createdAt <= now;
-  const latestDa = (w: Workload) => of(w).filter((r) => r.da && inWindow(r)).sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  const daPassed = (r: Run) => r.steps.some((s) => s.name === 'da' && s.status === 'passed');
+  const latestDa = (rs: Run[]) => rs.filter((r) => inWindow(r) && daPassed(r)).sort((a, b) => b.createdAt - a.createdAt)[0];
+  const of = (rs: Run[], w: Workload) => rs.filter((r) => r.workload === w);
+  const selected = new Set(WORKLOADS.flatMap((w) => [provenAt(of(runs, w), now)?.run, latestDa(of(runs, w))]).filter((r) => r !== undefined));
+  await forEachLimit([...selected], CONCURRENCY, async (run) => {
+    try {
+      if (!detailCache.has(run.outputDir)) detailCache.set(run.outputDir, await loadDetails(root, run, fetchImpl));
+    } catch {
+      unknown.push(run.outputDir);
+    }
+  });
+  const full = runs.map((r) => ({ ...r, ...detailCache.get(r.outputDir) }));
+  const daRun = (w: Workload) => {
+    const run = latestDa(of(full, w));
+    return run?.da ? run : null;
+  };
   return {
-    current: Object.fromEntries(WORKLOADS.map((w) => [w, provenAt(of(w), now)])) as ProvenCapacity['current'],
-    da: Object.fromEntries(WORKLOADS.map((w) => [w, latestDa(w)])) as ProvenCapacity['da'],
-    history: history(of('mix'), now),
+    current: Object.fromEntries(WORKLOADS.map((w) => [w, provenAt(of(full, w), now)])) as ProvenCapacity['current'],
+    da: Object.fromEntries(WORKLOADS.map((w) => [w, daRun(w)])) as ProvenCapacity['da'],
+    history: history(of(full, 'mix'), now),
     unknown,
   };
 }
@@ -131,27 +148,21 @@ function candidates({ runs }: BenchmarkRuns): BenchmarkRun[] {
   return [...byDir.values()];
 }
 
+// A missing file comes back as the host's HTML fallback with a 200, so non-JSON means missing.
+async function getJson(fetchImpl: typeof fetch, url: string) {
+  const res = await fetchImpl(url);
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  return res.json().catch(() => null);
+}
+
 async function loadRun(root: string, meta: BenchmarkRun, fetchImpl: typeof fetch): Promise<Run | null> {
-  // A missing file comes back as the host's HTML fallback with a 200, so non-JSON means missing.
-  const get = async (file: string) => {
-    const res = await fetchImpl(`${root}${meta.outputDir}/${file}`);
-    if (!res.ok) throw new Error(`Failed to fetch ${file}: ${res.status}`);
-    return res.json().catch(() => null);
-  };
+  const get = (file: string) => getJson(fetchImpl, `${root}${meta.outputDir}/${file}`);
   const [pipeline, provenance] = await Promise.all([get('pipeline-result.json'), get('provenance.json')]);
   if (!pipeline || provenance?.source?.ref !== 'main') return null;
-  const [validation, load, replay, proofNode, da] = await Promise.all([
-    get('validation.json'),
-    get('load-test-result.json'),
-    get('replay-result.json'),
-    get('proof-node/replay-result.json'),
-    get('da-result.json'),
-  ]);
+  const [validation, load] = await Promise.all([get('validation.json'), get('load-test-result.json')]);
   if (!validation || !load) throw new Error(`Missing results for ${meta.outputDir}`);
   const mgas = Number(SCENARIO.exec(String(meta.testConfig.Scenario))![1]);
   const gps: number = load.throughput.gps;
-  const steps: PipelineStep[] = pipeline.steps;
-  const daOutputs = steps.find((s) => s.name === 'da')?.outputs;
   return {
     id: String(meta.testConfig.BenchmarkRun),
     outputDir: meta.outputDir,
@@ -162,7 +173,18 @@ async function loadRun(root: string, meta: BenchmarkRun, fetchImpl: typeof fetch
     passed: validation.comparable === true && gps >= PASS_RATIO * mgas * 1e6,
     commit: provenance.source.revision,
     createdAt: Date.parse(meta.createdAt),
-    steps,
+    steps: pipeline.steps,
+    replay: null,
+    proofNode: null,
+    da: null,
+  };
+}
+
+async function loadDetails(root: string, run: Run, fetchImpl: typeof fetch): Promise<Pick<Run, 'replay' | 'proofNode' | 'da'>> {
+  const get = (file: string) => getJson(fetchImpl, `${root}${run.outputDir}/${file}`);
+  const [replay, proofNode, da] = await Promise.all([get('replay-result.json'), get('proof-node/replay-result.json'), get('da-result.json')]);
+  const daOutputs = run.steps.find((s) => s.name === 'da')?.outputs;
+  return {
     replay: replay && pickReplay(replay),
     proofNode: proofNode && { ...pickReplay(proofNode), proofs: proofNode.proofs ?? null },
     da: da && { result: da, target: (daOutputs?.target as number) ?? null, withinTarget: (daOutputs?.withinTarget as boolean) ?? null },

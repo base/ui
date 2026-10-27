@@ -219,8 +219,35 @@ it('marks a run unknown when one of its files fails or its results are missing, 
     { dir: 'iso-300', mgas: 300, daysAgo: 2, fail: 'da-result.json' },
     { dir: 'iso-400', mgas: 400, daysAgo: 2, missing: ['validation.json'] },
   ]);
-  expect(current.mix).toMatchObject({ mgas: 100, atTop: true });
+  // A failed detail file leaves the run counted, without its details.
+  expect(current.mix).toMatchObject({ mgas: 300, atTop: true, run: { replay: null, da: null } });
   expect(unknown.toSorted()).toEqual(['iso-200', 'iso-300', 'iso-400']);
+});
+
+it('fetches replay, proof-node and DA files only for proven and latest-DA runs', async () => {
+  const fetched: string[] = [];
+  const metadata = { runs: ['sel-100', 'sel-200', 'sel-300'].map((dir, i) => ({
+    outputDir: dir, createdAt: new Date(NOW - (3 - i) * DAY).toISOString(),
+    testConfig: { BenchmarkRun: dir, ChainId: 8453, Scenario: `sustained-${(i + 1) * 100}mgas`, TransactionPayload: 'mainnet-mix' },
+  })) };
+  const fetchImpl = async (url: string) => {
+    const path = url.replace('https://bench.example/output/', '');
+    if (path === 'metadata.json') return Response.json(metadata);
+    fetched.push(path);
+    const [dir, ...rest] = path.split('/');
+    const s: Spec = { dir, mgas: Number(dir.slice(4)), daysAgo: 0, comparable: dir !== 'sel-300' };
+    const file = rest.join('/');
+    if (file === 'validation.json') return Response.json({ comparable: s.comparable });
+    if (file === 'load-test-result.json') return Response.json({ throughput: { gps: s.mgas * 1e6, tps: 1 } });
+    if (file === 'pipeline-result.json') return Response.json({ steps: STEPS(s) });
+    if (file === 'provenance.json') return Response.json({ source: { ref: 'main', revision: 'r' } });
+    return Response.json(file === 'da-result.json' ? DA : REPLAY);
+  };
+  const { current, da } = await loadProvenCapacity('https://bench.example', fetchImpl as typeof fetch, NOW);
+  expect(current.mix?.run.outputDir).toBe('sel-200');
+  expect(da.mix?.outputDir).toBe('sel-300');
+  const details = fetched.filter((p) => /replay-result|da-result/.test(p)).map((p) => p.split('/')[0]);
+  expect([...new Set(details)].toSorted()).toEqual(['sel-200', 'sel-300']);
 });
 
 it('revalidates the run index instead of trusting a cached copy', async () => {
