@@ -54,8 +54,9 @@ const storage = (currentBytes: number | null = null): NonNullable<Run['storage']
 const bench = (mgas: number, atTop: boolean, more: Partial<ProvenCapacity> = {}): ProvenCapacity => ({
   current: { ...none, mix: { mgas, atTop, run: run(mgas) } },
   da: none,
-  comparisons: [],
-  comparisonErrors: 0,
+  glamsterdamRuns: [],
+  mainRuns: [],
+  glamsterdamErrors: 0,
   history: [
     { at: T0, mgas: 40, commit: 'aaaaaaaaaaaaaaaa', previousCommit: null, compareUrl: null },
     { at: T0 + 5 * DAY, mgas, commit: 'bbbbbbbbbbbbbbbb', previousCommit: 'aaaaaaaaaaaaaaaa', compareUrl: 'https://github.com/base/base/compare/aaaa...bbbb' },
@@ -126,33 +127,36 @@ describe('freshness and headline', () => {
 
 });
 
-describe('Glamsterdam comparisons', () => {
-  it('shows matched jobs with their TPS, delivered Mgas/s and run links', () => {
-    const main = { ...run(200), id: 'main-mix-200', outputDir: 'main-mix-200', tps: 2200.24 };
+describe('Glamsterdam jobs', () => {
+  it('shows Glamsterdam and Main jobs side by side with measured rates and run links', () => {
+    const main = { ...run(400), id: 'main-mix-400', outputDir: 'main-mix-400', tps: 2200.24 };
     const glamsterdam = { ...run(200), id: 'glam-mix-200', outputDir: 'glam-mix-200', gps: 197e6, tps: 2100.14 };
-    swr.result = { data: bench(400, true, { comparisons: [{ workload: 'mix', main, glamsterdam }] }) };
+    swr.result = { data: bench(400, true, { mainRuns: [main], glamsterdamRuns: [glamsterdam] }) };
     const section = render().glamsterdam;
 
-    expect(text(section), 'the comparison section should identify its workload').toContain('Mainnet mix');
-    expect(text(section).match(/Target: 200 Mgas\/s/g), 'the two jobs should each show their own target').toHaveLength(2);
-    expect(text(section), 'the Glamsterdam run should show its target and measured successful TPS and gas rate').toContain('Target: 200 Mgas/s2,100.1 TPS · 197 Mgas/s actual');
-    expect(text(section), 'the main run should show its target and measured successful TPS and gas rate').toContain('Target: 200 Mgas/s2,200.2 TPS · 195 Mgas/s actual');
-    expect(text(section), 'the table should show the gap between successful TPS results').toContain('100.1 TPS');
-    expect(section, 'the Glamsterdam run ID should link to its benchmark details').toContain('href="/scaling/runs/bench/glam-mix-200"');
-    expect(section, 'the main run ID should link to its benchmark details').toContain('href="/scaling/runs/bench/main-mix-200"');
+    expect(text(section)).toContain('Glamsterdam jobs');
+    expect(text(section)).toContain('Main jobs');
+    expect(text(section)).toContain('glam-mix-200');
+    expect(text(section)).toContain('main-mix-400');
+    expect(text(section)).toContain('2,100.1');
+    expect(text(section)).toContain('2,200.2');
+    expect(section).toContain('href="/scaling/runs/bench/glam-mix-200"');
+    expect(section).toContain('href="/scaling/runs/bench/main-mix-400"');
+    expect(section).not.toContain('closest TPS');
+    expect(section).not.toContain('TPS gap');
   });
 
-  it('distinguishes unconfigured, loading, error and no-match states', () => {
-    expect(text(render({}).glamsterdam), 'an unconfigured benchmark host should be named').toContain('Benchmark source is not configured.');
-    expect(text(render().glamsterdam), 'a configured host without data should show a loading state').toContain('Loading Glamsterdam comparisons…');
+  it('distinguishes unconfigured, loading, error and unavailable jobs', () => {
+    expect(text(render({}).glamsterdam)).toContain('Benchmark source is not configured.');
+    expect(text(render().glamsterdam)).toContain('Loading benchmark runs…');
 
     swr.result = { error: new Error('offline') };
-    expect(text(render().glamsterdam), 'a failed benchmark request should show an error state').toContain('Could not load Glamsterdam benchmark data.');
+    expect(text(render().glamsterdam)).toContain('Could not load benchmark data.');
 
     swr.result = { data: bench(400, true) };
-    expect(text(render().glamsterdam), 'an empty result should state that no same-workload pairs were found').toContain('No Glamsterdam and main jobs for the same workload in the last 14 days.');
-    swr.result = { data: bench(400, true, { comparisonErrors: 1 }) };
-    expect(text(render().glamsterdam), 'a failed latest job should explain why its comparison is missing').toContain('A matching Glamsterdam run could not be loaded; its comparison is omitted.');
+    expect(text(render().glamsterdam)).toContain('No eligible jobs in the last 14 days.');
+    swr.result = { data: bench(400, true, { glamsterdamErrors: 1 }) };
+    expect(text(render().glamsterdam)).toContain('1 latest Glamsterdam job could not be loaded.');
   });
 });
 

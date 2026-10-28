@@ -174,34 +174,29 @@ it('ignores alias copies and non-sustained scenarios', async () => {
   expect(unknown).toEqual([]);
 });
 
-it('pairs each Glamsterdam target with the closest-TPS main run at any target for the same workload and lists all latest main candidates', async () => {
-  const { comparisons, comparisonErrors, mainCandidates } = await load([
-    { dir: 'nearest-main-mix-150', mgas: 150, daysAgo: 2, tps: 2000, reverted: 0 },
-    { dir: 'nearest-main-mix-200', mgas: 200, daysAgo: 1, tps: 2970, reverted: 0 },
-    { dir: 'nearest-main-payment-300', mgas: 300, daysAgo: 1, workload: 'payment', tps: 1500, reverted: 0 },
-    { dir: 'nearest-glam-mix-200', mgas: 200, daysAgo: 0, scenario: 'glamsterdam-sustained-200mgas', ref: 'glamsterdam', tps: 2238.2, reverted: 0 },
-    { dir: 'nearest-glam-payment-250', mgas: 250, daysAgo: 0, workload: 'payment', scenario: 'glamsterdam-sustained-250mgas', ref: 'glamsterdam', tps: 1520, reverted: 0 },
+it('lists the latest eligible jobs per workload and target independently', async () => {
+  const { glamsterdamRuns, mainRuns, glamsterdamErrors } = await load([
+    { dir: 'list-main-mix-150', mgas: 150, daysAgo: 2, tps: 2000, reverted: 0 },
+    { dir: 'list-main-mix-200', mgas: 200, daysAgo: 1, tps: 2970, reverted: 0 },
+    { dir: 'list-main-payment-300', mgas: 300, daysAgo: 1, workload: 'payment', tps: 1500, reverted: 0 },
+    { dir: 'list-glam-mix-200', mgas: 200, daysAgo: 0, scenario: 'glamsterdam-sustained-200mgas', ref: 'glamsterdam', tps: 2238.2, reverted: 0 },
+    { dir: 'list-glam-payment-250', mgas: 250, daysAgo: 0, workload: 'payment', scenario: 'glamsterdam-sustained-250mgas', ref: 'glamsterdam', tps: 1520, reverted: 0 },
   ]);
 
-  expect(
-    comparisons.map(({ workload, main, glamsterdam }) => [workload, glamsterdam.mgas, main.outputDir, main.mgas]),
-  ).toEqual(
-    [
-      ['mix', 200, 'nearest-main-mix-150', 150],
-      ['payment', 250, 'nearest-main-payment-300', 300],
-    ],
-    'each Glamsterdam run should show its independent target and the nearest main TPS match for that workload',
-  );
-  expect(comparisonErrors).toBe(0);
-  expect(mainCandidates.map(({ workload, mgas, outputDir }) => [workload, mgas, outputDir])).toEqual([
-    ['mix', 150, 'nearest-main-mix-150'],
-    ['mix', 200, 'nearest-main-mix-200'],
-    ['payment', 300, 'nearest-main-payment-300'],
+  expect(mainRuns.map(({ workload, mgas, outputDir }) => [workload, mgas, outputDir])).toEqual([
+    ['mix', 150, 'list-main-mix-150'],
+    ['mix', 200, 'list-main-mix-200'],
+    ['payment', 300, 'list-main-payment-300'],
   ]);
+  expect(glamsterdamRuns.map(({ workload, mgas, outputDir }) => [workload, mgas, outputDir])).toEqual([
+    ['mix', 200, 'list-glam-mix-200'],
+    ['payment', 250, 'list-glam-payment-250'],
+  ]);
+  expect(glamsterdamErrors).toBe(0);
 });
 
-it('pairs the newest Glamsterdam jobs with main at matching workloads without changing main capacity', async () => {
-  const { comparisons, comparisonErrors, current, history, latestAt } = await load([
+it('keeps the two job lists separate from main proven capacity and selects the latest rate run', async () => {
+  const { glamsterdamRuns, mainRuns, glamsterdamErrors, current, history, latestAt } = await load([
     { dir: 'main-mix-200-old', mgas: 200, daysAgo: 3 },
     { dir: 'main-mix-200-new', mgas: 200, daysAgo: 1, tps: 2200, reverted: 100 },
     { dir: 'main-payment-200', mgas: 200, daysAgo: 2, workload: 'payment' },
@@ -212,40 +207,46 @@ it('pairs the newest Glamsterdam jobs with main at matching workloads without ch
     { dir: 'main-swap-200', mgas: 200, daysAgo: 1, workload: 'swap' },
   ]);
 
-  expect(comparisons.map(({ workload, main, glamsterdam }) => [workload, glamsterdam.mgas, main.outputDir])).toEqual([
-    ['mix', 200, 'main-mix-200-new'],
-    ['mix', 300, 'main-mix-200-new'],
-    ['payment', 200, 'main-payment-200'],
+  expect(mainRuns.map(({ workload, outputDir }) => [workload, outputDir])).toEqual([
+    ['mix', 'main-mix-200-new'],
+    ['payment', 'main-payment-200'],
+    ['swap', 'main-swap-200'],
   ]);
-  expect(successfulTps(comparisons[0].main)).toBe(1980, 'the selected main run should retain its measured successful TPS');
-  expect(successfulTps(comparisons[0].glamsterdam)).toBe(1890, 'the selected Glamsterdam run should retain its distinct measured successful TPS');
-  expect(comparisons[0].glamsterdam.passed).toBe(false, 'the newest run should remain visible even when it does not pass');
-  expect(current.mix).toMatchObject({ mgas: 200, run: { outputDir: 'main-mix-200-new' } }, 'Glamsterdam runs must not affect main proven capacity');
-  expect(history.map(({ mgas }) => mgas)).toEqual([200], 'Glamsterdam runs must not enter main capacity history');
-  expect(latestAt).toBe(NOW - DAY, 'the main freshness timestamp must exclude the newer Glamsterdam run');
-  expect(comparisonErrors).toBe(0, 'successful comparisons should have no load errors');
+  expect(glamsterdamRuns.map(({ workload, outputDir }) => [workload, outputDir])).toEqual([
+    ['mix', 'glam-mix-200-latest'],
+    ['mix', 'glam-mix-300'],
+    ['payment', 'glam-payment-200'],
+  ]);
+  expect(successfulTps(mainRuns[0])).toBe(1980);
+  expect(successfulTps(glamsterdamRuns[0])).toBe(1890);
+  expect(glamsterdamRuns[0].passed).toBe(false);
+  expect(current.mix).toMatchObject({ mgas: 200, run: { outputDir: 'main-mix-200-new' } });
+  expect(history.map(({ mgas }) => mgas)).toEqual([200]);
+  expect(latestAt).toBe(NOW - DAY);
+  expect(glamsterdamErrors).toBe(0);
 });
 
-it('omits an older comparison when the newest Glamsterdam run cannot be loaded', async () => {
-  const { comparisons, comparisonErrors } = await load([
+it('omits a stale Glamsterdam job when the latest run cannot be loaded', async () => {
+  const { glamsterdamRuns, mainRuns, glamsterdamErrors } = await load([
     { dir: 'failed-latest-main-200', mgas: 200, daysAgo: 1 },
     { dir: 'failed-latest-glam-old-200', mgas: 200, daysAgo: 3, scenario: 'glamsterdam-sustained-200mgas' },
     { dir: 'failed-latest-glam-new-200', mgas: 200, daysAgo: 0, scenario: 'glamsterdam-sustained-200mgas', fail: 'load-test-result.json' },
   ]);
 
-  expect(comparisons).toEqual([], 'a failed latest job must not leave an older pair that looks current');
-  expect(comparisonErrors).toBe(1, 'the omitted workload-and-rate comparison should be reported once');
+  expect(glamsterdamRuns).toEqual([]);
+  expect(mainRuns.map(({ outputDir }) => outputDir)).toEqual(['failed-latest-main-200']);
+  expect(glamsterdamErrors).toBe(1);
 });
 
-it('keeps a newer loaded pair when only an older Glamsterdam run fails', async () => {
-  const { comparisons, comparisonErrors } = await load([
+it('keeps a loaded latest Glamsterdam job when only an older run fails', async () => {
+  const { glamsterdamRuns, glamsterdamErrors } = await load([
     { dir: 'older-failure-main-200', mgas: 200, daysAgo: 1 },
     { dir: 'older-failure-glam-old-200', mgas: 200, daysAgo: 3, scenario: 'glamsterdam-sustained-200mgas', fail: 'load-test-result.json' },
     { dir: 'older-failure-glam-new-200', mgas: 200, daysAgo: 0, scenario: 'glamsterdam-sustained-200mgas' },
   ]);
 
-  expect(comparisons.map(({ glamsterdam }) => glamsterdam.outputDir)).toEqual(['older-failure-glam-new-200'], 'the latest loaded Glamsterdam run should remain paired');
-  expect(comparisonErrors).toBe(0, 'an older failed job should not mark the latest loaded comparison unavailable');
+  expect(glamsterdamRuns.map(({ outputDir }) => outputDir)).toEqual(['older-failure-glam-new-200']);
+  expect(glamsterdamErrors).toBe(0);
 });
 
 it('computes successful TPS by excluding reverts from confirmed transactions, not all submissions', async () => {

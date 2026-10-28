@@ -95,17 +95,14 @@ export type Step = {
 export type ProvenCapacity = {
   current: Record<Workload, Proven | null>;
   da: Record<Workload, Run | null>;
-  comparisons: GlamsterdamPair[];
-  /** Latest eligible main run per workload and target in the comparison window. */
-  mainCandidates?: Run[];
-  comparisonErrors: number;
+  glamsterdamRuns: Run[];
+  mainRuns: Run[];
+  glamsterdamErrors: number;
   history: Step[];
   latestAt: number | null;
   unknown: string[];
 };
 
-/** A Glamsterdam run paired with the closest-TPS main run for the same workload. */
-export type GlamsterdamPair = { workload: Workload; main: Run; glamsterdam: Run };
 
 const WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const PASS_RATIO = 0.95;
@@ -168,13 +165,13 @@ export async function loadProvenCapacity(
     const run = latestDa(of(full, w));
     return run?.da ? run : null;
   };
-  const comparison = glamsterdamComparisons(full, glamRuns, now, failedGlamRuns);
+  const jobs = benchmarkRuns(full, glamRuns, now, failedGlamRuns);
   return {
     current: Object.fromEntries(WORKLOADS.map((w) => [w, provenAt(of(full, w), now)])) as ProvenCapacity['current'],
     da: Object.fromEntries(WORKLOADS.map((w) => [w, daRun(w)])) as ProvenCapacity['da'],
-    comparisons: comparison.pairs,
-    comparisonErrors: comparison.errors,
-    mainCandidates: comparison.mainCandidates,
+    glamsterdamRuns: jobs.glamsterdamRuns,
+    mainRuns: jobs.mainRuns,
+    glamsterdamErrors: jobs.errors,
     history: history(of(full, 'mix'), now),
     latestAt: runs.length ? Math.max(...runs.map((r) => r.createdAt)) : null,
     unknown,
@@ -270,49 +267,30 @@ function latestByWorkloadAndRate(runs: Run[], now: number): Map<string, Run> {
   return latest;
 }
 
-/** Pairs each latest Glamsterdam run with the closest-TPS main run for the same workload. */
-function glamsterdamComparisons(
+/** Lists the latest in-window run for each workload and target, without pairing jobs. */
+function benchmarkRuns(
   mainRuns: Run[],
   glamRuns: Run[],
   now: number,
   failedGlamRuns: Map<string, number>,
-): { pairs: GlamsterdamPair[]; errors: number; mainCandidates: Run[] } {
+): { glamsterdamRuns: Run[]; mainRuns: Run[]; errors: number } {
   const latestMain = latestByWorkloadAndRate(mainRuns, now);
-  const mainCandidates = [...latestMain.values()].sort(
-    (a, b) => WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) || a.mgas - b.mgas,
-  );
-  const mainByWorkload = new Map<Workload, Run[]>();
-  for (const run of latestMain.values()) {
-    mainByWorkload.set(run.workload, [...(mainByWorkload.get(run.workload) ?? []), run]);
-  }
   const latestGlam = latestByWorkloadAndRate(glamRuns, now);
   const blocked = new Set(
     [...failedGlamRuns].flatMap(([key, failedAt]) => {
       const loaded = latestGlam.get(key);
-      const workload = key.split(':')[0] as Workload;
-      const hasMainRun = (mainByWorkload.get(workload)?.length ?? 0) > 0;
-      return hasMainRun && failedAt > now - WINDOW_MS && failedAt <= now && (!loaded || failedAt >= loaded.createdAt) ? [key] : [];
+      return failedAt > now - WINDOW_MS && failedAt <= now && (!loaded || failedAt >= loaded.createdAt) ? [key] : [];
     }),
   );
-  const pairs = [...latestGlam.entries()]
-    .flatMap(([key, glamsterdam]) => {
-      const baselines = mainByWorkload.get(glamsterdam.workload) ?? [];
-      if (blocked.has(key) || baselines.length === 0) return [];
-      const main = baselines.reduce((closest, candidate) => {
-        const candidateGap = Math.abs(successfulTps(candidate) - successfulTps(glamsterdam));
-        const closestGap = Math.abs(successfulTps(closest) - successfulTps(glamsterdam));
-        return candidateGap < closestGap || (candidateGap === closestGap && candidate.createdAt > closest.createdAt)
-          ? candidate
-          : closest;
-      });
-      return [{ workload: glamsterdam.workload, main, glamsterdam }];
-    })
-    .sort(
-      (a, b) =>
-        WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) ||
-        a.glamsterdam.mgas - b.glamsterdam.mgas,
-    );
-  return { pairs, errors: blocked.size, mainCandidates };
+  const sortRuns = (a: Run, b: Run) => WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) || a.mgas - b.mgas;
+  return {
+    mainRuns: [...latestMain.values()].sort(sortRuns),
+    glamsterdamRuns: [...latestGlam.entries()]
+      .filter(([key]) => !blocked.has(key))
+      .map(([, run]) => run)
+      .sort(sortRuns),
+    errors: blocked.size,
+  };
 }
 
 // Rust Durations serialize as { secs, nanos }.

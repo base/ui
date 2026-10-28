@@ -52,7 +52,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} limits={limits} />
       <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} mainnetGasPerTx={mainnetGasPerTx(snapshot)} />
       <WorkloadSubsystems cards={subsystemCards(data, limits, snapshot, ladder.configuredLimit.value)} />
-      <GlamsterdamComparisonSection configured={!!benchUrl} comparisons={data?.comparisons} comparisonErrors={data?.comparisonErrors ?? 0} mainCandidates={data?.mainCandidates} error={bench.error} />
+      <GlamsterdamComparisonSection configured={!!benchUrl} glamsterdamRuns={data?.glamsterdamRuns} mainRuns={data?.mainRuns} glamsterdamErrors={data?.glamsterdamErrors ?? 0} error={bench.error} />
       <Work work={snapshot.work} />
     </>
   );

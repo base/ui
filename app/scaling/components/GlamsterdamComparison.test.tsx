@@ -2,12 +2,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
 
 import { GlamsterdamComparisonSection } from './GlamsterdamComparison';
-import type { GlamsterdamPair, Run } from '../proven/capacity';
+import type { Run } from '../proven/capacity';
 
-const run = (id: string, mgas: number, tps: number, gps: number): Run => ({
+const run = (id: string, mgas: number, tps: number, gps: number, workload: Run['workload'] = 'mix'): Run => ({
   id,
   outputDir: id,
-  workload: 'mix',
+  workload,
   mgas,
   gps,
   tps,
@@ -23,32 +23,27 @@ const run = (id: string, mgas: number, tps: number, gps: number): Run => ({
   blockLatency: null,
 });
 
-it('shows the benchmark source setup message when comparisons are unavailable', () => {
+it('shows the benchmark source setup message when jobs are unavailable', () => {
   const html = renderToStaticMarkup(<GlamsterdamComparisonSection configured={false} />);
-  expect(html, 'the section should explain why comparison data is unavailable').toContain('Benchmark source is not configured.');
+  expect(html).toContain('Benchmark source is not configured.');
 });
 
-it('shows independent targets and measured results for the closest-TPS pair', () => {
-  const comparison: GlamsterdamPair = {
-    workload: 'mix',
-    glamsterdam: run('glamsterdam-200', 200, 2238.2, 204.5e6),
-    main: run('main-150', 150, 2000, 150e6),
-  };
-  const candidates = [run('main-200', 200, 2970.6, 203e6), run('main-400', 400, 5942.5, 406.5e6)];
+it('shows Glamsterdam and Main jobs side by side without pairing or TPS-gap calculations', () => {
+  const glamsterdamRuns = [run('glam-mix-200', 200, 2238.2, 204.5e6), run('glam-pay-300', 300, 1520, 302e6, 'payment')];
+  const mainRuns = [run('main-mix-200', 200, 2970.6, 203e6), run('main-mix-400', 400, 5942.5, 406.5e6)];
   const html = renderToStaticMarkup(
-    <GlamsterdamComparisonSection configured comparisons={[comparison]} mainCandidates={candidates} />,
+    <GlamsterdamComparisonSection configured glamsterdamRuns={glamsterdamRuns} mainRuns={mainRuns} />,
   );
 
-  expect(html).toContain('Glamsterdam job');
-  expect(html).toContain('Main job · closest TPS');
-  expect(html).toContain('Target: 200 Mgas/s');
-  expect(html).toContain('Target: 150 Mgas/s');
-  expect(html).toContain('2,238.2 TPS · 204.5 Mgas/s actual');
-  expect(html).toContain('2,000 TPS · 150 Mgas/s actual');
-  expect(html).toContain('238.2 TPS');
-
-  expect(html).toContain('Main candidates · latest eligible run per workload and target');
-  expect(html).toContain('main-200');
-  expect(html).toContain('main-400');
-  expect(html).toContain('5,942.5 TPS');
+  expect(html).toContain('Glamsterdam jobs');
+  expect(html).toContain('Main jobs');
+  expect(html).toContain('glam-mix-200');
+  expect(html).toContain('glam-pay-300');
+  expect(html).toContain('main-mix-200');
+  expect(html).toContain('main-mix-400');
+  expect(html).toContain('2,238.2');
+  expect(html).toContain('2,970.6');
+  expect(html).toContain('5,942.5');
+  expect(html).not.toContain('closest TPS');
+  expect(html).not.toContain('TPS gap');
 });
