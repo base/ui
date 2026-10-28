@@ -130,12 +130,14 @@ describe('Glamsterdam comparisons', () => {
   it('shows matched jobs with their TPS, delivered Mgas/s and run links', () => {
     const main = { ...run(200), id: 'main-mix-200', outputDir: 'main-mix-200', tps: 2200.24 };
     const glamsterdam = { ...run(200), id: 'glam-mix-200', outputDir: 'glam-mix-200', gps: 197e6, tps: 2100.14 };
-    swr.result = { data: bench(400, true, { comparisons: [{ workload: 'mix', mgas: 200, main, glamsterdam }] }) };
+    swr.result = { data: bench(400, true, { comparisons: [{ workload: 'mix', main, glamsterdam }] }) };
     const section = render().glamsterdam;
 
-    expect(text(section), 'the comparison section should identify its workload and target rate').toContain('Mainnet mix200 Mgas/s');
-    expect(text(section), 'the Glamsterdam run should show its measured TPS to a decimal and delivered gas rate').toContain('2,100.1 TPS · 197 Mgas/s');
-    expect(text(section), 'the main run should show its measured TPS to a decimal and delivered gas rate').toContain('2,200.2 TPS · 195 Mgas/s');
+    expect(text(section), 'the comparison section should identify its workload').toContain('Mainnet mix');
+    expect(text(section).match(/Target: 200 Mgas\/s/g), 'the two jobs should each show their own target').toHaveLength(2);
+    expect(text(section), 'the Glamsterdam run should show its target and measured successful TPS and gas rate').toContain('Target: 200 Mgas/s2,100.1 TPS · 197 Mgas/s actual');
+    expect(text(section), 'the main run should show its target and measured successful TPS and gas rate').toContain('Target: 200 Mgas/s2,200.2 TPS · 195 Mgas/s actual');
+    expect(text(section), 'the table should show the gap between successful TPS results').toContain('100.1 TPS');
     expect(section, 'the Glamsterdam run ID should link to its benchmark details').toContain('href="/scaling/runs/bench/glam-mix-200"');
     expect(section, 'the main run ID should link to its benchmark details').toContain('href="/scaling/runs/bench/main-mix-200"');
   });
@@ -148,7 +150,7 @@ describe('Glamsterdam comparisons', () => {
     expect(text(render().glamsterdam), 'a failed benchmark request should show an error state').toContain('Could not load Glamsterdam benchmark data.');
 
     swr.result = { data: bench(400, true) };
-    expect(text(render().glamsterdam), 'an empty result should state that no matching pairs were found').toContain('No matching Glamsterdam and main jobs in the last 14 days.');
+    expect(text(render().glamsterdam), 'an empty result should state that no same-workload pairs were found').toContain('No Glamsterdam and main jobs for the same workload in the last 14 days.');
     swr.result = { data: bench(400, true, { comparisonErrors: 1 }) };
     expect(text(render().glamsterdam), 'a failed latest job should explain why its comparison is missing').toContain('A matching Glamsterdam run could not be loaded; its comparison is omitted.');
   });

@@ -174,7 +174,28 @@ it('ignores alias copies and non-sustained scenarios', async () => {
   expect(unknown).toEqual([]);
 });
 
-it('pairs the newest Glamsterdam jobs with main at matching workloads and rates without changing main capacity', async () => {
+it('pairs each Glamsterdam target with the closest-TPS main run at any target for the same workload', async () => {
+  const { comparisons, comparisonErrors } = await load([
+    { dir: 'nearest-main-mix-150', mgas: 150, daysAgo: 2, tps: 2000, reverted: 0 },
+    { dir: 'nearest-main-mix-200', mgas: 200, daysAgo: 1, tps: 2970, reverted: 0 },
+    { dir: 'nearest-main-payment-300', mgas: 300, daysAgo: 1, workload: 'payment', tps: 1500, reverted: 0 },
+    { dir: 'nearest-glam-mix-200', mgas: 200, daysAgo: 0, scenario: 'glamsterdam-sustained-200mgas', ref: 'glamsterdam', tps: 2238.2, reverted: 0 },
+    { dir: 'nearest-glam-payment-250', mgas: 250, daysAgo: 0, workload: 'payment', scenario: 'glamsterdam-sustained-250mgas', ref: 'glamsterdam', tps: 1520, reverted: 0 },
+  ]);
+
+  expect(
+    comparisons.map(({ workload, main, glamsterdam }) => [workload, glamsterdam.mgas, main.outputDir, main.mgas]),
+  ).toEqual(
+    [
+      ['mix', 200, 'nearest-main-mix-150', 150],
+      ['payment', 250, 'nearest-main-payment-300', 300],
+    ],
+    'each Glamsterdam run should show its independent target and the nearest main TPS match for that workload',
+  );
+  expect(comparisonErrors).toBe(0);
+});
+
+it('pairs the newest Glamsterdam jobs with main at matching workloads without changing main capacity', async () => {
   const { comparisons, comparisonErrors, current, history, latestAt } = await load([
     { dir: 'main-mix-200-old', mgas: 200, daysAgo: 3 },
     { dir: 'main-mix-200-new', mgas: 200, daysAgo: 1, tps: 2200, reverted: 100 },
@@ -186,10 +207,11 @@ it('pairs the newest Glamsterdam jobs with main at matching workloads and rates 
     { dir: 'main-swap-200', mgas: 200, daysAgo: 1, workload: 'swap' },
   ]);
 
-  expect(comparisons.map(({ workload, mgas, main, glamsterdam }) => [workload, mgas, main.outputDir, glamsterdam.outputDir])).toEqual([
-    ['mix', 200, 'main-mix-200-new', 'glam-mix-200-latest'],
-    ['payment', 200, 'main-payment-200', 'glam-payment-200'],
-  ], 'only the newest exact workload-and-rate matches should appear');
+  expect(comparisons.map(({ workload, main, glamsterdam }) => [workload, glamsterdam.mgas, main.outputDir])).toEqual([
+    ['mix', 200, 'main-mix-200-new'],
+    ['mix', 300, 'main-mix-200-new'],
+    ['payment', 200, 'main-payment-200'],
+  ]);
   expect(successfulTps(comparisons[0].main)).toBe(1980, 'the selected main run should retain its measured successful TPS');
   expect(successfulTps(comparisons[0].glamsterdam)).toBe(1890, 'the selected Glamsterdam run should retain its distinct measured successful TPS');
   expect(comparisons[0].glamsterdam.passed).toBe(false, 'the newest run should remain visible even when it does not pass');

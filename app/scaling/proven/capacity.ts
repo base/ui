@@ -102,8 +102,8 @@ export type ProvenCapacity = {
   unknown: string[];
 };
 
-/** A matched Glamsterdam and main run at the same workload and target gas rate. */
-export type GlamsterdamPair = { workload: Workload; mgas: number; main: Run; glamsterdam: Run };
+/** A Glamsterdam run paired with the closest-TPS main run for the same workload. */
+export type GlamsterdamPair = { workload: Workload; main: Run; glamsterdam: Run };
 
 const WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const PASS_RATIO = 0.95;
@@ -267,28 +267,44 @@ function latestByWorkloadAndRate(runs: Run[], now: number): Map<string, Run> {
   return latest;
 }
 
-/** Pairs the newest Glamsterdam run with its main baseline at the same workload and rate. */
+/** Pairs each latest Glamsterdam run with the closest-TPS main run for the same workload. */
 function glamsterdamComparisons(
   mainRuns: Run[],
   glamRuns: Run[],
   now: number,
   failedGlamRuns: Map<string, number>,
-  ): { pairs: GlamsterdamPair[]; errors: number } {
-  const main = latestByWorkloadAndRate(mainRuns, now);
+): { pairs: GlamsterdamPair[]; errors: number } {
+  const mainByWorkload = new Map<Workload, Run[]>();
+  for (const run of latestByWorkloadAndRate(mainRuns, now).values()) {
+    mainByWorkload.set(run.workload, [...(mainByWorkload.get(run.workload) ?? []), run]);
+  }
   const latestGlam = latestByWorkloadAndRate(glamRuns, now);
   const blocked = new Set(
     [...failedGlamRuns].flatMap(([key, failedAt]) => {
       const loaded = latestGlam.get(key);
-      return main.has(key) && failedAt > now - WINDOW_MS && failedAt <= now && (!loaded || failedAt >= loaded.createdAt) ? [key] : [];
+      const workload = key.split(':')[0] as Workload;
+      const hasMainRun = (mainByWorkload.get(workload)?.length ?? 0) > 0;
+      return hasMainRun && failedAt > now - WINDOW_MS && failedAt <= now && (!loaded || failedAt >= loaded.createdAt) ? [key] : [];
     }),
   );
-  const pairs = [...latestGlam.values()]
-    .flatMap((glamsterdam) => {
-      const key = `${glamsterdam.workload}:${glamsterdam.mgas}`;
-      const baseline = main.get(key);
-      return baseline && !blocked.has(key) ? [{ workload: glamsterdam.workload, mgas: glamsterdam.mgas, main: baseline, glamsterdam }] : [];
+  const pairs = [...latestGlam.entries()]
+    .flatMap(([key, glamsterdam]) => {
+      const baselines = mainByWorkload.get(glamsterdam.workload) ?? [];
+      if (blocked.has(key) || baselines.length === 0) return [];
+      const main = baselines.reduce((closest, candidate) => {
+        const candidateGap = Math.abs(successfulTps(candidate) - successfulTps(glamsterdam));
+        const closestGap = Math.abs(successfulTps(closest) - successfulTps(glamsterdam));
+        return candidateGap < closestGap || (candidateGap === closestGap && candidate.createdAt > closest.createdAt)
+          ? candidate
+          : closest;
+      });
+      return [{ workload: glamsterdam.workload, main, glamsterdam }];
     })
-    .sort((a, b) => WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) || a.mgas - b.mgas);
+    .sort(
+      (a, b) =>
+        WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) ||
+        a.glamsterdam.mgas - b.glamsterdam.mgas,
+    );
   return { pairs, errors: blocked.size };
 }
 
