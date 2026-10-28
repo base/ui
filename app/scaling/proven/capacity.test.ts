@@ -174,8 +174,8 @@ it('ignores alias copies and non-sustained scenarios', async () => {
   expect(unknown).toEqual([]);
 });
 
-it('pairs each Glamsterdam target with the closest-TPS main run at any target for the same workload', async () => {
-  const { comparisons, comparisonErrors } = await load([
+it('pairs each Glamsterdam target with the closest-TPS main run at any target for the same workload and lists all latest main candidates', async () => {
+  const { comparisons, comparisonErrors, mainCandidates } = await load([
     { dir: 'nearest-main-mix-150', mgas: 150, daysAgo: 2, tps: 2000, reverted: 0 },
     { dir: 'nearest-main-mix-200', mgas: 200, daysAgo: 1, tps: 2970, reverted: 0 },
     { dir: 'nearest-main-payment-300', mgas: 300, daysAgo: 1, workload: 'payment', tps: 1500, reverted: 0 },
@@ -193,6 +193,11 @@ it('pairs each Glamsterdam target with the closest-TPS main run at any target fo
     'each Glamsterdam run should show its independent target and the nearest main TPS match for that workload',
   );
   expect(comparisonErrors).toBe(0);
+  expect(mainCandidates.map(({ workload, mgas, outputDir }) => [workload, mgas, outputDir])).toEqual([
+    ['mix', 150, 'nearest-main-mix-150'],
+    ['mix', 200, 'nearest-main-mix-200'],
+    ['payment', 300, 'nearest-main-payment-300'],
+  ]);
 });
 
 it('pairs the newest Glamsterdam jobs with main at matching workloads without changing main capacity', async () => {

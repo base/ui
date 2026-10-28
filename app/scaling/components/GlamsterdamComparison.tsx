@@ -5,6 +5,7 @@ import { runHref, successfulTps, type GlamsterdamPair, type Run } from '../prove
 type Props = {
   configured: boolean;
   comparisons?: GlamsterdamPair[];
+  mainCandidates?: Run[];
   comparisonErrors?: number;
   error?: unknown;
 };
@@ -19,7 +20,7 @@ const tpsGap = (comparison: GlamsterdamPair) =>
   });
 
 /** Shows Glamsterdam runs beside the closest-TPS main run for the same workload. */
-export function GlamsterdamComparisonSection({ configured, comparisons, comparisonErrors = 0, error }: Props) {
+export function GlamsterdamComparisonSection({ configured, comparisons, comparisonErrors = 0, mainCandidates, error }: Props) {
   const message = !configured
     ? 'Benchmark source is not configured.'
     : error
@@ -87,6 +88,42 @@ export function GlamsterdamComparisonSection({ configured, comparisons, comparis
               </tbody>
             </table>
           </div>
+          {mainCandidates?.length ? (
+            <div className="flex flex-col gap-2">
+              <Text as="h3" variant="label.regular" tone="muted">Main candidates · latest eligible run per workload and target</Text>
+              <div className="overflow-x-auto rounded-lg border border-bds-gray-10 dark:border-white/10">
+                <table className="w-full min-w-[640px] border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-bds-gray-10 dark:border-white/10">
+                      <th className={TH}>Workload</th>
+                      <th className={TH}>Main job</th>
+                      <th className={TH}>Target</th>
+                      <th className={TH}>Successful TPS</th>
+                      <th className={TH}>Actual Mgas/s</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mainCandidates.map((run) => {
+                      const workload = DA_WORKLOADS.find((item) => item.payload === run.workload)?.label ?? run.workload;
+                      return (
+                        <tr key={run.outputDir}>
+                          <td className={TD}>{workload}</td>
+                          <td className={TD}>
+                            <a className="break-all underline" href={runHref(run)}>
+                              {run.id}
+                            </a>
+                          </td>
+                          <td className={`${TD} whitespace-nowrap tabular-nums`}>{run.mgas.toLocaleString('en-US')} Mgas/s</td>
+                          <td className={`${TD} whitespace-nowrap tabular-nums`}>{tps(run)} TPS</td>
+                          <td className={`${TD} whitespace-nowrap tabular-nums`}>{rate(run)} Mgas/s</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </section>

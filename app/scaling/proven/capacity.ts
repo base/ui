@@ -96,6 +96,8 @@ export type ProvenCapacity = {
   current: Record<Workload, Proven | null>;
   da: Record<Workload, Run | null>;
   comparisons: GlamsterdamPair[];
+  /** Latest eligible main run per workload and target in the comparison window. */
+  mainCandidates?: Run[];
   comparisonErrors: number;
   history: Step[];
   latestAt: number | null;
@@ -172,6 +174,7 @@ export async function loadProvenCapacity(
     da: Object.fromEntries(WORKLOADS.map((w) => [w, daRun(w)])) as ProvenCapacity['da'],
     comparisons: comparison.pairs,
     comparisonErrors: comparison.errors,
+    mainCandidates: comparison.mainCandidates,
     history: history(of(full, 'mix'), now),
     latestAt: runs.length ? Math.max(...runs.map((r) => r.createdAt)) : null,
     unknown,
@@ -273,9 +276,13 @@ function glamsterdamComparisons(
   glamRuns: Run[],
   now: number,
   failedGlamRuns: Map<string, number>,
-): { pairs: GlamsterdamPair[]; errors: number } {
+): { pairs: GlamsterdamPair[]; errors: number; mainCandidates: Run[] } {
+  const latestMain = latestByWorkloadAndRate(mainRuns, now);
+  const mainCandidates = [...latestMain.values()].sort(
+    (a, b) => WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) || a.mgas - b.mgas,
+  );
   const mainByWorkload = new Map<Workload, Run[]>();
-  for (const run of latestByWorkloadAndRate(mainRuns, now).values()) {
+  for (const run of latestMain.values()) {
     mainByWorkload.set(run.workload, [...(mainByWorkload.get(run.workload) ?? []), run]);
   }
   const latestGlam = latestByWorkloadAndRate(glamRuns, now);
@@ -305,7 +312,7 @@ function glamsterdamComparisons(
         WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) ||
         a.glamsterdam.mgas - b.glamsterdam.mgas,
     );
-  return { pairs, errors: blocked.size };
+  return { pairs, errors: blocked.size, mainCandidates };
 }
 
 // Rust Durations serialize as { secs, nanos }.
