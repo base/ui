@@ -44,6 +44,7 @@ it('shows Glamsterdam and Main jobs side by side without pairing or TPS-gap calc
   expect(html).toContain('2,238.2');
   expect(html).toContain('2,970.6');
   expect(html).toContain('5,942.5');
+  expect(html).toContain('TPS / actual Mgas/s');
   expect(html).not.toContain('closest TPS');
   expect(html).not.toContain('TPS gap');
 });

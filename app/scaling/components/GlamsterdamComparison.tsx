@@ -25,14 +25,13 @@ function RunTable({ title, runs }: { title: string; runs: Run[] }) {
         <Text variant="label.regular" tone="muted">No eligible jobs in the last 14 days.</Text>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-bds-gray-10 dark:border-white/10">
-          <table className="w-full min-w-[560px] border-collapse text-[13px]">
+          <table className="w-full min-w-[480px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-bds-gray-10 dark:border-white/10">
                 <th className={TH}>Workload</th>
                 <th className={TH}>Target</th>
                 <th className={TH}>Job</th>
-                <th className={TH}>Successful TPS</th>
-                <th className={TH}>Actual Mgas/s</th>
+                <th className={TH}>TPS / actual Mgas/s</th>
               </tr>
             </thead>
             <tbody>
@@ -47,8 +46,7 @@ function RunTable({ title, runs }: { title: string; runs: Run[] }) {
                         {run.id}
                       </a>
                     </td>
-                    <td className={`${TD} whitespace-nowrap tabular-nums`}>{tps(run)}</td>
-                    <td className={`${TD} whitespace-nowrap tabular-nums`}>{rate(run)}</td>
+                    <td className={`${TD} whitespace-nowrap tabular-nums`}>{tps(run)} / {rate(run)}</td>
                   </tr>
                 );
               })}
@@ -95,7 +93,7 @@ export function GlamsterdamComparisonSection({
               {glamsterdamErrors} latest Glamsterdam job{glamsterdamErrors === 1 ? '' : 's'} could not be loaded.
             </Text>
           ) : null}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <RunTable title="Glamsterdam jobs" runs={glamsterdamRuns!} />
             <RunTable title="Main jobs" runs={mainRuns!} />
           </div>
