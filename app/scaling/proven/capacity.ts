@@ -61,7 +61,7 @@ export type Run = {
   mgas: number;
   gps: number;
   tps: number;
-  // Share of submitted transactions that reverted; they still use gas.
+  // Share of confirmed transactions that reverted; they still use gas.
   reverted: number;
   passed: boolean;
   commit: string;
@@ -75,7 +75,7 @@ export type Run = {
   blockLatency: { p50Ms: number; p99Ms: number } | null;
 };
 
-// Reverted transactions count toward gas/s but not toward transactions per second.
+// The load result's tps includes confirmed transactions that reverted, so exclude them for successful TPS.
 export const successfulTps = (run: Run) => run.tps * (1 - run.reverted);
 
 export type Proven = { mgas: number; atTop: boolean; run: Run };
@@ -224,7 +224,7 @@ async function loadRun(root: string, candidate: Candidate, fetchImpl: typeof fet
     mgas,
     gps,
     tps: load.throughput.tps,
-    reverted: load.throughput.total_submitted ? (load.throughput.total_reverted ?? 0) / load.throughput.total_submitted : 0,
+    reverted: load.throughput.total_confirmed ? (load.throughput.total_reverted ?? 0) / load.throughput.total_confirmed : 0,
     blockLatency: load.block_latency?.p50 && load.block_latency?.p99 ? { p50Ms: durationMs(load.block_latency.p50), p99Ms: durationMs(load.block_latency.p99) } : null,
     passed: validation.comparable === true && gps >= PASS_RATIO * mgas * 1e6,
     commit: source.revision,

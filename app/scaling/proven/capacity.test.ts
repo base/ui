@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 
-import { loadProvenCapacity, PAYLOADS, type Workload } from './capacity';
+import { loadProvenCapacity, PAYLOADS, successfulTps, type Workload } from './capacity';
 
 const NOW = Date.parse('2026-02-01T00:00:00Z');
 const DAY = 86_400_000;
@@ -10,9 +10,12 @@ type Spec = {
   dir: string;
   mgas: number;
   daysAgo: number;
+  comparable?: boolean;
   workload?: Workload;
   ref?: string | null;
-  comparable?: boolean;
+  confirmed?: number;
+  reverted?: number;
+  tps?: number;
   delivered?: number;
   scenario?: string;
   benchmarkRun?: string;
@@ -73,7 +76,7 @@ function load(specs: Spec[]) {
     switch (file) {
       case 'validation.json': return Response.json({ comparable: s.comparable ?? true, reasons: [] });
       case 'load-test-result.json': return Response.json({
-        throughput: { gps: delivered * 1e6, tps: delivered * 10, total_submitted: 1000, total_reverted: 155 },
+        throughput: { gps: delivered * 1e6, tps: s.tps ?? delivered * 10, total_submitted: 1000, total_confirmed: s.confirmed ?? 1000, total_reverted: s.reverted ?? 155 },
         ...(s.noLatency ? {} : { block_latency: { p50: { secs: 0, nanos: 205_382_593 }, p99: { secs: 1, nanos: 6_265_374 } } }),
       });
       case 'pipeline-result.json': return Response.json({ suite: 'synthetic', comparable: s.comparable ?? true, steps: STEPS(s) });
@@ -174,10 +177,10 @@ it('ignores alias copies and non-sustained scenarios', async () => {
 it('pairs the newest Glamsterdam jobs with main at matching workloads and rates without changing main capacity', async () => {
   const { comparisons, comparisonErrors, current, history, latestAt } = await load([
     { dir: 'main-mix-200-old', mgas: 200, daysAgo: 3 },
-    { dir: 'main-mix-200-new', mgas: 200, daysAgo: 1 },
+    { dir: 'main-mix-200-new', mgas: 200, daysAgo: 1, tps: 2200, reverted: 100 },
     { dir: 'main-payment-200', mgas: 200, daysAgo: 2, workload: 'payment' },
     { dir: 'glam-mix-200-old', mgas: 200, daysAgo: 2, scenario: 'glamsterdam-sustained-200mgas', ref: 'glamsterdam' },
-    { dir: 'glam-mix-200-latest', mgas: 200, daysAgo: 0, scenario: 'glamsterdam-sustained-200mgas', ref: 'feature', comparable: false },
+    { dir: 'glam-mix-200-latest', mgas: 200, daysAgo: 0, scenario: 'glamsterdam-sustained-200mgas', ref: 'feature', comparable: false, tps: 2100, reverted: 100 },
     { dir: 'glam-payment-200', mgas: 200, daysAgo: 1, workload: 'payment', scenario: 'glamsterdam-sustained-200mgas', ref: 'glamsterdam' },
     { dir: 'glam-mix-300', mgas: 300, daysAgo: 1, scenario: 'glamsterdam-sustained-300mgas', ref: 'glamsterdam' },
     { dir: 'main-swap-200', mgas: 200, daysAgo: 1, workload: 'swap' },
@@ -187,6 +190,8 @@ it('pairs the newest Glamsterdam jobs with main at matching workloads and rates 
     ['mix', 200, 'main-mix-200-new', 'glam-mix-200-latest'],
     ['payment', 200, 'main-payment-200', 'glam-payment-200'],
   ], 'only the newest exact workload-and-rate matches should appear');
+  expect(successfulTps(comparisons[0].main)).toBe(1980, 'the selected main run should retain its measured successful TPS');
+  expect(successfulTps(comparisons[0].glamsterdam)).toBe(1890, 'the selected Glamsterdam run should retain its distinct measured successful TPS');
   expect(comparisons[0].glamsterdam.passed).toBe(false, 'the newest run should remain visible even when it does not pass');
   expect(current.mix).toMatchObject({ mgas: 200, run: { outputDir: 'main-mix-200-new' } }, 'Glamsterdam runs must not affect main proven capacity');
   expect(history.map(({ mgas }) => mgas)).toEqual([200], 'Glamsterdam runs must not enter main capacity history');
@@ -215,6 +220,14 @@ it('keeps a newer loaded pair when only an older Glamsterdam run fails', async (
   expect(comparisons.map(({ glamsterdam }) => glamsterdam.outputDir)).toEqual(['older-failure-glam-new-200'], 'the latest loaded Glamsterdam run should remain paired');
   expect(comparisonErrors).toBe(0, 'an older failed job should not mark the latest loaded comparison unavailable');
 });
+
+it('computes successful TPS by excluding reverts from confirmed transactions, not all submissions', async () => {
+  const { current } = await load([{ dir: 'success-tps-denominator', mgas: 100, daysAgo: 1, confirmed: 800, reverted: 100 }]);
+
+  expect(current.mix?.run.reverted).toBe(0.125, 'reverts should be a share of confirmed transactions');
+  expect(successfulTps(current.mix!.run)).toBe(875, 'successful TPS should exclude confirmed reverts from measured TPS');
+});
+
 
 it('fails runs that are not comparable or deliver under 95% of target', async () => {
   const { current } = await load([

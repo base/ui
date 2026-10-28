@@ -1,6 +1,6 @@
 import { Text } from '../../components/ui/Text';
-import { DA_WORKLOADS, fmt } from '../da/workloads';
-import { runHref, successfulTps, type GlamsterdamPair } from '../proven/capacity';
+import { DA_WORKLOADS } from '../da/workloads';
+import { runHref, successfulTps, type GlamsterdamPair, type Run } from '../proven/capacity';
 
 type Props = {
   configured: boolean;
@@ -11,6 +11,7 @@ type Props = {
 
 const TH = 'px-3 py-2 text-left font-[600] text-bds-gray-60';
 const TD = 'border-t border-bds-gray-10 px-3 py-2 align-top dark:border-white/10';
+const tps = (run: Run) => successfulTps(run).toLocaleString('en-US', { maximumFractionDigits: 1 });
 
 /** Shows matched Glamsterdam and main benchmark jobs side by side. */
 export function GlamsterdamComparisonSection({ configured, comparisons, comparisonErrors = 0, error }: Props) {
@@ -67,7 +68,7 @@ export function GlamsterdamComparisonSection({ configured, comparisons, comparis
                           {comparison.glamsterdam.id}
                         </a>
                         <span className="mt-1 block whitespace-nowrap tabular-nums text-bds-gray-60">
-                          {fmt(successfulTps(comparison.glamsterdam))} TPS ·{' '}
+                          {tps(comparison.glamsterdam)} TPS ·{' '}
                           {(comparison.glamsterdam.gps / 1e6).toLocaleString('en-US', { maximumFractionDigits: 1 })} Mgas/s
                         </span>
                       </td>
@@ -76,7 +77,7 @@ export function GlamsterdamComparisonSection({ configured, comparisons, comparis
                           {comparison.main.id}
                         </a>
                         <span className="mt-1 block whitespace-nowrap tabular-nums text-bds-gray-60">
-                          {fmt(successfulTps(comparison.main))} TPS ·{' '}
+                          {tps(comparison.main)} TPS ·{' '}
                           {(comparison.main.gps / 1e6).toLocaleString('en-US', {
                             maximumFractionDigits: 1,
                           })}{' '}
