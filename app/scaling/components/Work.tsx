@@ -3,7 +3,6 @@ import { cn } from '../../components/ui/cn';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Text } from '../../components/ui/Text';
 import { WORK_STATUSES } from '../snapshot.mjs';
-import type { WorkRow } from '../linearStatus';
 import type { Area, Link, WorkCategory, WorkItem } from '../snapshot.mjs';
 import { Info } from './Info';
 
@@ -11,7 +10,6 @@ import { Info } from './Info';
 const STATUS: Record<string, string> = { 'in-progress': 'In Progress', planned: 'Planned', done: 'Completed' };
 // Older entries name an area instead of a category.
 const CATEGORY: Record<Area, WorkCategory> = { da: 'DA', execution: 'Execution', state: 'Disk', networking: 'Latency' };
-const at = (iso: string) => `${iso.slice(0, 16).replace('T', ' ')} UTC`;
 const TH = 'px-3 py-2 text-left text-[11px] font-[600] uppercase tracking-wide text-bds-gray-60';
 const TD = 'px-3 py-2.5 align-top';
 
@@ -24,7 +22,7 @@ const linksOf = (w: WorkItem): Link[] => {
 };
 
 // In progress first, then planned, then done; entries with any other status are not shown.
-export function Work({ work }: { work: WorkRow[] }) {
+export function Work({ work }: { work: WorkItem[] }) {
   const rows = work.filter((w) => WORK_STATUSES.includes(w.status)).toSorted((a, b) => WORK_STATUSES.indexOf(a.status) - WORK_STATUSES.indexOf(b.status));
   return (
     <section className="flex flex-col gap-3">
@@ -47,9 +45,7 @@ export function Work({ work }: { work: WorkRow[] }) {
                 return (
                   <tr key={w.title} className="border-b border-bds-gray-10 last:border-0 dark:border-white/10">
                     <td className={cn(TD, 'whitespace-nowrap')}>
-                      {/* Live rows show Linear's own status name and progress; the title says where the status came from. */}
-                      <span className="rounded-md border border-bds-gray-30 px-1.5 py-px text-[12px] text-bds-gray-70 dark:text-bds-gray-30" title={w.live ? `Live from Linear, ${at(w.live.at)}` : 'From snapshot'}>{w.live?.name ?? STATUS[w.status]}</span>
-                      {w.live ? <span className="ml-1.5 text-[12px] tabular-nums text-bds-gray-60">{Math.round(w.live.progress * 100)}%</span> : null}
+                      <span className="rounded-md border border-bds-gray-30 px-1.5 py-px text-[12px] text-bds-gray-70 dark:text-bds-gray-30">{STATUS[w.status]}</span>
                     </td>
                     <td className={TD}>
                       <span className="inline-flex items-center gap-1">
