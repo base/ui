@@ -569,6 +569,25 @@ describe('disk ceilings', () => {
     const { ranked } = render({ benchUrl: BENCH }, snapshot);
     expect(rows(ranked)[0]).toBe('1Disk · archive nodenextover budgetProjected from bench growth: today\'s archive (50.0 TB) already fills the 45.0 TB disk.');
   });
+
+  it('takes storage growth from the run with the most gas per successful transaction, saying why', () => {
+    const data = withStorage();
+    // Mix: 395 Mgas/s ÷ 4,200 tx/s ≈ 94k gas per tx. Swaps: 395 Mgas/s ÷ 2,000 tx/s ≈ 198k, the heaviest.
+    data.current.swap = { mgas: 400, atTop: true, run: { ...run(400, 'swap'), tps: 2000, storage: { ...storage(), bytesPerGas: { history: 0.0043, proofs: 0.0045, archive: 0.0043 } } } };
+    swr.result = { data };
+    const { ranked } = render();
+    // (45 TB − 4 TB) ÷ (1e6 × (0.0043 swaps + 0.0008 mainnet state) B/gas × 1 year).
+    expect(disk(ranked, 'archive node')).toMatch(/^\d+Disk · archive node≤ 255 Mgas\/s/);
+    expect(ranked).toContain('0.00430 bytes per gas from the swaps run');
+    expect(ranked).not.toContain('from the mainnet mix run');
+    expect(ranked.match(/Uses the workload with the heaviest transactions, because bench workloads with lighter transactions than mainnet overstate history bytes per gas\. A production measurement will replace this\./g)).toHaveLength(2);
+  });
+
+  it('falls back to the only run with storage growth, even a light one', () => {
+    const data = bench(400, true, { da: { mix: null, payment: { ...run(200, 'payment'), storage: storage() }, swap: null } });
+    swr.result = { data };
+    expect(render().ranked).toContain('0.00860 bytes per gas from the payments run');
+  });
 });
 
 describe('guardrails summary and work', () => {

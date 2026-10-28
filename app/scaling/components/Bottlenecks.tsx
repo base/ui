@@ -2,7 +2,7 @@ import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { BLOB_DATA_BYTES, BLOB_TARGET, daCapacity, fmt, L1_SLOT_SECONDS, type DaWorkload } from '../da/workloads';
-import { runHref, type PipelineStep, type Proven, type ProvenCapacity, type Run, type Storage, type Workload } from '../proven/capacity';
+import { runHref, successfulTps, type PipelineStep, type Proven, type ProvenCapacity, type Run, type Storage, type Workload } from '../proven/capacity';
 import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Info } from './Info';
 import { day } from './ProvenCapacity';
@@ -140,16 +140,19 @@ export type StorageSource = { storage: Storage; run: Run };
 export const bytes = (n: number) => (n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : `${(n / 1e9).toFixed(1)} GB`);
 const WORKLOAD: Record<Workload, string> = { mix: 'mainnet mix', payment: 'payments', swap: 'swaps' };
 
-// The mix run's storage data when present, else the newest payments or swaps run that has it.
+// Storage data from the run with the heaviest transactions (most gas per successful transaction); ties go to the newest.
+// Lighter bench transactions than mainnet's overstate history bytes per gas.
 export function pickStorage(data: ProvenCapacity | undefined): StorageSource | null {
   if (!data) return null;
   const { current, da } = data;
-  const others = [current.payment?.run, current.swap?.run, da.payment, da.swap].filter((r) => r?.storage).toSorted((a, b) => b!.createdAt - a!.createdAt);
-  const run = [current.mix?.run, da.mix].find((r) => r?.storage) ?? others[0];
+  const gasPerTx = (r: Run) => (successfulTps(r) > 0 ? r.gps / successfulTps(r) : 0);
+  const runs = [current.mix?.run, current.payment?.run, current.swap?.run, da.mix, da.payment, da.swap].filter((r): r is Run => !!r?.storage);
+  const run = runs.toSorted((a, b) => gasPerTx(b) - gasPerTx(a) || b.createdAt - a.createdAt)[0];
   return run ? { storage: run.storage!, run } : null;
 }
 
 const YEAR_SECONDS = 31_557_600;
+const HEAVIEST = 'Uses the workload with the heaviest transactions, because bench workloads with lighter transactions than mainnet overstate history bytes per gas. A production measurement will replace this.';
 const days = (seconds: number) => Math.round(seconds / 86_400);
 const years = (n: number) => (n === 1 ? 'one year' : `${n} years`);
 
@@ -191,7 +194,7 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
         years: runway!.fullNode,
         evidence: `Projected from bench growth: ${kept} fit in ${bytes(budget)}. Upper bound.`,
         overBudget: `Projected from bench growth: today's state (${bytes(current.state)}) leaves no room in ${bytes(budget)}.`,
-        help: `Inputs: ${budgetText}; today's state ${bytes(current.state)}, measured at ${from}'s snapshot; ${bytesPerGas.history.toPrecision(3)} bytes per gas of history and ${bytesPerGas.proofs!.toPrecision(3)} of proofs from ${from}; ${state!.value} bytes per gas of production state growth${state!.source ? ` from ${state!.source}` : ''}; ${policyText}. Upper bound: history bytes per gas is a lower bound, because the sequencer prunes history.`,
+        help: `Inputs: ${budgetText}; today's state ${bytes(current.state)}, measured at ${from}'s snapshot; ${bytesPerGas.history.toPrecision(3)} bytes per gas of history and ${bytesPerGas.proofs!.toPrecision(3)} of proofs from ${from}; ${state!.value} bytes per gas of production state growth${state!.source ? ` from ${state!.source}` : ''}; ${policyText}. Upper bound: history bytes per gas is a lower bound, because the sequencer prunes history. ${HEAVIEST}`,
       };
     },
   );
@@ -212,7 +215,7 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
         years: runway!.archive,
         evidence: `Projected from bench growth: ${years(runway!.archive)} ${runway!.archive === 1 ? 'fills' : 'fill'} the ${bytes(budget)} disk (${bytes(archiveNow!.value)} used today). Upper bound.`,
         overBudget: `Projected from bench growth: today's archive (${bytes(archiveNow!.value)}) already fills the ${bytes(budget)} disk.`,
-        help: `Inputs: ${budgetText}; today's archive ${bytes(archiveNow!.value)} from ${archiveNow!.source} on ${archiveNow!.asOf}${archiveNow!.note ? ` (${archiveNow!.note})` : ''}; ${bytesPerGas.archive.toPrecision(3)} bytes per gas from ${from}${stateText}; ${policyText}. Upper bound: bench bytes per gas is a lower bound, because the sequencer prunes history. That workload may write more bytes per gas than mainnet traffic does (Base's whole archive is ${bytes(archiveNow!.value)}), which makes the ceiling conservative in the other direction.`,
+        help: `Inputs: ${budgetText}; today's archive ${bytes(archiveNow!.value)} from ${archiveNow!.source} on ${archiveNow!.asOf}${archiveNow!.note ? ` (${archiveNow!.note})` : ''}; ${bytesPerGas.archive.toPrecision(3)} bytes per gas from ${from}${stateText}; ${policyText}. Upper bound: bench bytes per gas is a lower bound, because the sequencer prunes history. That workload may write more bytes per gas than mainnet traffic does (Base's whole archive is ${bytes(archiveNow!.value)}), which makes the ceiling conservative in the other direction. ${HEAVIEST}`,
       };
     },
   );
