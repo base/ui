@@ -2,6 +2,7 @@
 
 import { daWorkloads, DA_WORKLOADS, type DaWorkload } from '../da/workloads';
 import type { Proven } from '../proven/capacity';
+import type { WorkRow } from '../linearStatus';
 import type { Snapshot } from '../snapshot.mjs';
 import { bottleneckBars, Bottlenecks, diskLimits, pickStorage, rankLimits } from './Bottlenecks';
 import { Headline, mainnetGasPerTx } from './Headline';
@@ -33,7 +34,8 @@ function Freshness({ snapshot, latestAt }: { snapshot: Snapshot; latestAt: numbe
 
 // Every section shares one bench fetch and the Mgas/s scale. Without a bench host, the proven rate
 // falls back to the snapshot's qualified rung.
-export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl?: string }) {
+// `work` is the snapshot's work with live Linear status applied on the server, when available.
+export function Scorecard({ snapshot, benchUrl, work = snapshot.work }: { snapshot: Snapshot; benchUrl?: string; work?: WorkRow[] }) {
   const bench = useProvenCapacity(benchUrl);
   const data = bench.error ? undefined : bench.data;
   const { ladder } = snapshot;
@@ -51,7 +53,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} limits={limits} />
       <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} mainnetGasPerTx={mainnetGasPerTx(snapshot)} />
       <WorkloadSubsystems cards={subsystemCards(data, limits, snapshot, ladder.configuredLimit.value)} />
-      <Work work={snapshot.work} />
+      <Work work={work} />
     </>
   );
 }

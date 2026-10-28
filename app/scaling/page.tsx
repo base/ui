@@ -4,6 +4,7 @@ import { Text } from '../components/ui/Text';
 
 import { Scorecard } from './components/Scorecard';
 import { loadArchiveSize, withArchiveSize } from './archiveSize';
+import { loadLiveWork } from './linearStatus';
 import { Header, loadSnapshot, Unavailable } from './loadSnapshot';
 
 // The snapshot is a runtime file, so render per request rather than at build.
@@ -18,7 +19,7 @@ export default async function ScalingPage() {
   return (
     <div className="flex flex-col gap-10 pb-8">
       <Header title={`${snapshot.network} capacity`} />
-      <Scorecard snapshot={snapshot} benchUrl={process.env.SCALING_BENCH_BASE_URL} />
+      <Scorecard snapshot={snapshot} benchUrl={process.env.SCALING_BENCH_BASE_URL} work={await loadLiveWork(snapshot.work)} />
       <Text variant="label.regular" tone="muted">
         <span className="flex flex-wrap gap-x-4">
           <Link className="underline" href="/scaling/da">DA by workload</Link>
