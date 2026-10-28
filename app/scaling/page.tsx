@@ -9,8 +9,8 @@ import { Header, loadSnapshot, Unavailable } from './loadSnapshot';
 // The snapshot is a runtime file, so render per request rather than at build.
 export const dynamic = 'force-dynamic';
 
-// Base L2 blocks are spaced two seconds apart; the snapshot stores this limit in Mgas/s.
-const BASE_BLOCK_TIME_SECONDS = 2;
+// Convert the configured Mgas/s rate to gas per 200ms block.
+const BASE_BLOCK_TIME_SECONDS = 0.2;
 
 export default async function ScalingPage() {
   const loaded = await loadSnapshot();
