@@ -33,9 +33,9 @@ it('ends the first screen with the DA link, and no guardrails or benchmark links
 
 it('orders the first screen: freshness, headline, ladder, ranked limits, subsystems by workload, work, links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  const order = ['Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Work by limit', 'DA by workload'].map((h) => html.indexOf(h));
+  const order = ['Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Work log', 'DA by workload'].map((h) => html.indexOf(h));
   expect(order.every((i, k) => i > (order[k - 1] ?? -1))).toBe(true);
-  expect(html).not.toMatch(/Subsystem detail|Progress<|Ceilings by bottleneck|Usage data as of/);
+  expect(html).not.toMatch(/Subsystem detail|>Progress<|Ceilings by bottleneck|Usage data as of/);
 });
 
 it('dates snapshot data without a stale banner', async () => {

@@ -90,6 +90,23 @@ describe('parseSnapshot', () => {
     ]);
   });
 
+  it('accepts a work log entry with only title, status, category, effect, links and owner, and checks each', () => {
+    const data = fixture();
+    data.work.push({ title: 'Synthetic planned work', status: 'planned', category: 'Execution', effect: null, links: [{ label: 'Linear', url: 'https://example.com/linear' }], owner: 'Synthetic owner' });
+    expect(errorsOf(data)).toEqual([]);
+    data.work.push(
+      { title: 'Bad category', status: 'planned', category: 'Gas' },
+      { title: 'No category', status: 'planned' },
+      { title: 'Bad link', status: 'planned', category: 'DA', effect: 3, links: [{ label: 'Doc', url: 'http://example.com' }] },
+    );
+    expect(errorsOf(data)).toEqual([
+      'work[4].category: expected one of DA, Disk, Execution, Proving, Latency',
+      'work[5].category: required without area',
+      'work[6].effect: expected string or null',
+      'work[6].links[0].url: expected https URL',
+    ]);
+  });
+
   it('rejects a missing ceiling area and a duplicate guardrail id', () => {
     const data = fixture();
     data.ceilings.pop();

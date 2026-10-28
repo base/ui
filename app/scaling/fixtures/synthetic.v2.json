@@ -262,7 +262,9 @@
     {
       "area": "execution",
       "title": "Synthetic unified binary",
-      "status": "In progress",
+      "status": "in-progress",
+      "category": "Execution",
+      "effect": "about 20% faster block processing (synthetic demo)",
       "owner": "Synthetic owner",
       "hypothesis": "Fewer process hops per block speed up block processing.",
       "change": "Run the consensus and execution clients in one process.",
@@ -284,7 +286,8 @@
     {
       "area": "da",
       "title": "Synthetic blob batching change",
-      "status": "Proposed",
+      "status": "planned",
+      "category": "DA",
       "owner": null,
       "hypothesis": "Denser batches post fewer bytes per gas.",
       "change": "Not yet specified.",
@@ -293,6 +296,19 @@
       "evidence": null,
       "linear": null,
       "links": [{ "label": "Synthetic doc", "url": "https://example.com/synthetic/doc" }]
+    },
+    {
+      "area": "networking",
+      "title": "Synthetic legacy proposal",
+      "status": "Research-derived proposal",
+      "owner": null,
+      "hypothesis": "An entry from before the work log, which the page does not show.",
+      "change": "Not yet specified.",
+      "expected": null,
+      "realized": null,
+      "evidence": null,
+      "linear": null,
+      "links": []
     }
   ]
 }

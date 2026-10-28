@@ -584,12 +584,30 @@ describe('guardrails summary and work', () => {
     expect(text(guardrails(BENCH))).toContain('Met 5');
   });
 
-  it('lists work by limit with the binding limit first', () => {
-    expect(rows(render({}).work, 1).map((r) => r.slice(0, 12))).toEqual(['DASynthetic ', 'ExecutionSyn']);
-    swr.result = { data: bench(40, false) };
-    const work = render().work;
-    expect(rows(work, 1).map((r) => r.slice(0, 12))).toEqual(['ExecutionSyn', 'DASynthetic ']);
-    expect(text(work)).toContain('not estimated');
-    expect(text(work)).toContain('Expected effects are not summed.');
+  it('logs work in progress, then planned, then done, hiding other statuses', () => {
+    const work = render({}).work;
+    expect(text(work.split('</thead>')[0])).toContain('StatusWorkImpact categoryEffectLinks');
+    // The legacy "Research-derived proposal" entry is not shown; the Linear project and evidence of an older entry become links.
+    expect(rows(work)).toEqual([
+      'In ProgressSynthetic unified binaryExecutionabout 20% faster block processing (synthetic demo)Linear · Synthetic run',
+      'PlannedSynthetic blob batching changeDAnot measured yetSynthetic doc',
+    ]);
+    expect(work).toContain('<a class="underline" href="https://example.com/synthetic/linear/project" target="_blank" rel="noreferrer">Linear</a>');
+    expect(text(work)).not.toMatch(/legacy proposal|Expected effects are not summed/);
+  });
+
+  it('falls back to an older entry’s expected effect and area, and to an empty state', () => {
+    const snapshot = fixture();
+    const [first, second] = snapshot.work;
+    snapshot.work = [
+      { ...second, status: 'done', category: undefined, links: [{ label: 'Doc', url: 'https://example.com/doc' }, { label: 'Linear', url: 'https://example.com/linear' }] },
+      { ...first, effect: undefined, expected: 'about 10% faster' },
+    ];
+    expect(rows(render({}, snapshot).work)).toEqual([
+      'In ProgressSynthetic unified binaryExecutionabout 10% fasterLinear · Synthetic run',
+      'CompletedSynthetic blob batching changeDAnot measured yetDoc · Linear',
+    ]);
+    snapshot.work = [{ ...first, status: 'Proposed' }];
+    expect(text(render({}, snapshot).work)).toContain('No work in progress or planned for this snapshot.');
   });
 });
