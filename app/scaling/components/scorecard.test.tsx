@@ -54,6 +54,8 @@ const storage = (currentBytes: number | null = null): NonNullable<Run['storage']
 const bench = (mgas: number, atTop: boolean, more: Partial<ProvenCapacity> = {}): ProvenCapacity => ({
   current: { ...none, mix: { mgas, atTop, run: run(mgas) } },
   da: none,
+  comparisons: [],
+  comparisonErrors: 0,
   history: [
     { at: T0, mgas: 40, commit: 'aaaaaaaaaaaaaaaa', previousCommit: null, compareUrl: null },
     { at: T0 + 5 * DAY, mgas, commit: 'bbbbbbbbbbbbbbbb', previousCommit: 'aaaaaaaaaaaaaaaa', compareUrl: 'https://github.com/base/base/compare/aaaa...bbbb' },
@@ -66,8 +68,8 @@ const fixture = (): Snapshot => JSON.parse(readFileSync(new URL('../fixtures/syn
 // In page order: the freshness line, then headline, ladder, ranked limits, workloads, work.
 const render = (props: { benchUrl?: string } = { benchUrl: BENCH }, snapshot = fixture()) => {
   const html = renderToStaticMarkup(<Scorecard snapshot={snapshot} {...props} />);
-  const [fresh, head, ladder, ranked, subsystems, work] = html.split('<section');
-  return { html, fresh, head, ladder, ranked, subsystems, work };
+  const [fresh, head, ladder, ranked, subsystems, glamsterdam, work] = html.split('<section');
+  return { html, fresh, head, ladder, ranked, subsystems, glamsterdam, work };
 };
 // Strip tags until none remain, so a tag split across a removed one cannot survive.
 const text = (html: string) => {
@@ -123,6 +125,35 @@ describe('freshness and headline', () => {
   });
 
 });
+
+describe('Glamsterdam comparisons', () => {
+  it('shows matched jobs with their TPS, delivered Mgas/s and run links', () => {
+    const main = { ...run(200), id: 'main-mix-200', outputDir: 'main-mix-200' };
+    const glamsterdam = { ...run(200), id: 'glam-mix-200', outputDir: 'glam-mix-200', gps: 197e6, tps: 2200 };
+    swr.result = { data: bench(400, true, { comparisons: [{ workload: 'mix', mgas: 200, main, glamsterdam }] }) };
+    const section = render().glamsterdam;
+
+    expect(text(section), 'the comparison section should identify its workload and target rate').toContain('Mainnet mix200 Mgas/s');
+    expect(text(section), 'the Glamsterdam run should show its measured TPS and delivered gas rate').toContain('2,200 TPS · 197 Mgas/s');
+    expect(text(section), 'the main run should show its measured TPS and delivered gas rate').toContain('2,100 TPS · 195 Mgas/s');
+    expect(section, 'the Glamsterdam run ID should link to its benchmark details').toContain('href="/scaling/runs/bench/glam-mix-200"');
+    expect(section, 'the main run ID should link to its benchmark details').toContain('href="/scaling/runs/bench/main-mix-200"');
+  });
+
+  it('distinguishes unconfigured, loading, error and no-match states', () => {
+    expect(text(render({}).glamsterdam), 'an unconfigured benchmark host should be named').toContain('Benchmark source is not configured.');
+    expect(text(render().glamsterdam), 'a configured host without data should show a loading state').toContain('Loading Glamsterdam comparisons…');
+
+    swr.result = { error: new Error('offline') };
+    expect(text(render().glamsterdam), 'a failed benchmark request should show an error state').toContain('Could not load Glamsterdam benchmark data.');
+
+    swr.result = { data: bench(400, true) };
+    expect(text(render().glamsterdam), 'an empty result should state that no matching pairs were found').toContain('No matching Glamsterdam and main jobs in the last 14 days.');
+    swr.result = { data: bench(400, true, { comparisonErrors: 1 }) };
+    expect(text(render().glamsterdam), 'a failed latest job should explain why its comparison is missing').toContain('A matching Glamsterdam run could not be loaded; its comparison is omitted.');
+  });
+});
+
 
 describe('workload tiles', () => {
   it('takes the lowest of the proven, DA and gas-limit ceilings, preferring DA then the gas limit on ties', () => {

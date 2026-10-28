@@ -22,6 +22,7 @@ const area = async (id: string) => renderToStaticMarkup(await ScalingAreaPage({ 
 it('ends the first screen with the DA link, and no guardrails or benchmark links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
   expect(html).toContain('<a class="underline" href="/scaling/da">DA by workload</a>');
+  expect(html).toContain('Block Gas Limit: 400 Mgas');
   // The guardrails page stays, unlinked, while the first screen leaves guardrails out.
   expect(html).not.toMatch(/href="\/scaling\/guardrails"|Guardrails<\/h2>|SLOs/);
   expect(html).not.toMatch(/href="\/benchmark|href="\/scaling\/networking"/);
@@ -33,7 +34,7 @@ it('ends the first screen with the DA link, and no guardrails or benchmark links
 
 it('orders the first screen: freshness, headline, ladder, ranked limits, subsystems by workload, work, links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  const order = ['Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Work log', 'DA by workload'].map((h) => html.indexOf(h));
+  const order = ['Block Gas Limit: 400 Mgas', 'Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Glamsterdam', 'Work log', 'DA by workload'].map((h) => html.indexOf(h));
   expect(order.every((i, k) => i > (order[k - 1] ?? -1))).toBe(true);
   expect(html).not.toMatch(/Subsystem detail|>Progress<|Ceilings by bottleneck|Usage data as of/);
 });

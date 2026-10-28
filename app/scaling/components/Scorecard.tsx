@@ -9,6 +9,7 @@ import { Ladder, type ProvenMark } from './Ladder';
 import { day, useProvenCapacity } from './ProvenCapacity';
 import { Work } from './Work';
 import { subsystemCards, WorkloadSubsystems } from './WorkloadSubsystems';
+import { GlamsterdamComparisonSection } from './GlamsterdamComparison';
 
 function benchMark({ mgas, atTop, run }: Proven): ProvenMark {
   const top = atTop ? ` ≥ because ${mgas} Mgas/s is the highest rate the bench runs.` : '';
@@ -51,6 +52,7 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
       <Ladder ladder={ladder} windows={snapshot.windows} proven={mark} max={max} limits={limits} />
       <Bottlenecks limits={limits} max={max} gasLimit={ladder.configuredLimit.value} proven={proven} history={data?.history ?? []} mainnetGasPerTx={mainnetGasPerTx(snapshot)} />
       <WorkloadSubsystems cards={subsystemCards(data, limits, snapshot, ladder.configuredLimit.value)} />
+      <GlamsterdamComparisonSection configured={!!benchUrl} comparisons={data?.comparisons} comparisonErrors={data?.comparisonErrors ?? 0} error={bench.error} />
       <Work work={snapshot.work} />
     </>
   );

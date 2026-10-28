@@ -91,19 +91,26 @@ export type Step = {
 // `history` is the mainnet mix's; `da` is the latest counting run per workload in the window whose DA
 // step passed; `latestAt` is when the newest counting run was created. Replay, proof-node and DA results are loaded only for the runs in `current` and `da`:
 // replay files list every block, and every other run would download them for nothing.
+
 export type ProvenCapacity = {
   current: Record<Workload, Proven | null>;
   da: Record<Workload, Run | null>;
+  comparisons: GlamsterdamPair[];
+  comparisonErrors: number;
   history: Step[];
   latestAt: number | null;
   unknown: string[];
 };
 
+/** A matched Glamsterdam and main run at the same workload and target gas rate. */
+export type GlamsterdamPair = { workload: Workload; mgas: number; main: Run; glamsterdam: Run };
+
 const WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const PASS_RATIO = 0.95;
 const CONCURRENCY = 6;
-const SCENARIO = /^sustained-(\d+)mgas$/;
+const SCENARIO = /^(glamsterdam-)?sustained-(\d+)mgas$/;
 const WORKLOADS = Object.keys(PAYLOADS) as Workload[];
+type Candidate = { meta: BenchmarkRun; kind: 'main' | 'glamsterdam'; mgas: number; workload: Workload };
 
 // Run outputs never change once written. `null` marks a run that does not count: not built from
 // main, or written before the step pipeline.
@@ -122,14 +129,24 @@ export async function loadProvenCapacity(
   const res = await fetchImpl(`${root}metadata.json`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`Failed to fetch metadata: ${res.status} ${res.statusText}`);
   const runs: Run[] = [];
+  const glamRuns: Run[] = [];
   const unknown: string[] = [];
-  await forEachLimit(candidates(await res.json()), CONCURRENCY, async (meta) => {
+  const failedGlamRuns = new Map<string, number>();
+  await forEachLimit(candidates(await res.json()), CONCURRENCY, async (candidate) => {
+    const { meta, kind } = candidate;
     try {
-      if (!runCache.has(meta.outputDir)) runCache.set(meta.outputDir, await loadRun(root, meta, fetchImpl));
+      if (!runCache.has(meta.outputDir)) runCache.set(meta.outputDir, await loadRun(root, candidate, fetchImpl));
       const run = runCache.get(meta.outputDir);
-      if (run) runs.push(run);
+      if (run) (kind === 'glamsterdam' ? glamRuns : runs).push(run);
     } catch {
-      unknown.push(meta.outputDir);
+      if (kind === 'main') {
+        unknown.push(meta.outputDir);
+      } else {
+        const key = `${candidate.workload}:${candidate.mgas}`;
+        const failedAt = Date.parse(meta.createdAt);
+        const previous = failedGlamRuns.get(key);
+        if (previous === undefined || failedAt > previous) failedGlamRuns.set(key, failedAt);
+      }
     }
   });
   const inWindow = (r: Run) => r.createdAt > now - WINDOW_MS && r.createdAt <= now;
@@ -149,27 +166,36 @@ export async function loadProvenCapacity(
     const run = latestDa(of(full, w));
     return run?.da ? run : null;
   };
+  const comparison = glamsterdamComparisons(full, glamRuns, now, failedGlamRuns);
   return {
     current: Object.fromEntries(WORKLOADS.map((w) => [w, provenAt(of(full, w), now)])) as ProvenCapacity['current'],
     da: Object.fromEntries(WORKLOADS.map((w) => [w, daRun(w)])) as ProvenCapacity['da'],
+    comparisons: comparison.pairs,
+    comparisonErrors: comparison.errors,
     history: history(of(full, 'mix'), now),
     latestAt: runs.length ? Math.max(...runs.map((r) => r.createdAt)) : null,
     unknown,
   };
 }
 
-function candidates({ runs }: BenchmarkRuns): BenchmarkRun[] {
+function candidates({ runs }: BenchmarkRuns): Candidate[] {
   const payloads: string[] = Object.values(PAYLOADS);
-  const byDir = new Map<string, BenchmarkRun>();
+  const byDir = new Map<string, Candidate>();
   for (const run of runs) {
     const c = run.testConfig;
+    const scenario = SCENARIO.exec(String(c.Scenario));
     if (
       c.ChainId === 8453 &&
       payloads.includes(String(c.TransactionPayload)) &&
-      SCENARIO.test(String(c.Scenario)) &&
+      scenario &&
       !String(c.BenchmarkRun).endsWith('--latest')
     ) {
-      byDir.set(run.outputDir, run);
+      byDir.set(run.outputDir, {
+        meta: run,
+        kind: scenario[1] ? 'glamsterdam' : 'main',
+        workload: WORKLOADS.find((w) => PAYLOADS[w] === c.TransactionPayload)!,
+        mgas: Number(scenario[2]),
+      });
     }
   }
   return [...byDir.values()];
@@ -182,25 +208,26 @@ async function getJson(fetchImpl: typeof fetch, url: string) {
   return res.json().catch(() => null);
 }
 
-async function loadRun(root: string, meta: BenchmarkRun, fetchImpl: typeof fetch): Promise<Run | null> {
+async function loadRun(root: string, candidate: Candidate, fetchImpl: typeof fetch): Promise<Run | null> {
+  const { meta, kind, mgas } = candidate;
   const get = (file: string) => getJson(fetchImpl, `${root}${meta.outputDir}/${file}`);
   const [pipeline, provenance] = await Promise.all([get('pipeline-result.json'), get('provenance.json')]);
-  if (!pipeline || provenance?.source?.ref !== 'main') return null;
+  const source = provenance?.source;
+  if (!pipeline || !source || (kind === 'main' && source.ref !== 'main')) return null;
   const [validation, load] = await Promise.all([get('validation.json'), get('load-test-result.json')]);
   if (!validation || !load) throw new Error(`Missing results for ${meta.outputDir}`);
-  const mgas = Number(SCENARIO.exec(String(meta.testConfig.Scenario))![1]);
   const gps: number = load.throughput.gps;
   return {
     id: String(meta.testConfig.BenchmarkRun),
     outputDir: meta.outputDir,
-    workload: WORKLOADS.find((w) => PAYLOADS[w] === meta.testConfig.TransactionPayload)!,
+    workload: candidate.workload,
     mgas,
     gps,
     tps: load.throughput.tps,
     reverted: load.throughput.total_submitted ? (load.throughput.total_reverted ?? 0) / load.throughput.total_submitted : 0,
     blockLatency: load.block_latency?.p50 && load.block_latency?.p99 ? { p50Ms: durationMs(load.block_latency.p50), p99Ms: durationMs(load.block_latency.p99) } : null,
     passed: validation.comparable === true && gps >= PASS_RATIO * mgas * 1e6,
-    commit: provenance.source.revision,
+    commit: source.revision,
     createdAt: Date.parse(meta.createdAt),
     steps: pipeline.steps,
     replay: null,
@@ -226,6 +253,43 @@ async function loadDetails(root: string, run: Run, fetchImpl: typeof fetch): Pro
     da: da && { result: da, target: (daOutputs?.target as number) ?? null, withinTarget: (daOutputs?.withinTarget as boolean) ?? null },
     storage,
   };
+}
+
+/** Keeps the latest in-window run for each workload and target gas rate. */
+function latestByWorkloadAndRate(runs: Run[], now: number): Map<string, Run> {
+  const latest = new Map<string, Run>();
+  for (const run of runs) {
+    if (run.createdAt <= now - WINDOW_MS || run.createdAt > now) continue;
+    const key = `${run.workload}:${run.mgas}`;
+    const previous = latest.get(key);
+    if (!previous || run.createdAt > previous.createdAt) latest.set(key, run);
+  }
+  return latest;
+}
+
+/** Pairs the newest Glamsterdam run with its main baseline at the same workload and rate. */
+function glamsterdamComparisons(
+  mainRuns: Run[],
+  glamRuns: Run[],
+  now: number,
+  failedGlamRuns: Map<string, number>,
+  ): { pairs: GlamsterdamPair[]; errors: number } {
+  const main = latestByWorkloadAndRate(mainRuns, now);
+  const latestGlam = latestByWorkloadAndRate(glamRuns, now);
+  const blocked = new Set(
+    [...failedGlamRuns].flatMap(([key, failedAt]) => {
+      const loaded = latestGlam.get(key);
+      return main.has(key) && failedAt > now - WINDOW_MS && failedAt <= now && (!loaded || failedAt >= loaded.createdAt) ? [key] : [];
+    }),
+  );
+  const pairs = [...latestGlam.values()]
+    .flatMap((glamsterdam) => {
+      const key = `${glamsterdam.workload}:${glamsterdam.mgas}`;
+      const baseline = main.get(key);
+      return baseline && !blocked.has(key) ? [{ workload: glamsterdam.workload, mgas: glamsterdam.mgas, main: baseline, glamsterdam }] : [];
+    })
+    .sort((a, b) => WORKLOADS.indexOf(a.workload) - WORKLOADS.indexOf(b.workload) || a.mgas - b.mgas);
+  return { pairs, errors: blocked.size };
 }
 
 // Rust Durations serialize as { secs, nanos }.
