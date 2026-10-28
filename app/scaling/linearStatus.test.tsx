@@ -81,4 +81,6 @@ it('labels live rows with Linear’s status name, progress and fetch time, and s
   expect(html).toContain('title="Live from Linear, 2026-01-02 03:04 UTC">In Progress</span>');
   expect(html).toContain('>40%</span>');
   expect(html).toContain('title="From snapshot">Planned</span>');
+  const [started] = applyLinear([row('Just started', 'aaaaaaaaaaaa')], { aaaaaaaaaaaa: project('started', 'In Progress', 0) }, AT);
+  expect(renderToStaticMarkup(<Work work={[started]} />)).toContain('>0%</span>');
 });

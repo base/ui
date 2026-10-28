@@ -49,7 +49,7 @@ export function Work({ work }: { work: WorkRow[] }) {
                     <td className={cn(TD, 'whitespace-nowrap')}>
                       {/* Live rows show Linear's own status name and progress; the title says where the status came from. */}
                       <span className="rounded-md border border-bds-gray-30 px-1.5 py-px text-[12px] text-bds-gray-70 dark:text-bds-gray-30" title={w.live ? `Live from Linear, ${at(w.live.at)}` : 'From snapshot'}>{w.live?.name ?? STATUS[w.status]}</span>
-                      {w.live && w.live.progress > 0 ? <span className="ml-1.5 text-[12px] tabular-nums text-bds-gray-60">{Math.round(w.live.progress * 100)}%</span> : null}
+                      {w.live ? <span className="ml-1.5 text-[12px] tabular-nums text-bds-gray-60">{Math.round(w.live.progress * 100)}%</span> : null}
                     </td>
                     <td className={TD}>
                       <span className="inline-flex items-center gap-1">
