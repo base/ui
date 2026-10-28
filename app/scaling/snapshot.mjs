@@ -36,27 +36,37 @@
  *   projectId: string, issueId?: string, state: string, progress: number, scopeDone: number,
  *   scopeTotal: number, targetDate?: string, updatedAt: string, url: string
  * }} LinearStatus
+ * @typedef {'DA' | 'Disk' | 'Execution' | 'Proving' | 'Latency'} WorkCategory
  * @typedef {{
- *   area: Area, title: string, status: string, owner: string | null, hypothesis: string, change: string,
- *   expected: string | null, realized: string | null, evidence: Link | null, linear: LinearStatus | null,
- *   links: Link[]
+ *   title: string, status: string, category?: WorkCategory, effect?: string | null, links?: Link[],
+ *   owner?: string | null, area?: Area, hypothesis?: string, change?: string,
+ *   expected?: string | null, realized?: string | null, evidence?: Link | null, linear?: LinearStatus | null
  * }} WorkItem
  * @typedef {{
  *   schemaVersion: 2, network: string, collectedAt: string, context: string, windows: Record<string, Window>,
  *   ladder: Ladder, ceilings: Ceiling[], guardrails: Guardrail[],
  *   translations: { gasPerPayment: Constant | null, gasPerSwap: Constant | null },
+ *   usage?: { transactionsPerSecond: Usage },
+ *   policy?: { runwayYears?: { fullNode: number, archive: number, help?: string, source?: Link } },
+ *   production?: {
+ *     archiveBytes?: { value: number, asOf: string, source: string, note?: string },
+ *     stateBytesPerGas?: { value: number, window?: string, source?: string }
+ *   },
  *   sections: Section[], work: WorkItem[]
  * }} Snapshot
+ * @typedef {{ value: number, window: string, help: string, source?: Link }} Usage
  */
 
 const STATUSES = ['observed', 'partial', 'unavailable', 'not-measured'];
 const TAGS = ['measured', 'modeled', 'estimated', 'not-measured', 'not-modeled', 'not-established'];
 const VALUED_TAGS = ['measured', 'modeled', 'estimated'];
 const AREAS = ['da', 'execution', 'state', 'networking'];
+// Work log statuses follow Linear's project states; impact categories are the page's limit names.
+export const WORK_STATUSES = ['in-progress', 'planned', 'done'];
+export const WORK_CATEGORIES = ['DA', 'Disk', 'Execution', 'Proving', 'Latency'];
 // Each section renders on its area page, or on the guardrails page for outcomes.
 const SECTION_IDS = ['da', 'execution', 'state', 'outcomes'];
 const INPUT_STATUSES = ['observed', 'configured', 'provisional', 'pending'];
-const DAY_MS = 86_400_000;
 // Captures a bench run id, or a load test's network and timestamp.
 export const RUN_PAGE = /^https:\/\/[^/]+\/scaling\/runs\/(?:bench\/([^/?#]+)|load\/([^/?#]+)\/([^/?#]+))\/?(?:[?#].*)?$/;
 const V1_MESSAGE =
@@ -213,6 +223,47 @@ export function parseSnapshot(data) {
     windowRef(c, 'window', path);
   }
 
+  // Optional: without it the page heads with gas per second instead of transactions per second.
+  if (data.usage !== undefined) {
+    const tps = obj(obj(data, 'usage', 'snapshot'), 'transactionsPerSecond', 'usage');
+    const path = 'usage.transactionsPerSecond';
+    if (!(Number.isFinite(tps.value) && tps.value >= 0)) fail(`${path}.value`, 'expected a non-negative number');
+    if (!Object.hasOwn(windows, tps.window)) fail(`${path}.window`, 'expected a key of windows');
+    str(tps, 'help', path);
+    if (tps.source !== undefined) link(tps.source, `${path}.source`);
+  }
+
+  // Optional disk inputs: without them the disk rows say which input they need instead of a ceiling.
+  const positive = (o, key, path) => {
+    if (!(Number.isFinite(o[key]) && o[key] > 0)) fail(`${path}.${key}`, 'expected a positive number');
+  };
+  if (data.policy !== undefined) {
+    const policy = obj(data, 'policy', 'snapshot');
+    if (policy.runwayYears !== undefined) {
+      const runway = obj(policy, 'runwayYears', 'policy');
+      positive(runway, 'fullNode', 'policy.runwayYears');
+      positive(runway, 'archive', 'policy.runwayYears');
+      if (runway.help !== undefined) str(runway, 'help', 'policy.runwayYears');
+      if (runway.source !== undefined) link(runway.source, 'policy.runwayYears.source');
+    }
+  }
+  if (data.production !== undefined) {
+    const production = obj(data, 'production', 'snapshot');
+    if (production.archiveBytes !== undefined) {
+      const archive = obj(production, 'archiveBytes', 'production');
+      positive(archive, 'value', 'production.archiveBytes');
+      date(archive, 'asOf', 'production.archiveBytes');
+      str(archive, 'source', 'production.archiveBytes');
+      if (archive.note !== undefined) str(archive, 'note', 'production.archiveBytes');
+    }
+    if (production.stateBytesPerGas !== undefined) {
+      const state = obj(production, 'stateBytesPerGas', 'production');
+      positive(state, 'value', 'production.stateBytesPerGas');
+      if (state.window !== undefined && !Object.hasOwn(windows, state.window)) fail('production.stateBytesPerGas.window', 'expected a key of windows');
+      if (state.source !== undefined) str(state, 'source', 'production.stateBytesPerGas');
+    }
+  }
+
   const metric = (m, path) => {
     if (!isObj(m)) return fail(path, 'expected object');
     str(m, 'label', path);
@@ -250,16 +301,21 @@ export function parseSnapshot(data) {
     date(l, 'updatedAt', path);
     if (typeof l.url !== 'string' || !l.url.startsWith('https://')) fail(`${path}.url`, 'expected https URL');
   };
+  // Work log entries need a title and a status; the page shows only WORK_STATUSES. Older entries keep their
+  // area, hypothesis, change, expected, realized, evidence and linear fields, now optional but still checked.
   list(data, 'work', 'snapshot').forEach((w, i) => {
     const path = `work[${i}]`;
     if (!isObj(w)) return fail(path, 'expected object');
-    oneOf(w, 'area', path, AREAS);
-    for (const key of ['title', 'status', 'hypothesis', 'change']) str(w, key, path);
-    for (const key of ['owner', 'expected', 'realized']) nullableStr(w, key, path);
-    if (w.evidence !== null) link(w.evidence, `${path}.evidence`);
-    else if (w.realized !== null) fail(`${path}.evidence`, 'required when realized is set');
-    if (w.linear !== null) linear(w.linear, `${path}.linear`);
-    list(w, 'links', path).forEach((l, j) => link(l, `${path}.links[${j}]`));
+    for (const key of ['title', 'status']) str(w, key, path);
+    if (w.area !== undefined) oneOf(w, 'area', path, AREAS);
+    if (w.category !== undefined) oneOf(w, 'category', path, WORK_CATEGORIES);
+    if (w.area === undefined && w.category === undefined) fail(`${path}.category`, 'required without area');
+    for (const key of ['hypothesis', 'change']) if (w[key] !== undefined) str(w, key, path);
+    for (const key of ['owner', 'expected', 'realized', 'effect']) if (w[key] !== undefined) nullableStr(w, key, path);
+    if (w.evidence != null) link(w.evidence, `${path}.evidence`);
+    else if (w.realized != null) fail(`${path}.evidence`, 'required when realized is set');
+    if (w.linear != null) linear(w.linear, `${path}.linear`);
+    if (w.links !== undefined) list(w, 'links', path).forEach((l, j) => link(l, `${path}.links[${j}]`));
   });
 
   return errors.length ? { ok: false, errors } : { ok: true, snapshot: data };
@@ -277,13 +333,4 @@ export function deriveBinding(ceilings) {
     if ((c.tag === 'measured' || c.tag === 'modeled') && (binding === null || c.value < binding.value)) binding = c;
   }
   return binding;
-}
-
-/**
- * @param {string} collectedAt
- * @param {Date} now
- * @param {number} [days]
- */
-export function isStale(collectedAt, now, days = 10) {
-  return now.getTime() - Date.parse(collectedAt) > days * DAY_MS;
 }

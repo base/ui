@@ -4,121 +4,184 @@ import { useLayoutEffect, useRef, useState } from 'react';
 
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
-import type { Proven } from '../proven/capacity';
-import { deriveBinding, type Rung, type Snapshot } from '../snapshot.mjs';
+import type { Rung, Snapshot } from '../snapshot.mjs';
+import type { Limit } from './Bottlenecks';
 import { Info } from './Info';
-import { day, ProvenCapacity, useProvenCapacity } from './ProvenCapacity';
-import { Tag } from './Tag';
-import { layoutRungs, type Anchor } from './ladderLayout';
 
-const LABEL_PX = 150;
-const ROW = 44;
-const AXIS = 12;
-const AREA_NAME = { da: 'DA', execution: 'execution', state: 'state', networking: 'networking' };
-const ALIGN: Record<Anchor, string> = { start: 'items-start text-left', middle: 'items-center text-center', end: 'items-end text-right' };
-const SHIFT: Record<Anchor, string> = { start: 'none', middle: 'translateX(-50%)', end: 'translateX(-100%)' };
+const BAR_H = 24;
+// Each label is two 12px lines; rows sit GAP_PX from the bar and touch each other, so a second row stays
+// within 30px of the bar.
+const ROW_PX = 24;
+const GAP_PX = 6;
+const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 });
 
-type Props = Pick<Snapshot, 'ladder' | 'ceilings' | 'translations' | 'windows'> & { benchUrl?: string; dashboardUrl?: string };
-type Item = { id: string; label: string; value: number | null; tag: string; help: string; limit?: boolean; atLeast?: boolean; source?: string };
+export type ProvenMark = { value: number; atLeast: boolean; help: string } | null;
 
-function benchItem({ mgas, atTop, run }: Proven) {
-  const top = atTop ? ` ≥ because ${mgas} Mgas/s is the highest rate the bench runs.` : '';
-  const help = `Bench-proven: the highest rate whose latest main run in the last 14 days was comparable and delivered ≥ 95% of target. Run ${run.outputDir}, commit ${run.commit.slice(0, 7)}, ${day(run.createdAt)}.${top} DA and proof guardrails are not checked.`;
-  return { value: mgas, tag: 'measured' as const, help, atLeast: atTop, source: 'bench' };
+type Tone = 'today' | 'p99' | 'fee' | 'da' | 'disk' | 'gas' | 'proven';
+export type Point = { id: string; value: number; valueText: string; name: string; tone: Tone; help: string };
+export type PlacedPoint = Point & { x: number; offScale: boolean; side: 'above' | 'below'; tier: number; left: number; width: number; compact: boolean };
+
+const TEXT: Record<Tone, string> = {
+  today: 'text-bds-blue-90 dark:text-white',
+  p99: 'text-bds-blue-50',
+  fee: 'text-bds-gray-60',
+  da: 'text-bds-red-60',
+  disk: 'text-bds-purple-60',
+  gas: 'text-bds-orange-60',
+  proven: 'text-base-blue',
+};
+const TICK: Record<Tone, string> = {
+  today: 'border-bds-blue-90 dark:border-white',
+  p99: 'border-bds-blue-50',
+  fee: 'border-dotted border-bds-gray-60',
+  da: 'border-bds-red-60',
+  disk: 'border-bds-purple-60',
+  gas: 'border-dashed border-bds-orange-60',
+  proven: 'border-base-blue',
+};
+const SHADES = {
+  median: 'fill-base-blue bg-base-blue',
+  p99: 'fill-bds-blue-30 bg-bds-blue-30',
+  allowed: 'fill-bds-blue-10 bg-bds-blue-10 dark:fill-bds-blue-80 dark:bg-bds-blue-80',
+  proven: 'fill-bds-gray-10 bg-bds-gray-10 dark:fill-white/10 dark:bg-white/10',
+};
+const SHORT: Record<string, string> = { 'da-payment': 'DA · payments', 'da-swap': 'DA · swaps', 'da-mix': 'DA · mix (bench)', 'disk-archive': 'archive disk', 'disk-full': 'full-node disk' };
+
+// Approximate label widths: a bold 12px value with its help icon over an 11px name.
+const widthOf = (p: Point, offScale: boolean, compact: boolean) =>
+  Math.max((p.valueText.length + (offScale ? 2 : 0)) * 7.6 + 24, compact ? 0 : p.name.length * 6) + 2;
+
+// Labels alternate above and below in value order, in one row hugging the bar on each side. A label
+// that collides first tries the other side, then a nudge that keeps it over its tick, then drops its
+// name (listed under the ladder); only then does it take a second row. Off-scale points sit at the
+// right edge without a tick.
+export function layoutPoints(points: Point[], max: number, width: number): PlacedPoint[] {
+  const ends: Record<'above' | 'below', number[]> = { above: [], below: [] };
+  return points.toSorted((a, b) => a.value - b.value).map((p, i) => {
+    const offScale = p.value > max;
+    const x = offScale ? width : (Math.max(0, p.value) / max) * width;
+    const preferred = i % 2 === 0 ? 'above' : 'below';
+    const sides = [preferred, preferred === 'above' ? 'below' : 'above'] as const;
+    for (let tier = 0; ; tier++) {
+      for (const compact of [false, true]) {
+        const w = Math.min(width, widthOf(p, offScale, compact));
+        const centered = Math.min(Math.max(x - w / 2, 0), width - w);
+        for (const nudge of [false, true]) {
+          for (const side of sides) {
+            const end = ends[side][tier] ?? -Infinity;
+            const left = nudge ? Math.max(centered, end + GAP_PX) : centered;
+            const clear = left >= end + GAP_PX && left + w <= width && Math.abs(left + w / 2 - x) <= w;
+            // A new, empty row always fits, so the loop ends.
+            if (clear || end === -Infinity) {
+              ends[side][tier] = left + w;
+              return { ...p, x, offScale, side, tier, left, width: w, compact };
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
-function items({ ladder, ceilings, windows }: Props, proven: Proven | null | undefined): Item[] {
-  const rung = (id: string, label: string, r: Rung): Item =>
-    ({ id, label, value: r.value, tag: r.tag, help: r.window ? `${r.help} Window: ${windows[r.window].label}.` : r.help });
-  const bench = proven ? benchItem(proven) : null;
-  const binding = deriveBinding(bench ? ceilings.map((c) => (c.area === 'execution' ? { ...c, value: bench.value, tag: bench.tag } : c)) : ceilings);
-  const ceiling: Item = binding
-    ? { id: 'ceiling', label: `Ceiling · ${AREA_NAME[binding.area]}`, value: binding.value, tag: binding.tag, help: binding.help, ...(bench && binding.area === 'execution' ? bench : {}) }
-    : { id: 'ceiling', label: 'Ceiling', value: null, tag: 'not-modeled', help: `No area ceiling is measured or modeled yet: ${ceilings.map((c) => `${AREA_NAME[c.area]} ${c.tag}`).join(', ')}.` };
-  return [
-    rung('p50', 'Observed p50', ladder.observed.p50),
-    rung('p99', 'Observed p99', ladder.observed.p99),
-    rung('operating', 'Operating point', ladder.operatingPoint),
-    bench ? { id: 'qualified', label: 'Qualified sustained', ...bench } : rung('qualified', 'Qualified sustained', ladder.qualified),
-    ceiling,
-    { ...rung('limit', 'Configured limit', ladder.configuredLimit), limit: true },
-  ];
-}
+type Props = Pick<Snapshot, 'ladder' | 'windows'> & { proven: ProvenMark; max: number; limits: Limit[] };
 
-function translation({ gasPerPayment, gasPerSwap }: Snapshot['translations']): string {
-  if (!gasPerPayment && !gasPerSwap) return 'Translation to payments/s and swaps/s: constants pending';
-  const per = (c: typeof gasPerPayment, noun: string) => (c ? `${Math.round(1e6 / c.value)} ${noun}/s` : `${noun}/s pending`);
-  return `1 Mgas/s ≈ ${per(gasPerPayment, 'payments')} ≈ ${per(gasPerSwap, 'swaps')}`;
-}
-
-export function Ladder(props: Props) {
-  const axisRef = useRef<HTMLDivElement>(null);
+export function Ladder({ ladder, windows, proven, max, limits }: Props) {
+  const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(960);
   useLayoutEffect(() => {
     const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    observer.observe(axisRef.current!);
+    observer.observe(ref.current!);
     return () => observer.disconnect();
   }, []);
 
-  const bench = useProvenCapacity(props.benchUrl);
-  const proven = bench.error ? null : bench.data?.current;
-  const all = items(props, proven);
-  const valued = all.flatMap((i) => (i.value === null ? [] : [{ id: i.id, value: i.value }]));
-  const max = props.ladder.configuredLimit.value ?? Math.max(0, ...valued.map((v) => v.value));
-  const placed = new Map(max > 0 ? layoutRungs(valued, max, LABEL_PX / width).map((p) => [p.id, p]) : []);
-  const depth = (side: string) => 1 + Math.max(-1, ...[...placed.values()].filter((p) => p.side === side).map((p) => p.tier));
-  const above = depth('above');
-  const axisY = above * ROW + AXIS / 2;
+  const help = (r: Rung) => (r.window ? `${r.help} Window: ${windows[r.window].label}.` : r.help);
+  const pct = (v: number) => `${Math.min(1, v / max) * 100}%`;
+  const { p50, p99 } = ladder.observed;
+  const limit = ladder.configuredLimit.value;
+  const median = p50.value;
+  const tail = median === null ? null : p99.value;
+  const rung = (id: string, r: Rung, name: string, tone: Tone): Point[] => (r.value === null ? [] : [{ id, value: r.value, valueText: n(r.value), name, tone, help: help(r) }]);
+  const points: Point[] = [
+    ...rung('today', p50, 'today', 'today'),
+    ...(tail === null ? [] : rung('p99', p99, 'p99', 'p99')),
+    ...rung('fee', ladder.operatingPoint, 'fee target', 'fee'),
+    ...rung('gas', ladder.configuredLimit, 'gas limit', 'gas'),
+    ...(proven ? [{ id: 'proven', value: proven.value, valueText: `${proven.atLeast ? '≥ ' : ''}${n(proven.value)}`, name: 'proven', tone: 'proven' as const, help: proven.help }] : []),
+    // The ranked breaking points from What breaks first; unranked rows have no ceiling to mark.
+    ...limits.filter((l) => l.value !== null && SHORT[l.id]).map((l): Point => ({
+      id: l.id,
+      value: l.value!,
+      valueText: l.ceiling,
+      name: SHORT[l.id],
+      tone: l.id.startsWith('disk-') ? 'disk' : 'da',
+      help: l.help ?? l.evidence,
+    })),
+  ];
+  const placed = layoutPoints(points, max, width);
+  const tiers = (side: 'above' | 'below') => placed.filter((p) => p.side === side).reduce((h, p) => Math.max(h, (p.tier + 1) * ROW_PX), 0);
+  const barTop = tiers('above') + GAP_PX;
+  const height = barTop + BAR_H + GAP_PX + tiers('below') + 16;
+  const nearEdge = (p: PlacedPoint) => (p.side === 'above' ? barTop - GAP_PX - p.tier * ROW_PX : barTop + BAR_H + GAP_PX + p.tier * ROW_PX);
+  const legend = [
+    median !== null && ['up to median', SHADES.median],
+    tail !== null && ['median to p99', SHADES.p99],
+    limit !== null && ['allowed by policy', SHADES.allowed],
+    proven && limit !== null && proven.value > limit && ['proven, not yet allowed', SHADES.proven],
+  ].filter((l) => !!l);
+  const compact = placed.filter((p) => p.compact);
 
   return (
     <section className="flex flex-col gap-3">
-      <Text as="h2" variant="headline">Capacity ladder <span className="text-bds-gray-60">· Mgas/s</span></Text>
-      <div ref={axisRef} className="relative" style={{ height: (above + depth('below')) * ROW + AXIS }}>
-        <div className="absolute inset-x-0 h-px bg-bds-gray-30 dark:bg-white/20" style={{ top: axisY }} />
-        {all.map((item) => {
-          const p = placed.get(item.id);
-          if (!p) return null;
-          const top = p.side === 'above' ? (above - 1 - p.tier) * ROW : above * ROW + AXIS + p.tier * ROW;
-          const left = `${p.x * 100}%`;
+      <Text as="h2" variant="headline">How close are we, and to what? <span className="text-bds-gray-60">· Mgas/s</span></Text>
+      <div ref={ref} role="group" aria-label="Usage against policy, breaking points and proven capacity" className="relative" style={{ height }}>
+        <svg aria-hidden="true" width="100%" height={height} className="absolute inset-0 overflow-visible">
+          <rect width="100%" y={barTop} height={BAR_H} rx={5} className={SHADES.proven} />
+          {limit === null ? null : <rect width={pct(limit)} y={barTop} height={BAR_H} rx={5} className={SHADES.allowed} />}
+          {tail === null ? null : <rect data-band="p99" width={pct(tail)} y={barTop} height={BAR_H} rx={5} className={SHADES.p99} />}
+          {median === null ? null : <rect data-band="p50" width={pct(median)} y={barTop} height={BAR_H} rx={5} className={SHADES.median} />}
+        </svg>
+        {placed.filter((p) => !p.offScale).map((p) => (
+          <span key={p.id} data-tick={p.id} className={cn('absolute w-0 border-l-2', TICK[p.tone])} style={{ left: p.x, top: barTop - 4, height: BAR_H + 8 }} />
+        ))}
+        {placed.map((p) => {
+          const top = p.side === 'above' ? nearEdge(p) - ROW_PX : nearEdge(p);
           return (
-            <div key={item.id}>
-              <div
-                className={cn('absolute w-px', item.limit ? 'bg-bds-gray-40' : 'bg-base-blue')}
-                style={{ left, top: p.side === 'above' ? top + ROW : axisY, height: p.side === 'above' ? axisY - top - ROW : top - axisY }}
-              />
-              <div
-                className={cn('absolute z-10 flex flex-col bg-background', p.side === 'above' ? 'justify-end' : 'justify-start', ALIGN[p.anchor])}
-                style={{ left, top, width: LABEL_PX, height: ROW, transform: SHIFT[p.anchor] }}
-              >
-                <span className="flex items-center gap-1 text-[12px] text-bds-gray-60">
-                  {item.label} <Info label={`About ${item.label}`}>{item.help}</Info>
-                </span>
-                <span className={cn('font-mono text-[13px]', item.limit && 'text-bds-gray-60')}>
-                  {item.atLeast ? '≥ ' : ''}{item.value!.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                  {item.limit ? null : <span className="ml-1 font-sans text-[11px] text-bds-gray-60">{item.tag}{item.source ? ` · ${item.source}` : ''}</span>}
-                </span>
-              </div>
-            </div>
+            <span key={p.id}>
+              {p.tier > 0 && !p.offScale ? (
+                <span
+                  data-connector={p.id}
+                  className={cn('absolute w-0 border-l', TICK[p.tone])}
+                  style={p.side === 'above' ? { left: p.x, top: nearEdge(p), height: barTop - nearEdge(p) } : { left: p.x, top: barTop + BAR_H, height: nearEdge(p) - barTop - BAR_H }}
+                />
+              ) : null}
+            <span
+              data-label={p.id}
+              data-tier={p.tier}
+              className={cn('absolute flex flex-col items-center whitespace-nowrap text-center', TEXT[p.tone], p.side === 'above' ? 'justify-end' : 'justify-start')}
+              style={{ left: p.left, width: p.width, top, height: ROW_PX }}
+            >
+              <span className="flex h-3 items-center gap-1 text-[12px] font-[700] leading-3 tabular-nums">
+                {p.valueText}{p.offScale ? ' →' : ''}
+                <Info label={`About ${p.name}`}>{p.help}</Info>
+              </span>
+              {p.compact ? null : <span className="text-[11px] leading-3 opacity-80">{p.name}</span>}
+            </span>
+            </span>
           );
         })}
+        <span className="absolute left-0 text-[11px] text-bds-gray-50" style={{ top: height - 14 }}>0</span>
+        <span className="absolute right-0 text-[11px] text-bds-gray-50" style={{ top: height - 14 }}>{n(max)} Mgas/s</span>
       </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] empty:hidden">
-        {all.filter((item) => !placed.has(item.id)).map((item) => (
-          <li key={item.id} className="flex items-center gap-1.5">
-            <span className="text-bds-gray-60">{item.label}</span>
-            <Tag tag={item.tag} />
-            <Info label={`About ${item.label}`}>{item.help}</Info>
-          </li>
-        ))}
-      </ul>
-      {!proven && props.ladder.qualified.evidence?.length ? (
-        <Text variant="label.regular" tone="muted">
-          <span className="flex flex-wrap gap-x-3">Qualified sustained by {props.ladder.qualified.evidence.map((l) => <a key={l.url} className="underline" href={l.url}>{l.label}</a>)}</span>
-        </Text>
+      {compact.length ? (
+        <p data-legend="names" className="flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+          {compact.map((p) => <span key={p.id} className={TEXT[p.tone]}><b>{p.valueText}</b> {p.name}</span>)}
+        </p>
       ) : null}
-      <Text variant="label.regular" tone="muted">{translation(props.translations)}</Text>
-      {props.benchUrl ? <ProvenCapacity data={bench.data} error={bench.error} /> : null}
-      {props.dashboardUrl ? <Text variant="label.regular" tone="muted"><a className="underline" href={props.dashboardUrl}>Mainnet load, gas limit, DA ceiling →</a></Text> : null}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-bds-gray-60">
+        {legend.map(([label, shade]) => (
+          <span key={label} className="flex items-center gap-1.5"><span aria-hidden="true" className={cn('h-2.5 w-4 rounded-sm', shade)} />{label}</span>
+        ))}
+      </div>
     </section>
   );
 }

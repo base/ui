@@ -2,11 +2,13 @@
 
 import useSWR from 'swr';
 
+import { daWorkloads, withDaWorkloads } from '../da/workloads';
 import { getDataService } from '../runs/lib/dataService';
 import { getTestRunsWithStatus, type BenchmarkRuns, type BenchmarkRunWithStatus } from '../runs/lib/types';
 import { toUnifiedRun } from '../runs/lib/unified';
 import type { Ceiling } from '../snapshot.mjs';
 import { CeilingCard } from './CeilingCards';
+import { useProvenCapacity } from './ProvenCapacity';
 
 const gps = (r: BenchmarkRunWithStatus) => r.result?.sequencerMetrics?.gasPerSecond ?? 0;
 
@@ -30,12 +32,16 @@ const fromRun = (c: Ceiling, run: BenchmarkRunWithStatus): Ceiling => ({
   reason: 'state size not recorded',
 });
 
-export function RunBackedCeilingCard({ area, ceilings }: { area: Ceiling['area']; ceilings: Ceiling[] }) {
+export function RunBackedCeilingCard({ area, ceilings: snapshotCeilings, benchUrl }: { area: Ceiling['area']; ceilings: Ceiling[]; benchUrl?: string }) {
   const { data } = useSWR('scaling-bench-metadata', () => getDataService().getMetadata());
+  const bench = useProvenCapacity(benchUrl);
+  const loaded = bench.error ? undefined : bench.data;
+  const workloads = daWorkloads(loaded?.da);
+  const ceilings = loaded ? withDaWorkloads(snapshotCeilings, workloads) : snapshotCeilings;
   const run = data && newestPassing(data);
   const execution = ceilings.find((c) => c.area === 'execution')!;
   // A measured or modeled snapshot value outranks a run-backed estimate; the snapshot is also the fallback without the API.
-  if (!run || execution.tag === 'measured' || execution.tag === 'modeled') return <CeilingCard area={area} ceilings={ceilings} />;
+  if (!run || execution.tag === 'measured' || execution.tag === 'modeled') return <CeilingCard area={area} ceilings={ceilings} workloads={workloads} />;
   const live = ceilings.map((c) => (c === execution ? fromRun(c, run) : c));
-  return <CeilingCard area={area} ceilings={live} run={area === 'execution' ? toUnifiedRun(run) : undefined} />;
+  return <CeilingCard area={area} ceilings={live} workloads={workloads} run={area === 'execution' ? toUnifiedRun(run) : undefined} />;
 }

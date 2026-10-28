@@ -1,20 +1,23 @@
+'use client';
+
 import { cn } from '../../components/ui/cn';
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
-import { BLOB_MAX, BLOB_TARGET, bindingWorkload, daCapacity, DA_WORKLOADS, fmt } from '../da/workloads';
+import { BLOB_MAX, BLOB_TARGET, bindingWorkload, daCapacity, daWorkloads, DA_WORKLOADS, fmt, type DaWorkload } from '../da/workloads';
+import { useProvenCapacity } from './ProvenCapacity';
 import { Tag } from './Tag';
 
 const TH = 'px-4 py-2 text-right text-[12px] font-[500] text-bds-gray-60 first:text-left';
 const TD = 'whitespace-nowrap px-4 py-3 text-right font-mono first:text-left first:font-sans';
 
 // The DA ceiling card's body: one aligned row per workload instead of the generic input list.
-export function DaWorkloadRows() {
-  const binding = bindingWorkload();
+export function DaWorkloadRows({ workloads = DA_WORKLOADS }: { workloads?: DaWorkload[] }) {
+  const binding = bindingWorkload(workloads);
   const row = 'grid grid-cols-[1fr_2.75rem_3rem] items-baseline gap-x-2 py-1 text-right';
   return (
     <ul className="flex max-w-[22rem] flex-col text-[12px]">
       <li className={cn(row, 'pb-0.5 text-[11px] text-bds-gray-60')}><span /><span>Mgas/s</span><span>tx/s</span></li>
-      {DA_WORKLOADS.map((w) => {
+      {workloads.map((w) => {
         const { mgasPerSecond, txPerSecond } = daCapacity(w, BLOB_TARGET);
         return (
           <li key={w.label} className={cn(row, 'border-t border-bds-gray-10 dark:border-white/10')}>
@@ -28,9 +31,22 @@ export function DaWorkloadRows() {
   );
 }
 
-export function DaWorkloads({ observedP50 }: { observedP50: number | null }) {
-  const binding = bindingWorkload();
-  const rows = DA_WORKLOADS.map((w) => ({ w, target: daCapacity(w, BLOB_TARGET), max: daCapacity(w, BLOB_MAX) }));
+function BlobsPerSlot({ bench }: { bench: NonNullable<DaWorkload['bench']> }) {
+  const { da, run } = bench;
+  const verdict = da.withinTarget === null ? null : da.withinTarget ? 'within' : 'over';
+  return (
+    <span title={`bench ${run.mgas} Mgas/s run, ${fmt(da.result.gas_per_second / 1e6)} Mgas/s delivered`}>
+      {da.result.blobs_per_l1_slot.toFixed(1)} / {da.target ?? BLOB_TARGET}
+      {verdict ? <span className={cn('ml-1 font-sans text-[12px]', da.withinTarget ? 'text-bds-gray-60' : 'text-bds-red-50')}>{verdict}</span> : null}
+    </span>
+  );
+}
+
+export function DaWorkloads({ observedP50, benchUrl }: { observedP50: number | null; benchUrl?: string }) {
+  const bench = useProvenCapacity(benchUrl);
+  const workloads = daWorkloads(bench.error ? undefined : bench.data?.da);
+  const binding = bindingWorkload(workloads);
+  const rows = workloads.map((w) => ({ w, target: daCapacity(w, BLOB_TARGET), max: daCapacity(w, BLOB_MAX) }));
   const scale = 1.1 * Math.max(...rows.map((r) => r.max.mgasPerSecond), observedP50 ?? 0);
   const pct = (v: number) => `${(v / scale) * 100}%`;
   return (
@@ -65,7 +81,7 @@ export function DaWorkloads({ observedP50 }: { observedP50: number | null }) {
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-bds-gray-10 dark:border-white/10">
-                {['Workload', 'Bytes / tx', 'Gas / tx', 'Bytes / gas', 'tx/s', 'Mgas/s', 'Source'].map((h) => <th key={h} className={cn(TH, h === 'Source' && 'text-left')}>{h}</th>)}
+                {['Workload', 'Bytes / tx', 'Gas / tx', 'Bytes / gas', 'tx/s', 'Mgas/s', 'Bench blobs / slot', 'Source'].map((h) => <th key={h} className={cn(TH, h === 'Source' && 'text-left')}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -79,6 +95,7 @@ export function DaWorkloads({ observedP50 }: { observedP50: number | null }) {
                   <td className={TD}>{(w.bytesPerTx / w.gasPerTx).toFixed(5)}</td>
                   <td className={TD}>{fmt(target.txPerSecond)}</td>
                   <td className={TD}>{fmt(target.mgasPerSecond)}</td>
+                  <td className={TD}>{w.bench ? <BlobsPerSlot bench={w.bench} /> : '—'}</td>
                   <td className={cn(TD, 'text-left font-sans')}>
                     <Tag tag={w.tag} />{' '}
                     {w.source ? (

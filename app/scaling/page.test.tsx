@@ -11,17 +11,37 @@ import fixture from './fixtures/synthetic.v2.json';
 import ScalingGuardrailsPage from './guardrails/page';
 import ScalingPage from './page';
 
+// No network in tests: the live archive size is unavailable, so the page keeps the snapshot's.
+vi.mock('./archiveSize', async (original) => ({ ...(await original<typeof import('./archiveSize')>()), loadArchiveSize: async () => null }));
+
 beforeEach(() => vi.stubEnv('SCALING_SNAPSHOT_PATH', fileURLToPath(new URL('./fixtures/synthetic.v2.json', import.meta.url))));
 afterEach(() => vi.unstubAllEnvs());
 
 const area = async (id: string) => renderToStaticMarkup(await ScalingAreaPage({ params: Promise.resolve({ area: id }) }));
 
-it('links the first screen to four detail pages instead of listing metric rows', async () => {
+it('ends the first screen with the DA link, and no guardrails or benchmark links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  for (const page of ['da', 'execution', 'state', 'guardrails']) expect(html).toContain(`href="/scaling/${page}"`);
-  expect(html).not.toContain('href="/scaling/networking"');
+  expect(html).toContain('<a class="underline" href="/scaling/da">DA by workload</a>');
+  // The guardrails page stays, unlinked, while the first screen leaves guardrails out.
+  expect(html).not.toMatch(/href="\/scaling\/guardrails"|Guardrails<\/h2>|SLOs/);
+  expect(html).not.toMatch(/href="\/benchmark|href="\/scaling\/networking"/);
   expect(html).not.toContain('Blob utilization');
-  expect(html).toContain('href="/scaling/runs"');
+  expect(html).not.toContain('href="/scaling/runs"');
+  expect(html).toMatch(/<h1[^>]*>synthetic-testnet capacity<\/h1>/);
+  expect(html).not.toMatch(/As of|manually refreshed|Synthetic fixture: every number/);
+});
+
+it('orders the first screen: freshness, headline, ladder, ranked limits, subsystems by workload, work, links', async () => {
+  const html = renderToStaticMarkup(await ScalingPage());
+  const order = ['Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Work log', 'DA by workload'].map((h) => html.indexOf(h));
+  expect(order.every((i, k) => i > (order[k - 1] ?? -1))).toBe(true);
+  expect(html).not.toMatch(/Subsystem detail|>Progress<|Ceilings by bottleneck|Usage data as of/);
+});
+
+it('dates snapshot data without a stale banner', async () => {
+  // The fixture is far older than any staleness window.
+  expect(renderToStaticMarkup(await ScalingGuardrailsPage())).toContain('Usage data as of 2026-01-02');
+  for (const html of [renderToStaticMarkup(await ScalingPage()), renderToStaticMarkup(await ScalingGuardrailsPage()), await area('da')]) expect(html).not.toContain('Stale');
 });
 
 it('shows every metric row on its detail page', async () => {
@@ -31,10 +51,10 @@ it('shows every metric row on its detail page', async () => {
   }
 });
 
-it('renders an area with breadcrumb, as-of header, ceiling, metric details, gaps and a runs slot', async () => {
+it('renders an area with breadcrumb, no as-of line, ceiling, metric details, gaps and a runs slot', async () => {
   const html = await area('da');
   expect(html).toContain('href="/scaling">Scaling</a> / DA');
-  expect(html).toContain('As of 2026-01-02 00:00 UTC');
+  expect(html).not.toContain('As of 2026-01-02');
   expect(html).toMatch(/>Ceiling <span[^>]*>· Mgas\/s<\/span>/);
   expect(html).toContain('Lowest: Payments (B20) · 14-blob target, no margin');
   expect(html).toContain('>1,517<');
@@ -57,7 +77,7 @@ it('404s an unknown area and networking, which has no ceiling', async () => {
   for (const id of ['bogus', 'networking']) await expect(area(id)).rejects.toMatchObject({ digest: 'NEXT_HTTP_ERROR_FALLBACK;404' });
 });
 
-it('passes the runtime bench and dashboard URLs to the ladder', async () => {
+it('passes the runtime bench and dashboard URLs to the scorecard and footer', async () => {
   expect(renderToStaticMarkup(await ScalingPage())).not.toContain('Loading bench results');
   vi.stubEnv('SCALING_BENCH_BASE_URL', 'https://bench.example.com');
   vi.stubEnv('SCALING_DATADOG_DASHBOARD_URL', 'https://dashboards.example.com/scaling');
@@ -66,15 +86,20 @@ it('passes the runtime bench and dashboard URLs to the ladder', async () => {
   expect(html).toContain('href="https://dashboards.example.com/scaling"');
 });
 
-it('links the first-screen guardrail strip to the guardrails page', async () => {
-  expect(renderToStaticMarkup(await ScalingPage())).toContain('<a class="underline" href="/scaling/guardrails">Guardrails →</a>');
+it('adds bench guardrail rows when a bench host is set, unknown until its results load', async () => {
+  vi.stubEnv('SCALING_BENCH_BASE_URL', 'https://bench.example.com');
+  const html = renderToStaticMarkup(await ScalingGuardrailsPage());
+  for (const label of ['Proof-node head lag p99', 'debug_executePayload p99', 'Validator replay headroom']) expect(html).toContain(label);
+  expect(html).toContain('No qualifying mainnet-mix bench run is loaded.');
 });
 
 it('shows guardrail help inline and the outcomes table on the guardrails page', async () => {
   const html = renderToStaticMarkup(await ScalingGuardrailsPage());
   expect(html).toContain('href="/scaling">Scaling</a> / Guardrails');
-  expect(html).toContain('As of 2026-01-02 00:00 UTC');
-  for (const g of fixture.guardrails) expect(html).toContain(g.help);
+  expect(html).not.toContain('As of 2026-01-02');
+  for (const g of fixture.guardrails) if (g.id !== 'validator-keep-up') expect(html).toContain(g.help);
+  expect(html).toContain('They must stay within 3 blocks.');
+  expect(html).not.toContain('Proof-node head lag p99');
   expect(html).not.toContain('Guardrails →');
   expect(html).toContain('Inclusion latency p50');
   expect(html).toContain('synthetic.inclusion_latency');

@@ -24,12 +24,12 @@ export default async function ScalingAreaPage({ params }: { params: Promise<{ ar
   const ceilings = withDaWorkloads(snapshot.ceilings);
   return (
     <div className="flex flex-col gap-10 pb-8">
-      <Header loaded={loaded} title={`${entry[1]} · ${snapshot.network}`} crumb={entry[1]} />
+      <Header title={`${entry[1]} · ${snapshot.network}`} crumb={entry[1]} />
       <section className="flex flex-col gap-3">
         <Text as="h2" variant="headline">Ceiling <span className="text-bds-gray-60">· Mgas/s</span></Text>
-        <RunBackedCeilingCard area={entry[0]} ceilings={ceilings} />
+        <RunBackedCeilingCard area={entry[0]} ceilings={ceilings} benchUrl={process.env.SCALING_BENCH_BASE_URL} />
       </section>
-      {area === 'da' ? <DaWorkloads observedP50={snapshot.ladder.observed.p50.value} /> : null}
+      {area === 'da' ? <DaWorkloads observedP50={snapshot.ladder.observed.p50.value} benchUrl={process.env.SCALING_BENCH_BASE_URL} /> : null}
       {section ? (
         <SectionTable section={section} windows={snapshot.windows} />
       ) : (

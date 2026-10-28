@@ -5,7 +5,8 @@
   "context": "Synthetic fixture: every number is invented to exercise the schema. Not a measurement of any network.",
   "windows": {
     "day": { "label": "24 h", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z" },
-    "week": { "label": "7 d", "start": "2025-12-26T00:00:00Z", "end": "2026-01-02T00:00:00Z" }
+    "week": { "label": "7 d", "start": "2025-12-26T00:00:00Z", "end": "2026-01-02T00:00:00Z" },
+    "month": { "label": "the last 30 days", "start": "2025-12-03T00:00:00Z", "end": "2026-01-02T00:00:00Z" }
   },
   "ladder": {
     "observed": {
@@ -195,6 +196,21 @@
     },
     "gasPerSwap": null
   },
+  "policy": {
+    "runwayYears": { "fullNode": 2, "archive": 1, "help": "Invented runway policy." }
+  },
+  "production": {
+    "archiveBytes": { "value": 4000000000000, "asOf": "2026-01-01", "source": "Synthetic archive snapshot", "note": "invented size" },
+    "stateBytesPerGas": { "value": 0.0008, "window": "week", "source": "Synthetic dashboard" }
+  },
+  "usage": {
+    "transactionsPerSecond": {
+      "value": 64.2,
+      "window": "month",
+      "help": "Invented: synthetic transactions per second averaged over the window.",
+      "source": { "label": "Synthetic dashboard", "url": "https://example.com/synthetic/tps" }
+    }
+  },
   "sections": [
     {
       "id": "da",
@@ -246,7 +262,9 @@
     {
       "area": "execution",
       "title": "Synthetic unified binary",
-      "status": "In progress",
+      "status": "in-progress",
+      "category": "Execution",
+      "effect": "about 20% faster block processing (synthetic demo)",
       "owner": "Synthetic owner",
       "hypothesis": "Fewer process hops per block speed up block processing.",
       "change": "Run the consensus and execution clients in one process.",
@@ -268,7 +286,8 @@
     {
       "area": "da",
       "title": "Synthetic blob batching change",
-      "status": "Proposed",
+      "status": "planned",
+      "category": "DA",
       "owner": null,
       "hypothesis": "Denser batches post fewer bytes per gas.",
       "change": "Not yet specified.",
@@ -277,6 +296,19 @@
       "evidence": null,
       "linear": null,
       "links": [{ "label": "Synthetic doc", "url": "https://example.com/synthetic/doc" }]
+    },
+    {
+      "area": "networking",
+      "title": "Synthetic legacy proposal",
+      "status": "Research-derived proposal",
+      "owner": null,
+      "hypothesis": "An entry from before the work log, which the page does not show.",
+      "change": "Not yet specified.",
+      "expected": null,
+      "realized": null,
+      "evidence": null,
+      "linear": null,
+      "links": []
     }
   ]
 }

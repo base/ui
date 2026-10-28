@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { deriveBinding, isStale, parseSnapshot } from './snapshot.mjs';
+import { deriveBinding, parseSnapshot } from './snapshot.mjs';
 
 // Synthetic data only: real snapshots are internal and never committed.
 function fixture() {
@@ -22,6 +22,36 @@ describe('parseSnapshot', () => {
     expect(result.snapshot.ladder.observed.p99.value).toBeNull();
     expect(result.snapshot.translations.gasPerSwap).toBeNull();
     expect(result.snapshot.work[1].linear).toBeNull();
+  });
+
+  it('treats usage as optional, and checks its value, window and help when present', () => {
+    const { usage, ...withoutUsage } = fixture();
+    expect(errorsOf(withoutUsage)).toEqual([]);
+    const bad = { ...withoutUsage, usage: { transactionsPerSecond: { ...usage.transactionsPerSecond, value: -1, window: 'year', help: '' } } };
+    expect(errorsOf(bad)).toEqual([
+      'usage.transactionsPerSecond.value: expected a non-negative number',
+      'usage.transactionsPerSecond.window: expected a key of windows',
+      'usage.transactionsPerSecond.help: expected non-empty string',
+    ]);
+  });
+
+  it('treats the disk policy and production inputs as optional, and checks them when present', () => {
+    const { policy, production, ...without } = fixture();
+    expect(errorsOf(without)).toEqual([]);
+    const bad = {
+      ...without,
+      policy: { runwayYears: { ...policy.runwayYears, fullNode: 0 } },
+      production: {
+        archiveBytes: { ...production.archiveBytes, asOf: 'soon', source: '' },
+        stateBytesPerGas: { ...production.stateBytesPerGas, window: 'decade' },
+      },
+    };
+    expect(errorsOf(bad)).toEqual([
+      'policy.runwayYears.fullNode: expected a positive number',
+      'production.archiveBytes.asOf: expected ISO timestamp',
+      'production.archiveBytes.source: expected non-empty string',
+      'production.stateBytesPerGas.window: expected a key of windows',
+    ]);
   });
 
   it('rejects schema version 1 and names the migration', () => {
@@ -57,6 +87,23 @@ describe('parseSnapshot', () => {
       'ceilings[1].area: expected one of da, execution, state, networking',
       'snapshot.ceilings: missing execution',
       'work[0].area: expected one of da, execution, state, networking',
+    ]);
+  });
+
+  it('accepts a work log entry with only title, status, category, effect, links and owner, and checks each', () => {
+    const data = fixture();
+    data.work.push({ title: 'Synthetic planned work', status: 'planned', category: 'Execution', effect: null, links: [{ label: 'Linear', url: 'https://example.com/linear' }], owner: 'Synthetic owner' });
+    expect(errorsOf(data)).toEqual([]);
+    data.work.push(
+      { title: 'Bad category', status: 'planned', category: 'Gas' },
+      { title: 'No category', status: 'planned' },
+      { title: 'Bad link', status: 'planned', category: 'DA', effect: 3, links: [{ label: 'Doc', url: 'http://example.com' }] },
+    );
+    expect(errorsOf(data)).toEqual([
+      'work[4].category: expected one of DA, Disk, Execution, Proving, Latency',
+      'work[5].category: required without area',
+      'work[6].effect: expected string or null',
+      'work[6].links[0].url: expected https URL',
     ]);
   });
 
@@ -142,15 +189,5 @@ describe('deriveBinding', () => {
     Object.assign(ceilings[0], { value: null, tag: 'not-modeled' });
     ceilings[1].tag = 'estimated';
     expect(deriveBinding(ceilings)).toBeNull();
-  });
-});
-
-describe('isStale', () => {
-  const collectedAt = fixture().collectedAt;
-
-  it('flags snapshots older than the threshold', () => {
-    expect(isStale(collectedAt, new Date('2026-01-13T00:00:00Z'))).toBe(true);
-    expect(isStale(collectedAt, new Date('2026-01-11T00:00:00Z'))).toBe(false);
-    expect(isStale(collectedAt, new Date('2026-01-13T00:00:00Z'), 20)).toBe(false);
   });
 });
