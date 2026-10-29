@@ -54,6 +54,9 @@ const storage = (currentBytes: number | null = null): NonNullable<Run['storage']
 const bench = (mgas: number, atTop: boolean, more: Partial<ProvenCapacity> = {}): ProvenCapacity => ({
   current: { ...none, mix: { mgas, atTop, run: run(mgas) } },
   da: none,
+  glamsterdamRuns: [],
+  mainRuns: [],
+  glamsterdamErrors: 0,
   history: [
     { at: T0, mgas: 40, commit: 'aaaaaaaaaaaaaaaa', previousCommit: null, compareUrl: null },
     { at: T0 + 5 * DAY, mgas, commit: 'bbbbbbbbbbbbbbbb', previousCommit: 'aaaaaaaaaaaaaaaa', compareUrl: 'https://github.com/base/base/compare/aaaa...bbbb' },
@@ -66,8 +69,8 @@ const fixture = (): Snapshot => JSON.parse(readFileSync(new URL('../fixtures/syn
 // In page order: the freshness line, then headline, ladder, ranked limits, workloads, work.
 const render = (props: { benchUrl?: string } = { benchUrl: BENCH }, snapshot = fixture()) => {
   const html = renderToStaticMarkup(<Scorecard snapshot={snapshot} {...props} />);
-  const [fresh, head, ladder, ranked, subsystems, work] = html.split('<section');
-  return { html, fresh, head, ladder, ranked, subsystems, work };
+  const [fresh, head, ladder, ranked, subsystems, glamsterdam, work] = html.split('<section');
+  return { html, fresh, head, ladder, ranked, subsystems, glamsterdam, work };
 };
 // Strip tags until none remain, so a tag split across a removed one cannot survive.
 const text = (html: string) => {
@@ -123,6 +126,40 @@ describe('freshness and headline', () => {
   });
 
 });
+
+describe('Glamsterdam jobs', () => {
+  it('shows Glamsterdam and Main jobs side by side with measured rates and run links', () => {
+    const main = { ...run(400), id: 'main-mix-400', outputDir: 'main-mix-400', tps: 2200.24 };
+    const glamsterdam = { ...run(200), id: 'glam-mix-200', outputDir: 'glam-mix-200', gps: 197e6, tps: 2100.14 };
+    swr.result = { data: bench(400, true, { mainRuns: [main], glamsterdamRuns: [glamsterdam] }) };
+    const section = render().glamsterdam;
+
+    expect(text(section)).toContain('All Glamsterdam targets');
+    expect(text(section)).toContain('All Main targets');
+    expect(text(section)).toContain('glam-mix-200');
+    expect(text(section)).toContain('main-mix-400');
+    expect(text(section)).toContain('2,100.1');
+    expect(text(section)).toContain('2,200.2');
+    expect(section).toContain('href="/scaling/runs/bench/glam-mix-200"');
+    expect(section).toContain('href="/scaling/runs/bench/main-mix-400"');
+    expect(section).not.toContain('closest TPS');
+    expect(section).not.toContain('TPS gap');
+  });
+
+  it('distinguishes unconfigured, loading, error and unavailable jobs', () => {
+    expect(text(render({}).glamsterdam)).toContain('Benchmark source is not configured.');
+    expect(text(render().glamsterdam)).toContain('Loading benchmark runs…');
+
+    swr.result = { error: new Error('offline') };
+    expect(text(render().glamsterdam)).toContain('Could not load benchmark data.');
+
+    swr.result = { data: bench(400, true) };
+    expect(text(render().glamsterdam)).toContain('No eligible jobs in the last 14 days.');
+    swr.result = { data: bench(400, true, { glamsterdamErrors: 1 }) };
+    expect(text(render().glamsterdam)).toContain('1 latest Glamsterdam job could not be loaded.');
+  });
+});
+
 
 describe('workload tiles', () => {
   it('takes the lowest of the proven, DA and gas-limit ceilings, preferring DA then the gas limit on ties', () => {
