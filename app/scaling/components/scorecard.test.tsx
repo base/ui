@@ -134,8 +134,8 @@ describe('Glamsterdam jobs', () => {
     swr.result = { data: bench(400, true, { mainRuns: [main], glamsterdamRuns: [glamsterdam] }) };
     const section = render().glamsterdam;
 
-    expect(text(section)).toContain('Glamsterdam jobs');
-    expect(text(section)).toContain('Main jobs');
+    expect(text(section)).toContain('All Glamsterdam targets');
+    expect(text(section)).toContain('All Main targets');
     expect(text(section)).toContain('glam-mix-200');
     expect(text(section)).toContain('main-mix-400');
     expect(text(section)).toContain('2,100.1');

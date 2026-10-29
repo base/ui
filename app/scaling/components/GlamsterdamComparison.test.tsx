@@ -36,7 +36,10 @@ it('shows Glamsterdam and Main jobs side by side without pairing or TPS-gap calc
   );
 
   expect(html).toContain('Glamsterdam jobs');
-  expect(html).toContain('Main jobs');
+  expect(html).toContain('All Main targets');
+  expect(html).toContain('All Glamsterdam targets');
+  expect(html).toContain('Latest Glamsterdam mix run');
+  expect(html).toContain('Latest Main mix run');
   expect(html).toContain('glam-mix-200');
   expect(html).toContain('glam-pay-300');
   expect(html).toContain('main-mix-200');
@@ -44,7 +47,24 @@ it('shows Glamsterdam and Main jobs side by side without pairing or TPS-gap calc
   expect(html).toContain('2,238.2');
   expect(html).toContain('2,970.6');
   expect(html).toContain('5,942.5');
-  expect(html).toContain('TPS / actual Mgas/s');
+  expect(html).toContain('Actual Mgas/s');
+  expect(html).toContain('Successful TPS');
   expect(html).not.toContain('closest TPS');
   expect(html).not.toContain('TPS gap');
+});
+
+/** Verifies highlights select by recency, exclude non-mix runs, and retain the inventory. */
+it('highlights the latest mix run rather than the largest target or newest other workload', () => {
+  const older = { ...run('older-high-target', 400, 5000, 406e6), createdAt: 1 };
+  const newest = { ...run('newest-mix', 100, 1200, 102e6), createdAt: 3, reverted: 0.25 };
+  const payment = { ...run('newest-payment', 300, 2000, 302e6, 'payment'), createdAt: 4 };
+  const html = renderToStaticMarkup(<GlamsterdamComparisonSection configured glamsterdamRuns={[older, payment, newest]} mainRuns={[]} />);
+  const cards = html.slice(0, html.indexOf('All Glamsterdam targets'));
+  expect(cards, 'latest mix card uses the newest mix job link').toContain('href="/scaling/runs/bench/newest-mix"');
+  expect(cards, 'largest target is not assumed newest').not.toContain('older-high-target');
+  expect(cards, 'newer payment does not replace latest mix').not.toContain('newest-payment');
+  expect(cards, 'successful TPS excludes 25% reverted').toContain('900 successful TPS');
+  expect(cards, 'empty Main has an explicit empty state').toContain('No eligible mix jobs in the last 14 days.');
+  expect(html, 'older mix remains in the full inventory').toContain('older-high-target');
+  expect(html, 'payment remains in the full inventory').toContain('newest-payment');
 });
