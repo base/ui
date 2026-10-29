@@ -18,13 +18,22 @@ export default async function ScalingPage() {
 
   const snapshot = withArchiveSize(loaded.snapshot, await loadArchiveSize());
   const dashboardUrl = process.env.SCALING_DATADOG_DASHBOARD_URL;
+  const gasRate = snapshot.ladder.configuredLimit.value;
   return (
     <div className="flex flex-col gap-10 pb-8">
-      <div className="flex flex-col gap-1.5">
-        <Header title={`${snapshot.network} capacity`} />
-        <Text variant="label.regular" tone="muted">
-          Block Gas Limit: {snapshot.ladder.configuredLimit.value === null ? '—' : `${(snapshot.ladder.configuredLimit.value * BASE_BLOCK_TIME_SECONDS).toLocaleString('en-US', { maximumFractionDigits: 1 })} Mgas`}
-        </Text>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-center md:gap-10">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Header title={`${snapshot.network} capacity`} />
+          <Text variant="label.regular" className="text-[22px] leading-snug tabular-nums text-brand-blue md:text-[26px]">
+            {gasRate === null ? '— Mgas / s (— Mgas / block)' : `${gasRate.toLocaleString('en-US', { maximumFractionDigits: 1 })} Mgas / s (${(gasRate * BASE_BLOCK_TIME_SECONDS).toLocaleString('en-US', { maximumFractionDigits: 1 })} Mgas / block)`}
+          </Text>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Text as="h2" variant="label">Block gas limit</Text>
+          <Text variant="label.regular" tone="muted">
+            {gasRate === null ? 'Configured gas limit unavailable.' : 'Configured gas ceiling, shown per second and per 200ms block. This is a setting, not measured throughput.'}
+          </Text>
+        </div>
       </div>
       <Scorecard snapshot={snapshot} benchUrl={process.env.SCALING_BENCH_BASE_URL} />
       <Text variant="label.regular" tone="muted">
