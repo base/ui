@@ -22,7 +22,7 @@ const area = async (id: string) => renderToStaticMarkup(await ScalingAreaPage({ 
 it('ends the first screen with the DA link, and no guardrails or benchmark links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
   expect(html).toContain('<a class="underline" href="/scaling/da">DA by workload</a>');
-  expect(html).toContain('Block Gas Limit: 40 Mgas');
+  expect(html, 'configured rate and per-block budget use the requested units').toContain('200 Mgas / s (40 Mgas / block)');
   // The guardrails page stays, unlinked, while the first screen leaves guardrails out.
   expect(html).not.toMatch(/href="\/scaling\/guardrails"|Guardrails<\/h2>|SLOs/);
   expect(html).not.toMatch(/href="\/benchmark|href="\/scaling\/networking"/);
@@ -34,9 +34,24 @@ it('ends the first screen with the DA link, and no guardrails or benchmark links
 
 it('orders the first screen: freshness, headline, ladder, ranked limits, subsystems by workload, work, links', async () => {
   const html = renderToStaticMarkup(await ScalingPage());
-  const order = ['Block Gas Limit: 40 Mgas', 'Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Glamsterdam', 'Work log', 'DA by workload'].map((h) => html.indexOf(h));
+  const order = ['200 Mgas / s (40 Mgas / block)', 'Usage to 2026-01-02', 'Proven capacity', 'How close are we, and to what?', 'What breaks first', 'Subsystems by workload', 'Glamsterdam', 'Work log', 'DA by workload'].map((h) => html.indexOf(h));
   expect(order.every((i, k) => i > (order[k - 1] ?? -1))).toBe(true);
   expect(html).not.toMatch(/Subsystem detail|>Progress<|Ceilings by bottleneck|Usage data as of/);
+});
+
+/** Verifies the dual-unit header uses configured data and preserves unknown values. */
+it.each([
+  [1234.5, '1,234.5 Mgas / s (246.9 Mgas / block)'],
+  [0, '0 Mgas / s (0 Mgas / block)'],
+  [null, '— Mgas / s (— Mgas / block)'],
+])('renders configured gas rate %s in both units', async (value, expected) => {
+  const path = join(tmpdir(), `scaling-header-${value}.json`);
+  writeFileSync(path, JSON.stringify({ ...fixture, ladder: { ...fixture.ladder, configuredLimit: { ...fixture.ladder.configuredLimit, value, tag: value === null ? 'not-established' : fixture.ladder.configuredLimit.tag } } }));
+  vi.stubEnv('SCALING_SNAPSHOT_PATH', path);
+  const html = renderToStaticMarkup(await ScalingPage());
+  expect(html, 'both units reflect the configured limit without substituting sample data').toContain(expected);
+  expect(html, 'the editorial explanation labels this as a block gas limit').toContain('Block gas limit');
+  if (value === null) expect(html, 'missing configuration is explicitly unavailable').toContain('Configured gas limit unavailable.');
 });
 
 it('dates snapshot data without a stale banner', async () => {
