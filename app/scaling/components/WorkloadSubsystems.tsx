@@ -149,12 +149,12 @@ function proofCards(runs: Record<Workload, Run | undefined>): SubsystemCard[] {
       bad: over.length > 0,
       rows: [
         {
-          label: 'executePayload p99 (budget)',
+          label: 'executePayload p99, ms (budget)',
           help: 'p99 latency of debug_executePayload on the proof node, and the budget the bench applies.',
           cells: proofCells((p, r) => {
             const w = proofLimits(r)?.witnessGeneration;
             const p99 = p.methods.debug_executePayload?.latency.p99Ms;
-            return w ? { value: `${ms(w.p99Ms)} (≤ ${ms(w.maxP99Ms)})`, bad: !w.pass } : p99 === undefined ? { why: NOT_IN_RUN } : { value: ms(p99), sub: ['budget unknown'] };
+            return w ? { value: `${Math.round(w.p99Ms)} (≤ ${w.maxP99Ms})`, bad: !w.pass } : p99 === undefined ? { why: NOT_IN_RUN } : { value: `${Math.round(p99)}`, sub: ['budget unknown'] };
           }),
         },
         {
