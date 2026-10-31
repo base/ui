@@ -194,9 +194,9 @@ const MATCHES: Record<Category, (id: string) => boolean> = {
   da: (id) => id.startsWith('da-'),
   'disk-archive': (id) => id === 'disk-archive',
   'disk-full': (id) => id === 'disk-full',
-  'proof-node': (id) => id === 'proof-node' || id === 'core',
-  validators: (id) => id === 'validators' || id === 'core',
-  execution: (id) => id === 'execution' || id === 'core',
+  'proof-node': (id) => id === 'proof-node',
+  validators: (id) => id === 'validators',
+  execution: (id) => id === 'execution',
 };
 
 // Cards follow the ranked table: a category's first ranked row sets its place; unranked ones keep the default order.
