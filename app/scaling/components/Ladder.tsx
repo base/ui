@@ -135,7 +135,8 @@ export function Ladder({ ladder, windows, proven, max, limits }: Props) {
       <Text as="h2" variant="headline">How close are we, and to what? <span className="text-bds-gray-60">· Mgas/s</span></Text>
       <div ref={ref} role="group" aria-label="Usage against policy, breaking points and proven capacity" className="relative" style={{ height }}>
         <svg aria-hidden="true" width="100%" height={height} className="absolute inset-0 overflow-visible">
-          <rect width="100%" y={barTop} height={BAR_H} rx={5} className={SHADES.proven} />
+          <rect width="100%" y={barTop} height={BAR_H} rx={5} className="fill-bds-gray-5 dark:fill-white/5" />
+          {proven ? <rect data-band="proven" width={pct(proven.value)} y={barTop} height={BAR_H} rx={5} className={SHADES.proven} /> : null}
           {limit === null ? null : <rect width={pct(limit)} y={barTop} height={BAR_H} rx={5} className={SHADES.allowed} />}
           {tail === null ? null : <rect data-band="p99" width={pct(tail)} y={barTop} height={BAR_H} rx={5} className={SHADES.p99} />}
           {median === null ? null : <rect data-band="p50" width={pct(median)} y={barTop} height={BAR_H} rx={5} className={SHADES.median} />}
@@ -170,7 +171,6 @@ export function Ladder({ ladder, windows, proven, max, limits }: Props) {
           );
         })}
         <span className="absolute left-0 text-[11px] text-bds-gray-50" style={{ top: height - 14 }}>0</span>
-        <span className="absolute right-0 text-[11px] text-bds-gray-50" style={{ top: height - 14 }}>{n(max)} Mgas/s</span>
       </div>
       {compact.length ? (
         <p data-legend="names" className="flex flex-wrap gap-x-3 gap-y-1 text-[12px]">

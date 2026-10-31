@@ -36,7 +36,7 @@ const STEP_DOT: Record<PipelineStep['status'], string> = { passed: 'bg-bds-green
 export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): Bar[] {
   const da = workloads.map((w): Bar => {
     const { mgasPerSecond: value, txPerSecond } = daCapacity(w, BLOB_TARGET);
-    return { id: `da-${w.payload}`, label: `DA · ${w.label}`, value, text: `${w.tag === 'estimated' ? '~' : ''}${fmt(value)}`, tag: w.tag, perSecond: txPerSecond };
+    return { id: `da-${w.payload}`, label: w.label, value, text: `${w.tag === 'estimated' ? '~' : ''}${fmt(value)}`, tag: w.tag, perSecond: txPerSecond };
   });
   const run = proven?.run;
   const m = proven?.mgas ?? null;
@@ -46,7 +46,7 @@ export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): 
   const proofOk = proofs && executeP99 !== undefined && proofs.headLagBlocks.p99 <= PROOF_LAG_P99_BLOCKS && executeP99 <= EXECUTE_PAYLOAD_P99_MS;
   return [
     ...da,
-    { id: 'execution', label: 'Execution (sequencer)', value: m, text: !proven ? 'no proven run' : proven.atTop ? `≥ ${m} · top rate tested` : `${m}` },
+    { id: 'execution', label: 'Sequencer', value: m, text: !proven ? 'no proven run' : proven.atTop ? `≥ ${m} · top rate tested` : `${m}` },
     !replay
       ? { id: 'validators', label: 'Validators', value: null, text: 'pending' }
       : replay.match && replay.blocksPerSecond >= REPLAY_BLOCKS_PER_SECOND
@@ -85,17 +85,6 @@ function daText(w: DaWorkload, first: boolean): { evidence: string; help: string
   };
 }
 
-function coreHelp(run: Run): string {
-  const replay = run.replay;
-  const proofs = run.proofNode?.proofs;
-  const execute = proofs?.methods.debug_executePayload?.latency.p99Ms;
-  return [
-    `Run ${run.outputDir}.`,
-    replay && `Validator replay: ${replay.blocksPerSecond.toFixed(1)} blocks/s, ${times(replay.blocksPerSecond / REPLAY_BLOCKS_PER_SECOND)} the ${REPLAY_BLOCKS_PER_SECOND} needed.`,
-    proofs && `Proof node: lag p99 ${proofs.headLagBlocks.p99} blocks${execute === undefined ? '' : `, executePayload p99 ${Math.round(execute)} ms`}.`,
-  ].filter(Boolean).join(' ');
-}
-
 // Lowest ceiling first; limits without a ceiling keep their order after the ranked ones.
 // `mainnetGasPerTx` (today's usage p50 ÷ tx/s) converts every row not specific to one workload, as the traffic tile does.
 export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven | null, disk: Limit[] = [], mainnetGasPerTx: number | null = null): Limit[] {
@@ -113,23 +102,14 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
   });
   const core = bars.filter((b) => !b.id.startsWith('da-'));
   const atLeast = (atTop: boolean) => (atTop ? `≥ ${m}` : `${m}`);
-  const merged: Limit[] = m !== null && core.every((b) => b.value === m)
-    ? [{
-      id: 'core',
-      label: 'Execution, validators, proof node',
-      value: m,
-      ceiling: atLeast(proven!.atTop),
-      evidence: `Measured in the bench: all passed at ${m} Mgas/s${proven!.atTop ? ', the highest rate tested.' : '; the next rate tested did not pass.'}`,
-      help: coreHelp(proven!.run),
-    }]
-    : core.map((b) => ({
-      id: b.id,
-      label: b.label,
-      value: b.value,
-      ceiling: b.value === null ? '—' : atLeast(b.id !== 'execution' || proven!.atTop),
-      evidence: b.value === null ? b.text : b.id === 'execution' && !proven!.atTop ? 'the next rate tested did not pass' : b.text.split(' · ').slice(1).join(' · '),
-    }));
-  const sorted = [...da, ...merged, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
+  const execution: Limit[] = core.map((b) => ({
+    id: b.id,
+    label: b.label,
+    value: b.value,
+    ceiling: b.value === null ? '—' : atLeast(b.id !== 'execution' || proven!.atTop),
+    evidence: b.value === null ? b.text : b.id === 'execution' && !proven!.atTop ? 'the next rate tested did not pass' : b.text.split(' · ').slice(1).join(' · '),
+  }));
+  const sorted = [...da, ...execution, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
   const firstDa = sorted.find((l) => l.id.startsWith('da-'))?.id;
   const atMainnet = (l: Limit) => l.perSecond === undefined && mainnetGasPerTx !== null && l.value !== null && l.value > 0 ? { perSecond: (l.value * 1e6) / mainnetGasPerTx } : {};
   return sorted.map((l) => ({ ...l, ...atMainnet(l), ...(text.has(l.id) ? text.get(l.id)!(l.id === firstDa) : {}) }));
@@ -175,14 +155,14 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
   };
   if (!source) {
     const need = 'a bench storage-growth run';
-    return [row('disk-full', 'Disk · full node', need), row('disk-archive', 'Disk · archive node', need)];
+    return [row('disk-full', 'Full node', need), row('disk-archive', 'Archive node', need)];
   }
   const { storage: { diskBudgetBytes: budget, bytesPerGas, current, fullNode }, run } = source;
   const from = `the ${WORKLOAD[run.workload]} run`;
   const budgetText = `${bytes(budget)} disk budget (a bench config assumption)`;
 
   const full = row(
-    'disk-full', 'Disk · full node',
+    'disk-full', 'Full node',
     !runway ? 'a runway policy' : !state ? 'production state growth' : bytesPerGas.proofs === null ? 'proof storage growth' : null,
     () => {
       const historyDays = days(fullNode.historyWindowSeconds);
@@ -203,7 +183,7 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
   // and RocksDB. Bench runs write almost no new state, so production state growth is added on top; that
   // double counts the bench run's tiny state growth.
   const archive = row(
-    'disk-archive', 'Disk · archive node',
+    'disk-archive', 'Archive node',
     !runway ? 'a runway policy' : !archiveNow ? 'the production archive size' : null,
     () => {
       const perGas = bytesPerGas.archive + (state?.value ?? 0);
@@ -271,10 +251,16 @@ const bound = (ceiling: string) => /^[≤≥]/.exec(ceiling)?.[0];
 const ceilingHelp = (gasPerTx: number | null) =>
   `tx/s for payments and swaps uses that workload's transactions; ${gasPerTx ? `every other row uses today's mainnet average of ~${Math.round(gasPerTx / 1e3)}k gas per transaction` : 'the snapshot has no transactions per second, so every other row stays in Mgas/s'}. Reverted transactions still use gas and blob space.`;
 
+// Validators and the proof node count as execution, alongside the sequencer.
+const category = (id: string) => (id.startsWith('da-') ? 'DA' : id.startsWith('disk-') ? 'Disk' : 'Execution');
+
 export function Bottlenecks({ limits, max, gasLimit, proven, history, mainnetGasPerTx = null }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; history: ProvenCapacity['history']; mainnetGasPerTx?: number | null }) {
-  const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
+  const pct = (v: number) => `${(v / max) * 100}%`;
   const ranked = limits.filter((l) => l.value !== null).length;
-  const fixed = [{ label: 'TEE proving, RPC under sync', evidence: 'Not measured yet.' }];
+  const fixed = [
+    { category: 'Execution', label: 'TEE proving', evidence: 'Not measured yet.' },
+    { category: 'RPC', label: 'RPC under sync', evidence: 'Not measured yet.' },
+  ];
   return (
     <section className="flex flex-col gap-3">
       <Text as="h2" variant="headline">What breaks first <span className="text-bds-gray-60">· Mgas/s</span></Text>
@@ -282,7 +268,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven, history, mainnetGas
         <table className="w-full min-w-[760px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-bds-gray-10 dark:border-white/10">
-              <th className={TH}>#</th><th className={TH}>Limit</th><th className={cn(TH, 'text-right')}><span className="inline-flex items-center gap-1">Ceiling <Info label="About the ceiling">{ceilingHelp(mainnetGasPerTx)}</Info></span></th><th className={cn(TH, 'w-[28%]')} /><th className={TH}>Evidence</th>
+              <th className={TH}>#</th><th className={TH}>Category</th><th className={TH}>Limit</th><th className={cn(TH, 'text-right')}><span className="inline-flex items-center gap-1">Ceiling <Info label="About the ceiling">{ceilingHelp(mainnetGasPerTx)}</Info></span></th><th className={cn(TH, 'w-[28%]')} /><th className={TH}>Evidence</th>
             </tr>
           </thead>
           <tbody>
@@ -291,6 +277,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven, history, mainnetGas
               return (
                 <tr key={l.id} className="border-b border-bds-gray-10 dark:border-white/10">
                   <td className={cn(TD, 'text-bds-gray-60')}>{i < ranked ? i + 1 : '—'}</td>
+                  <td className={cn(TD, 'whitespace-nowrap')}>{category(l.id)}</td>
                   <td className={cn(TD, 'whitespace-nowrap')}>
                     {l.label}
                     {l.help ? <> <Info label={`About ${l.label}`}>{l.help}</Info></> : null}
@@ -315,7 +302,7 @@ export function Bottlenecks({ limits, max, gasLimit, proven, history, mainnetGas
             })}
             {fixed.map((f) => (
               <tr key={f.label} className="border-b border-bds-gray-10 text-bds-gray-60 last:border-0 dark:border-white/10">
-                <td className={TD}>—</td><td className={TD}>{f.label}</td><td className={cn(TD, 'text-right')}>—</td><td className={TD} /><td className={cn(TD, 'text-[12px]')}>{f.evidence}</td>
+                <td className={TD}>—</td><td className={TD}>{f.category}</td><td className={TD}>{f.label}</td><td className={cn(TD, 'text-right')}>—</td><td className={TD} /><td className={cn(TD, 'text-[12px]')}>{f.evidence}</td>
               </tr>
             ))}
           </tbody>
