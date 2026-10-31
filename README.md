@@ -139,7 +139,7 @@ separately by an internal deployment repo.
 
 ## License
 
-MIT — see [LICENSE](LICENSE), with the exceptions in [NOTICE](NOTICE). The Base
-Sans brand typefaces under `public/fonts/` are **not** MIT licensed and may not
+MIT — see [LICENSE](LICENSE), with the exceptions in [NOTICE](NOTICE). The Google
+Sans Flex typeface under `public/fonts/` is **not** MIT licensed and may not
 be reused outside this project; `NOTICE` also carries third-party attribution
 for the bundled code in `vendor/aa/`.
