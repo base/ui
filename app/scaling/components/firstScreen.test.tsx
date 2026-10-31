@@ -66,13 +66,18 @@ describe('Guardrails', () => {
 
 describe('scorecardGuardrails', () => {
   const LATENCY = { p50Ms: 2, p99Ms: 9, maxMs: 12 };
-  const run = (blocksPerSecond: number, lagP99 = 4, executeP99 = 9): Run => ({
+  const limits = (headroom: number, p99Ms: number) => ({
+    proofHistory: { pass: headroom >= 2, throughputBlocksPerSecond: headroom * 5, realtimeBlocksPerSecond: 5, headroom, minHeadroom: 2 },
+    witnessGeneration: { pass: p99Ms <= 3000, p99Ms, p50Ms: 2, maxP99Ms: 3000, errors: 0 },
+  });
+  const run = (blocksPerSecond: number, headroom: number | null = 3, executeP99 = 9): Run => ({
     id: 'synthetic', outputDir: 'synthetic-400', workload: 'mix', mgas: 400, gps: 4e8, tps: 6000, reverted: 0, storage: null, blockLatency: null, passed: true, commit: 'c0ffee',
-    createdAt: Date.parse('2026-01-05T00:00:00Z'), steps: [], da: null,
+    createdAt: Date.parse('2026-01-05T00:00:00Z'), da: null,
+    steps: [{ name: 'proof_node', enabled: true, status: 'passed', outputs: headroom === null ? {} : { limits: limits(headroom, executeP99) } }],
     replay: { blocksPerSecond, newPayload: LATENCY, match: true },
     proofNode: {
       blocksPerSecond: 20, newPayload: LATENCY, match: true,
-      proofs: { headLagBlocks: { samples: 10, p50: 1, p99: lagP99, max: 20 }, failedProbes: 0, methods: { debug_executePayload: { errors: 0, latency: { ...LATENCY, p99Ms: executeP99 } } }, witnessBytes: { samples: 0, p50: 0, p99: 0, max: 0 } },
+      proofs: { headLagBlocks: { samples: 10, p50: 1, p99: 4, max: 20 }, failedProbes: 0, methods: { debug_executePayload: { errors: 0, latency: { ...LATENCY, p99Ms: executeP99 } } }, witnessBytes: { samples: 0, p50: 0, p99: 0, max: 0 } },
     },
   });
   const byId = (rows: ReturnType<typeof scorecardGuardrails>) => Object.fromEntries(rows.map((g) => [g.id, g]));
@@ -86,15 +91,19 @@ describe('scorecardGuardrails', () => {
     expect(rows.at(-1)).toMatchObject({ id: 'validator-keep-up', value: null, threshold: 3, status: 'unknown' });
   });
 
-  it('adds bench rows only with a bench host: proof-node lag ≤ 10 blocks, executePayload ≤ 1000 ms, replay headroom against 5 blocks/s', () => {
+  it('adds bench rows only with a bench host: proof history headroom and executePayload against the run’s budgets, replay headroom against 5 blocks/s', () => {
     expect(scorecardGuardrails(fixture().guardrails, undefined)).toHaveLength(6);
     const rows = byId(scorecardGuardrails(fixture().guardrails, run(36.4)));
-    expect(rows['proof-node-head-lag']).toMatchObject({ value: 4, unit: 'blocks', threshold: 10, comparator: '<=', thresholdTag: 'set', status: 'ok', asOf: '2026-01-05T00:00:00.000Z' });
-    expect(rows['proof-node-head-lag'].help).toContain('From bench run synthetic-400.');
-    expect(rows['proof-node-execute-payload']).toMatchObject({ value: 9, unit: 'ms', threshold: 1000, thresholdTag: 'set', status: 'ok' });
-    const over = byId(scorecardGuardrails(fixture().guardrails, run(36.4, 11, 1001)));
-    expect(over['proof-node-head-lag'].status).toBe('breached');
+    expect(rows['proof-history-headroom']).toMatchObject({ value: 3, threshold: 2, comparator: '>=', thresholdTag: 'set', status: 'ok', asOf: '2026-01-05T00:00:00.000Z' });
+    expect(rows['proof-history-headroom'].help).toContain('From bench run synthetic-400.');
+    expect(rows['proof-node-execute-payload']).toMatchObject({ value: 9, unit: 'ms', threshold: 3000, thresholdTag: 'set', status: 'ok' });
+    const over = byId(scorecardGuardrails(fixture().guardrails, run(36.4, 1.5, 3001)));
+    expect(over['proof-history-headroom'].status).toBe('breached');
     expect(over['proof-node-execute-payload'].status).toBe('breached');
+    // A run without budgets is not judged against any.
+    const older = byId(scorecardGuardrails(fixture().guardrails, run(36.4, null, 1001)));
+    expect(older['proof-history-headroom']).toMatchObject({ value: null, threshold: null, thresholdTag: 'unset', status: 'unknown' });
+    expect(older['proof-node-execute-payload']).toMatchObject({ value: 1001, threshold: null, thresholdTag: 'unset', status: 'unknown' });
     expect(rows['validator-replay-headroom']).toMatchObject({ value: 36.4, threshold: 5, comparator: '>=', status: 'ok' });
     expect(byId(scorecardGuardrails(fixture().guardrails, run(4)))['validator-replay-headroom'].status).toBe('breached');
   });

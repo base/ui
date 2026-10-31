@@ -20,6 +20,12 @@ export type Proofs = {
   methods: Record<string, { errors: number; latency: Latency }>;
   witnessBytes: Counts;
 };
+// The proof_node step's judgement of each limit; runs from before the bench judged them separately have none.
+export type ProofLimits = {
+  proofHistory: { pass: boolean; throughputBlocksPerSecond: number; realtimeBlocksPerSecond: number; headroom: number; minHeadroom: number };
+  witnessGeneration: { pass: boolean; p99Ms: number; p50Ms: number; maxP99Ms: number; errors: number };
+};
+export const proofLimits = (run: Run) => (run.steps.find((s) => s.name === 'proof_node')?.outputs?.limits ?? null) as ProofLimits | null;
 // `base-bench da` writes snake_case.
 export type DaResult = {
   seconds: number;

@@ -13,7 +13,7 @@ import { GlamsterdamComparisonSection } from './GlamsterdamComparison';
 
 function benchMark({ mgas, atTop, run }: Proven): ProvenMark {
   const top = atTop ? ` ≥ because ${mgas} Mgas/s is the highest rate the bench runs.` : '';
-  const help = `Bench-proven: the highest rate whose latest main run in the last 14 days was comparable and delivered ≥ 95% of target. Run ${run.outputDir}, commit ${run.commit.slice(0, 7)}, ${day(run.createdAt)}.${top} Comparable requires every enabled pipeline step to pass; the DA blob target and proof-node lag and latency are recorded, not gated.`;
+  const help = `Bench-proven: the highest rate whose latest main run in the last 14 days was comparable and delivered ≥ 95% of target. Run ${run.outputDir}, commit ${run.commit.slice(0, 7)}, ${day(run.createdAt)}.${top} Comparable requires every enabled pipeline step to pass; the DA blob target is recorded, not gated.`;
   return { value: mgas, atLeast: atTop, help };
 }
 
