@@ -243,6 +243,8 @@ describe('headroom span', () => {
   });
 });
 
+const guardrailsHtml = () => renderToStaticMarkup(<Guardrails guardrails={fixture().guardrails} collectedAt={fixture().collectedAt} benchUrl={BENCH} />);
+
 describe('subsystems by workload', () => {
   const cards = (html: string) => html.split('<h3').slice(1).map((c) => `<h3${c}`);
   const titles = (html: string) => cards(html).map((c) => text(c.split('</h3>')[0]));
@@ -333,6 +335,16 @@ describe('subsystems by workload', () => {
       'Witness p50 — (no proven run for this workload)— (not in this run)— (not in this run)',
     ]);
     expect(text(card(html, 'Validators').split('</h3>')[0])).toBe('Validators · mix does not keep up');
+    // The limits come from the pipeline outputs, so they show even when the proof-node result file did not load.
+    data.current.mix = { mgas: 400, atTop: true, run: { ...withLimits(run(400)), proofNode: null } };
+    data.current.swap = null;
+    const outputsOnly = render().subsystems;
+    expect(text(card(outputsOnly, 'Proof history').split('</h3>')[0])).toBe('Proof history · within budget');
+    expect(rows(card(outputsOnly, 'Witness generation')).slice(0, 2)).toEqual([
+      'executePayload p99, ms (budget) — (no proven run for this workload)— (no proven run for this workload)900 (≤ 3000)',
+      'Estimated ceiling (Mgas/s) — (no proven run for this workload)— (no proven run for this workload)~1,333',
+    ]);
+    expect(text(guardrailsHtml())).toContain('Met 5');
     expect(rows(card(html, 'Validators'))[0]).toBe('Replay speed — (no proven run for this workload)7.3×0.8×');
     expect(card(html, 'Validators').split('</h3>')[0]).toContain('text-bds-red-60');
   });

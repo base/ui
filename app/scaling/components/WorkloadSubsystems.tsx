@@ -101,7 +101,7 @@ function diskCards(runs: Record<Workload, Run | undefined>, snapshot: Pick<Snaps
 // One card per proof-node limit, judged by each run's own budget; older runs report none.
 function proofCards(runs: Record<Workload, Run | undefined>): SubsystemCard[] {
   const proofs = (r: Run) => r.proofNode?.proofs ?? null;
-  const measured = COLUMNS.filter(([w]) => runs[w] && proofs(runs[w]));
+  const measured = COLUMNS.filter(([w]) => runs[w] && (proofLimits(runs[w]) || proofs(runs[w])));
   const names = (keep: (r: Run) => boolean) => measured.filter(([w]) => keep(runs[w]!)).map(([w]) => NAME[w]);
   const older = names((r) => !proofLimits(r));
   const takeaway = (failed: string[], verdict: string) => {
@@ -112,9 +112,9 @@ function proofCards(runs: Record<Workload, Run | undefined>): SubsystemCard[] {
     const p = proofs(r);
     return p ? value(p, r) : { why: NOT_IN_RUN };
   });
-  const limitCells = (value: (l: NonNullable<ReturnType<typeof proofLimits>>, r: Run) => Cell) => proofCells((_, r) => {
+  const limitCells = (value: (l: NonNullable<ReturnType<typeof proofLimits>>, r: Run) => Cell) => cells(runs, (r) => {
     const l = proofLimits(r);
-    return l ? value(l, r) : { why: OLDER_RUN };
+    return l ? value(l, r) : { why: proofs(r) ? OLDER_RUN : NOT_IN_RUN };
   });
   const slow = names((r) => proofLimits(r)?.proofHistory.pass === false);
   const over = names((r) => proofLimits(r)?.witnessGeneration.pass === false);
@@ -151,9 +151,9 @@ function proofCards(runs: Record<Workload, Run | undefined>): SubsystemCard[] {
         {
           label: 'executePayload p99, ms (budget)',
           help: 'p99 latency of debug_executePayload on the proof node, and the budget the bench applies.',
-          cells: proofCells((p, r) => {
+          cells: cells(runs, (r) => {
             const w = proofLimits(r)?.witnessGeneration;
-            const p99 = p.methods.debug_executePayload?.latency.p99Ms;
+            const p99 = proofs(r)?.methods.debug_executePayload?.latency.p99Ms;
             return w ? { value: `${Math.round(w.p99Ms)} (≤ ${w.maxP99Ms})`, bad: !w.pass } : p99 === undefined ? { why: NOT_IN_RUN } : { value: `${Math.round(p99)}`, sub: ['budget unknown'] };
           }),
         },
