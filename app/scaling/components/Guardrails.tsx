@@ -50,7 +50,7 @@ export function scorecardGuardrails(snapshot: Guardrail[], run: Run | null | und
       help: `Proof history throughput ÷ the chain's real-time block rate while the proof node replays the bench blocks.${source}`,
     }),
     judge({
-      ...bench, ...budget, id: 'proof-node-execute-payload', label: 'debug_executePayload p99', value: run?.proofNode?.proofs?.methods.debug_executePayload?.latency.p99Ms ?? null, unit: 'ms',
+      ...bench, ...budget, id: 'proof-node-execute-payload', label: 'debug_executePayload p99', value: limits?.witnessGeneration.p99Ms ?? run?.proofNode?.proofs?.methods.debug_executePayload?.latency.p99Ms ?? null, unit: 'ms',
       threshold: limits?.witnessGeneration.maxP99Ms ?? null,
       help: `Latency of the witness call the prover makes for each block, on the proof node.${source}`,
     }),
