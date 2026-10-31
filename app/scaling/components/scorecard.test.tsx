@@ -328,7 +328,7 @@ describe('subsystems by workload', () => {
     ]);
     expect(text(card(html, 'Witness generation').split('</h3>')[0])).toBe('Witness generation · over budget for mix; budget unknown for swaps');
     expect(rows(card(html, 'Witness generation'))).toEqual([
-      'executePayload p99 (budget) — (no proven run for this workload)733 msbudget unknown4000 ms (≤ 3000 ms)',
+      'executePayload p99, ms (budget) — (no proven run for this workload)733budget unknown4000 (≤ 3000)',
       'Estimated ceiling (Mgas/s) — (no proven run for this workload)— (the run predates per-limit proof-node budgets)~300',
       'Witness p50 — (no proven run for this workload)— (not in this run)— (not in this run)',
     ]);
