@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '../../components/ui/cn';
 import { Card } from '../../components/ui/Card';
 import { Text } from '../../components/ui/Text';
-import type { Run } from '../proven/capacity';
+import { proofLimits, type Run } from '../proven/capacity';
 import type { Guardrail } from '../snapshot.mjs';
 import { useProvenCapacity, usageAsOf } from './ProvenCapacity';
 import { Tag } from './Tag';
@@ -19,9 +19,6 @@ const fmt = (n: number, unit: string) => `${n.toLocaleString('en-US', { maximumF
 
 export const KEEP_UP_BLOCKS = 3;
 export const REPLAY_BLOCKS_PER_SECOND = 5;
-// Proof-node budgets at the tested rate, owner-approved 2026-10-27.
-export const PROOF_LAG_P99_BLOCKS = 10;
-export const EXECUTE_PAYLOAD_P99_MS = 1000;
 
 const judge = (g: Omit<Guardrail, 'status'>): Guardrail => ({
   ...g,
@@ -42,16 +39,19 @@ export function scorecardGuardrails(snapshot: Guardrail[], run: Run | null | und
   if (run === undefined) return rows;
   const source = run ? ` From bench run ${run.outputDir}.` : ' No qualifying mainnet-mix bench run is loaded.';
   const bench = { comparator: '<=' as const, threshold: null, thresholdTag: 'unset' as const, owner: null, asOf: run ? new Date(run.createdAt).toISOString() : null };
+  // Budgets come from the run; an older run has none, so its proof rows stay unknown.
+  const limits = run ? proofLimits(run) : null;
+  const budget = limits ? { thresholdTag: 'set' as const } : {};
   return [
     ...rows,
     judge({
-      ...bench, id: 'proof-node-head-lag', label: 'Proof-node head lag p99', value: run?.proofNode?.proofs?.headLagBlocks.p99 ?? null, unit: 'blocks',
-      threshold: PROOF_LAG_P99_BLOCKS, thresholdTag: 'set',
-      help: `How far proof history trails the inserted head while the proof node replays the bench blocks.${source}`,
+      ...bench, ...budget, id: 'proof-history-headroom', label: 'Proof history headroom', value: limits?.proofHistory.headroom ?? null, unit: '×',
+      comparator: '>=', threshold: limits?.proofHistory.minHeadroom ?? null,
+      help: `Proof history throughput ÷ the chain's real-time block rate while the proof node replays the bench blocks.${source}`,
     }),
     judge({
-      ...bench, id: 'proof-node-execute-payload', label: 'debug_executePayload p99', value: run?.proofNode?.proofs?.methods.debug_executePayload?.latency.p99Ms ?? null, unit: 'ms',
-      threshold: EXECUTE_PAYLOAD_P99_MS, thresholdTag: 'set',
+      ...bench, ...budget, id: 'proof-node-execute-payload', label: 'debug_executePayload p99', value: limits?.witnessGeneration.p99Ms ?? run?.proofNode?.proofs?.methods.debug_executePayload?.latency.p99Ms ?? null, unit: 'ms',
+      threshold: limits?.witnessGeneration.maxP99Ms ?? null,
       help: `Latency of the witness call the prover makes for each block, on the proof node.${source}`,
     }),
     judge({

@@ -2,10 +2,10 @@ import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { BLOB_DATA_BYTES, BLOB_TARGET, fmt, L1_SLOT_SECONDS } from '../da/workloads';
-import { successfulTps, type ProvenCapacity, type Run, type Workload } from '../proven/capacity';
+import { proofLimits, successfulTps, type ProvenCapacity, type Run, type Workload } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import { bytes, diskLimits, times, type Limit } from './Bottlenecks';
-import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
+import { bytes, diskLimits, OLDER_RUN, times, type Limit } from './Bottlenecks';
+import { REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Info } from './Info';
 
 const COLUMNS: [Workload, string, string][] = [['payment', 'Pay', 'Payments (B20)'], ['swap', 'Swap', 'Swaps (Uniswap v3)'], ['mix', 'Mix', 'Mainnet mix (bench run)']];
@@ -17,13 +17,12 @@ const NO_STORAGE = 'needs a run with storage measurement';
 
 type Cell = { value: string; sub?: string[]; bad?: boolean } | { why: string };
 type Row = { label: string; help: string; cells: Record<Workload, Cell> };
-type Category = 'da' | 'disk-archive' | 'disk-full' | 'proof-node' | 'validators' | 'execution';
+type Category = 'da' | 'disk-archive' | 'disk-full' | 'proof-history' | 'witness-generation' | 'validators' | 'execution';
 type SubsystemCard = { id: Category; title: string; takeaway: string; bad: boolean; rows: Row[] };
 
 const and = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`);
 const ms = (n: number) => `${Math.round(n)} ms`;
 const size = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${(n / 1e3).toFixed(1)} KB`);
-const seconds = (msValue: number) => (msValue % 1000 === 0 ? `${msValue / 1000} s` : `${msValue} ms`);
 // " at 400" when every run shares a rate; otherwise each cell is at its own run's rate.
 const atRate = (runs: (Run | undefined)[]) => {
   const rates = [...new Set(runs.filter((r) => r !== undefined).map((r) => r.mgas))];
@@ -99,46 +98,78 @@ function diskCards(runs: Record<Workload, Run | undefined>, snapshot: Pick<Snaps
   ];
 }
 
-function proofCard(runs: Record<Workload, Run | undefined>): SubsystemCard {
+// One card per proof-node limit, judged by each run's own budget; older runs report none.
+function proofCards(runs: Record<Workload, Run | undefined>): SubsystemCard[] {
   const proofs = (r: Run) => r.proofNode?.proofs ?? null;
-  const execute = (r: Run) => proofs(r)?.methods.debug_executePayload?.latency.p99Ms;
-  const measured = COLUMNS.filter(([w]) => runs[w] && proofs(runs[w]));
-  const lagOver = measured.filter(([w]) => proofs(runs[w]!)!.headLagBlocks.p99 > PROOF_LAG_P99_BLOCKS).map(([w]) => NAME[w]);
-  const executeOver = measured.filter(([w]) => (execute(runs[w]!) ?? 0) > EXECUTE_PAYLOAD_P99_MS).map(([w]) => NAME[w]);
-  const over = [
-    lagOver.length && `lag over ${PROOF_LAG_P99_BLOCKS} for ${and(lagOver)}`,
-    executeOver.length && `executePayload over ${seconds(EXECUTE_PAYLOAD_P99_MS)} for ${and(executeOver)}`,
-  ].filter((s): s is string => !!s);
+  const measured = COLUMNS.filter(([w]) => runs[w] && (proofLimits(runs[w]) || proofs(runs[w])));
+  const names = (keep: (r: Run) => boolean) => measured.filter(([w]) => keep(runs[w]!)).map(([w]) => NAME[w]);
+  const older = names((r) => !proofLimits(r));
+  const takeaway = (failed: string[], verdict: string) => {
+    const parts = [failed.length && `${verdict} for ${and(failed)}`, older.length && `budget unknown for ${and(older)}`].filter((s): s is string => !!s);
+    return !measured.length ? 'not measured yet' : parts.join('; ') || 'within budget';
+  };
   const proofCells = (value: (p: NonNullable<ReturnType<typeof proofs>>, r: Run) => Cell) => cells(runs, (r) => {
     const p = proofs(r);
     return p ? value(p, r) : { why: NOT_IN_RUN };
   });
-  return {
-    id: 'proof-node',
-    title: 'Proof node',
-    takeaway: !measured.length ? 'not measured yet' : over.length ? over.join('; ') : `within budget (lag ≤ ${PROOF_LAG_P99_BLOCKS}, ≤ ${seconds(EXECUTE_PAYLOAD_P99_MS)})`,
-    bad: over.length > 0,
-    rows: [
-      {
-        label: 'Lag p99 (max)',
-        help: `Blocks the proof node trails the sequencer's head, p99 and max over the run. Budget: p99 ≤ ${PROOF_LAG_P99_BLOCKS}.`,
-        cells: proofCells(({ headLagBlocks: l }) => ({ value: `${l.p99} (${l.max})`, bad: l.p99 > PROOF_LAG_P99_BLOCKS })),
-      },
-      {
-        label: 'executePayload p99',
-        help: `p99 latency of debug_executePayload on the proof node. Budget: ≤ ${seconds(EXECUTE_PAYLOAD_P99_MS)}.`,
-        cells: proofCells((_, r) => {
-          const p99 = execute(r);
-          return p99 === undefined ? { why: NOT_IN_RUN } : { value: ms(p99), bad: p99 > EXECUTE_PAYLOAD_P99_MS };
-        }),
-      },
-      {
-        label: 'Witness p50',
-        help: 'Median execution witness size the proof node serves per block.',
-        cells: proofCells(({ witnessBytes: w }) => (w.samples ? { value: size(w.p50) } : { why: NOT_IN_RUN })),
-      },
-    ],
-  };
+  const limitCells = (value: (l: NonNullable<ReturnType<typeof proofLimits>>, r: Run) => Cell) => cells(runs, (r) => {
+    const l = proofLimits(r);
+    return l ? value(l, r) : { why: proofs(r) ? OLDER_RUN : NOT_IN_RUN };
+  });
+  const slow = names((r) => proofLimits(r)?.proofHistory.pass === false);
+  const over = names((r) => proofLimits(r)?.witnessGeneration.pass === false);
+  return [
+    {
+      id: 'proof-history',
+      title: 'Proof history',
+      takeaway: takeaway(slow, 'below budget'),
+      bad: slow.length > 0,
+      rows: [
+        {
+          label: 'Headroom (budget)',
+          help: 'Proof history throughput ÷ the chain’s real-time block rate, and the minimum the bench requires.',
+          cells: limitCells(({ proofHistory: h }) => ({ value: `${times(h.headroom)} (≥ ${times(h.minHeadroom)})`, bad: !h.pass })),
+        },
+        {
+          label: 'Ceiling (Mgas/s)',
+          help: 'The run’s rate × headroom. A lower bound, because the bench underestimates throughput.',
+          cells: limitCells(({ proofHistory: h }, r) => ({ value: `≥ ${fmt(r.mgas * h.headroom)}` })),
+        },
+        {
+          label: 'Lag p99 (max)',
+          help: 'Blocks proof history trails the inserted head, p99 and max over the run. Recorded only: the unpaced replay runs ahead of real time.',
+          cells: proofCells(({ headLagBlocks: l }) => ({ value: `${l.p99} (${l.max})` })),
+        },
+      ],
+    },
+    {
+      id: 'witness-generation',
+      title: 'Witness generation',
+      takeaway: takeaway(over, 'over budget'),
+      bad: over.length > 0,
+      rows: [
+        {
+          label: 'executePayload p99, ms (budget)',
+          help: 'p99 latency of debug_executePayload on the proof node, and the budget the bench applies.',
+          cells: cells(runs, (r) => {
+            const w = proofLimits(r)?.witnessGeneration;
+            const p99 = proofs(r)?.methods.debug_executePayload?.latency.p99Ms;
+            return w ? { value: `${Math.round(w.p99Ms)} (≤ ${w.maxP99Ms})`, bad: !w.pass } : p99 === undefined ? { why: NOT_IN_RUN } : { value: `${Math.round(p99)}`, sub: ['budget unknown'] };
+          }),
+        },
+        {
+          label: 'Estimated ceiling (Mgas/s)',
+          help: 'The run’s rate × budget ÷ p99, assuming p99 grows linearly with gas per block.',
+          cells: limitCells(({ witnessGeneration: w }, r) => ({ value: `~${fmt((r.mgas * w.maxP99Ms) / w.p99Ms)}` })),
+        },
+        {
+          label: 'Witness p50',
+          help: 'Median execution witness size the proof node serves per block.',
+          cells: proofCells(({ witnessBytes: w }) => (w.samples ? { value: size(w.p50) } : { why: NOT_IN_RUN })),
+        },
+      ],
+    },
+  ];
 }
 
 function validatorCard(runs: Record<Workload, Run | undefined>): SubsystemCard {
@@ -194,7 +225,8 @@ const MATCHES: Record<Category, (id: string) => boolean> = {
   da: (id) => id.startsWith('da-'),
   'disk-archive': (id) => id === 'disk-archive',
   'disk-full': (id) => id === 'disk-full',
-  'proof-node': (id) => id === 'proof-node',
+  'proof-history': (id) => id === 'proof-history',
+  'witness-generation': (id) => id === 'witness-generation',
   validators: (id) => id === 'validators',
   execution: (id) => id === 'execution',
 };
@@ -203,7 +235,7 @@ const MATCHES: Record<Category, (id: string) => boolean> = {
 export function subsystemCards(data: ProvenCapacity | undefined, limits: Limit[], snapshot: Pick<Snapshot, 'policy' | 'production'>, gasLimit: number | null): SubsystemCard[] {
   const runs = Object.fromEntries(COLUMNS.map(([w]) => [w, data?.current[w]?.run])) as Record<Workload, Run | undefined>;
   const da = data?.da ?? { mix: null, payment: null, swap: null };
-  const cards = [daCard(da, gasLimit), ...diskCards(runs, snapshot), proofCard(runs), validatorCard(runs), sequencerCard(runs)];
+  const cards = [daCard(da, gasLimit), ...diskCards(runs, snapshot), ...proofCards(runs), validatorCard(runs), sequencerCard(runs)];
   const rank = (c: SubsystemCard) => {
     const i = limits.findIndex((l) => l.value !== null && MATCHES[c.id](l.id));
     return i < 0 ? Infinity : i;
