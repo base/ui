@@ -44,7 +44,8 @@ export function Scorecard({ snapshot, benchUrl }: { snapshot: Snapshot; benchUrl
   const workloads = daWorkloads(data?.da, SCALING_WORKLOADS);
   const limits = rankLimits(bottleneckBars(workloads, proven), workloads, proven, diskLimits(pickStorage(data), snapshot), mainnetGasPerTx(snapshot));
   const values = [ladder.observed.p50, ladder.observed.p99, ladder.operatingPoint, ladder.configuredLimit].map((r) => r.value ?? 0);
-  const max = Math.max(mark?.value ?? 0, ladder.configuredLimit.value ?? 0) || Math.max(0, ...values);
+  // The scale ends at the largest value shown, so no breaking point or rung runs off the bar.
+  const max = Math.max(0, mark?.value ?? 0, ...values, ...limits.map((l) => l.value ?? 0));
   return (
     <>
       <Freshness snapshot={snapshot} latestAt={data?.latestAt ?? null} />
