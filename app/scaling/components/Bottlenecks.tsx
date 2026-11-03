@@ -2,15 +2,15 @@ import { Card } from '../../components/ui/Card';
 import { cn } from '../../components/ui/cn';
 import { Text } from '../../components/ui/Text';
 import { BLOB_DATA_BYTES, BLOB_TARGET, daCapacity, fmt, L1_SLOT_SECONDS, type DaWorkload } from '../da/workloads';
-import { runHref, successfulTps, type PipelineStep, type Proven, type ProvenCapacity, type Run, type Storage, type Workload } from '../proven/capacity';
-import { EXECUTE_PAYLOAD_P99_MS, PROOF_LAG_P99_BLOCKS, REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
+import { proofLimits, runHref, successfulTps, type PipelineStep, type Proven, type ProvenCapacity, type Run, type Storage, type Workload } from '../proven/capacity';
+import { REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Info } from './Info';
 import { day } from './ProvenCapacity';
 import type { Snapshot } from '../snapshot.mjs';
 import { Tag } from './Tag';
 
-export type Bar = { id: string; label: string; value: number | null; text: string; tag?: DaWorkload['tag']; perSecond?: number };
-// One row of the ranked table: a bar, or execution, validators and proof node merged when they share a ceiling.
+export type Bar = { id: string; label: string; value: number | null; text: string; tag?: DaWorkload['tag']; perSecond?: number; help?: string };
+// One row of the ranked table.
 export type Limit = {
   id: string;
   label: string;
@@ -31,8 +31,41 @@ const TH = 'px-3 py-2 text-left text-[11px] font-[600] uppercase tracking-wide t
 const TD = 'px-3 py-2.5 align-middle';
 const STEP_DOT: Record<PipelineStep['status'], string> = { passed: 'bg-bds-green-50', failed: 'bg-bds-red-50', skipped: 'bg-bds-gray-30', 'not-implemented': 'bg-bds-gray-30' };
 
-// Validators and the proof node within budget at the proven rate have a limit of at least that rate;
-// over budget, their limit is somewhere below it.
+export const OLDER_RUN = 'the run predates per-limit proof-node budgets';
+
+// Proof history and witness generation scale the proven rate by the run's own budgets. Older runs
+// report no budgets, so their limits stay unranked.
+function proofBars(proven: Proven | null): Bar[] {
+  const run = proven?.run;
+  const m = proven?.mgas ?? 0;
+  const limits = run ? proofLimits(run) : null;
+  const proofs = run?.proofNode?.proofs;
+  const execute = proofs?.methods.debug_executePayload?.latency.p99Ms;
+  if (!limits) {
+    const older = (what: string) => `Measured in the bench: ${what} at ${m} Mgas/s. Budget unknown: ${OLDER_RUN}.`;
+    return [
+      { id: 'proof-history', label: 'Proof history', value: null, text: proofs ? older(`lag p99 ${proofs.headLagBlocks.p99} blocks`) : 'pending' },
+      { id: 'witness-generation', label: 'Witness generation', value: null, text: execute !== undefined ? older(`executePayload p99 ${Math.round(execute)} ms`) : 'pending' },
+    ];
+  }
+  const { proofHistory: h, witnessGeneration: w } = limits;
+  const history = m * h.headroom;
+  const witness = (m * w.maxP99Ms) / w.p99Ms;
+  return [
+    {
+      id: 'proof-history', label: 'Proof history', value: history,
+      text: `≥ ${fmt(history)} · Measured in the bench: at ${m} Mgas/s, proof history runs at ${times(h.headroom)} real time. Budget is ≥ ${times(h.minHeadroom)}.`,
+      help: `Run ${run!.outputDir}: ${h.throughputBlocksPerSecond.toFixed(1)} blocks/s against ${h.realtimeBlocksPerSecond} in real time. Ceiling: ${m} Mgas/s × ${h.headroom.toFixed(2)}. A lower bound, because the bench estimates throughput from the largest head lag, which overstates the final lag.`,
+    },
+    {
+      id: 'witness-generation', label: 'Witness generation', value: witness, tag: 'estimated',
+      text: `~${fmt(witness)} · Estimated (assumes linear scaling): at ${m} Mgas/s, executePayload p99 is ${Math.round(w.p99Ms)} ms. Budget is ${w.maxP99Ms} ms.${w.errors ? ` Failed calls: ${w.errors}.` : ''}`,
+      help: `Run ${run!.outputDir}: debug_executePayload p99 ${Math.round(w.p99Ms)} ms, p50 ${Math.round(w.p50Ms)} ms. Ceiling: ${m} Mgas/s × ${w.maxP99Ms} ms ÷ ${Math.round(w.p99Ms)} ms, assuming p99 grows linearly with gas per block.`,
+    },
+  ];
+}
+
+// Validators within budget at the proven rate have a limit of at least that rate; over budget, it is somewhere below it.
 export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): Bar[] {
   const da = workloads.map((w): Bar => {
     const { mgasPerSecond: value, txPerSecond } = daCapacity(w, BLOB_TARGET);
@@ -40,10 +73,7 @@ export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): 
   });
   const run = proven?.run;
   const m = proven?.mgas ?? null;
-  const proofs = run?.proofNode?.proofs;
   const replay = run?.replay;
-  const executeP99 = proofs?.methods.debug_executePayload?.latency.p99Ms;
-  const proofOk = proofs && executeP99 !== undefined && proofs.headLagBlocks.p99 <= PROOF_LAG_P99_BLOCKS && executeP99 <= EXECUTE_PAYLOAD_P99_MS;
   return [
     ...da,
     { id: 'execution', label: 'Sequencer', value: m, text: !proven ? 'no proven run' : proven.atTop ? `≥ ${m} · top rate tested` : `${m}` },
@@ -52,9 +82,7 @@ export function bottleneckBars(workloads: DaWorkload[], proven: Proven | null): 
       : replay.match && replay.blocksPerSecond >= REPLAY_BLOCKS_PER_SECOND
         ? { id: 'validators', label: 'Validators', value: m, text: `≥ ${m} · ${times(replay.blocksPerSecond / REPLAY_BLOCKS_PER_SECOND)} replay headroom` }
         : { id: 'validators', label: 'Validators', value: null, text: `below budget at ${m}` },
-    !proofs
-      ? { id: 'proof-node', label: 'Proof node', value: null, text: 'pending' }
-      : { id: 'proof-node', label: 'Proof node', value: proofOk ? m : null, text: `${proofOk ? `≥ ${m}` : `over budget at ${m}`} · lag p99 ${proofs.headLagBlocks.p99} blocks` },
+    ...proofBars(proven),
   ];
 }
 
@@ -106,7 +134,9 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
     id: b.id,
     label: b.label,
     value: b.value,
-    ceiling: b.value === null ? '—' : atLeast(b.id !== 'execution' || proven!.atTop),
+    tag: b.tag,
+    help: b.help,
+    ceiling: b.value === null ? '—' : b.id === 'execution' ? atLeast(proven!.atTop) : b.text.split(' · ')[0],
     evidence: b.value === null ? b.text : b.id === 'execution' && !proven!.atTop ? 'the next rate tested did not pass' : b.text.split(' · ').slice(1).join(' · '),
   }));
   const sorted = [...da, ...execution, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
@@ -120,19 +150,21 @@ export type StorageSource = { storage: Storage; run: Run };
 export const bytes = (n: number) => (n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : `${(n / 1e9).toFixed(1)} GB`);
 const WORKLOAD: Record<Workload, string> = { mix: 'mainnet mix', payment: 'payments', swap: 'swaps' };
 
-// Storage data from the run with the heaviest transactions (most gas per successful transaction); ties go to the newest.
-// Lighter bench transactions than mainnet's overstate history bytes per gas.
+// Storage data from a swaps run, else from the run with the heaviest transactions (most gas per successful
+// transaction); ties go to the newest. Lighter bench transactions than mainnet's overstate history bytes per gas.
 export function pickStorage(data: ProvenCapacity | undefined): StorageSource | null {
   if (!data) return null;
   const { current, da } = data;
   const gasPerTx = (r: Run) => (successfulTps(r) > 0 ? r.gps / successfulTps(r) : 0);
   const runs = [current.mix?.run, current.payment?.run, current.swap?.run, da.mix, da.payment, da.swap].filter((r): r is Run => !!r?.storage);
-  const run = runs.toSorted((a, b) => gasPerTx(b) - gasPerTx(a) || b.createdAt - a.createdAt)[0];
+  const swap = (r: Run) => (r.workload === 'swap' ? 1 : 0);
+  const run = runs.toSorted((a, b) => swap(b) - swap(a) || gasPerTx(b) - gasPerTx(a) || b.createdAt - a.createdAt)[0];
   return run ? { storage: run.storage!, run } : null;
 }
 
 const YEAR_SECONDS = 31_557_600;
 const HEAVIEST = 'Uses the workload with the heaviest transactions, because bench workloads with lighter transactions than mainnet overstate history bytes per gas. A production measurement will replace this.';
+const SWAPS = 'Uses the swaps run, because the mix’s storage stand-ins overwrite the same slots and overstate history bytes per gas until they are tuned.';
 const days = (seconds: number) => Math.round(seconds / 86_400);
 const years = (n: number) => (n === 1 ? 'one year' : `${n} years`);
 
@@ -159,6 +191,7 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
   }
   const { storage: { diskBudgetBytes: budget, bytesPerGas, current, fullNode }, run } = source;
   const from = `the ${WORKLOAD[run.workload]} run`;
+  const why = run.workload === 'swap' ? SWAPS : HEAVIEST;
   const budgetText = `${bytes(budget)} disk budget (a bench config assumption)`;
 
   const full = row(
@@ -174,7 +207,7 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
         years: runway!.fullNode,
         evidence: `Projected from bench growth: ${kept} fit in ${bytes(budget)}. Upper bound.`,
         overBudget: `Projected from bench growth: today's state (${bytes(current.state)}) leaves no room in ${bytes(budget)}.`,
-        help: `Inputs: ${budgetText}; today's state ${bytes(current.state)}, measured at ${from}'s snapshot; ${bytesPerGas.history.toPrecision(3)} bytes per gas of history and ${bytesPerGas.proofs!.toPrecision(3)} of proofs from ${from}; ${state!.value} bytes per gas of production state growth${state!.source ? ` from ${state!.source}` : ''}; ${policyText}. Upper bound: history bytes per gas is a lower bound, because the sequencer prunes history. ${HEAVIEST}`,
+        help: `Inputs: ${budgetText}; today's state ${bytes(current.state)}, measured at ${from}'s snapshot; ${bytesPerGas.history.toPrecision(3)} bytes per gas of history and ${bytesPerGas.proofs!.toPrecision(3)} of proofs from ${from}; ${state!.value} bytes per gas of production state growth${state!.source ? ` from ${state!.source}` : ''}; ${policyText}. Upper bound: history bytes per gas is a lower bound, because the sequencer prunes history. ${why}`,
       };
     },
   );
@@ -195,7 +228,7 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
         years: runway!.archive,
         evidence: `Projected from bench growth: ${years(runway!.archive)} ${runway!.archive === 1 ? 'fills' : 'fill'} the ${bytes(budget)} disk (${bytes(archiveNow!.value)} used today). Upper bound.`,
         overBudget: `Projected from bench growth: today's archive (${bytes(archiveNow!.value)}) already fills the ${bytes(budget)} disk.`,
-        help: `Inputs: ${budgetText}; today's archive ${bytes(archiveNow!.value)} from ${archiveNow!.source} on ${archiveNow!.asOf}${archiveNow!.note ? ` (${archiveNow!.note})` : ''}; ${bytesPerGas.archive.toPrecision(3)} bytes per gas from ${from}${stateText}; ${policyText}. Upper bound: bench bytes per gas is a lower bound, because the sequencer prunes history. That workload may write more bytes per gas than mainnet traffic does (Base's whole archive is ${bytes(archiveNow!.value)}), which makes the ceiling conservative in the other direction. ${HEAVIEST}`,
+        help: `Inputs: ${budgetText}; today's archive ${bytes(archiveNow!.value)} from ${archiveNow!.source} on ${archiveNow!.asOf}${archiveNow!.note ? ` (${archiveNow!.note})` : ''}; ${bytesPerGas.archive.toPrecision(3)} bytes per gas from ${from}${stateText}; ${policyText}. Upper bound: bench bytes per gas is a lower bound, because the sequencer prunes history. That workload may write more bytes per gas than mainnet traffic does (Base's whole archive is ${bytes(archiveNow!.value)}), which makes the ceiling conservative in the other direction. ${why}`,
       };
     },
   );
@@ -251,7 +284,7 @@ const bound = (ceiling: string) => /^[≤≥]/.exec(ceiling)?.[0];
 const ceilingHelp = (gasPerTx: number | null) =>
   `tx/s for payments and swaps uses that workload's transactions; ${gasPerTx ? `every other row uses today's mainnet average of ~${Math.round(gasPerTx / 1e3)}k gas per transaction` : 'the snapshot has no transactions per second, so every other row stays in Mgas/s'}. Reverted transactions still use gas and blob space.`;
 
-// Validators and the proof node count as execution, alongside the sequencer.
+// Validators, proof history and witness generation count as execution, alongside the sequencer.
 const category = (id: string) => (id.startsWith('da-') ? 'DA' : id.startsWith('disk-') ? 'Disk' : 'Execution');
 
 export function Bottlenecks({ limits, max, gasLimit, proven, history, mainnetGasPerTx = null }: { limits: Limit[]; max: number; gasLimit: number | null; proven: Proven | null; history: ProvenCapacity['history']; mainnetGasPerTx?: number | null }) {

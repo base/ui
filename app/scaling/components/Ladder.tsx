@@ -17,7 +17,7 @@ const n = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 })
 
 export type ProvenMark = { value: number; atLeast: boolean; help: string } | null;
 
-type Tone = 'today' | 'p99' | 'fee' | 'da' | 'disk' | 'gas' | 'proven';
+type Tone = 'today' | 'p99' | 'fee' | 'da' | 'disk' | 'execution' | 'gas' | 'proven';
 export type Point = { id: string; value: number; valueText: string; name: string; tone: Tone; help: string };
 export type PlacedPoint = Point & { x: number; offScale: boolean; side: 'above' | 'below'; tier: number; left: number; width: number; compact: boolean };
 
@@ -27,6 +27,7 @@ const TEXT: Record<Tone, string> = {
   fee: 'text-bds-gray-60',
   da: 'text-bds-red-60',
   disk: 'text-bds-purple-60',
+  execution: 'text-bds-green-60',
   gas: 'text-bds-orange-60',
   proven: 'text-base-blue',
 };
@@ -36,6 +37,7 @@ const TICK: Record<Tone, string> = {
   fee: 'border-dotted border-bds-gray-60',
   da: 'border-bds-red-60',
   disk: 'border-bds-purple-60',
+  execution: 'border-bds-green-60',
   gas: 'border-dashed border-bds-orange-60',
   proven: 'border-base-blue',
 };
@@ -45,7 +47,7 @@ const SHADES = {
   allowed: 'fill-bds-blue-10 bg-bds-blue-10 dark:fill-bds-blue-80 dark:bg-bds-blue-80',
   proven: 'fill-bds-gray-10 bg-bds-gray-10 dark:fill-white/10 dark:bg-white/10',
 };
-const SHORT: Record<string, string> = { 'da-payment': 'DA · payments', 'da-swap': 'DA · swaps', 'da-mix': 'DA · mix (bench)', 'disk-archive': 'archive disk', 'disk-full': 'full-node disk' };
+const SHORT: Record<string, string> = { 'da-payment': 'DA · payments', 'da-swap': 'DA · swaps', 'da-mix': 'DA · mix (bench)', 'disk-archive': 'archive disk', 'disk-full': 'full-node disk', 'proof-history': 'proof history', 'witness-generation': 'witness generation' };
 
 // Approximate label widths: a bold 12px value with its help icon over an 11px name.
 const widthOf = (p: Point, offScale: boolean, compact: boolean) =>
@@ -113,7 +115,7 @@ export function Ladder({ ladder, windows, proven, max, limits }: Props) {
       value: l.value!,
       valueText: l.ceiling,
       name: SHORT[l.id],
-      tone: l.id.startsWith('disk-') ? 'disk' : 'da',
+      tone: l.id.startsWith('disk-') ? 'disk' : l.id.startsWith('da-') ? 'da' : 'execution',
       help: l.help ?? l.evidence,
     })),
   ];

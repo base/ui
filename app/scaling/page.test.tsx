@@ -105,7 +105,7 @@ it('passes the runtime bench and dashboard URLs to the scorecard and footer', as
 it('adds bench guardrail rows when a bench host is set, unknown until its results load', async () => {
   vi.stubEnv('SCALING_BENCH_BASE_URL', 'https://bench.example.com');
   const html = renderToStaticMarkup(await ScalingGuardrailsPage());
-  for (const label of ['Proof-node head lag p99', 'debug_executePayload p99', 'Validator replay headroom']) expect(html).toContain(label);
+  for (const label of ['Proof history headroom', 'debug_executePayload p99', 'Validator replay headroom']) expect(html).toContain(label);
   expect(html).toContain('No qualifying mainnet-mix bench run is loaded.');
 });
 
@@ -115,7 +115,7 @@ it('shows guardrail help inline and the outcomes table on the guardrails page', 
   expect(html).not.toContain('As of 2026-01-02');
   for (const g of fixture.guardrails) if (g.id !== 'validator-keep-up') expect(html).toContain(g.help);
   expect(html).toContain('They must stay within 3 blocks.');
-  expect(html).not.toContain('Proof-node head lag p99');
+  expect(html).not.toContain('Proof history headroom');
   expect(html).not.toContain('Guardrails →');
   expect(html).toContain('Inclusion latency p50');
   expect(html).toContain('synthetic.inclusion_latency');
