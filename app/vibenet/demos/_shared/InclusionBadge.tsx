@@ -5,22 +5,35 @@
 // timestamp minus that of the newest block the page had seen at broadcast.
 // Vibenet runs Cobalt today; on chains without it the slot is omitted.
 
+import Link from 'next/link';
+
 import { cn } from '../../../components/ui/cn';
 import { Text } from '../../../components/ui/Text';
 import { blocksAfterSendLabel, type Inclusion, latencyLabel, slotLabel } from './inclusion';
 
+/** Unlisted reaction game; this footnote is the only way in. */
+const REFLEX_PATH = '/vibenet/demos/reflex';
+
 /**
- * The line under the badge in a transaction result: the claim, in words. Only
- * for blocks that carry Cobalt's millisecond timestamp, so it never shows on a
- * chain without 200 ms blocks.
+ * The line under the badge in a transaction result: the claim, in words, plus
+ * a footnote linking the Reflex easter egg. Only for blocks that carry Cobalt's
+ * millisecond timestamp, so it never shows on a chain without 200 ms blocks.
  */
 export function InclusionTagline({ inclusion }: { inclusion: Inclusion }) {
   if (inclusion.blockTimestampMs === null) return null;
   const blocks = blocksAfterSendLabel(inclusion);
   return (
-    <Text variant="label.regular" tone="muted">
-      {blocks ? `Sealed ${blocks} after broadcast. ` : ''}Brought to you by 200 ms blocks on Base.
-    </Text>
+    <>
+      <Text variant="label.regular" tone="muted">
+        {blocks ? `Sealed ${blocks} after broadcast. ` : ''}Brought to you by 200 ms blocks on Base.
+      </Text>
+      <Text variant="footnote" tone="muted">
+        Think you&apos;re faster?{' '}
+        <Link href={REFLEX_PATH} className="underline underline-offset-2 transition-colors hover:text-foreground">
+          Race a block
+        </Link>
+      </Text>
+    </>
   );
 }
 
