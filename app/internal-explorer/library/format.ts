@@ -41,6 +41,13 @@ export function timeAgoFromSeconds(ts: number): string {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+/** Like timeAgoFromSeconds, with tenths of a second under 10s for 200ms blocks. */
+export function timeAgoFromMilliseconds(ts: number, now = Date.now()): string {
+  const milliseconds = Math.max(0, Math.floor(now - ts));
+  if (milliseconds < 10_000) return `${(Math.floor(milliseconds / 100) / 10).toFixed(1)}s ago`;
+  return timeAgoFromSeconds(ts / 1000);
+}
+
 /** `0x1234…abcd` abbreviation for a hash/address. */
 export function shortHash(value: string, lead = 10, tail = 8): string {
   if (value.length <= lead + tail + 1) return value;

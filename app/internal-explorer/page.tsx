@@ -24,7 +24,14 @@ import {
   formatSignedInteger,
   formatSignedPct,
 } from './library/explorer-format';
-import { formatGasPrice, formatHexValue, shortHash, timeAgoFromSeconds } from './library/format';
+import { mergeBlockWindow } from './library/block-window';
+import {
+  formatGasPrice,
+  formatHexValue,
+  shortHash,
+  timeAgoFromMilliseconds,
+  timeAgoFromSeconds,
+} from './library/format';
 import { explorerHref } from './library/links';
 import {
   formatRejectionReason,
@@ -162,7 +169,11 @@ function BlockRow({
           <Text as="span" variant="label" className="font-semibold">
             #{block.number.toLocaleString()}
           </Text>
-          <span className="text-xs text-bds-gray-50">{timeAgoFromSeconds(block.timestamp)}</span>
+          <span className="text-xs text-bds-gray-50">
+            {block.timestampMs !== null
+              ? timeAgoFromMilliseconds(block.timestampMs)
+              : timeAgoFromSeconds(block.timestamp)}
+          </span>
         </div>
         <div className="truncate font-mono text-xs text-bds-gray-60 dark:text-bds-gray-40">
           {block.hash}
@@ -219,13 +230,16 @@ function BlocksTab({
   const { showShadowDelta, setShowShadowDelta } = useShadowDelta();
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
 
-  // Canonical-block view: poll the chain tip directly. The shadow-delta view
-  // has its own source below, so this fetch stands down when it is on.
+  // Canonical-block view: load the chain tip once, then follow the live head
+  // stream. Poll instead while the stream is unavailable (not configured for
+  // the chain, or reconnecting). The shadow-delta view has its own source
+  // below, so this stands down when it is on.
   useEffect(() => {
     if (showShadowDelta) return undefined;
 
     let cancelled = false;
     const controller = new AbortController();
+    let pollTimer: number | undefined;
     setLoading(true);
     setBlocks([]);
     setFetchFailed(false);
@@ -235,7 +249,7 @@ function BlocksTab({
       try {
         const data = await explorerApi.blocks(chain, controller.signal);
         if (!cancelled) {
-          setBlocks(data.blocks);
+          setBlocks((current) => mergeBlockWindow(current, data.blocks, HOME_BLOCK_LIMIT));
           setFetchFailed(false);
         }
       } catch {
@@ -245,12 +259,47 @@ function BlocksTab({
       }
     }
 
+    function startPolling() {
+      if (pollTimer === undefined) pollTimer = window.setInterval(() => void load(), 2000);
+    }
+
+    function stopPolling() {
+      window.clearInterval(pollTimer);
+      pollTimer = undefined;
+    }
+
     void load();
-    const timer = window.setInterval(() => void load(), 2000);
+
+    const source =
+      typeof EventSource === 'undefined' ? null : new EventSource(explorerApi.headStreamUrl(chain));
+    if (source) {
+      source.onmessage = (event) => {
+        let head: BlockSummary;
+        try {
+          head = JSON.parse(event.data) as BlockSummary;
+        } catch {
+          return;
+        }
+        stopPolling();
+        setBlocks((current) => mergeBlockWindow(current, [head], HOME_BLOCK_LIMIT));
+        setFetchFailed(false);
+        setLoading(false);
+      };
+      // EventSource retries on its own after a dropped stream; it only gives
+      // up (CLOSED) on a non-stream response such as the not-configured 404.
+      source.onerror = () => {
+        startPolling();
+        if (source.readyState === EventSource.CLOSED) source.close();
+      };
+    } else {
+      startPolling();
+    }
+
     return () => {
       cancelled = true;
       controller.abort();
-      window.clearInterval(timer);
+      source?.close();
+      stopPolling();
     };
   }, [chain, showShadowDelta]);
 

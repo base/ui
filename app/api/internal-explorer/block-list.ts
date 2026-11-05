@@ -11,6 +11,8 @@ export interface BlockSummary {
   hash: string;
   number: number;
   timestamp: number;
+  /** Unix milliseconds from Denim's `timestampMs`; null on blocks or nodes without it. */
+  timestampMs: number | null;
   transactionCount: number;
   gasUsed: string | null;
   gasLimit: string | null;
@@ -95,12 +97,8 @@ async function fetchLatestBlockNumber(rpcUrl: string): Promise<number | null> {
   return hexToNumber(result);
 }
 
-async function fetchBlockByNumber(
-  rpcUrl: string,
-  blockNumber: number,
-): Promise<BlockSummary | null> {
-  const result = await rpcCall(rpcUrl, 'eth_getBlockByNumber', [toBlockTag(blockNumber), false]);
-
+/** Map a raw `eth_getBlockBy*` result (hashes only) to a summary, or null if malformed. */
+export function parseBlockSummary(result: unknown): BlockSummary | null {
   if (!result || typeof result !== 'object') return null;
   const block = result as Record<string, unknown>;
   const number = hexToNumber(block.number);
@@ -113,11 +111,28 @@ async function fetchBlockByNumber(
     hash: String(block.hash),
     number,
     timestamp,
+    timestampMs: hexToNumber(block.timestampMs),
     transactionCount: Array.isArray(block.transactions) ? block.transactions.length : 0,
     gasUsed: decimalQuantity(block.gasUsed),
     gasLimit: decimalQuantity(block.gasLimit),
     baseFeePerGas: decimalQuantity(block.baseFeePerGas),
   };
+}
+
+async function fetchBlockByNumber(
+  rpcUrl: string,
+  blockNumber: number,
+): Promise<BlockSummary | null> {
+  return parseBlockSummary(
+    await rpcCall(rpcUrl, 'eth_getBlockByNumber', [toBlockTag(blockNumber), false]),
+  );
+}
+
+export async function fetchBlockSummaryByHash(
+  rpcUrl: string,
+  hash: string,
+): Promise<BlockSummary | null> {
+  return parseBlockSummary(await rpcCall(rpcUrl, 'eth_getBlockByHash', [hash, false]));
 }
 
 export async function fetchBlocksByNumbers(
