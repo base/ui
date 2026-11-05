@@ -31,6 +31,11 @@ describe('parseBlockSummary', () => {
     assert.equal(parseBlockSummary(rpcBlock)?.timestampMs, null);
   });
 
+  test('leaves transactionCount null for a header without a transaction list', () => {
+    const { transactions: _transactions, ...header } = rpcBlock;
+    assert.equal(parseBlockSummary(header)?.transactionCount, null);
+  });
+
   test('rejects malformed blocks', () => {
     assert.equal(parseBlockSummary(null), null);
     assert.equal(parseBlockSummary({ ...rpcBlock, number: undefined }), null);

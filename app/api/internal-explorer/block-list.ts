@@ -13,7 +13,8 @@ export interface BlockSummary {
   timestamp: number;
   /** Unix milliseconds from Denim's `timestampMs`; null on blocks or nodes without it. */
   timestampMs: number | null;
-  transactionCount: number;
+  /** Null for streamed heads until the client fills it from /blocks-by-numbers. */
+  transactionCount: number | null;
   gasUsed: string | null;
   gasLimit: string | null;
   baseFeePerGas: string | null;
@@ -97,7 +98,11 @@ async function fetchLatestBlockNumber(rpcUrl: string): Promise<number | null> {
   return hexToNumber(result);
 }
 
-/** Map a raw `eth_getBlockBy*` result (hashes only) to a summary, or null if malformed. */
+/**
+ * Map a raw `eth_getBlockBy*` result (hashes only) or a newHeads header to a
+ * summary, or null if malformed. Headers carry no transaction list, so their
+ * `transactionCount` is null.
+ */
 export function parseBlockSummary(result: unknown): BlockSummary | null {
   if (!result || typeof result !== 'object') return null;
   const block = result as Record<string, unknown>;
@@ -112,7 +117,7 @@ export function parseBlockSummary(result: unknown): BlockSummary | null {
     number,
     timestamp,
     timestampMs: hexToNumber(block.timestampMs),
-    transactionCount: Array.isArray(block.transactions) ? block.transactions.length : 0,
+    transactionCount: Array.isArray(block.transactions) ? block.transactions.length : null,
     gasUsed: decimalQuantity(block.gasUsed),
     gasLimit: decimalQuantity(block.gasLimit),
     baseFeePerGas: decimalQuantity(block.baseFeePerGas),
@@ -126,13 +131,6 @@ async function fetchBlockByNumber(
   return parseBlockSummary(
     await rpcCall(rpcUrl, 'eth_getBlockByNumber', [toBlockTag(blockNumber), false]),
   );
-}
-
-export async function fetchBlockSummaryByHash(
-  rpcUrl: string,
-  hash: string,
-): Promise<BlockSummary | null> {
-  return parseBlockSummary(await rpcCall(rpcUrl, 'eth_getBlockByHash', [hash, false]));
 }
 
 export async function fetchBlocksByNumbers(

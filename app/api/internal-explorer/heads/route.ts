@@ -1,5 +1,5 @@
 import { resolveExplorerChainFromRequest } from '../chain';
-import { getRpcUrl, getWsUrl } from '../config';
+import { getWsUrl } from '../config';
 import { explorerDisabledResponse } from '../guard';
 import { subscribeToHeads } from '../head-stream';
 
@@ -11,8 +11,8 @@ const KEEPALIVE_MS = 15_000;
 // EventSource waits this long before reconnecting after the stream ends.
 const RECONNECT_MS = 3_000;
 
-// Server-Sent Events stream of new canonical blocks (BlockSummary JSON per
-// `data:` frame), fed by the chain's newHeads WebSocket. 404 when the chain
+// Server-Sent Events stream of new canonical blocks (header-only BlockSummary
+// JSON per `data:` frame), fed by the chain's newHeads WebSocket. 404 when the chain
 // has no TIPS_<CHAIN>_WS_URL, so the client falls back to polling /blocks.
 export async function GET(request: Request) {
   const disabled = explorerDisabledResponse();
@@ -22,8 +22,6 @@ export async function GET(request: Request) {
   if (!wsUrl) {
     return Response.json({ error: 'Head stream not configured' }, { status: 404 });
   }
-  const rpcUrl = getRpcUrl(chain);
-
   const encoder = new TextEncoder();
   let finish = () => {};
 
@@ -51,7 +49,7 @@ export async function GET(request: Request) {
 
       send(`retry: ${RECONNECT_MS}\n\n`);
       request.signal.addEventListener('abort', finish);
-      unsubscribe = subscribeToHeads(wsUrl, rpcUrl, {
+      unsubscribe = subscribeToHeads(wsUrl, {
         onBlock: (block) => send(`data: ${JSON.stringify(block)}\n\n`),
         onEnd: () => finish(),
       });

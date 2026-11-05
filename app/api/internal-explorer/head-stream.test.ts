@@ -35,26 +35,11 @@ class FakeSocket implements HeadSocket {
   }
 }
 
-function summary(hash: string): BlockSummary {
-  return {
-    hash,
-    number: 16,
-    timestamp: 1_800_000_000,
-    timestampMs: 1_800_000_000_200,
-    transactionCount: 2,
-    gasUsed: null,
-    gasLimit: null,
-    baseFeePerGas: null,
-  };
-}
-
 function setup() {
   const sockets: FakeSocket[] = [];
-  const fetchBlock = vi.fn(async (hash: string) => summary(hash));
   const onEnded = vi.fn();
   const hub = new HeadHub({
     wsUrl: 'wss://node.example:8546',
-    fetchBlock,
     onEnded,
     connect: () => {
       const socket = new FakeSocket();
@@ -62,13 +47,16 @@ function setup() {
       return socket;
     },
   });
-  return { hub, sockets, fetchBlock, onEnded };
+  return { hub, sockets, onEnded };
 }
 
-const headNotification = (hash: string) => ({
+const headNotification = (hash: string, extra: Record<string, unknown> = {}) => ({
   jsonrpc: '2.0',
   method: 'eth_subscription',
-  params: { subscription: '0x1', result: { number: '0x10', hash } },
+  params: {
+    subscription: '0x1',
+    result: { number: '0x10', hash, timestamp: '0x6b49d200', gasUsed: '0x5208', ...extra },
+  },
 });
 
 describe('HeadHub', () => {
@@ -84,28 +72,47 @@ describe('HeadHub', () => {
     ]);
   });
 
-  test('delivers each head as the block re-read by hash', async () => {
-    const { hub, sockets, fetchBlock } = setup();
+  test('delivers each head to every subscriber straight from the header', () => {
+    const { hub, sockets } = setup();
     const received: BlockSummary[][] = [[], []];
     hub.subscribe({ onBlock: (block) => received[0].push(block), onEnd: () => {} });
     hub.subscribe({ onBlock: (block) => received[1].push(block), onEnd: () => {} });
     sockets[0].emit('open');
-    sockets[0].emit('message', headNotification(HASH));
+    sockets[0].emit('message', headNotification(HASH, { timestampMs: '0x1a3185c50c8' }));
 
-    await vi.waitFor(() => assert.equal(received[1].length, 1));
-    assert.deepEqual(fetchBlock.mock.calls, [[HASH]]);
-    assert.equal(received[0][0].timestampMs, 1_800_000_000_200);
+    assert.equal(received[1].length, 1);
+    assert.deepEqual(received[0][0], {
+      hash: HASH,
+      number: 16,
+      timestamp: 1_800_000_000,
+      timestampMs: 1_800_000_000_200,
+      transactionCount: null,
+      gasUsed: '21000',
+      gasLimit: null,
+      baseFeePerGas: null,
+    });
   });
 
-  test('ignores notifications without a valid block hash', async () => {
-    const { hub, sockets, fetchBlock } = setup();
-    hub.subscribe({ onBlock: () => {}, onEnd: () => {} });
+  test('leaves timestampMs null when the header lacks it', () => {
+    const { hub, sockets } = setup();
+    const received: BlockSummary[] = [];
+    hub.subscribe({ onBlock: (block) => received.push(block), onEnd: () => {} });
+    sockets[0].emit('open');
+    sockets[0].emit('message', headNotification(HASH));
+
+    assert.equal(received[0].timestampMs, null);
+    assert.equal(received[0].timestamp, 1_800_000_000);
+  });
+
+  test('ignores notifications without a valid block hash', () => {
+    const { hub, sockets } = setup();
+    const onBlock = vi.fn();
+    hub.subscribe({ onBlock, onEnd: () => {} });
     sockets[0].emit('open');
     sockets[0].emit('message', headNotification('not-a-hash'));
     sockets[0].emit('message', { jsonrpc: '2.0', id: 1, result: '0x1' });
 
-    await Promise.resolve();
-    assert.equal(fetchBlock.mock.calls.length, 0);
+    assert.equal(onBlock.mock.calls.length, 0);
   });
 
   test('closes the upstream when the last subscriber leaves', () => {

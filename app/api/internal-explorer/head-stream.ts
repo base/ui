@@ -1,9 +1,9 @@
 // Live block heads for the Internal Explorer. One upstream `eth_subscribe`
-// newHeads WebSocket per endpoint is shared by every connected browser, and
-// each head is re-read over HTTP by hash: newHeads carries no transaction list,
-// and RPC proxies that re-encode headers can drop Base's `timestampMs`.
+// newHeads WebSocket per endpoint is shared by every connected browser. Heads
+// are forwarded straight from the header: `timestampMs` when the upstream sends
+// it, and no transaction count, which the client fills in separately.
 // Server-only.
-import { fetchBlockSummaryByHash, type BlockSummary } from './block-list';
+import { parseBlockSummary, type BlockSummary } from './block-list';
 
 const CONNECT_TIMEOUT_MS = 10_000;
 const SUBSCRIBE_REQUEST_ID = 1;
@@ -26,7 +26,6 @@ export interface HeadSubscriber {
 
 export interface HeadHubOptions {
   wsUrl: string;
-  fetchBlock: (hash: string) => Promise<BlockSummary | null>;
   connect?: (url: string) => HeadSocket;
   /** Called once the hub has ended, so a registry can drop it. */
   onEnded?: () => void;
@@ -88,7 +87,7 @@ export class HeadHub {
       id?: unknown;
       error?: unknown;
       method?: unknown;
-      params?: { result?: { hash?: unknown } };
+      params?: { result?: Record<string, unknown> };
     };
     try {
       message = JSON.parse(String(data));
@@ -103,16 +102,13 @@ export class HeadHub {
     }
     if (message.method !== 'eth_subscription') return;
 
-    const hash = message.params?.result?.hash;
+    const header = message.params?.result;
+    const hash = header?.hash;
     if (typeof hash !== 'string' || !BLOCK_HASH.test(hash)) return;
 
-    void this.options
-      .fetchBlock(hash)
-      .then((block) => {
-        if (!block || this.ended) return;
-        for (const subscriber of this.subscribers) subscriber.onBlock(block);
-      })
-      .catch(() => {});
+    const block = parseBlockSummary(header);
+    if (!block) return;
+    for (const subscriber of this.subscribers) subscriber.onBlock(block);
   }
 
   private end() {
@@ -134,16 +130,11 @@ export class HeadHub {
 const hubs = new Map<string, HeadHub>();
 
 /** Subscribe to live heads for a chain, sharing one upstream socket per WebSocket URL. */
-export function subscribeToHeads(
-  wsUrl: string,
-  rpcUrl: string,
-  subscriber: HeadSubscriber,
-): () => void {
+export function subscribeToHeads(wsUrl: string, subscriber: HeadSubscriber): () => void {
   let hub = hubs.get(wsUrl);
   if (!hub) {
     const created = new HeadHub({
       wsUrl,
-      fetchBlock: (hash) => fetchBlockSummaryByHash(rpcUrl, hash),
       onEnded: () => {
         if (hubs.get(wsUrl) === created) hubs.delete(wsUrl);
       },

@@ -24,7 +24,7 @@ import {
   formatSignedInteger,
   formatSignedPct,
 } from './library/explorer-format';
-import { mergeBlockWindow } from './library/block-window';
+import { fillBlockDetails, mergeBlockWindow } from './library/block-window';
 import {
   formatGasPrice,
   formatHexValue,
@@ -181,7 +181,7 @@ function BlockRow({
       </div>
       <div className="shrink-0 text-right">
         <Text as="span" variant="label" className="block font-medium">
-          {block.transactionCount}
+          {block.transactionCount ?? '—'}
         </Text>
         <span className="text-xs text-bds-gray-60 dark:text-bds-gray-40">txns</span>
       </div>
@@ -216,6 +216,11 @@ function BlockRow({
 }
 
 const HOME_BLOCK_LIMIT = 10;
+// Streamed heads have no transaction count; collect their heights for this long
+// and fill them with one /blocks-by-numbers request.
+const DETAIL_FILL_MS = 500;
+// The WebSocket node can be ahead of the HTTP one, so a fill may miss a block.
+const DETAIL_FILL_ATTEMPTS = 3;
 
 function BlocksTab({
   chain,
@@ -268,6 +273,34 @@ function BlocksTab({
       pollTimer = undefined;
     }
 
+    const pendingDetails = new Map<number, number>();
+    let fillTimer: number | undefined;
+
+    function queueDetails(blockNumber: number, attempts = 0) {
+      if (attempts >= DETAIL_FILL_ATTEMPTS) return;
+      pendingDetails.set(blockNumber, attempts);
+      fillTimer ??= window.setTimeout(() => void fillDetails(), DETAIL_FILL_MS);
+    }
+
+    async function fillDetails() {
+      fillTimer = undefined;
+      const batch = [...pendingDetails];
+      pendingDetails.clear();
+      if (batch.length === 0) return;
+      try {
+        const filled = await explorerApi.blocksByNumbers(
+          chain,
+          batch.map(([blockNumber]) => blockNumber),
+          controller.signal,
+        );
+        if (!cancelled) setBlocks((current) => fillBlockDetails(current, filled));
+      } catch {
+        if (!cancelled) {
+          for (const [blockNumber, attempts] of batch) queueDetails(blockNumber, attempts + 1);
+        }
+      }
+    }
+
     void load();
 
     const source =
@@ -282,6 +315,7 @@ function BlocksTab({
         }
         stopPolling();
         setBlocks((current) => mergeBlockWindow(current, [head], HOME_BLOCK_LIMIT));
+        if (head.transactionCount === null) queueDetails(head.number);
         setFetchFailed(false);
         setLoading(false);
       };
@@ -300,6 +334,7 @@ function BlocksTab({
       controller.abort();
       source?.close();
       stopPolling();
+      window.clearTimeout(fillTimer);
     };
   }, [chain, showShadowDelta]);
 
