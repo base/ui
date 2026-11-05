@@ -1,11 +1,13 @@
 // Live block heads for the Internal Explorer. One upstream `eth_subscribe`
-// newHeads WebSocket per endpoint is shared by every connected browser. Heads
-// are forwarded straight from the header: `timestampMs` when the upstream sends
-// it, and no transaction count, which the client fills in separately.
-// Server-only.
-import { parseBlockSummary, type BlockSummary } from './block-list';
+// newHeads WebSocket per endpoint is shared by every connected browser. Each
+// head is summarized from its header (`timestampMs` when the upstream sends
+// it) plus one transaction-count lookup, since newHeads carries no transaction
+// list. Blocks are delivered complete and in arrival order. Server-only.
+import { fetchTransactionCountByHash, parseBlockSummary, type BlockSummary } from './block-list';
 
 const CONNECT_TIMEOUT_MS = 10_000;
+// Delivery is ordered, so a stuck lookup would hold back every later head.
+const COUNT_TIMEOUT_MS = 1_000;
 const SUBSCRIBE_REQUEST_ID = 1;
 const BLOCK_HASH = /^0x[0-9a-f]{64}$/i;
 
@@ -26,6 +28,7 @@ export interface HeadSubscriber {
 
 export interface HeadHubOptions {
   wsUrl: string;
+  fetchTransactionCount: (hash: string) => Promise<number | null>;
   connect?: (url: string) => HeadSocket;
   /** Called once the hub has ended, so a registry can drop it. */
   onEnded?: () => void;
@@ -36,6 +39,7 @@ export class HeadHub {
   private socket: HeadSocket | null = null;
   private connectTimer: ReturnType<typeof setTimeout> | undefined;
   private ended = false;
+  private delivery: Promise<void> = Promise.resolve();
 
   constructor(private readonly options: HeadHubOptions) {}
 
@@ -108,7 +112,22 @@ export class HeadHub {
 
     const block = parseBlockSummary(header);
     if (!block) return;
-    for (const subscriber of this.subscribers) subscriber.onBlock(block);
+
+    const count = this.lookUpTransactionCount(hash);
+    this.delivery = this.delivery.then(async () => {
+      const transactionCount = await count;
+      if (this.ended) return;
+      for (const subscriber of this.subscribers) subscriber.onBlock({ ...block, transactionCount });
+    });
+  }
+
+  private lookUpTransactionCount(hash: string): Promise<number | null> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), COUNT_TIMEOUT_MS);
+    });
+    const lookup = this.options.fetchTransactionCount(hash).catch(() => null);
+    return Promise.race([lookup, timeout]).finally(() => clearTimeout(timer));
   }
 
   private end() {
@@ -130,11 +149,16 @@ export class HeadHub {
 const hubs = new Map<string, HeadHub>();
 
 /** Subscribe to live heads for a chain, sharing one upstream socket per WebSocket URL. */
-export function subscribeToHeads(wsUrl: string, subscriber: HeadSubscriber): () => void {
+export function subscribeToHeads(
+  wsUrl: string,
+  rpcUrl: string,
+  subscriber: HeadSubscriber,
+): () => void {
   let hub = hubs.get(wsUrl);
   if (!hub) {
     const created = new HeadHub({
       wsUrl,
+      fetchTransactionCount: (hash) => fetchTransactionCountByHash(rpcUrl, hash),
       onEnded: () => {
         if (hubs.get(wsUrl) === created) hubs.delete(wsUrl);
       },

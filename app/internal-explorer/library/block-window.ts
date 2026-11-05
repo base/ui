@@ -29,16 +29,3 @@ export function mergeBlockWindow(
   }
   return [...byNumber.values()].sort((lhs, rhs) => rhs.number - lhs.number).slice(0, limit);
 }
-
-/**
- * Replace rows with their fetched full summaries. Only rows whose hash still
- * matches are replaced, so a fetch that raced a reorg can't swap in a
- * different block; the reorged head arrives on the stream on its own.
- */
-export function fillBlockDetails(
-  current: readonly BlockSummary[],
-  fetched: readonly BlockSummary[],
-): BlockSummary[] {
-  const byHash = new Map(fetched.map((block) => [block.hash, block]));
-  return current.map((block) => byHash.get(block.hash) ?? block);
-}

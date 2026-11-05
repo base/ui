@@ -13,7 +13,7 @@ export interface BlockSummary {
   timestamp: number;
   /** Unix milliseconds from Denim's `timestampMs`; null on blocks or nodes without it. */
   timestampMs: number | null;
-  /** Null for streamed heads until the client fills it from /blocks-by-numbers. */
+  /** Null when unknown, such as a streamed head whose count lookup failed. */
   transactionCount: number | null;
   gasUsed: string | null;
   gasLimit: string | null;
@@ -122,6 +122,13 @@ export function parseBlockSummary(result: unknown): BlockSummary | null {
     gasLimit: decimalQuantity(block.gasLimit),
     baseFeePerGas: decimalQuantity(block.baseFeePerGas),
   };
+}
+
+export async function fetchTransactionCountByHash(
+  rpcUrl: string,
+  hash: string,
+): Promise<number | null> {
+  return hexToNumber(await rpcCall(rpcUrl, 'eth_getBlockTransactionCountByHash', [hash]));
 }
 
 async function fetchBlockByNumber(

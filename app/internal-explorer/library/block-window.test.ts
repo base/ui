@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
-import { fillBlockDetails, mergeBlockWindow } from './block-window';
+import { mergeBlockWindow } from './block-window';
 import type { BlockSummary } from './types';
 
 function block(number: number, hash = `0x${number.toString(16)}`): BlockSummary {
@@ -51,27 +51,5 @@ describe('mergeBlockWindow', () => {
     const [merged] = mergeBlockWindow([filled], [header], 10);
     assert.equal(merged.transactionCount, 2);
     assert.equal(merged.timestampMs, 1_800_000_000_400);
-  });
-});
-
-describe('fillBlockDetails', () => {
-  test('replaces header-only rows with their fetched summaries', () => {
-    const header = { ...block(12), transactionCount: null };
-    const fetched = { ...block(12), transactionCount: 7, timestampMs: 1_800_000_000_400 };
-    const [filled, untouched] = fillBlockDetails([header, block(11)], [fetched]);
-    assert.equal(filled.transactionCount, 7);
-    assert.equal(filled.timestampMs, 1_800_000_000_400);
-    assert.equal(untouched.transactionCount, 2);
-  });
-
-  test('ignores a fetched block that no longer matches the row after a reorg', () => {
-    const header = { ...block(12, '0xnew'), transactionCount: null };
-    const [row] = fillBlockDetails([header], [{ ...block(12, '0xold'), transactionCount: 7 }]);
-    assert.equal(row.hash, '0xnew');
-    assert.equal(row.transactionCount, null);
-  });
-
-  test('does not add blocks that have left the window', () => {
-    assert.deepEqual(numbers(fillBlockDetails([block(20)], [block(5)])), [20]);
   });
 });

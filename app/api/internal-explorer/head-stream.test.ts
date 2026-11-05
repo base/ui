@@ -35,11 +35,14 @@ class FakeSocket implements HeadSocket {
   }
 }
 
-function setup() {
+function setup(
+  fetchTransactionCount: (hash: string) => Promise<number | null> = async () => 7,
+) {
   const sockets: FakeSocket[] = [];
   const onEnded = vi.fn();
   const hub = new HeadHub({
     wsUrl: 'wss://node.example:8546',
+    fetchTransactionCount,
     onEnded,
     connect: () => {
       const socket = new FakeSocket();
@@ -72,46 +75,95 @@ describe('HeadHub', () => {
     ]);
   });
 
-  test('delivers each head to every subscriber straight from the header', () => {
-    const { hub, sockets } = setup();
+  test('delivers each head to every subscriber with its header and transaction count', async () => {
+    const fetchCount = vi.fn(async () => 7);
+    const { hub, sockets } = setup(fetchCount);
     const received: BlockSummary[][] = [[], []];
     hub.subscribe({ onBlock: (block) => received[0].push(block), onEnd: () => {} });
     hub.subscribe({ onBlock: (block) => received[1].push(block), onEnd: () => {} });
     sockets[0].emit('open');
     sockets[0].emit('message', headNotification(HASH, { timestampMs: '0x1a3185c50c8' }));
 
-    assert.equal(received[1].length, 1);
+    await vi.waitFor(() => assert.equal(received[1].length, 1));
+    assert.deepEqual(fetchCount.mock.calls, [[HASH]]);
     assert.deepEqual(received[0][0], {
       hash: HASH,
       number: 16,
       timestamp: 1_800_000_000,
       timestampMs: 1_800_000_000_200,
-      transactionCount: null,
+      transactionCount: 7,
       gasUsed: '21000',
       gasLimit: null,
       baseFeePerGas: null,
     });
   });
 
-  test('leaves timestampMs null when the header lacks it', () => {
+  test('leaves timestampMs null when the header lacks it', async () => {
     const { hub, sockets } = setup();
     const received: BlockSummary[] = [];
     hub.subscribe({ onBlock: (block) => received.push(block), onEnd: () => {} });
     sockets[0].emit('open');
     sockets[0].emit('message', headNotification(HASH));
 
+    await vi.waitFor(() => assert.equal(received.length, 1));
     assert.equal(received[0].timestampMs, null);
     assert.equal(received[0].timestamp, 1_800_000_000);
   });
 
-  test('ignores notifications without a valid block hash', () => {
-    const { hub, sockets } = setup();
+  test('delivers heads in arrival order even when lookups finish out of order', async () => {
+    const resolvers = new Map<string, (count: number) => void>();
+    const { hub, sockets } = setup(
+      (hash) => new Promise((resolve) => resolvers.set(hash, resolve)),
+    );
+    const received: string[] = [];
+    hub.subscribe({ onBlock: (block) => received.push(block.hash), onEnd: () => {} });
+    sockets[0].emit('open');
+    const first = `0x${'01'.repeat(32)}`;
+    const second = `0x${'02'.repeat(32)}`;
+    sockets[0].emit('message', headNotification(first));
+    sockets[0].emit('message', headNotification(second));
+
+    resolvers.get(second)?.(1);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.deepEqual(received, []);
+    resolvers.get(first)?.(1);
+    await vi.waitFor(() => assert.deepEqual(received, [first, second]));
+  });
+
+  test('delivers a head without a count when the lookup fails or stalls', async () => {
+    vi.useFakeTimers();
+    try {
+      const stalled = `0x${'03'.repeat(32)}`;
+      const { hub, sockets } = setup((hash) =>
+        hash === stalled ? new Promise(() => {}) : Promise.reject(new Error('rpc down')),
+      );
+      const received: BlockSummary[] = [];
+      hub.subscribe({ onBlock: (block) => received.push(block), onEnd: () => {} });
+      sockets[0].emit('open');
+      sockets[0].emit('message', headNotification(HASH));
+      sockets[0].emit('message', headNotification(stalled));
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      assert.deepEqual(
+        received.map((block) => block.transactionCount),
+        [null, null],
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('ignores notifications without a valid block hash', async () => {
+    const fetchCount = vi.fn(async () => 7);
+    const { hub, sockets } = setup(fetchCount);
     const onBlock = vi.fn();
     hub.subscribe({ onBlock, onEnd: () => {} });
     sockets[0].emit('open');
     sockets[0].emit('message', headNotification('not-a-hash'));
     sockets[0].emit('message', { jsonrpc: '2.0', id: 1, result: '0x1' });
 
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(fetchCount.mock.calls.length, 0);
     assert.equal(onBlock.mock.calls.length, 0);
   });
 

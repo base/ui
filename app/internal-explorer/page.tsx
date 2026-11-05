@@ -24,7 +24,7 @@ import {
   formatSignedInteger,
   formatSignedPct,
 } from './library/explorer-format';
-import { fillBlockDetails, mergeBlockWindow } from './library/block-window';
+import { mergeBlockWindow } from './library/block-window';
 import {
   formatGasPrice,
   formatHexValue,
@@ -216,16 +216,6 @@ function BlockRow({
 }
 
 const HOME_BLOCK_LIMIT = 10;
-// Streamed heads have no transaction count; collect their heights for this long
-// and fill them with one /blocks-by-numbers request.
-const DETAIL_FILL_MS = 200;
-// A streamed head's transaction count is revealed this long after the head
-// arrives, so counts appear a steady number of rows below the top instead of
-// whenever each fill happens to land. Must exceed DETAIL_FILL_MS plus a fill
-// round trip.
-const TX_COUNT_REVEAL_MS = 600;
-// The WebSocket node can be ahead of the HTTP one, so a fill may miss a block.
-const DETAIL_FILL_ATTEMPTS = 3;
 
 function BlocksTab({
   chain,
@@ -278,55 +268,6 @@ function BlocksTab({
       pollTimer = undefined;
     }
 
-    const pendingDetails = new Map<number, number>();
-    let fillTimer: number | undefined;
-    // Fetched summaries for streamed heads whose transaction count is not yet
-    // due; null until the fill lands.
-    const heldCounts = new Map<string, BlockSummary | null>();
-    const revealTimers = new Set<number>();
-
-    function holdCount(head: BlockSummary) {
-      heldCounts.set(head.hash, null);
-      const timer = window.setTimeout(() => {
-        revealTimers.delete(timer);
-        const filled = heldCounts.get(head.hash);
-        heldCounts.delete(head.hash);
-        if (filled) setBlocks((current) => fillBlockDetails(current, [filled]));
-      }, TX_COUNT_REVEAL_MS);
-      revealTimers.add(timer);
-    }
-
-    function queueDetails(blockNumber: number, attempts = 0) {
-      if (attempts >= DETAIL_FILL_ATTEMPTS) return;
-      pendingDetails.set(blockNumber, attempts);
-      fillTimer ??= window.setTimeout(() => void fillDetails(), DETAIL_FILL_MS);
-    }
-
-    async function fillDetails() {
-      fillTimer = undefined;
-      const batch = [...pendingDetails];
-      pendingDetails.clear();
-      if (batch.length === 0) return;
-      try {
-        const filled = await explorerApi.blocksByNumbers(
-          chain,
-          batch.map(([blockNumber]) => blockNumber),
-          controller.signal,
-        );
-        if (cancelled) return;
-        const visible = filled.map((block) => {
-          if (!heldCounts.has(block.hash)) return block;
-          heldCounts.set(block.hash, block);
-          return { ...block, transactionCount: null };
-        });
-        setBlocks((current) => fillBlockDetails(current, visible));
-      } catch {
-        if (!cancelled) {
-          for (const [blockNumber, attempts] of batch) queueDetails(blockNumber, attempts + 1);
-        }
-      }
-    }
-
     void load();
 
     const source =
@@ -341,10 +282,6 @@ function BlocksTab({
         }
         stopPolling();
         setBlocks((current) => mergeBlockWindow(current, [head], HOME_BLOCK_LIMIT));
-        if (head.transactionCount === null) {
-          holdCount(head);
-          queueDetails(head.number);
-        }
         setFetchFailed(false);
         setLoading(false);
       };
@@ -363,8 +300,6 @@ function BlocksTab({
       controller.abort();
       source?.close();
       stopPolling();
-      window.clearTimeout(fillTimer);
-      for (const timer of revealTimers) window.clearTimeout(timer);
     };
   }, [chain, showShadowDelta]);
 
