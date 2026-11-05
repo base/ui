@@ -219,6 +219,9 @@ const HOME_BLOCK_LIMIT = 10;
 // Streamed heads have no transaction count; collect their heights for this long
 // and fill them with one /blocks-by-numbers request.
 const DETAIL_FILL_MS = 500;
+// Each streamed head is shown this long after it arrives, giving the fill time
+// to land first and keeping the list a steady distance behind the chain head.
+const HEAD_DISPLAY_DELAY_MS = 1_000;
 // The WebSocket node can be ahead of the HTTP one, so a fill may miss a block.
 const DETAIL_FILL_ATTEMPTS = 3;
 
@@ -275,6 +278,19 @@ function BlocksTab({
 
     const pendingDetails = new Map<number, number>();
     let fillTimer: number | undefined;
+    const heldHeads = new Map<string, BlockSummary>();
+    const holdTimers = new Set<number>();
+
+    function holdHead(head: BlockSummary) {
+      heldHeads.set(head.hash, head);
+      const timer = window.setTimeout(() => {
+        holdTimers.delete(timer);
+        const block = heldHeads.get(head.hash) ?? head;
+        heldHeads.delete(head.hash);
+        setBlocks((current) => mergeBlockWindow(current, [block], HOME_BLOCK_LIMIT));
+      }, HEAD_DISPLAY_DELAY_MS);
+      holdTimers.add(timer);
+    }
 
     function queueDetails(blockNumber: number, attempts = 0) {
       if (attempts >= DETAIL_FILL_ATTEMPTS) return;
@@ -293,7 +309,11 @@ function BlocksTab({
           batch.map(([blockNumber]) => blockNumber),
           controller.signal,
         );
-        if (!cancelled) setBlocks((current) => fillBlockDetails(current, filled));
+        if (cancelled) return;
+        for (const block of filled) {
+          if (heldHeads.has(block.hash)) heldHeads.set(block.hash, block);
+        }
+        setBlocks((current) => fillBlockDetails(current, filled));
       } catch {
         if (!cancelled) {
           for (const [blockNumber, attempts] of batch) queueDetails(blockNumber, attempts + 1);
@@ -314,7 +334,7 @@ function BlocksTab({
           return;
         }
         stopPolling();
-        setBlocks((current) => mergeBlockWindow(current, [head], HOME_BLOCK_LIMIT));
+        holdHead(head);
         if (head.transactionCount === null) queueDetails(head.number);
         setFetchFailed(false);
         setLoading(false);
@@ -335,6 +355,7 @@ function BlocksTab({
       source?.close();
       stopPolling();
       window.clearTimeout(fillTimer);
+      for (const timer of holdTimers) window.clearTimeout(timer);
     };
   }, [chain, showShadowDelta]);
 
