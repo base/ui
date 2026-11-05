@@ -218,10 +218,12 @@ function BlockRow({
 const HOME_BLOCK_LIMIT = 10;
 // Streamed heads have no transaction count; collect their heights for this long
 // and fill them with one /blocks-by-numbers request.
-const DETAIL_FILL_MS = 500;
-// Each streamed head is shown this long after it arrives, giving the fill time
-// to land first and keeping the list a steady distance behind the chain head.
-const HEAD_DISPLAY_DELAY_MS = 1_000;
+const DETAIL_FILL_MS = 200;
+// A streamed head's transaction count is revealed this long after the head
+// arrives, so counts appear a steady number of rows below the top instead of
+// whenever each fill happens to land. Must exceed DETAIL_FILL_MS plus a fill
+// round trip.
+const TX_COUNT_REVEAL_MS = 600;
 // The WebSocket node can be ahead of the HTTP one, so a fill may miss a block.
 const DETAIL_FILL_ATTEMPTS = 3;
 
@@ -278,18 +280,20 @@ function BlocksTab({
 
     const pendingDetails = new Map<number, number>();
     let fillTimer: number | undefined;
-    const heldHeads = new Map<string, BlockSummary>();
-    const holdTimers = new Set<number>();
+    // Fetched summaries for streamed heads whose transaction count is not yet
+    // due; null until the fill lands.
+    const heldCounts = new Map<string, BlockSummary | null>();
+    const revealTimers = new Set<number>();
 
-    function holdHead(head: BlockSummary) {
-      heldHeads.set(head.hash, head);
+    function holdCount(head: BlockSummary) {
+      heldCounts.set(head.hash, null);
       const timer = window.setTimeout(() => {
-        holdTimers.delete(timer);
-        const block = heldHeads.get(head.hash) ?? head;
-        heldHeads.delete(head.hash);
-        setBlocks((current) => mergeBlockWindow(current, [block], HOME_BLOCK_LIMIT));
-      }, HEAD_DISPLAY_DELAY_MS);
-      holdTimers.add(timer);
+        revealTimers.delete(timer);
+        const filled = heldCounts.get(head.hash);
+        heldCounts.delete(head.hash);
+        if (filled) setBlocks((current) => fillBlockDetails(current, [filled]));
+      }, TX_COUNT_REVEAL_MS);
+      revealTimers.add(timer);
     }
 
     function queueDetails(blockNumber: number, attempts = 0) {
@@ -310,10 +314,12 @@ function BlocksTab({
           controller.signal,
         );
         if (cancelled) return;
-        for (const block of filled) {
-          if (heldHeads.has(block.hash)) heldHeads.set(block.hash, block);
-        }
-        setBlocks((current) => fillBlockDetails(current, filled));
+        const visible = filled.map((block) => {
+          if (!heldCounts.has(block.hash)) return block;
+          heldCounts.set(block.hash, block);
+          return { ...block, transactionCount: null };
+        });
+        setBlocks((current) => fillBlockDetails(current, visible));
       } catch {
         if (!cancelled) {
           for (const [blockNumber, attempts] of batch) queueDetails(blockNumber, attempts + 1);
@@ -334,8 +340,11 @@ function BlocksTab({
           return;
         }
         stopPolling();
-        holdHead(head);
-        if (head.transactionCount === null) queueDetails(head.number);
+        setBlocks((current) => mergeBlockWindow(current, [head], HOME_BLOCK_LIMIT));
+        if (head.transactionCount === null) {
+          holdCount(head);
+          queueDetails(head.number);
+        }
         setFetchFailed(false);
         setLoading(false);
       };
@@ -355,7 +364,7 @@ function BlocksTab({
       source?.close();
       stopPolling();
       window.clearTimeout(fillTimer);
-      for (const timer of holdTimers) window.clearTimeout(timer);
+      for (const timer of revealTimers) window.clearTimeout(timer);
     };
   }, [chain, showShadowDelta]);
 
