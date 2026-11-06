@@ -19,6 +19,12 @@ export function getRpcUrl(chain: ExplorerChain): string {
   return envValue([`TIPS_${ENV_PREFIX[chain]}_RPC_URL`]) ?? 'http://localhost:8545';
 }
 
+// Execution WebSocket endpoint used for the live newHeads stream. Opt-in per
+// chain via TIPS_<CHAIN>_WS_URL; when unset the block list polls instead.
+export function getWsUrl(chain: ExplorerChain): string | undefined {
+  return envValue([`TIPS_${ENV_PREFIX[chain]}_WS_URL`]);
+}
+
 // Audit events JSON-RPC endpoint (Postgres-backed) for a chain. Unlike the
 // execution RPC there is no default: audit is opt-in per chain via
 // TIPS_<CHAIN>_AUDIT_RPC_URL. When unset, the audit source is treated as
