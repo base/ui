@@ -91,3 +91,10 @@ export function trackValidityRace(
 ): void {
   track('validity_race', { attempt, status });
 }
+
+// --- Base Runner (200ms) demo ---
+
+// Fired when a player opens the X composer from the game-over screen.
+export function trackBlockRunnerShare(variant: 'ate' | 'survived', score: number): void {
+  track('block_runner_share', { variant, score });
+}
