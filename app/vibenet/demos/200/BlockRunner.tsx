@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../../components/ui/Button';
 import { Text } from '../../../components/ui/Text';
+import { trackBlockRunnerShare } from '../../../analytics/events';
 import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL, VIBENET_WS_URL } from '../../library/config';
 import { connectJsonRpcStream } from '../validity/lib/stream';
 import {
@@ -49,6 +50,7 @@ import {
   submitScore,
   type BoardEntry,
 } from './lib/leaderboard';
+import { pickShareVariant, shareText, type ShareVariant, xShareUrl } from './lib/share';
 import { Sound } from './lib/sound';
 import {
   BOSS_CLOSED,
@@ -646,6 +648,7 @@ export function BlockRunner() {
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [phase, setPhase] = useState<Game['phase']>('ready');
+  const [shareVariant, setShareVariant] = useState<ShareVariant>('ate');
   const [head, setHead] = useState<Head | null>(null);
   const [rate, setRate] = useState(0);
   const [feed, setFeedState] = useState<'connecting' | 'live' | 'polling' | 'quiet'>('connecting');
@@ -804,6 +807,11 @@ export function BlockRunner() {
     }
   }, [submitState]);
 
+  const shareOnX = useCallback(() => {
+    trackBlockRunnerShare(shareVariant, score);
+    window.open(xShareUrl(shareText(score, shareVariant)), '_blank', 'noopener,noreferrer');
+  }, [score, shareVariant]);
+
   // Fullscreen: the stage wrapper goes fullscreen; the canvas letterboxes
   // inside it with object-contain so the aspect never distorts.
   const toggleFullscreen = useCallback(() => {
@@ -910,6 +918,7 @@ export function BlockRunner() {
         if (next.phase === 'running') sound().startMusic();
         else sound().stopMusic();
         if (next.phase === 'dead') {
+          setShareVariant(pickShareVariant());
           setBest((b) => {
             const nb = Math.max(b, next.score);
             if (nb !== b) writeBest(nb);
@@ -1032,10 +1041,13 @@ export function BlockRunner() {
           <GameStat label="Best" value={String(best)} />
         </div>
       </div>
-      {phase === 'dead' && score > 0 && (score > chainBest || submitState !== '') ? (
+      {phase === 'dead' && score > 0 ? (
         <div className="absolute inset-x-0 bottom-[7%] flex justify-center">
           <div className="flex items-center gap-3 rounded-xl border border-bds-blue-60 bg-[#0b1030]/95 px-4 py-3 shadow-lg">
-            {submitState === 'done' ? (
+            <Button size="sm" variant="secondary" onClick={shareOnX}>
+              Share on X
+            </Button>
+            {score <= chainBest && submitState === '' ? null : submitState === 'done' ? (
               <Text variant="label.regular" className="text-bds-blue-15">
                 On the board — tap the game to run again.
               </Text>
