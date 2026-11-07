@@ -53,6 +53,10 @@ export function useSectionParam({
 type AccountShellProps = {
   name: string;
   address: string;
+  /** Line under the title, above the address. Token pages use it for the token name. */
+  subtitle?: ReactNode;
+  /** Replaces the account avatar. Token pages pass a symbol mark. */
+  avatar?: ReactNode;
   avatarVariant?: 'default' | 'spending';
   badges?: ReactNode;
   actions?: ReactNode;
@@ -65,6 +69,8 @@ type AccountShellProps = {
 export function AccountShell({
   name,
   address,
+  subtitle,
+  avatar,
   avatarVariant = 'default',
   badges,
   actions,
@@ -77,7 +83,7 @@ export function AccountShell({
     <div className="animate-in -mb-20 flex min-w-0 flex-1 flex-col gap-6 pb-12 text-foreground">
       <header className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-4">
-          <AccountAvatar variant={avatarVariant} size={52} />
+          {avatar ?? <AccountAvatar variant={avatarVariant} size={52} />}
           <div className="flex min-w-0 flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <Text as="h1" variant="title2" className="truncate">
@@ -85,6 +91,11 @@ export function AccountShell({
               </Text>
               {badges}
             </div>
+            {subtitle ? (
+              <Text as="p" variant="label.regular" tone="muted">
+                {subtitle}
+              </Text>
+            ) : null}
             <CopyableValue value={address} className="text-bds-gray-60 dark:text-bds-gray-40" />
           </div>
         </div>
