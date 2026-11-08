@@ -23,7 +23,6 @@ export type Limit = {
   help?: string;
   // Help beside the ceiling itself.
   ceilingHelp?: string;
-  runwayYears?: number;
 };
 
 export const times = (n: number) => `${n < 10 ? n.toFixed(1) : Math.round(n)}×`;
@@ -177,13 +176,13 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
   const policyText = runway
     ? `runway policy: full node ${years(runway.fullNode)}, archive ${years(runway.archive)}${runway.help ? ` (${runway.help})` : ''}`
     : 'no runway policy is set';
-  type Row = { mgas: number; years: number; evidence: string; overBudget: string; help: string };
+  type Row = { mgas: number; evidence: string; overBudget: string; help: string };
   const row = (id: string, label: string, need: string | null, r?: () => Row): Limit => {
     if (need !== null) return { id, label, value: null, ceiling: '—', evidence: `needs ${need}`, help: `Needs ${need}; ${policyText}.` };
-    const { mgas, years: runwayYears, evidence, overBudget, help } = r!();
+    const { mgas, evidence, overBudget, help } = r!();
     return mgas <= 0
-      ? { id, label, value: 0, ceiling: 'over budget', evidence: overBudget, help, runwayYears }
-      : { id, label, value: mgas, ceiling: `≤ ${fmt(mgas)}`, evidence, help, runwayYears };
+      ? { id, label, value: 0, ceiling: 'over budget', evidence: overBudget, help }
+      : { id, label, value: mgas, ceiling: `≤ ${fmt(mgas)}`, evidence, help };
   };
   if (!source) {
     const need = 'a bench storage-growth run';
@@ -204,7 +203,6 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
       const kept = `${historyDays} days of history, ${proofDays} days of proofs and ${years(runway!.fullNode)} of state growth`;
       return {
         mgas: (budget - current.state) / perMgas,
-        years: runway!.fullNode,
         evidence: `Projected from bench growth: ${kept} fit in ${bytes(budget)}. Upper bound.`,
         overBudget: `Projected from bench growth: today's state (${bytes(current.state)}) leaves no room in ${bytes(budget)}.`,
         help: `Inputs: ${budgetText}; today's state ${bytes(current.state)}, measured at ${from}'s snapshot; ${bytesPerGas.history.toPrecision(3)} bytes per gas of history and ${bytesPerGas.proofs!.toPrecision(3)} of proofs from ${from}; ${state!.value} bytes per gas of production state growth${state!.source ? ` from ${state!.source}` : ''}; ${policyText}. Upper bound: history bytes per gas is a lower bound, because the sequencer prunes history. ${why}`,
@@ -225,7 +223,6 @@ export function diskLimits(source: StorageSource | null, { policy, production }:
         : ' (bench state only)';
       return {
         mgas: (budget - archiveNow!.value) / (1e6 * perGas * YEAR_SECONDS * runway!.archive),
-        years: runway!.archive,
         evidence: `Projected from bench growth: ${years(runway!.archive)} ${runway!.archive === 1 ? 'fills' : 'fill'} the ${bytes(budget)} disk (${bytes(archiveNow!.value)} used today). Upper bound.`,
         overBudget: `Projected from bench growth: today's archive (${bytes(archiveNow!.value)}) already fills the ${bytes(budget)} disk.`,
         help: `Inputs: ${budgetText}; today's archive ${bytes(archiveNow!.value)} from ${archiveNow!.source} on ${archiveNow!.asOf}${archiveNow!.note ? ` (${archiveNow!.note})` : ''}; ${bytesPerGas.archive.toPrecision(3)} bytes per gas from ${from}${stateText}; ${policyText}. Upper bound: bench bytes per gas is a lower bound, because the sequencer prunes history. That workload may write more bytes per gas than mainnet traffic does (Base's whole archive is ${bytes(archiveNow!.value)}), which makes the ceiling conservative in the other direction. ${why}`,
