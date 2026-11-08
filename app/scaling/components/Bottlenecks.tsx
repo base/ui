@@ -19,7 +19,6 @@ export type Limit = {
   evidence: string;
   tag?: DaWorkload['tag'];
   perSecond?: number;
-  workload?: DaWorkload;
   help?: string;
   // Help beside the ceiling itself.
   ceilingHelp?: string;
@@ -125,7 +124,7 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
     const perSecond = mix ? undefined : b.perSecond;
     const bench = w.bench ? ` (the bench mix${w.gasPerTx < mainnetGasPerTx! ? ' is lighter' : ''}: ~${Math.round(w.gasPerTx / 1e3)}k)` : '';
     const ceilingHelp = mix && mainnetGasPerTx ? `tx/s at today's mainnet average of ~${Math.round(mainnetGasPerTx! / 1e3)}k gas per transaction${bench}.` : undefined;
-    return { id: b.id, label: b.label, value: b.value, ceiling: b.text, evidence: '', tag: b.tag, perSecond, workload: w, ceilingHelp };
+    return { id: b.id, label: b.label, value: b.value, ceiling: b.text, evidence: '', tag: b.tag, perSecond, ceilingHelp };
   });
   const core = bars.filter((b) => !b.id.startsWith('da-'));
   const atLeast = (atTop: boolean) => (atTop ? `≥ ${m}` : `${m}`);
