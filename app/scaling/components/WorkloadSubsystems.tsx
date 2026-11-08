@@ -4,13 +4,12 @@ import { Text } from '../../components/ui/Text';
 import { BLOB_DATA_BYTES, BLOB_TARGET, fmt, L1_SLOT_SECONDS } from '../da/workloads';
 import { proofLimits, successfulTps, type ProvenCapacity, type Run, type Workload } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import { bytes, diskLimits, OLDER_RUN, times, type Limit } from './Bottlenecks';
+import { bytes, diskLimits, OLDER_RUN, times, type Limit, YEAR_SECONDS } from './Bottlenecks';
 import { REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Info } from './Info';
 
 const COLUMNS: [Workload, string, string][] = [['payment', 'Pay', 'Payments (B20)'], ['swap', 'Swap', 'Swaps (Uniswap v3)'], ['mix', 'Mix', 'Mainnet mix (bench run)']];
 const NAME: Record<Workload, string> = { payment: 'payments', swap: 'swaps', mix: 'mix' };
-const YEAR_SECONDS = 31_557_600;
 const NO_RUN = 'no proven run for this workload';
 const NOT_IN_RUN = 'not in this run';
 const NO_STORAGE = 'needs a run with storage measurement';

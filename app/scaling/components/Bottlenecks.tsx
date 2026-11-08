@@ -160,7 +160,7 @@ export function pickStorage(data: ProvenCapacity | undefined): StorageSource | n
   return run ? { storage: run.storage!, run } : null;
 }
 
-const YEAR_SECONDS = 31_557_600;
+export const YEAR_SECONDS = 31_557_600;
 const HEAVIEST = 'Uses the workload with the heaviest transactions, because bench workloads with lighter transactions than mainnet overstate history bytes per gas. A production measurement will replace this.';
 const SWAPS = 'Uses the swaps run, because the mix’s storage stand-ins overwrite the same slots and overstate history bytes per gas until they are tuned.';
 const days = (seconds: number) => Math.round(seconds / 86_400);
