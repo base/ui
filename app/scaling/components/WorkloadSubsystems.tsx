@@ -221,15 +221,7 @@ function sequencerCard(runs: Record<Workload, Run | undefined>): SubsystemCard {
   };
 }
 
-const MATCHES: Record<Category, (id: string) => boolean> = {
-  da: (id) => id.startsWith('da-'),
-  'disk-archive': (id) => id === 'disk-archive',
-  'disk-full': (id) => id === 'disk-full',
-  'proof-history': (id) => id === 'proof-history',
-  'witness-generation': (id) => id === 'witness-generation',
-  validators: (id) => id === 'validators',
-  execution: (id) => id === 'execution',
-};
+const matches = (c: Category, id: string) => (c === 'da' ? id.startsWith('da-') : id === c);
 
 // Cards follow the ranked table: a category's first ranked row sets its place; unranked ones keep the default order.
 export function subsystemCards(data: ProvenCapacity | undefined, limits: Limit[], snapshot: Pick<Snapshot, 'policy' | 'production'>, gasLimit: number | null): SubsystemCard[] {
@@ -237,7 +229,7 @@ export function subsystemCards(data: ProvenCapacity | undefined, limits: Limit[]
   const da = data?.da ?? { mix: null, payment: null, swap: null };
   const cards = [daCard(da, gasLimit), ...diskCards(runs, snapshot), ...proofCards(runs), validatorCard(runs), sequencerCard(runs)];
   const rank = (c: SubsystemCard) => {
-    const i = limits.findIndex((l) => l.value !== null && MATCHES[c.id](l.id));
+    const i = limits.findIndex((l) => l.value !== null && matches(c.id, l.id));
     return i < 0 ? Infinity : i;
   };
   return cards.toSorted((a, b) => rank(a) - rank(b));
