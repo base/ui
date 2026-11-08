@@ -127,14 +127,13 @@ export function rankLimits(bars: Bar[], workloads: DaWorkload[], proven: Proven 
     return { id: b.id, label: b.label, value: b.value, ceiling: b.text, evidence: '', tag: b.tag, perSecond, ceilingHelp };
   });
   const core = bars.filter((b) => !b.id.startsWith('da-'));
-  const atLeast = (atTop: boolean) => (atTop ? `≥ ${m}` : `${m}`);
   const execution: Limit[] = core.map((b) => ({
     id: b.id,
     label: b.label,
     value: b.value,
     tag: b.tag,
     help: b.help,
-    ceiling: b.value === null ? '—' : b.id === 'execution' ? atLeast(proven!.atTop) : b.text.split(' · ')[0],
+    ceiling: b.value === null ? '—' : b.id === 'execution' ? `${proven!.atTop ? '≥ ' : ''}${m}` : b.text.split(' · ')[0],
     evidence: b.value === null ? b.text : b.id === 'execution' && !proven!.atTop ? 'the next rate tested did not pass' : b.text.split(' · ').slice(1).join(' · '),
   }));
   const sorted = [...da, ...execution, ...disk].toSorted((a, b) => (a.value ?? Infinity) - (b.value ?? Infinity));
