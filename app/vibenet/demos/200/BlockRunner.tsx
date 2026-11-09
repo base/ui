@@ -1,7 +1,7 @@
 'use client';
 
 // Block Runner: an 8-bit pixel runner in Base colors where the vibenet chain is
-// the spawner. Every new head (one per 200 ms under Cobalt) is spat out as a
+// the spawner. Every new head (one per 200 ms under Denim) is spat out as a
 // block by the boss on the right edge. The player is a round Base-blue glutton:
 // tap ONE button — Space, X, or anywhere on the picture — and each tap is a
 // bite: the mouth opens briefly, swallows at most one block — one eaten.

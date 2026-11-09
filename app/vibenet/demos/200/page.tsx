@@ -12,7 +12,7 @@ export default function BlockRunnerPage() {
           Block Runner
         </Text>
         <Text variant="body" tone="muted" className="max-w-2xl">
-          Base&apos;s Cobalt upgrade mints a block every 200 ms. Block Runner is a one-button game built on that
+          Base&apos;s Denim upgrade mints a block every 200 ms. Block Runner is a one-button game built on that
           cadence: every obstacle is a real vibenet block, pushed to the screen the moment the chain seals it. Tap to
           bite a block, read its number, and see how long you can keep up.
         </Text>
