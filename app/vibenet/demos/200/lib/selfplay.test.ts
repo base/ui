@@ -80,6 +80,17 @@ describe('self-play balance', () => {
   });
 
 
+  it('even perfect tapping dies within a couple of minutes', () => {
+    // Rising pressure: speed, wall size, chew time and FULL cost keep climbing,
+    // so no tap rhythm lasts forever. Today a perfect bot averages ~50 s.
+    for (const bot of [tapBot, (g: Game) => tap(g)]) {
+      const r = play(bot, 300, 2);
+      expect(r.deaths).toBeGreaterThanOrEqual(2);
+      expect(r.longestRun).toBeLessThan(120);
+      expect(r.longestRun).toBeGreaterThan(30);
+    }
+  });
+
   it('never inhaling loses shortly after the warm-up', () => {
     const r = play(idleBot, 30, 3);
     expect(r.deaths).toBeGreaterThanOrEqual(1);
