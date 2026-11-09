@@ -110,6 +110,19 @@ export const COPY_SQUARES_PATH_40 =
 export const COPY_SQUARES_MORPH_ICON = fitIcon(COPY_SQUARES_PATH_40, 40);
 export const COPY_SQUARES_MORPH_STROKE_WIDTH = 2.5 * (24 / 40);
 
+// X (Twitter) logo, copied from BDS `packages/icons/src/svg/2/x-twitter.svg`
+// (40x40 grid, glyph inset like the rest of the BDS set).
+export function XTwitterIcon({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 40 40" fill="none" className={className}>
+      <path
+        fill="currentColor"
+        d="M21.8609 18.4692L29.1425 10.0049H27.417L21.0943 17.3543L16.0445 10.0049H10.2201L17.8564 21.1185L10.2201 29.9946H11.9457L18.6225 22.2334L23.9555 29.9946H29.78L21.8604 18.4692H21.8609ZM19.4974 21.2164L18.7237 20.1098L12.5674 11.3039H15.2179L20.186 18.4105L20.9598 19.5172L27.4178 28.7547H24.7673L19.4974 21.2168V21.2164Z"
+      />
+    </svg>
+  );
+}
+
 export function CheckIcon({ size = 16, className }: { size?: number; className?: string }) {
   return (
     <svg

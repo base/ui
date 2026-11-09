@@ -16,9 +16,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../../components/ui/Button';
+import { XTwitterIcon } from '../../../components/ui/icons';
 import { Text } from '../../../components/ui/Text';
 import { trackBlockRunnerShare } from '../../../analytics/events';
-import { VIBENET_EXPLORER_PATH, VIBENET_RPC_URL, VIBENET_WS_URL } from '../../library/config';
+import { VIBENET_RPC_URL, VIBENET_WS_URL } from '../../library/config';
 import { connectJsonRpcStream } from '../validity/lib/stream';
 import {
   BOSS_X,
@@ -42,14 +43,6 @@ import {
   type Head,
 } from './lib/game';
 import gluttonSheet from './glutton-sheet-v2.png';
-import {
-  fetchBest,
-  fetchBoard,
-  scoreWallet,
-  shortAddr,
-  submitScore,
-  type BoardEntry,
-} from './lib/leaderboard';
 import { pickShareVariant, shareText, type ShareVariant, xShareUrl } from './lib/share';
 import { Sound } from './lib/sound';
 import {
@@ -640,11 +633,10 @@ export function BlockRunner() {
   // Immersive takeover: the game fills the viewport by default on load.
   // (True fullscreen needs a user gesture, so this is the load-time version.)
   const [immersive, setImmersive] = useState(true);
-  const [board, setBoard] = useState<BoardEntry[]>([]);
-  const [chainBest, setChainBest] = useState(0);
-  const [myAddress, setMyAddress] = useState<string | null>(null);
-  const [submitState, setSubmitState] = useState<'' | 'funding' | 'submitting' | 'confirming' | 'done' | 'error'>('');
   const stageRef = useRef<HTMLDivElement | null>(null);
+  // Where the canvas actually draws inside the stage (it letterboxes with
+  // object-contain), so DOM overlays can sit in game space and scale with it.
+  const [canvasBox, setCanvasBox] = useState<{ x: number; y: number; scale: number } | null>(null);
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
   const [phase, setPhase] = useState<Game['phase']>('ready');
@@ -765,48 +757,6 @@ export function BlockRunner() {
     };
   }, [apply, setFeed]);
 
-  // Onchain high scores: poll the board, know our own best.
-  useEffect(() => {
-    let cancelled = false;
-    const wallet = scoreWallet();
-    // Deferred so the effect body itself does not set state synchronously.
-    const t = window.setTimeout(() => setMyAddress(wallet.address), 0);
-    const load = async () => {
-      try {
-        const [entries, mine] = await Promise.all([fetchBoard(), fetchBest(wallet.address)]);
-        if (!cancelled) {
-          setBoard(entries);
-          setChainBest(mine);
-        }
-      } catch {
-        /* Board is decoration; the next poll retries (or the chain regenesised). */
-      }
-    };
-    void load();
-    const id = window.setInterval(() => {
-      if (!document.hidden) void load();
-    }, 12_000);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-      window.clearInterval(id);
-    };
-  }, []);
-
-  const postScore = useCallback(async () => {
-    const s = gameRef.current.score;
-    if (s <= 0 || submitState === 'funding' || submitState === 'submitting' || submitState === 'confirming') return;
-    setSubmitState('funding');
-    try {
-      await submitScore(s, (st) => setSubmitState(st));
-      setSubmitState('done');
-      setChainBest((b) => Math.max(b, s));
-      setBoard(await fetchBoard());
-    } catch {
-      setSubmitState('error');
-    }
-  }, [submitState]);
-
   const shareOnX = useCallback(() => {
     trackBlockRunnerShare(shareVariant, score);
     window.open(xShareUrl(shareText(score, shareVariant)), '_blank', 'noopener,noreferrer');
@@ -822,6 +772,28 @@ export function BlockRunner() {
   }, []);
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    const stage = stageRef.current;
+    if (!canvas || !stage) return;
+    const measure = () => {
+      const c = canvas.getBoundingClientRect();
+      const st = stage.getBoundingClientRect();
+      const scale = Math.min(c.width / WIDTH, c.height / HEIGHT);
+      if (!(scale > 0)) return;
+      setCanvasBox({
+        x: c.left - st.left + (c.width - WIDTH * scale) / 2,
+        y: c.top - st.top + (c.height - HEIGHT * scale) / 2,
+        scale,
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(canvas);
+    ro.observe(stage);
+    return () => ro.disconnect();
+  }, [immersive, isFullscreen]);
+
+  useEffect(() => {
     const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
@@ -830,7 +802,6 @@ export function BlockRunner() {
   // Input.
   const doTap = useCallback(() => apply(tap(gameRef.current)), [apply]);
   const doRestart = useCallback(() => {
-    setSubmitState((st) => (st === 'done' || st === 'error' ? '' : st));
     apply(restart(gameRef.current));
   }, [apply]);
 
@@ -1024,9 +995,6 @@ export function BlockRunner() {
         aria-label={`Block Runner. ${phase === 'running' ? `Score ${score}.` : 'Tap space or the screen to start eating.'}`}
         role="img"
       />
-      {/* Once a submit starts, the board's own poll can raise chainBest past
-          the score mid-flight — keep the prompt mounted on submitState so the
-          progress and the success line survive their own success. */}
       <div className="pointer-events-none absolute inset-x-0 top-2 flex items-start justify-between px-4">
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] uppercase tracking-[0.6px] text-white/60">Latest block</span>
@@ -1041,40 +1009,34 @@ export function BlockRunner() {
           <GameStat label="Best" value={String(best)} />
         </div>
       </div>
-      {phase === 'dead' && score > 0 ? (
-        <div className="absolute inset-x-0 bottom-[7%] flex justify-center">
-          <div className="flex items-center gap-3 rounded-xl border border-bds-blue-60 bg-[#0b1030]/95 px-4 py-3 shadow-lg">
-            <Button size="sm" variant="secondary" onClick={shareOnX}>
+      {phase === 'dead' && score > 0 && canvasBox ? (
+        (() => {
+          // Sized in game pixels so it keeps the same proportion to the
+          // game-over card at any screen size: centred on the road strip,
+          // about as tall as the card's TAP TO RUN AGAIN bar, clamped to a
+          // usable touch target on phones and BDS lg-ish on big screens.
+          const { x, y, scale } = canvasBox;
+          const height = Math.round(Math.min(64, Math.max(36, 30 * scale)));
+          const fontSize = Math.round(Math.min(22, Math.max(13, 10 * scale)));
+          return (
+            <Button
+              onClick={shareOnX}
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: x + (WIDTH / 2) * scale,
+                top: y + (GROUND_Y + 30) * scale,
+                height,
+                paddingInline: Math.round(height * 0.45),
+                gap: Math.round(fontSize * 0.4),
+                fontSize,
+                lineHeight: 1,
+              }}
+            >
+              <XTwitterIcon size={Math.round(fontSize * 1.6)} className="-ml-[0.3em]" />
               Share on X
             </Button>
-            {score <= chainBest && submitState === '' ? null : submitState === 'done' ? (
-              <Text variant="label.regular" className="text-bds-blue-15">
-                On the board — tap the game to run again.
-              </Text>
-            ) : (
-              <>
-                <Text variant="label.regular" className="text-bds-blue-15">
-                  New onchain best!
-                </Text>
-                <Button
-                  size="sm"
-                  onClick={() => void postScore()}
-                  disabled={submitState === 'funding' || submitState === 'submitting' || submitState === 'confirming'}
-                >
-                  {submitState === 'funding'
-                    ? 'Funding wallet…'
-                    : submitState === 'submitting'
-                      ? 'Submitting…'
-                      : submitState === 'confirming'
-                        ? 'Confirming…'
-                        : submitState === 'error'
-                          ? 'Retry post'
-                          : `Post ${score} onchain`}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+          );
+        })()
       ) : null}
       {immersive && !isFullscreen ? (
         <div className="absolute bottom-4 right-4 flex items-center gap-2">
@@ -1099,89 +1061,6 @@ export function BlockRunner() {
       ) : null}
       </div>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Text variant="headline">Onchain high scores</Text>
-          <div className="flex items-center gap-3">
-            {/* Once a submit starts, the board's own poll can raise chainBest past
-          the score mid-flight — keep the prompt mounted on submitState so the
-          progress and the success line survive their own success. */}
-      <div className="pointer-events-none absolute inset-x-0 top-2 flex items-start justify-between px-4">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] uppercase tracking-[0.6px] text-white/60">Latest block</span>
-          <div className="font-doto text-[22px] leading-none tabular-nums text-white">
-            {head ? head.number.toLocaleString() : '———'}
-            {slot ? <span className="text-bds-blue-30"> {slot}</span> : null}
-          </div>
-        </div>
-        <div className="flex items-start gap-6">
-          <GameStat label="Blocks / s" value={rate.toFixed(1)} />
-          <GameStat label="Eaten" value={String(score)} />
-          <GameStat label="Best" value={String(best)} />
-        </div>
-      </div>
-      {phase === 'dead' && score > 0 && (score > chainBest || submitState !== '') ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void postScore()}
-                disabled={submitState === 'funding' || submitState === 'submitting' || submitState === 'confirming'}
-              >
-                {submitState === 'funding'
-                  ? 'Funding wallet…'
-                  : submitState === 'submitting'
-                    ? 'Submitting…'
-                    : submitState === 'confirming'
-                      ? 'Confirming…'
-                      : `Post ${score} onchain`}
-              </Button>
-            ) : null}
-            {submitState === 'error' ? (
-              <Text variant="footnote" className="text-bds-red-60">
-                Submission failed — try again.
-              </Text>
-            ) : null}
-          </div>
-        </div>
-        <div className="overflow-hidden rounded-lg border border-bds-gray-10 dark:border-white/10">
-          {board.length === 0 ? (
-            <Text variant="label.regular" tone="muted" className="block px-4 py-3">
-              No scores onchain yet — die proudly and post yours.
-            </Text>
-          ) : (
-            <ul className="divide-y divide-bds-gray-10 dark:divide-white/10">
-              {board.map((e, i) => (
-                <li
-                  key={e.player}
-                  className={`flex items-center gap-3 px-4 py-2 text-[13px] ${
-                    myAddress && e.player.toLowerCase() === myAddress.toLowerCase() ? 'bg-bds-blue-0' : ''
-                  }`}
-                >
-                  <span className="w-6 shrink-0 text-bds-gray-50">{i + 1}</span>
-                  <a
-                    href={`${VIBENET_EXPLORER_PATH}/address/${e.player}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-base-blue hover:underline"
-                  >
-                    {shortAddr(e.player)}
-                  </a>
-                  {myAddress && e.player.toLowerCase() === myAddress.toLowerCase() ? (
-                    <span className="text-[11px] uppercase tracking-[0.6px] text-bds-gray-50">you</span>
-                  ) : null}
-                  <span className="ml-auto font-doto text-[18px] tabular-nums">{e.score}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <Text variant="footnote" tone="muted">
-          Your browser plays as{' '}
-          {myAddress ? <span className="font-mono">{shortAddr(myAddress as `0x${string}`)}</span> : '…'} and the
-          faucet funds its first submission.
-        </Text>
-      </section>
-
       <div className="grid gap-6 border-t border-bds-gray-10 pt-6 sm:grid-cols-2 dark:border-white/10">
         <section className="flex flex-col gap-2">
           <Text variant="label">How to play</Text>
@@ -1203,7 +1082,6 @@ export function BlockRunner() {
               'Block height follows gas used.',
               `Swallow a block to read its number and slot${head ? `, like ${blockLabel(head)}` : ''}.`,
               'The beat runs at one note per block.',
-              'Scores live in a contract on vibenet, keyed by the wallet that posted them. A devnet regenesis wipes the board.',
             ]}
           />
         </section>
