@@ -43,6 +43,7 @@ export {
   parseReceiptFields,
   prepareTransactionRequest,
   sendTransaction,
+  serializeTransaction,
   toEoaAccount,
   txValueCost,
 } from '../../../viem/src/eip8130/index.ts'
@@ -50,9 +51,11 @@ export {
 // ERC-8168 (payer / sponsorship)
 export {
   createPayerClient,
+  encodePayment,
   encodeTokenTransfer,
   isDeclinedOffer,
   isTokenOffer,
   parsePayerError,
+  requiredPaymentAmount,
   selectPaymentOption,
 } from '../../../viem/src/eip8168/index.ts'
