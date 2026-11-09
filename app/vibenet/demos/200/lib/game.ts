@@ -2,7 +2,7 @@
 // be unit-tested and rendered by anything.
 //
 // The chain is the spawner: every new vibenet head (one per 200 ms under
-// Cobalt) becomes one block that the boss on the right edge spits out. The
+// Denim) becomes one block that the boss on the right edge spits out. The
 // player is a round little glutton who auto-runs and holds ONE button to
 // inhale: the nearest block in range is dragged into its mouth and swallowed —
 // one eaten — revealing its number and 200 ms slot. Busy walls are
@@ -23,16 +23,23 @@ export const PLAYER_H = 48;
 export const INHALE_RANGE = 280;
 /** Extra approach speed suction adds, divided by the block's weight. */
 const PULL_SPEED = 1300;
-/** Seconds of chew (mouth shut, cheeks full) after each swallow. */
+/** Seconds of chew (mouth shut, cheeks full) after each swallow, on an empty belly. */
 const PUFF_TIME = 0.12;
+/** Extra chew at a full belly, as a fraction of PUFF_TIME. Near a full belly a chew
+ * outlasts the 200 ms gap between blocks, so a full belly makes walls bite. */
+const CHEW_SLOWDOWN = 0.9;
+/** Score over which the full-belly chew slowdown phases in. */
+const CHEW_RAMP = 240;
 /** The mouth must be visibly open this long before a pulled block goes down. */
 const OPEN_MIN = 0.07;
 /** One tap opens the mouth for this long — one bite per tap. */
 const INHALE_BURST = 0.28;
 /** Fullness gained per unit of block weight. Only the full-mode cycle empties it. */
 const FULL_PER_WEIGHT = 0.11;
+/** Each FULL already reached this run makes the next one need this much more food. */
+const FULL_GROWTH = 0.25;
 /** Seconds of FULL mode: too round to hurt, rolling over every block. */
-const FULL_TIME = 2.5;
+const FULL_TIME = 1.5;
 /** How fast he slims back down once full mode ends. */
 const DEFLATE_RATE = 2.2;
 
@@ -57,9 +64,19 @@ const BLOCK_GRAVITY = 2400;
 /** Sprite pixels per block; width = 16 × scale. */
 const MIN_BLOCK_H = 30;
 const MAX_BLOCK_H = 112;
+/** Total height spread (px) of the per-block salt: each wall lands up to half
+ * this taller or shorter than its gas alone would make it. */
+const HEIGHT_SALT = 40;
 
 const BASE_SPEED = 560;
 const MAX_SPEED_BONUS = 160;
+/** Past the early cap, speed keeps creeping up per block eaten… */
+const LATE_SPEED_START = 60;
+const LATE_SPEED_PER_BLOCK = 0.8;
+/** …to this much more, so long runs keep getting harder instead of flatlining. */
+const LATE_SPEED_MAX = 240;
+/** Score over which block size keeps growing after the early difficulty cap. */
+const LATE_SIZE_SPAN = 240;
 const GRAVITY = 2000;
 const LABEL_LIFE = 1.2;
 const PARTICLE_LIFE = 0.6;
@@ -69,14 +86,14 @@ const BOSS_MOUTH_OPEN = 0.16;
 export const MAX_HEARTS = 3;
 const HURT_INVULN = 1.1;
 /** Bursts needed to earn a heart back. */
-const HEART_REFILL = 12;
+const HEART_REFILL = 25;
 /** Seconds of small blocks at the start of a run, so the rhythm lands first. */
 const WARMUP = 8;
 export const RESTART_GRACE = 0.4;
 
 export type Head = {
   number: number;
-  /** Cobalt millisecond timestamp, or null on chains without it. */
+  /** Denim millisecond timestamp, or null on chains without it. */
   timestampMs: number | null;
   gasUsed: number;
 };
@@ -147,6 +164,8 @@ export type Game = {
   invuln: number;
   /** Bursts banked toward the next heart. */
   heartProgress: number;
+  /** FULL modes reached this run; each one makes the next need more food. */
+  feasts: number;
   nextId: number;
   /** Set for one step when something audible happened; the renderer clears it. */
   events: GameEvent[];
@@ -183,14 +202,41 @@ export function createGame(): Game {
     hearts: MAX_HEARTS,
     invuln: 0,
     heartProgress: 0,
+    feasts: 0,
     nextId: 1,
     events: [],
   };
 }
 
-/** Scroll speed: ramps gently with score, dino-style, and caps. */
+/** Scroll speed: ramps quickly early, dino-style, then keeps creeping up to a higher cap. */
 export function speedFor(score: number): number {
-  return BASE_SPEED + Math.min(score * 3, MAX_SPEED_BONUS);
+  const late = Math.min(Math.max(0, score - LATE_SPEED_START) * LATE_SPEED_PER_BLOCK, LATE_SPEED_MAX);
+  return BASE_SPEED + Math.min(score * 3, MAX_SPEED_BONUS) + late;
+}
+
+/** Chew time after a swallow: the fuller the belly, the longer the mouth stays
+ * busy — an effect that phases in over the first CHEW_RAMP blocks of a run. */
+export function chewTime(fullness: number, score = CHEW_RAMP): number {
+  const ramp = Math.min(1, Math.max(0, score / CHEW_RAMP));
+  return PUFF_TIME * (1 + CHEW_SLOWDOWN * ramp * Math.min(1, Math.max(0, fullness)));
+}
+
+/** Belly gained by a swallow; every FULL already reached makes the next one cost more. */
+export function fullGain(weight: number, feasts: number): number {
+  return (FULL_PER_WEIGHT * weight) / (1 + FULL_GROWTH * feasts);
+}
+
+/**
+ * A stable 0..1 value per block number (a 32-bit integer hash). Seeding from
+ * the block keeps the salt the same for everyone watching the chain and keeps
+ * tests deterministic — and it only ever touches size, never spawn timing.
+ */
+export function blockSalt(blockNumber: number): number {
+  let x = (blockNumber | 0) ^ 0x9e3779b9;
+  x = Math.imul(x ^ (x >>> 16), 0x85ebca6b);
+  x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
+  x ^= x >>> 16;
+  return (x >>> 0) / 4294967296;
 }
 
 /**
@@ -203,11 +249,18 @@ export function speedFor(score: number): number {
 export function blockSizeFor(gasUsed: number, score = 0, blockNumber = 0, time = WARMUP): { w: number; h: number } {
   const activity = Math.min(1, Math.max(0, (gasUsed - 200_000) / 800_000));
   const difficulty = Math.min(1, score / 60);
-  let h = Math.round(MIN_BLOCK_H + (MAX_BLOCK_H - MIN_BLOCK_H) * Math.min(1, activity * (0.55 + 0.45 * difficulty) + difficulty * 0.25));
+  // Late game: past the early cap, walls keep getting taller and wider.
+  const late = Math.min(1, Math.max(0, score - 60) / LATE_SIZE_SPAN);
+  const gasH =
+    MIN_BLOCK_H +
+    (MAX_BLOCK_H - MIN_BLOCK_H) * Math.min(1, activity * (0.55 + 0.45 * difficulty) + difficulty * 0.25 + late * 0.25);
+  // Salt: quiet stretches of the chain would otherwise be rows of identical
+  // walls, so each block gets a stable random nudge on top of its gas height.
+  let h = Math.round(Math.min(MAX_BLOCK_H, Math.max(MIN_BLOCK_H, gasH + (blockSalt(blockNumber) - 0.5) * HEIGHT_SALT)));
   // Base width from activity; every fourth block gets a size bump once the run
   // is under way, so widths mix rather than stepping up in lockstep.
   let scale = activity < 0.15 ? 2 : activity < 0.5 ? 3 : 4;
-  if (difficulty > 0.3 && blockNumber % 4 === 0) scale = Math.min(4, scale + 1);
+  if (difficulty > 0.3 && blockNumber % (late >= 0.5 ? 2 : 4) === 0) scale = Math.min(4, scale + 1);
   if (difficulty < 0.15 && scale === 4) scale = 3;
   // Warm-up: the first seconds are small blocks the runner can step over, so
   // the 200 ms rhythm is felt before the walls arrive. Every block still lands.
@@ -224,7 +277,7 @@ export function weightFor(w: number): number {
   return Math.min(2, Math.max(1, Math.round(w / 16) - 1));
 }
 
-/** The 200 ms slot inside the second, `.000` … `.800`, or null pre-Cobalt. */
+/** The 200 ms slot inside the second, `.000` … `.800`, or null pre-Denim. */
 export function slotOf(timestampMs: number | null): string | null {
   if (timestampMs === null) return null;
   return `.${String(timestampMs % 1000).padStart(3, '0')}`;
@@ -332,6 +385,7 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
   let score = game.score;
   let hearts = game.hearts;
   let heartProgress = game.heartProgress;
+  let feasts = game.feasts;
   let invuln = Math.max(0, game.invuln - dt);
 
   // FULL mode leaves afterimages — the unstoppable barrel-along up top.
@@ -451,17 +505,18 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
       // the belly instead (they fill it twice as fast).
       score += 1;
       heartProgress += 1;
-      puffed = PUFF_TIME;
       labels = [...labels, { x: mouthX + 20, y: pulled.y - 14, text: blockLabel(pulled), age: 0 }];
       particles = [...particles, ...shards(mouthX + 10, pulled.y + pulled.h / 2, rng)];
       events.push('gulp');
       mouthOpen = 0;
       inhaling = false;
       inhaleTime = 0;
-      fullness = Math.min(1, fullness + FULL_PER_WEIGHT * pulled.weight);
+      fullness = Math.min(1, fullness + fullGain(pulled.weight, feasts));
+      puffed = chewTime(fullness, score);
       if (fullness >= 1) {
         stuffed = true;
         fullTime = FULL_TIME;
+        feasts += 1;
         events.push('stuffed');
       }
     } else {
@@ -501,14 +556,15 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     blocks = blocks.filter((b) => b.id !== bonked.id);
     score += 1;
     heartProgress += 1;
-    puffed = PUFF_TIME;
     mouthOpen = 0;
     inhaling = false;
     inhaleTime = 0;
-    fullness = Math.min(1, fullness + FULL_PER_WEIGHT * bonked.weight);
+    fullness = Math.min(1, fullness + fullGain(bonked.weight, feasts));
+    puffed = chewTime(fullness, score);
     if (fullness >= 1) {
       stuffed = true;
       fullTime = FULL_TIME;
+      feasts += 1;
       events.push('stuffed');
     }
     labels = [...labels, { x: PLAYER_X + PLAYER_W, y: bonked.y - 14, text: blockLabel(bonked), age: 0 }];
@@ -594,6 +650,7 @@ export function step(game: Game, dt: number, rng: () => number = Math.random): G
     hearts,
     invuln: dead ? 0 : invuln,
     heartProgress,
+    feasts,
     events,
   };
 }

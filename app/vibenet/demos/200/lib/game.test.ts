@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  blockSalt,
   blockSizeFor,
+  chewTime,
+  fullGain,
   blockLabel,
   BOSS_X,
   createGame,
@@ -98,7 +101,9 @@ describe('speedFor', () => {
   it('ramps with score and caps', () => {
     expect(speedFor(0)).toBe(560);
     expect(speedFor(10)).toBe(590);
-    expect(speedFor(1_000)).toBe(720);
+    expect(speedFor(60)).toBe(720);
+    expect(speedFor(160)).toBe(800);
+    expect(speedFor(1_000)).toBe(960);
   });
 });
 
@@ -285,7 +290,7 @@ describe('fullness / stuffed', () => {
     }
     expect(g.stuffed).toBe(true);
     expect(announced).toBe(true);
-    expect(g.fullTime).toBeGreaterThan(2);
+    expect(g.fullTime).toBeGreaterThan(1);
     // A new block is not eaten while FULL — it just rolls under him.
     g = { ...g, blocks: [blk({ id: 10, x: PLAYER_X + 260, h: 60, weight: 1 })] };
     const before = g.score;
@@ -444,7 +449,7 @@ describe('step', () => {
 
 
   it('swallowing blocks earns a heart back', () => {
-    let g = tap({ ...start(createGame()), hearts: 1, heartProgress: 11 });
+    let g = tap({ ...start(createGame()), hearts: 1, heartProgress: 24 });
     g = { ...g, blocks: [blk({ id: 9, x: PLAYER_X + 200, h: 60 })] };
     g = run(g, 0.5);
     expect(g.hearts).toBe(2);
@@ -456,5 +461,55 @@ describe('step', () => {
     expect(g.phase).toBe('ready');
     expect(g.labels).toHaveLength(0);
     expect(g.shake).toBe(0);
+  });
+});
+
+describe('rising pressure', () => {
+  it('chews longer on a fuller belly once the run is under way', () => {
+    expect(chewTime(0, 0)).toBeCloseTo(0.12);
+    expect(chewTime(1, 0)).toBeCloseTo(0.12);
+    expect(chewTime(0, 500)).toBeCloseTo(0.12);
+    // A full belly late in a run chews past the 200 ms gap between blocks.
+    expect(chewTime(1, 500)).toBeGreaterThan(0.2);
+    expect(chewTime(0.5, 120)).toBeGreaterThan(chewTime(0.5, 60));
+  });
+
+  it('makes each FULL need more food than the last', () => {
+    expect(fullGain(1, 0)).toBeCloseTo(0.11);
+    expect(fullGain(1, 1)).toBeLessThan(fullGain(1, 0));
+    expect(fullGain(1, 4)).toBeCloseTo(0.055);
+  });
+
+  it('keeps growing walls after the early difficulty cap', () => {
+    expect(blockSizeFor(300_000, 300).h).toBeGreaterThan(blockSizeFor(300_000, 60).h);
+    // Late game bumps every other block, not just every fourth.
+    expect(blockSizeFor(300_000, 300, 6).w).toBe(48);
+    expect(blockSizeFor(300_000, 60, 6).w).toBe(32);
+  });
+
+  it('counts FULL modes reached', () => {
+    let g = tap({ ...start(createGame()), fullness: 0.99 });
+    g = { ...g, blocks: [blk({ id: 3, x: PLAYER_X + 120, h: 40 })] };
+    g = run(g, 0.5);
+    expect(g.stuffed).toBe(true);
+    expect(g.feasts).toBe(1);
+  });
+});
+
+describe('block salt', () => {
+  it('is a stable 0..1 value per block number', () => {
+    const values = Array.from({ length: 1_000 }, (_, i) => blockSalt(3_000_000 + i));
+    expect(values.every((v) => v >= 0 && v < 1)).toBe(true);
+    expect(blockSalt(3_000_123)).toBe(blockSalt(3_000_123));
+    // Spread across the range, not clumped.
+    expect(values.filter((v) => v < 0.25).length).toBeGreaterThan(150);
+    expect(values.filter((v) => v > 0.75).length).toBeGreaterThan(150);
+  });
+
+  it('gives identical-gas blocks different heights, inside the block limits', () => {
+    const heights = Array.from({ length: 200 }, (_, i) => blockSizeFor(210_000, 30, 3_000_000 + i).h);
+    expect(new Set(heights).size).toBeGreaterThan(20);
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(30);
+    expect(Math.max(...heights)).toBeLessThanOrEqual(112);
   });
 });
