@@ -4,13 +4,12 @@ import { Text } from '../../components/ui/Text';
 import { BLOB_DATA_BYTES, BLOB_TARGET, fmt, L1_SLOT_SECONDS } from '../da/workloads';
 import { proofLimits, successfulTps, type ProvenCapacity, type Run, type Workload } from '../proven/capacity';
 import type { Snapshot } from '../snapshot.mjs';
-import { bytes, diskLimits, OLDER_RUN, times, type Limit } from './Bottlenecks';
+import { bytes, diskLimits, OLDER_RUN, times, type Limit, YEAR_SECONDS } from './Bottlenecks';
 import { REPLAY_BLOCKS_PER_SECOND } from './Guardrails';
 import { Info } from './Info';
 
 const COLUMNS: [Workload, string, string][] = [['payment', 'Pay', 'Payments (B20)'], ['swap', 'Swap', 'Swaps (Uniswap v3)'], ['mix', 'Mix', 'Mainnet mix (bench run)']];
 const NAME: Record<Workload, string> = { payment: 'payments', swap: 'swaps', mix: 'mix' };
-const YEAR_SECONDS = 31_557_600;
 const NO_RUN = 'no proven run for this workload';
 const NOT_IN_RUN = 'not in this run';
 const NO_STORAGE = 'needs a run with storage measurement';
@@ -221,15 +220,7 @@ function sequencerCard(runs: Record<Workload, Run | undefined>): SubsystemCard {
   };
 }
 
-const MATCHES: Record<Category, (id: string) => boolean> = {
-  da: (id) => id.startsWith('da-'),
-  'disk-archive': (id) => id === 'disk-archive',
-  'disk-full': (id) => id === 'disk-full',
-  'proof-history': (id) => id === 'proof-history',
-  'witness-generation': (id) => id === 'witness-generation',
-  validators: (id) => id === 'validators',
-  execution: (id) => id === 'execution',
-};
+const matches = (c: Category, id: string) => (c === 'da' ? id.startsWith('da-') : id === c);
 
 // Cards follow the ranked table: a category's first ranked row sets its place; unranked ones keep the default order.
 export function subsystemCards(data: ProvenCapacity | undefined, limits: Limit[], snapshot: Pick<Snapshot, 'policy' | 'production'>, gasLimit: number | null): SubsystemCard[] {
@@ -237,7 +228,7 @@ export function subsystemCards(data: ProvenCapacity | undefined, limits: Limit[]
   const da = data?.da ?? { mix: null, payment: null, swap: null };
   const cards = [daCard(da, gasLimit), ...diskCards(runs, snapshot), ...proofCards(runs), validatorCard(runs), sequencerCard(runs)];
   const rank = (c: SubsystemCard) => {
-    const i = limits.findIndex((l) => l.value !== null && MATCHES[c.id](l.id));
+    const i = limits.findIndex((l) => l.value !== null && matches(c.id, l.id));
     return i < 0 ? Infinity : i;
   };
   return cards.toSorted((a, b) => rank(a) - rank(b));
