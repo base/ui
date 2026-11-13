@@ -64,6 +64,8 @@ function withQuery(path: string, params: Record<string, string | number | undefi
 export const explorerApi = {
   blocks: (chain: ExplorerChain, signal?: AbortSignal) =>
     get<BlocksResponse>('/api/internal-explorer/blocks', chain, signal),
+  /** Server-Sent Events URL for live BlockSummary heads; 404s when the chain has no WS URL. */
+  headStreamUrl: (chain: ExplorerChain) => `/api/internal-explorer/heads?chain=${chain}`,
   blocksPage: (
     chain: ExplorerChain,
     options?: { cursor?: number; limit?: number },
