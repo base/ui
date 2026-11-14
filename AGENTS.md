@@ -152,7 +152,7 @@ list when you add another internal-only surface.
 
 When you add or change an environment-specific section:
 
-1. Add/edit its `deploy.config.mjs` entry. That alone makes middleware 404 its
+1. Add/edit its `deploy.config.mjs` entry. That alone makes `proxy.ts` 404 its
    routes (`disabledRoutePrefixes()`) and drops it from the generated
    llms/agents artifacts (`llms.config.mjs` uses `disabledRouteGlobs()`).
 2. Gate the per-section surfaces that aren't automatic: the nav entry
