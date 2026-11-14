@@ -68,7 +68,7 @@ of a single commit, use `SKIP_DOCS_HOOK=1` or put `[skip-docs]` in the message.
   path data on a shared 24x24 grid (`fitIcon()` first if the source art isn't
   already on that grid). See `CLIPBOARD_MORPH_ICON`/`CHECK_MORPH_ICON` in
   `app/components/ui/icons.tsx` and their use in
-  `app/demos/b20/components/CopyPromptButton.tsx`,
+  `app/vibenet/demos/b20/components/CopyPromptButton.tsx`,
   `app/internal-explorer/components/CopyButton.tsx`, and
   `app/vibenet/components/CopyableValue.tsx`.
 
