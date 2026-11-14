@@ -97,10 +97,6 @@ Two separate suites, for two separate purposes — don't mix their files.
   real regressions, making it pure maintenance overhead. Add a smoke test
   once a demo's surface has settled, not before.
 
-- Run the llms-kit suite (generation scripts under `scripts/`, unrelated to
-  the app tests above): `node --test tests/`
-- Include liveness checks against the deployed site: `LLMS_LIVE=1 node --test tests/`
-
 ## Analytics
 
 This app uses Vercel Web Analytics. Two things must stay in place:
