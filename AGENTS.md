@@ -91,7 +91,7 @@ Two separate suites, for two separate purposes — don't mix their files.
 
   **When to add an e2e test**: only for surfaces that are stable — established
   pages/journeys not expected to change shape week to week (e.g. the home
-  page, core nav, Snapshots, Upgrades). Do not add e2e coverage for a new demo
+  page, core nav, Snapshots). Do not add e2e coverage for a new demo
   or anything still being iterated on (e.g. work under `app/vibenet/demos/`)
   — the UI will keep shifting under the test faster than the test catches
   real regressions, making it pure maintenance overhead. Add a smoke test
