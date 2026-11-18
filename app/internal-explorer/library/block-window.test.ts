@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
-import { mergeBlockWindow } from './block-window';
+import { blocksAhead, mergeBlockWindow } from './block-window';
 import type { BlockSummary } from './types';
 
 function block(number: number, hash = `0x${number.toString(16)}`): BlockSummary {
@@ -51,5 +51,17 @@ describe('mergeBlockWindow', () => {
     const [merged] = mergeBlockWindow([filled], [header], 10);
     assert.equal(merged.transactionCount, 2);
     assert.equal(merged.timestampMs, 1_800_000_000_400);
+  });
+});
+
+describe('blocksAhead', () => {
+  test('counts heights the chain has advanced past the shown top row', () => {
+    assert.equal(blocksAhead([block(57), block(56)], [block(42), block(41)]), 15);
+  });
+
+  test('is zero when the shown list is current or either list is empty', () => {
+    assert.equal(blocksAhead([block(42)], [block(42)]), 0);
+    assert.equal(blocksAhead([], [block(42)]), 0);
+    assert.equal(blocksAhead([block(42)], []), 0);
   });
 });

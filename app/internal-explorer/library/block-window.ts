@@ -29,3 +29,12 @@ export function mergeBlockWindow(
   }
   return [...byNumber.values()].sort((lhs, rhs) => rhs.number - lhs.number).slice(0, limit);
 }
+
+/** Blocks the chain has advanced past the top of a held (not yet redrawn) list. */
+export function blocksAhead(
+  latest: readonly BlockSummary[],
+  shown: readonly BlockSummary[],
+): number {
+  if (latest.length === 0 || shown.length === 0) return 0;
+  return Math.max(0, latest[0].number - shown[0].number);
+}

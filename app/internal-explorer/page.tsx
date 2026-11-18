@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, SetStateAction } from 'react';
 
 import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
@@ -41,6 +41,8 @@ import {
 } from './library/types';
 import { useExplorerChain } from './library/useExplorerChain';
 import { useShadowDelta } from './library/useShadowDelta';
+import { BLOCK_CADENCES, useBlockCadence, type BlockCadence } from './library/useBlockCadence';
+import { useHeldBlocks } from './library/useHeldBlocks';
 
 type Tab = 'blocks' | 'rejected';
 
@@ -114,11 +116,14 @@ function BlockRow({
   chain,
   showShadowDelta,
   shadowBlock,
+  now,
 }: {
   block: BlockSummary;
   chain: ExplorerChain;
   showShadowDelta: boolean;
   shadowBlock?: ShadowBlockSummary;
+  /** Reference time for the age label, so ages change only when the list does. */
+  now: number;
 }) {
   const delta = shadowBlock ? calculateShadowDelta(block.gasUsed, block.transactionCount, shadowBlock) : null;
   const gasDiffPct = delta?.gasDiffPct;
@@ -171,8 +176,8 @@ function BlockRow({
           </Text>
           <span className="text-xs text-bds-gray-50">
             {block.timestampMs !== null
-              ? timeAgoFromMilliseconds(block.timestampMs)
-              : timeAgoFromSeconds(block.timestamp)}
+              ? timeAgoFromMilliseconds(block.timestampMs, now)
+              : timeAgoFromSeconds(block.timestamp, now)}
           </span>
         </div>
         <div className="truncate font-mono text-xs text-bds-gray-60 dark:text-bds-gray-40">
@@ -224,12 +229,30 @@ function BlocksTab({
   chain: ExplorerChain;
   onError: (error: string | null) => void;
 }) {
-  const [blocks, setBlocks] = useState<BlockSummary[]>([]);
+  const [blocks, setBlockList] = useState<BlockSummary[]>([]);
+  // When `blocks` last changed, so a live list's ages are measured from the
+  // moment it updated rather than from whenever the page re-renders.
+  const [blocksAt, setBlocksAt] = useState(0);
+  const setBlocks = useCallback((next: SetStateAction<BlockSummary[]>) => {
+    setBlockList(next);
+    setBlocksAt(Date.now());
+  }, []);
   const [loading, setLoading] = useState(true);
   const [fetchFailed, setFetchFailed] = useState(false);
   const { showShadowDelta, setShowShadowDelta } = useShadowDelta();
   const [shadowCandidates, setShadowCandidates] = useState<Record<string, ShadowBlockSummary[]>>({});
-
+  const { cadence, intervalMs, setCadence } = useBlockCadence();
+  // The list freezes while the pointer or keyboard focus is on it, so rows
+  // don't move out from under a click.
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const paused = hovered || focused;
+  const held = useHeldBlocks(blocks, {
+    blocksAt,
+    intervalMs,
+    paused,
+    resetKey: `${chain}:${showShadowDelta}`,
+  });
   // Canonical-block view: load the chain tip once, then follow the live head
   // stream. Poll instead while the stream is unavailable (not configured for
   // the chain, or reconnecting). The shadow-delta view has its own source
@@ -301,7 +324,7 @@ function BlocksTab({
       source?.close();
       stopPolling();
     };
-  }, [chain, showShadowDelta]);
+  }, [chain, showShadowDelta, setBlocks]);
 
   // The canonical tip rarely holds a block with a shadow replacement, so this
   // view is driven by recent shadow blocks (dense, newest first) with each
@@ -370,7 +393,7 @@ function BlocksTab({
       activeController?.abort();
       window.clearInterval(timer);
     };
-  }, [chain, showShadowDelta]);
+  }, [chain, showShadowDelta, setBlocks]);
 
   return (
     <section className="flex flex-col gap-4">
@@ -378,6 +401,13 @@ function BlocksTab({
         <Text variant="headline">Latest Blocks</Text>
         <div className="flex flex-wrap items-center gap-3">
           <ActiveBlockButton chain={chain} onError={onError} />
+          <Tabs
+            ariaLabel="Block list update interval"
+            size="sm"
+            value={cadence}
+            items={BLOCK_CADENCES.map((option) => ({ value: option.value, label: option.label }))}
+            onChange={(value) => setCadence(value as BlockCadence)}
+          />
           <label className="inline-flex cursor-pointer select-none items-center gap-2 text-sm text-bds-gray-60 dark:text-bds-gray-40">
             <input
               type="checkbox"
@@ -397,34 +427,60 @@ function BlocksTab({
           </Banner>
         </div>
       ) : null}
-      <Card className="overflow-hidden bg-background dark:bg-white/5">
-        {loading && blocks.length === 0 ? (
-          <div className="flex items-center justify-center gap-3 py-12">
-            <Spinner className="text-base-blue" />
-            <Text variant="label.regular" tone="muted">
-              Loading blocks…
-            </Text>
-          </div>
-        ) : blocks.length > 0 ? (
-          <div className="divide-y divide-bds-gray-10 dark:divide-white/10">
-            {blocks.map((block) => (
+      <div
+        className="relative"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={(event) => {
+          if (event.target.matches(':focus-visible')) setFocused(true);
+        }}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+        }}
+      >
+        {/* Stays mounted for the whole pause: unmounting a focused button
+            fires no blur, which would leave the list paused. */}
+        {paused && held.visible.length > 0 ? (
+          <button
+            type="button"
+            onClick={held.showLatest}
+            className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full bg-base-blue px-3 py-1 text-xs font-medium text-white shadow-md"
+          >
+            {held.newBlocks > 0
+              ? `${held.newBlocks.toLocaleString()} new ${held.newBlocks === 1 ? 'block' : 'blocks'}`
+              : 'Paused'}
+          </button>
+        ) : null}
+        <Card className="overflow-hidden bg-background dark:bg-white/5">
+          {loading && held.visible.length === 0 ? (
+            <div className="flex items-center justify-center gap-3 py-12">
+              <Spinner className="text-base-blue" />
+              <Text variant="label.regular" tone="muted">
+                Loading blocks…
+              </Text>
+            </div>
+          ) : held.visible.length > 0 ? (
+            <div className="divide-y divide-bds-gray-10 dark:divide-white/10">
+              {held.visible.map((block) => (
                 <BlockRow
                   key={block.hash}
                   block={block}
                   chain={chain}
                   showShadowDelta={showShadowDelta}
                   shadowBlock={shadowCandidates[block.hash.toLowerCase()]?.[0]}
+                  now={held.shownAt}
                 />
               ))}
-          </div>
-        ) : (
-          <EmptyState
-            bordered={false}
-            className="py-12 text-center"
-            description={fetchFailed ? 'Blocks unavailable' : 'No blocks available'}
-          />
-        )}
-      </Card>
+            </div>
+          ) : (
+            <EmptyState
+              bordered={false}
+              className="py-12 text-center"
+              description={fetchFailed ? 'Blocks unavailable' : 'No blocks available'}
+            />
+          )}
+        </Card>
+      </div>
     </section>
   );
 }

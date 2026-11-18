@@ -32,8 +32,8 @@ export function formatGasPrice(hex: string | undefined): string {
 }
 
 /** Compact "Ns / Nm / Nh / Nd ago" from a unix-seconds timestamp. */
-export function timeAgoFromSeconds(ts: number): string {
-  const seconds = Math.floor(Date.now() / 1000 - ts);
+export function timeAgoFromSeconds(ts: number, now = Date.now()): string {
+  const seconds = Math.floor(now / 1000 - ts);
   if (seconds <= 0) return 'now';
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -45,7 +45,7 @@ export function timeAgoFromSeconds(ts: number): string {
 export function timeAgoFromMilliseconds(ts: number, now = Date.now()): string {
   const milliseconds = Math.max(0, Math.floor(now - ts));
   if (milliseconds < 10_000) return `${(Math.floor(milliseconds / 100) / 10).toFixed(1)}s ago`;
-  return timeAgoFromSeconds(ts / 1000);
+  return timeAgoFromSeconds(ts / 1000, now);
 }
 
 /** `0x1234…abcd` abbreviation for a hash/address. */
