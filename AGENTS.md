@@ -68,7 +68,7 @@ of a single commit, use `SKIP_DOCS_HOOK=1` or put `[skip-docs]` in the message.
   path data on a shared 24x24 grid (`fitIcon()` first if the source art isn't
   already on that grid). See `CLIPBOARD_MORPH_ICON`/`CHECK_MORPH_ICON` in
   `app/components/ui/icons.tsx` and their use in
-  `app/demos/b20/components/CopyPromptButton.tsx`,
+  `app/vibenet/demos/b20/components/CopyPromptButton.tsx`,
   `app/internal-explorer/components/CopyButton.tsx`, and
   `app/vibenet/components/CopyableValue.tsx`.
 
@@ -91,15 +91,11 @@ Two separate suites, for two separate purposes — don't mix their files.
 
   **When to add an e2e test**: only for surfaces that are stable — established
   pages/journeys not expected to change shape week to week (e.g. the home
-  page, core nav, Snapshots, Upgrades). Do not add e2e coverage for a new demo
+  page, core nav, Snapshots). Do not add e2e coverage for a new demo
   or anything still being iterated on (e.g. work under `app/vibenet/demos/`)
   — the UI will keep shifting under the test faster than the test catches
   real regressions, making it pure maintenance overhead. Add a smoke test
   once a demo's surface has settled, not before.
-
-- Run the llms-kit suite (generation scripts under `scripts/`, unrelated to
-  the app tests above): `node --test tests/`
-- Include liveness checks against the deployed site: `LLMS_LIVE=1 node --test tests/`
 
 ## Analytics
 
@@ -118,7 +114,7 @@ This app uses Vercel Web Analytics. Two things must stay in place:
    | `trackSnapshotPresetSelect(name)` | `app/snapshots/SnapshotsClient.tsx` — `selectPreset()` |
    | `trackSnapshotCommandCopy(network, preset)` | `app/snapshots/SnapshotsClient.tsx` — `InlineCommand` `onCopy` |
    | `trackFaucetRequest(token, status)` | `app/vibenet/faucet/page.tsx` — `runDrip()` |
-   | `trackAccountAction(name)` | `app/vibenet/demos/account/AccountDemo.tsx` — feature tiles (transact, sponsorship, batched calls, gas-in-token, modify owners) |
+   | `trackAccountAction(name)` | `app/vibenet/demos/account/AccountDemo.tsx` — feature tiles (transact, sponsorship, batched calls, gas-in-token) |
    | `trackB20ModuleSelect(module)` | `app/vibenet/demos/b20/B20Demo.tsx` — module navigation |
    | `trackB20Action(module, action, status)` | `app/vibenet/demos/b20/B20Demo.tsx` — B20 broadcasts |
    | `trackB20PromptCopy(module, prompt)` | `app/vibenet/demos/b20/components/CopyPromptButton.tsx` — copy AI prompt |
@@ -156,7 +152,7 @@ list when you add another internal-only surface.
 
 When you add or change an environment-specific section:
 
-1. Add/edit its `deploy.config.mjs` entry. That alone makes middleware 404 its
+1. Add/edit its `deploy.config.mjs` entry. That alone makes `proxy.ts` 404 its
    routes (`disabledRoutePrefixes()`) and drops it from the generated
    llms/agents artifacts (`llms.config.mjs` uses `disabledRouteGlobs()`).
 2. Gate the per-section surfaces that aren't automatic: the nav entry
