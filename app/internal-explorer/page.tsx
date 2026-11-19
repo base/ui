@@ -151,7 +151,7 @@ function BlockRow({
   return (
     <Link
       href={explorerHref(`/block/${block.hash}`, chain)}
-      className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-bds-gray-5/60 dark:hover:bg-white/5"
+      className="flex items-center gap-4 px-4 py-3 transition-[background-color] hover:bg-bds-gray-5/60 dark:hover:bg-white/5"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-bds-blue-0">
         <svg
