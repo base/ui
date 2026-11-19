@@ -19,5 +19,5 @@ export function xShareUrl(text: string): string {
 }
 
 export function pickShareVariant(random: () => number = Math.random): ShareVariant {
-  return SHARE_VARIANTS[Math.floor(random() * SHARE_VARIANTS.length)] ?? 'ate';
+  return SHARE_VARIANTS[Math.floor(random() * SHARE_VARIANTS.length)];
 }

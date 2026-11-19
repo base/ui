@@ -216,7 +216,7 @@ export function speedFor(score: number): number {
 
 /** Chew time after a swallow: the fuller the belly, the longer the mouth stays
  * busy — an effect that phases in over the first CHEW_RAMP blocks of a run. */
-export function chewTime(fullness: number, score = CHEW_RAMP): number {
+export function chewTime(fullness: number, score: number): number {
   const ramp = Math.min(1, Math.max(0, score / CHEW_RAMP));
   return PUFF_TIME * (1 + CHEW_SLOWDOWN * ramp * Math.min(1, Math.max(0, fullness)));
 }
