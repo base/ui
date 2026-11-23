@@ -11,18 +11,18 @@ const ENV_PREFIX: Record<ExplorerChain, string> = {
   zeronet: 'ZERONET',
 };
 
-function envValue(names: string[]): string | undefined {
-  return names.map((name) => process.env[name]).find(Boolean);
+function envValue(name: string): string | undefined {
+  return process.env[name] || undefined;
 }
 
 export function getRpcUrl(chain: ExplorerChain): string {
-  return envValue([`TIPS_${ENV_PREFIX[chain]}_RPC_URL`]) ?? 'http://localhost:8545';
+  return envValue(`TIPS_${ENV_PREFIX[chain]}_RPC_URL`) ?? 'http://localhost:8545';
 }
 
 // Execution WebSocket endpoint used for the live newHeads stream. Opt-in per
 // chain via TIPS_<CHAIN>_WS_URL; when unset the block list polls instead.
 export function getWsUrl(chain: ExplorerChain): string | undefined {
-  return envValue([`TIPS_${ENV_PREFIX[chain]}_WS_URL`]);
+  return envValue(`TIPS_${ENV_PREFIX[chain]}_WS_URL`);
 }
 
 // Audit events JSON-RPC endpoint (Postgres-backed) for a chain. Unlike the
@@ -30,11 +30,11 @@ export function getWsUrl(chain: ExplorerChain): string | undefined {
 // TIPS_<CHAIN>_AUDIT_RPC_URL. When unset, the audit source is treated as
 // disabled: bundle/rejected views are empty and block/txn views show chain data only.
 export function getAuditRpcUrl(chain: ExplorerChain): string | undefined {
-  return envValue([`TIPS_${ENV_PREFIX[chain]}_AUDIT_RPC_URL`]);
+  return envValue(`TIPS_${ENV_PREFIX[chain]}_AUDIT_RPC_URL`);
 }
 
 export function getShadowMetricsUrl(chain: ExplorerChain): string | undefined {
-  return envValue([`TIPS_${ENV_PREFIX[chain]}_SHADOW_METRICS_URL`]);
+  return envValue(`TIPS_${ENV_PREFIX[chain]}_SHADOW_METRICS_URL`);
 }
 
 export function isAuditConfigured(chain: ExplorerChain): boolean {
@@ -46,7 +46,7 @@ export function isAuditConfigured(chain: ExplorerChain): boolean {
 // (not NEXT_PUBLIC_*) so the same image can default zeronet on aws-dev and
 // mainnet on aws prod. Helm: BASE_UI_<CHAIN>_HOST.
 export function getExplorerHost(chain: ExplorerChain): string | undefined {
-  const value = envValue([`BASE_UI_${ENV_PREFIX[chain]}_HOST`])?.trim();
+  const value = envValue(`BASE_UI_${ENV_PREFIX[chain]}_HOST`)?.trim();
   return value || undefined;
 }
 
